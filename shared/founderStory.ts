@@ -71,12 +71,6 @@ export const PHOTOS = {
     src: '/landing-v5/founder/night.webp',
     alt: { th: 'โน้ตบุ๊ก 2 เครื่องที่เปิดงานไว้ตอนกลางคืน กับนาฬิกาบอกเวลา 03:12 น.', en: 'Two laptops open on the work late at night, with a clock showing 3:12 am' },
   },
-  team: {
-    id: 'team', ratio: '3 / 2',
-    title: { th: 'ทีม Krarok', en: 'The Krarok team' },
-    hint: { th: 'ปาร์คกับเพื่อนร่วมทีมอีกสองคน', en: 'Park with the two teammates' },
-    size: { th: 'แนวนอน 3:2 · 1800 × 1200 px', en: 'Landscape 3:2 · 1800 × 1200 px' },
-  },
   sign: {
     id: 'sign', ratio: '1 / 1',
     title: { th: 'รูปปาร์คท้ายบทความ', en: 'Park, at the end' },
@@ -138,7 +132,7 @@ export const SECTIONS: Section[] = [
       en: 'But every time I solved a problem, I could see what had lived only in my head slowly becoming a product people could really use.' } },
     { kind: 'quote', text: { th: 'จากเด็กคนหนึ่งที่เคยตั้งใจหาเงินซื้อเครื่องกรองน้ำให้ยาย วันนี้ผมกำลังพยายามสร้างบางสิ่งที่อาจช่วยให้ชีวิตของคนอื่นง่ายขึ้นได้ด้วย',
       en: 'From a kid who once set out to buy Grandma a water filter, today I am trying to build something that might make other people’s lives easier too.' } },
-    { kind: 'photo', slot: PHOTOS.team },
+    // The team photo was taken out (owner, 2026-11-01: "เอารูปตรงทีมออก ไม่น่าใส่"); the thanks to the team stays.
     { kind: 'p', text: { th: 'และผมอยากขอบคุณเพื่อนร่วมทีมอีกสองคนที่คอยช่วยดูแลระบบหลังบ้าน ทดสอบ และตรวจสอบข้อผิดพลาดต่าง ๆ',
       en: 'And I want to thank my two teammates, who help look after the system behind the scenes, test it and catch mistakes.' } },
     { kind: 'p', text: { th: 'ขอบคุณมากจริง ๆ ครับที่เข้ามาเป็นส่วนหนึ่งของการเดินทางครั้งนี้ และช่วยกันทำให้ Krarok ดีขึ้น',

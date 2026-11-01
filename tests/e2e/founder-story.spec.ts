@@ -14,15 +14,16 @@ async function open(page: Page, path: string, { width = 1440, height = 900, lang
 }
 
 for (const [width, height] of [[1440, 900], [1024, 768], [390, 844]] as const) {
-  test(`${width}px: the whole story, its seven parts, the founder's photo and five photo spaces, the signature, nothing overlapping`, async ({ page }) => {
+  test(`${width}px: the whole story, its seven parts, its five pictures, the signature, nothing overlapping`, async ({ page }) => {
     await open(page, '/founder', { width, height });
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('จากปัญหาที่ผมเคยเจอ สู่สิ่งที่อยากสร้างให้ทุกคน');
     await expect(page.getByText('BEHIND KRAROK · A STORY FROM THE FOUNDER')).toBeVisible();
     await expect(page.locator('.fs-section')).toHaveCount(7);
     await expect(page.locator('.fs-section-head h2')).toHaveText(['จุดเริ่มต้นของผม', 'ปัญหาที่ทำให้เกิด Krarok', '5 เดือนแห่งการลงมือสร้าง',
       'ทำไมผมถึงอยากสร้าง Krarok ให้ทุกคน', 'อนาคตที่ผมอยากสร้างให้ Krarok', 'ความไว้วางใจของคุณ คือความรับผิดชอบของเรา', 'ขอบคุณที่เป็นส่วนหนึ่งของการเริ่มต้น']);
-    // Slots 1–4 and 6 have their pictures since 2026-11-01; the team photo still shows its marked space.
-    await expect(page.locator('[data-photo-slot]')).toHaveCount(1);
+    // Every picture is in since 2026-11-01 (the team photo was taken out), so no marked space is left.
+    await expect(page.locator('[data-photo-slot]')).toHaveCount(0);
+    await expect(page.locator('.fs-photo')).toHaveCount(5);
     const portrait = page.getByRole('img', { name: 'ปาร์ค นพรัตน์ นาวะบุตร ผู้ก่อตั้ง Krarok' });
     await expect(portrait).toBeVisible();
     await expect.poll(() => portrait.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBeGreaterThan(1000);
@@ -35,7 +36,6 @@ for (const [width, height] of [[1440, 900], [1024, 768], [390, 844]] as const) {
     const night = page.getByRole('img', { name: 'โน้ตบุ๊ก 2 เครื่องที่เปิดงานไว้ตอนกลางคืน กับนาฬิกาบอกเวลา 03:12 น.' });
     await night.scrollIntoViewIfNeeded();
     await expect.poll(() => night.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBe(1920);
-    await expect(page.getByRole('img', { name: 'พื้นที่สำหรับรูปที่ 5: ทีม Krarok' })).toBeAttached();
     const sign = page.getByRole('img', { name: 'ปาร์คที่ชายหาดตอนพลบค่ำ' });
     await sign.scrollIntoViewIfNeeded();
     await expect.poll(() => sign.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBe(450);
