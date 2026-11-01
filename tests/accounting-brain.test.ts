@@ -305,7 +305,9 @@ test('gateway: a tool call written out as text on an accounting turn steps up on
       const text = name === 'gemini' ? 'tax_estimate(incomes:[{amount:500000,type:40(8)}],tax_year:2560)' : smartText;
       return { provider: name, model: request.model, text, usage: emptyUsage(), toolCalls: [], cards: [], steps: 1 };
     } });
-    const reply = await runAssistant({ user: account(), plan: 'admin', text: 'คำนวณภาษีปีภาษี 2560 ให้หน่อย รายได้ 500,000' }, {
+    // An accounting question the light model answers first (a tax calculation goes straight to the smart model since
+    // 2026-11-02, so it cannot show the step-up).
+    const reply = await runAssistant({ user: account(), plan: 'admin', text: 'ค่าเสื่อมราคาคอมพิวเตอร์ 30,000 คิดยังไง' }, {
       config: config(), ...memoryStores(), now: NOW,
       providers: { gemini: provider('gemini'), anthropic: provider('anthropic'), openai: provider('openai') },
       fetchImpl: async () => { throw new Error('network access forbidden'); },

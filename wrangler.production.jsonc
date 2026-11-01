@@ -53,6 +53,10 @@
     // If Sonnet fails, Gemini answers questions and analysis, but documents, deletes and important edits wait for Sonnet
     // ("AI_LIGHT_FALLBACK_WRITES": "true" lets Gemini take them over). "AI_ROUTING_POLICY": "v1" restores the 24 Oct rules.
     "AI_SMART_MODEL": "claude-sonnet-5-5",
+    // The Accounting Brain & Tax Navigator for every account that has เลขา (Pro, trial, admins), owner 2026-11-02
+    // ("เลขาภาษีสำหรับ Pro"), after the 30-question check passed 29/30 (the 30th a correct sum the checker could not see).
+    // "admin" puts it back to admins only.
+    "AI_ACCOUNTING": "all",
     // Krarok Tokens (1 = $0.001 of real AI cost), one pool per account across the app, LINE and voice (owner,
     // 2026-10-24): 1,650 a Pro month for every Pro account (owner, 2026-10-25: "ให้ทุกคนได้ 1,650"), at most 100 for one message.
     "AI_PRO_TOKENS_PER_CYCLE": "1650",

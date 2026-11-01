@@ -83,8 +83,8 @@ function hiddenNamed(query: string): AppFeature[] {
 }
 
 /** options.ui: also look for the question's words on the pages' own labels (a how/where question about the app). */
-export function lookupKnowledge(question: string, limit = 3, options: { ui?: boolean } = {}): KnowledgeHit {
-  const hit = lookupEntries(question, limit);
+export function lookupKnowledge(question: string, limit = 3, options: { ui?: boolean; accounting?: boolean } = {}): KnowledgeHit {
+  const hit = lookupEntries(question, limit, Boolean(options.accounting));
   if (hit.catalog) return hit;
   const ui = options.ui ? uiLookup(question) : [];
   // Recent changes ride along only with a how/where question; "what is new" always gets them.
@@ -92,7 +92,11 @@ export function lookupKnowledge(question: string, limit = 3, options: { ui?: boo
   return { ...hit, ...(ui.length ? { ui } : {}), ...(news.length ? { news } : {}) };
 }
 
-function lookupEntries(question: string, limit: number): KnowledgeHit {
+// The Accounting Brain answers tax questions in the chat (owner, 2026-11-02: open to every account with เลขา) while the
+// ภาษี page itself stays closed: the note says the page, never that tax help is unavailable.
+const TAX_PAGE_CLOSED = 'หน้า ภาษี (เครื่องมือเตรียมภาษีในแอป) ยังไม่เปิด อย่าพาไปหน้านั้น แต่คำถามเรื่องภาษีตอบได้เต็มที่จาก ACCOUNTING REFERENCE และเครื่องมือ tax_estimate / official_link';
+
+function lookupEntries(question: string, limit: number, accounting = false): KnowledgeHit {
   const query = norm(question);
   const asksCapabilities = /ทำอะไรได้บ้าง|ช่วยอะไรได้บ้าง|ฟีเจอร์อะไรบ้าง|(?:แอป|เว็บ|ฟีเจอร์|ความสามารถ|เมนู).*มีอะไรบ้าง|what can (you|this app|krarok) do/.test(query);
   const focusedFeature = LIVE_FEATURES.some(entry => entry.id !== 'assistant' && (
@@ -110,7 +114,7 @@ function lookupEntries(question: string, limit: number): KnowledgeHit {
     .map(row => row.feature);
   const missing: Missing[] = KNOWLEDGE_BASE.not_available.filter(item =>
     item.keywords.some(keyword => contains(query, keyword)));
-  for (const hidden of hiddenNamed(query)) missing.push({ ask: hidden.name_th, answer: NOT_LAUNCHED });
+  for (const hidden of hiddenNamed(query)) missing.push(accounting && hidden.id === 'tax' ? { ask: 'หน้า ภาษี', answer: TAX_PAGE_CLOSED } : { ask: hidden.name_th, answer: NOT_LAUNCHED });
   return { features, missing };
 }
 

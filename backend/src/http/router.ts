@@ -24,6 +24,7 @@ import digest from '../handlers/send-overdue-digest.js';
 import adminProfitReport from '../handlers/send-admin-profit-report.js';
 import advanceCardRenewals from '../handlers/advance-card-renewals.js';
 import wht50Reminder from '../handlers/send-wht50-reminder.js';
+import taxSeasonReminder from '../handlers/send-tax-season-reminder.js';
 import setup from '../handlers/setup-line-richmenu.js';
 import stripe from '../handlers/stripe-webhook.js';
 import billing from '../handlers/billing.js';
@@ -54,6 +55,7 @@ routes['admin-profit-live'] = adminProfitLive;
 routes['admin-ai-credit'] = adminAiCredit;
 routes['check-ai-credit'] = checkAiCredit;
 routes['send-wht50-reminder'] = wht50Reminder;
+routes['send-tax-season-reminder'] = taxSeasonReminder;
 export function routeHandler(route:string):Handler {
  return withGuard(async(req,res)=>{
   const handler=Object.hasOwn(routes,route)?routes[route]:undefined;if(!handler)throw new HttpError(404,'API not found');

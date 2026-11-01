@@ -45,7 +45,7 @@ export const ACCOUNTING_TOOLS: ToolSpec[] = [
     parameters: { type: 'object', properties: { days: { type: 'integer', description: '30, 60 or 90 (default 30)' }, include_budget: { type: 'boolean', description: 'Subtract the monthly spending budget set in the app (default true)' } } } },
   { name: 'accounting_check', description: 'Check this account\'s jobs and expenses with tested rules: possible duplicates, received more than due, withholding not matching its rate, installments not adding up, deposit over value, due date before start, odd expenses. Findings are things to check, not mistakes.',
     parameters: { type: 'object', properties: { scope: { type: 'string', enum: ['all', 'jobs', 'expenses'] } } } },
-  { name: 'official_link', description: 'Show official website cards (Revenue Department e-Filing, refund status, guides, VAT, withholding rates, DBD, TFAC) with what to do there. Never write official URLs yourself.',
+  { name: 'official_link', description: 'Show official website cards (Revenue Department e-Filing, refund status, guides, VAT, withholding rates, DBD, TFAC) with what to do there. Never write official URLs yourself. Call it before you write the answer, then write the whole answer after its result: words written before a tool call are not shown to the user (2026-11-02, a half-year tax answer was lost this way).',
     parameters: { type: 'object', properties: { ids: { type: 'array', items: { type: 'string', enum: OFFICIAL_LINK_IDS }, description: 'Up to 3 sites' } }, required: ['ids'] } },
 ];
 

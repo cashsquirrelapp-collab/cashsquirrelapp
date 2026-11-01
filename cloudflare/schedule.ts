@@ -12,6 +12,8 @@
 //                      2026-11-01 it failed sharing the monthly jobs' invocation), hourly retries the same way.
 //   0 2 * * *          09:00 Bangkok daily   close expired accounts; LINE menus (admins keep แนบเอกสาร, 2026-10-24);
 //                      promotion-month card renewals moved to ฿271 before their first December renewal
+// The tax-season reminder (owner, 2026-11-02) rides on 08:02 on 2 January and 2 March: by the 2nd the profit report has
+// gone out (it only retries what the 1st missed), so the invocation has room; the hourly runs retry what 08:02 missed.
 // The 50 ทวิ reminder is back since the owner launched the page (2026-10-31: "ใบ 50 ทวิ แจ้งเตือนได้ด้วย"): to accounts
 // that turned it on in Settings (Pro, LINE linked).
 export const CRONS = ['0 1 * * *', '5 1 * * *', '0 1-10 1-3 * *', '2 1-10 1-3 * *', '0 2 * * *'] as const;
@@ -26,7 +28,8 @@ export function scheduledPaths(cron: string, scheduledTime: number): string[] {
     case '0 1 * * *': return ['/api/send-overdue-digest'];
     case '5 1 * * *': return ['/api/check-ai-credit'];
     case '0 1-10 1-3 * *': return scheduledAt.getUTCDate() <= MONTHLY_DAYS ? ['/api/send-monthly-report', '/api/send-wht50-reminder'] : [];
-    case '2 1-10 1-3 * *': return scheduledAt.getUTCDate() <= MONTHLY_DAYS ? ['/api/send-admin-profit-report'] : [];
+    case '2 1-10 1-3 * *': return scheduledAt.getUTCDate() <= MONTHLY_DAYS ? ['/api/send-admin-profit-report',
+      ...(scheduledAt.getUTCDate() === 2 && [0, 2].includes(scheduledAt.getUTCMonth()) ? ['/api/send-tax-season-reminder'] : [])] : [];
     case '0 2 * * *': return ['/api/close-expired-accounts', '/api/setup-line-richmenu', '/api/advance-card-renewals'];
     default: return [];
   }

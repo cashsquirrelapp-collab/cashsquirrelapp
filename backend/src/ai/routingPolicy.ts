@@ -149,7 +149,7 @@ export function assessMessage(input: RouteInput): Assessment {
 // how things work outside the app: Thai tax rules and filing, social security, VAT, rates, laws and official steps, or
 // an explicit ask to look something up or for sources. Questions about the user's own records or about the app never
 // count (the app's data and knowledge answer those).
-const WEB_TOPIC = /(ลดหย่อน|ยื่นภาษี|ยื่นแบบ|ภ\.?\s?ง\.?\s?ด|ภงด|เงินได้พึงประเมิน|40\s*\(\s*[1-8]\s*\)|อัตราภาษี|ขั้นบันได|สรรพากร|ภาษีมูลค่าเพิ่ม|จด\s*vat|จด\s*แวต|จดทะเบียน(?:ภาษี|บริษัท|ห้าง|พาณิชย์)|ประกันสังคม|มาตรา\s*(?:39|40)|กองทุน|\bssf\b|\brmf\b|thai\s*esg|ดอกเบี้ย|เงินเฟ้อ|อัตราแลกเปลี่ยน|e-?filing|e-?tax|e-?withholding|กฎหมาย|ประกาศกรม|พระราชกฤษฎีกา|กำหนดยื่น|เส้นตาย|เดดไลน์|คืนภาษี|ค่าปรับ|เงินเพิ่ม|ภาษีป้าย|ภาษีที่ดิน|ภาษีธุรกิจเฉพาะ|อากรแสตมป์|เสียภาษี|ภาษีเงินได้|tax\s+(?:return|deduction|rate|law|filing))/i;
+const WEB_TOPIC = /(ลดหย่อน|ยื่นภาษี|ยื่นแบบ|ภ\.?\s?ง\.?\s?ด|ภงด|เงินได้พึงประเมิน|40\s*\(\s*[1-8]\s*\)|อัตราภาษี|ขั้นบันได|สรรพากร|ภาษีมูลค่าเพิ่ม|จด\s*vat|จด\s*แวต|จดทะเบียน(?:ภาษี|บริษัท|ห้าง|พาณิชย์)|ประกันสังคม|มาตรา\s*(?:39|40)|กองทุน|\bssf\b|\brmf\b|thai\s*esg|ดอกเบี้ย|เงินเฟ้อ|อัตราแลกเปลี่ยน|e-?filing|e-?tax|e-?withholding|กฎหมาย|ประกาศกรม|พระราชกฤษฎีกา|กำหนดยื่น|เส้นตาย|เดดไลน์|คืนภาษี|ค่าปรับ|เงินเพิ่ม|ภาษีป้าย|ภาษีที่ดิน|ภาษีธุรกิจเฉพาะ|อากรแสตมป์|เสียภาษี|ภาษีเงินได้|คำนวณภาษี|ปีภาษี|ภาษีปี|ขอคืน|ได้เงินคืน|ถูกหักภาษี|ภาษีที่ถูกหัก|งบดุล|งบการเงิน|งบกำไรขาดทุน|งบแสดงฐานะ|tax\s+(?:return|deduction|rate|law|filing|refund))/i;
 const WEB_ASK = /(ค้นหา(?:ข้อมูล)?(?:ให้|หน่อย|จาก)|ค้นเว็บ|ค้นในเน็ต|หาข้อมูล|เสิร์ช|search the web|look (?:it )?up|แหล่งอ้างอิง|อ้างอิงจาก|แหล่งที่มา|แหล่งข้อมูล|ขอลิงก์|มีลิงก์|ข่าว|\bsources?\b|\breferences?\b)/i;
 // The user's own records: their jobs, clients, documents or totals in this app ("งานนี้หักภาษีเท่าไร").
 const OWN_RECORDS = /(งานนี้|งานของ(?:ฉัน|ผม|เรา|หนู|กู)|ลูกค้า(?:คนนี้|รายนี้|ของ)|ใบนี้|ในแอป|ในระบบ|ของฉัน|ของผม|ของเรา|ของกู|เดือนนี้(?:ได้|มี|รับ)|ยอดของ|บันทึก|เพิ่มงาน|รายการล่าสุด)/;
@@ -274,6 +274,9 @@ function decide(input: RouteInput, policy: RoutingPolicy, withHistory = false): 
   if (assessed.intent === 'update' && assessed.complexity !== 'low') return make('smart', 'important_edit', true);
   if ((assessed.intent === 'create' || assessed.intent === 'payment') && assessed.complexity === 'high') return make('smart', 'complex_change', true);
   if (assessed.intent === 'analysis') return make('smart', 'analysis');
+  // Financial statements of the user's own business ("ช่วยทำงบดุลของฉัน", 2026-11-02): an accounting explanation with
+  // their figures, which the light model kept answering with only "not available".
+  if (!write && /งบดุล|งบการเงิน|งบกำไรขาดทุน|งบแสดงฐานะ|งบกระแสเงินสด|balance sheet|financial statement/i.test(input.text)) return make('smart', 'statements');
   if (assessed.context === 'long') return make('smart', 'long_context', write);
   if (withHistory) {
     const earlier = startedWork(input.history, text => decide({ text }, 'v2').tier === 'smart');

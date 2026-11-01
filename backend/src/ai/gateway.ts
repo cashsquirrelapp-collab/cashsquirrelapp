@@ -222,6 +222,12 @@ function trimHistory(history: ChatTurn[] = []): ChatTurn[] {
 /** A file was sent earlier in the chat (routingPolicy.ts keeps the rule; exported here for earlier importers). */
 export { FILE_MARK } from './routingPolicy.js';
 
+/** A code the user pasted (an OTP, a PIN, a verification code) is never repeated back (2026-11-02: one was, in a test). */
+export function hideCodes(answer: string, userText: string): string {
+  const codes = [...userText.matchAll(/(?:otp|รหัส|pin|code|โค้ด|passcode)[^\d\n]{0,24}(\d{4,8})/gi)].map(match => match[1]);
+  return codes.reduce((text, code) => text.split(code).join('••••••'), answer);
+}
+
 /** Cited pages fit to show: http(s) only, no credentials in the address, each address once, five at most, short titles. */
 export function webSources(pages: readonly WebSource[] | undefined): WebSource[] {
   const out: WebSource[] = [];
@@ -447,11 +453,12 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
   }
 
   // A how/where question about the app also looks at the labels the pages show today (uiKnowledge.ts).
-  const knowledge = knowledgeSnippets(lookupKnowledge(request.text, 3, { ui: decision.intent === 'feature_help' || (decision.asking && decision.intent !== 'analysis') }));
   // Accounting Brain (brief "ACCOUNTING BRAIN & TAX NAVIGATOR", 2026-10-26): on an accounting or tax message only, and
   // only while it is on for this account (AI_ACCOUNTING, admins first), a short reference and five read-only tools.
   // Every other message keeps exactly the existing prompt, tools and cost.
   const accounting = accountingEnabled(config.accounting, request.plan) ? selectAccountingReference(request.text, request.history) : undefined;
+  // With it on, the closed ภาษี page no longer means "tax is not available" (knowledge.ts).
+  const knowledge = knowledgeSnippets(lookupKnowledge(request.text, 3, { ui: decision.intent === 'feature_help' || (decision.asking && decision.intent !== 'analysis'), accounting: Boolean(accounting) }));
   const context = accountContext(request.user, deps.now, request.access);
   const turns: ChatTurn[] = [...trimHistory(request.history), { role: 'user', text: request.text.slice(0, MAX_MESSAGE_CHARS), ...(sentFiles.length ? { attachments: sentFiles } : {}) }];
   const recentUser = (request.history ?? []).filter(turn => turn.role === 'user').slice(-4).map(turn => turn.text);
@@ -675,7 +682,7 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
   const styled = styleReply(cleanAnswerText(finalText, cards), { userText: request.text, preferences: [request.communicationProfile, ...(request.memories ?? [])] });
   const checked = guardReply(styled, { userText: request.text, userData: () => JSON.stringify(request.user) });
   guardHits.push(...checked.hits);
-  const answer = checked.text;
+  const answer = hideCodes(checked.text, request.text);
   const hasConfirm = cards.some(card => card.kind === 'confirm');
   const text = answer
     || (hasConfirm && result.stoppedAt ? FALLBACK_TEXT.proposal_at_limit
