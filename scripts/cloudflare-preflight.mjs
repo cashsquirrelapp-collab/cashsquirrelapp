@@ -78,7 +78,7 @@ expect(config?.vars?.STRIPE_MODE === 'live', 'Production Stripe mode must remain
 expect(['false', 'true'].includes(config?.vars?.CRON_ENABLED), 'CRON_ENABLED must be exactly false or true as a string');
 const crons = config?.triggers?.crons;
 // Matches cloudflare/schedule.ts CRONS (five triggers since 2026-11-01, each job group its own invocation).
-const productionCrons = ['0 1 * * *', '5 1 * * *', '0 1-10 1-3 * *', '2 1-10 1-3 * *', '0 2 * * *'];
+const productionCrons = ['0 1 * * *', '5 1 * * *', '0,30 1-10 1-3 * *', '2,32 1-10 1-3 * *', '0 2 * * *'];
 const validCronPair = Array.isArray(crons) && crons.length === productionCrons.length &&
   productionCrons.every(cron => crons.includes(cron));
 expect(validCronPair || (config?.vars?.CRON_ENABLED === 'false' && Array.isArray(crons) && crons.length === 0),
