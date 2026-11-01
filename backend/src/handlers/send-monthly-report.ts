@@ -286,7 +286,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  // TEMPORARY (owner, 2026-11-01 13:43: "ลองส่งมาใหม่"): one send again to the admin accounts only, from a scheduled run
+  // TEMPORARY (owner, 2026-11-01 13:43: "ลองส่งมาใหม่"): one email again to the admin accounts only, from a scheduled run
   // with ?resend=admins&tag=<moment>, so the owner sees the October report in the new email. Customers are never included,
   // the month's normal claim and 'sent' mark are not touched, and the tag makes it a single send. Removed right after.
   const resendTag = req.query.resend === 'admins' && typeof req.query.tag === 'string' && /^[0-9T-]{1,20}$/.test(req.query.tag) ? req.query.tag : null;
@@ -390,7 +390,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // serverless function returns its response and gets frozen/torn down, which was silently
         // dropping the LINE push even when this code was reached.
         let lineOutcome: DeliveryOutcome = 'skipped';
-        if (row.email) {
+        // The resend is email only (owner, 2026-11-01: "ส่งมาในเมลใหม่ ... มีแค่เมลที่ไม่ถูก"); the LINE card was right.
+        if (row.email && !resendTag) {
           const downloadUrl = await uploadReportAndGetLink(row.user_id, monthKey, excelBase64);
           const lineMessage = downloadUrl
             ? buildReportFlexMessage(monthLabel, summary, downloadUrl)
