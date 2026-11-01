@@ -47,9 +47,13 @@ function targetMonthKey(): string {
 }
 
 // The email is the LINE card in email form (owner, 2026-11-01: the email's net profit and amounts did not match the
-// LINE card): the same three numbers (รายรับ, รายจ่ายรวม, กำไรสุทธิ = รายรับ − รายจ่าย), the same words and the same CI
-// band with the official symbol and the report mascot. Email clients get tables and inline styles; where a client
-// drops the gradient, the band keeps its solid brand colour.
+// LINE card): the same three numbers (รายรับ, รายจ่ายรวม, กำไรสุทธิ = รายรับ − รายจ่าย), the same words, the brand band
+// with the official symbol and the report mascot. Email clients get tables and inline styles.
+// Dark mode (owner, the same day: the words disappeared on a too-dark background): Gmail on iPhone turns colours round
+// but never pictures, so a gradient band stayed dark while its white words were turned dark. The band is one solid
+// brand colour, every text colour is solid (no see-through white), and every block with words sets its own background,
+// so a mail app that turns colours round turns each background and its words together. Apple Mail is asked to keep
+// the email light (color-scheme: light only).
 function emailOrigin(): string | null {
   try { return appOrigin(); } catch { return null; }
 }
@@ -57,53 +61,66 @@ function emailOrigin(): string | null {
 export function buildReportHtml(monthLabel: string, s: MonthlySummary): string {
   const monthly = monthlyProfitSummary(s);
   const C = LINE_CARD_COLORS;
-  const band = LINE_CARD_THEMES.brand;
+  const band = LINE_CARD_THEMES.brand.center;
   const origin = emailOrigin();
   const page = isPhaseOneFeatureAvailable('report', false) ? { path: '/report', label: 'ดูรายงานในแอป' } : { path: '/dashboard', label: 'ดูภาพรวมในแอป' };
-  const soft = 'rgba(255,255,255,0.85)';
-  const faint = 'rgba(255,255,255,0.7)';
+  // Light text on the band, solid: about 5.8:1 for white and 5.1:1 for the soft line on #B8481A.
+  const onBand = '#FFFFFF';
+  const onBandSoft = '#FBEAE2';
   const symbol = origin ? `<img src="${origin}/brand/logo01-v1/symbol-white.png" alt="" width="18" height="18" style="vertical-align:middle;margin-right:6px;border:0" />` : '';
-  const mascot = origin ? `<td valign="bottom" width="80" style="width:80px;padding:0;"><img src="${origin}/line/mascot-v6-report.png" alt="" width="80" height="80" style="display:block;border:0" /></td>` : '';
+  const mascot = origin ? `<td valign="bottom" width="80" bgcolor="${band}" style="width:80px;padding:0;background-color:${band};"><img src="${origin}/line/mascot-v6-report.png" alt="" width="80" height="80" style="display:block;border:0" /></td>` : '';
   const row = (label: string, value: string, color: string, caption?: string) => `
             <tr>
-              <td style="padding:8px 0;font-size:14px;line-height:1.5;color:${C.muted};">${label}${caption ? `<div style="font-size:12px;line-height:1.5;">${caption}</div>` : ''}</td>
-              <td align="right" valign="top" style="padding:8px 0;font-size:17px;line-height:1.5;font-weight:700;color:${color};white-space:nowrap;">${value}</td>
+              <td bgcolor="${C.white}" style="padding:8px 0;font-size:14px;line-height:1.5;color:${C.muted};background-color:${C.white};">${label}${caption ? `<div style="font-size:12px;line-height:1.5;color:${C.muted};">${caption}</div>` : ''}</td>
+              <td align="right" valign="top" bgcolor="${C.white}" style="padding:8px 0;font-size:17px;line-height:1.5;font-weight:700;color:${color};background-color:${C.white};white-space:nowrap;">${value}</td>
             </tr>`;
   return `<!doctype html>
-<html lang="th"><body style="margin:0;padding:24px 12px;background:${C.subtle};font-family:'Noto Sans Thai',Arial,sans-serif;color:${C.text};">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;margin:0 auto;background:${C.white};border:1px solid ${C.border};border-radius:18px;overflow:hidden;border-collapse:separate;">
+<html lang="th"><head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light only" />
+<meta name="supported-color-schemes" content="light only" />
+<style>:root { color-scheme: light only; supported-color-schemes: light only; }</style>
+</head><body bgcolor="${C.subtle}" style="margin:0;padding:0;background-color:${C.subtle};">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${C.subtle}" style="background-color:${C.subtle};">
+    <tr><td bgcolor="${C.subtle}" style="padding:24px 12px;background-color:${C.subtle};font-family:'Noto Sans Thai',Arial,sans-serif;color:${C.text};">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${C.white}" style="max-width:480px;margin:0 auto;background-color:${C.white};border:1px solid ${C.border};border-radius:18px;overflow:hidden;border-collapse:separate;">
     <tr>
-      <td style="padding:20px 20px 0;background-color:${band.center};background-image:linear-gradient(120deg,${band.start},${band.center} 55%,${band.end});color:${C.white};">
+      <td bgcolor="${band}" style="padding:20px 20px 0;background-color:${band};color:${onBand};">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
           <tr>
-            <td style="font-size:13px;line-height:1.5;font-weight:700;color:${C.white};">${symbol}กระรอกตุนเงิน</td>
-            <td align="right"><span style="display:inline-block;padding:3px 10px;border-radius:10px;background:rgba(255,255,255,0.18);font-size:11px;line-height:1.5;font-weight:700;color:${C.white};">รายงาน</span></td>
+            <td bgcolor="${band}" style="font-size:13px;line-height:1.5;font-weight:700;color:${onBand};background-color:${band};">${symbol}กระรอกตุนเงิน</td>
+            <td align="right" bgcolor="${band}" style="background-color:${band};"><span style="display:inline-block;padding:3px 10px;border-radius:10px;border:1px solid ${onBandSoft};font-size:11px;line-height:1.5;font-weight:700;color:${onBand};">รายงาน</span></td>
           </tr>
         </table>
-        <div style="margin-top:16px;font-size:19px;line-height:1.45;font-weight:700;color:${C.white};">สรุปการเงินประจำเดือน</div>
-        <div style="font-size:13px;line-height:1.5;color:${soft};">${monthLabel}</div>
-        <div style="height:1px;line-height:1px;font-size:0;margin:16px 0 12px;background:rgba(255,255,255,0.22);">&nbsp;</div>
+        <div style="margin-top:16px;font-size:19px;line-height:1.45;font-weight:700;color:${onBand};">สรุปการเงินประจำเดือน</div>
+        <div style="font-size:13px;line-height:1.5;color:${onBandSoft};">${monthLabel}</div>
+        <div style="height:1px;line-height:1px;font-size:0;margin:16px 0 12px;background-color:${onBandSoft};">&nbsp;</div>
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
           <tr>
-            <td valign="bottom" style="padding:0 0 20px;">
-              <div style="font-size:13px;line-height:1.5;color:${soft};">กำไรสุทธิ</div>
-              <div style="font-size:29px;line-height:1.45;font-weight:700;color:${C.white};">${formatMonthlyMoney(monthly.netProfit)}</div>
-              <div style="font-size:12px;line-height:1.5;color:${faint};">รายรับ − รายจ่าย</div>
+            <td valign="bottom" bgcolor="${band}" style="padding:0 0 20px;background-color:${band};">
+              <div style="font-size:13px;line-height:1.5;color:${onBandSoft};">กำไรสุทธิ</div>
+              <div style="font-size:29px;line-height:1.45;font-weight:700;color:${onBand};">${formatMonthlyMoney(monthly.netProfit)}</div>
+              <div style="font-size:12px;line-height:1.5;color:${onBandSoft};">รายรับ − รายจ่าย</div>
             </td>${mascot}
           </tr>
         </table>
       </td>
     </tr>
     <tr>
-      <td style="padding:14px 20px 20px;">
+      <td bgcolor="${C.white}" style="padding:14px 20px 20px;background-color:${C.white};">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${row('รายรับ', formatMonthlyMoney(monthly.received), C.positive)}${row('รายจ่ายรวม', formatMonthlyMoney(monthly.totalExpense), C.negative, 'ประจำ + ทั่วไป')}
         </table>
-        <div style="margin-top:16px;padding-top:12px;border-top:1px solid ${C.border};font-size:12px;line-height:1.6;color:${C.muted};">${monthlyProfitNote()}</div>${origin ? `
-        <a href="${origin}${page.path}" style="display:block;margin-top:20px;padding:12px 16px;border-radius:10px;background:${C.accent};color:${C.white};text-align:center;text-decoration:none;font-size:14px;line-height:1.5;font-weight:700;">${page.label}</a>` : ''}
+        <div style="margin-top:16px;padding-top:12px;border-top:1px solid ${C.border};font-size:12px;line-height:1.6;color:${C.muted};background-color:${C.white};">${monthlyProfitNote()}</div>${origin ? `
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;"><tr><td align="center" bgcolor="${C.accent}" style="border-radius:10px;background-color:${C.accent};">
+          <a href="${origin}${page.path}" style="display:block;padding:12px 16px;color:${C.white};text-align:center;text-decoration:none;font-size:14px;line-height:1.5;font-weight:700;">${page.label}</a>
+        </td></tr></table>` : ''}
       </td>
     </tr>
   </table>
   <p style="max-width:480px;margin:16px auto 0;font-size:12px;line-height:1.6;color:${C.muted};">แนบไฟล์ Excel สรุปรายรับและรายจ่ายของเดือนนี้มาด้วยแล้ว ตัวเลขชุดเดียวกับการ์ดสรุปใน LINE และหน้าภาพรวมในแอป ปิดการส่งสรุปนี้ได้ที่หน้าตั้งค่าในแอป</p>
+    </td></tr>
+  </table>
 </body></html>`;
 }
 

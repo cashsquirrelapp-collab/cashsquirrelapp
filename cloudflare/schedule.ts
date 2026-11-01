@@ -14,10 +14,11 @@
 //                      promotion-month card renewals moved to ฿271 before their first December renewal
 // The 50 ทวิ reminder is back since the owner launched the page (2026-10-31: "ใบ 50 ทวิ แจ้งเตือนได้ด้วย"): to accounts
 // that turned it on in Settings (Pro, LINE linked).
-// TEMPORARY (owner, 2026-11-01 13:43: "ลองส่งมาใหม่"): the monthly trigger also runs at :20, and only 14:20 Bangkok today
-// sends the October report again, to the admin accounts only (the new email). Back to '0 1-10 1-3 * *' right after.
-export const RESEND_PATH = '/api/send-monthly-report?resend=admins&tag=2026-11-01T07';
-export const CRONS = ['0 1 * * *', '5 1 * * *', '0,20 1-10 1-3 * *', '2 1-10 1-3 * *', '0 2 * * *'] as const;
+// TEMPORARY (owner, 2026-11-01): the monthly trigger also runs at :20 and :45. Only 14:45 Bangkok today (or 15:20 if
+// the new minute is not live yet) sends the October email again to the admin accounts only, with the dark-mode fix;
+// one tag, so it goes out once (the 14:20 resend went out). Back to '0 1-10 1-3 * *' right after.
+export const RESEND_PATH = '/api/send-monthly-report?resend=admins&tag=2026-11-01-2';
+export const CRONS = ['0 1 * * *', '5 1 * * *', '0,20,45 1-10 1-3 * *', '2 1-10 1-3 * *', '0 2 * * *'] as const;
 const MONTHLY_DAYS = 3;
 
 export function scheduledPaths(cron: string, scheduledTime: number): string[] {
@@ -28,9 +29,16 @@ export function scheduledPaths(cron: string, scheduledTime: number): string[] {
   switch (cron) {
     case '0 1 * * *': return ['/api/send-overdue-digest'];
     case '5 1 * * *': return ['/api/check-ai-credit'];
+    // The old ':20' trigger can still fire while the new one spreads, so both run the same way.
     case '0,20 1-10 1-3 * *':
-      if (scheduledAt.getUTCMinutes() === 20) return scheduledAt.toISOString().startsWith('2026-11-01T07:') ? [RESEND_PATH] : [];
+    case '0,20,45 1-10 1-3 * *': {
+      const minute = scheduledAt.getUTCMinutes();
+      if (minute !== 0) {
+        const at = scheduledAt.toISOString().slice(0, 13);
+        return (minute === 45 && at === '2026-11-01T07') || (minute === 20 && at === '2026-11-01T08') ? [RESEND_PATH] : [];
+      }
       return scheduledAt.getUTCDate() <= MONTHLY_DAYS ? ['/api/send-monthly-report', '/api/send-wht50-reminder'] : [];
+    }
     case '2 1-10 1-3 * *': return scheduledAt.getUTCDate() <= MONTHLY_DAYS ? ['/api/send-admin-profit-report'] : [];
     case '0 2 * * *': return ['/api/close-expired-accounts', '/api/setup-line-richmenu', '/api/advance-card-renewals'];
     default: return [];

@@ -6,7 +6,7 @@ import { runScheduledJobs } from '../migration/scheduled-runner.js';
 // 2026-11-01: every 08:00 job ran in one Worker invocation and shared its 50 outgoing requests (Workers Free); the
 // overdue digest used most of them and the four jobs after it failed. Each trigger is now its own invocation, and the
 // monthly jobs run hourly on the 1st–3rd, each sending once per account and month.
-const MONTHLY = '0,20 1-10 1-3 * *';
+const MONTHLY = '0,20,45 1-10 1-3 * *';
 const MONTHLY_JOBS = ['/api/send-monthly-report', '/api/send-wht50-reminder'];
 const PROFIT = '2 1-10 1-3 * *';
 
@@ -76,9 +76,12 @@ test('a request refused for the allowance counts as not sent', async () => {
 });
 
 
-test('TEMPORARY: the :20 run sends the admin-only resend once, at 14:20 Bangkok on 2026-11-01, and nothing at any other :20', () => {
-  assert.deepEqual(scheduledPaths(MONTHLY, Date.parse('2026-11-01T07:20:30Z')), [RESEND_PATH]);
-  for (const at of ['2026-11-01T06:20:00Z', '2026-11-01T08:20:00Z', '2026-11-02T07:20:00Z', '2026-12-01T07:20:00Z'])
+test('TEMPORARY: the admin-only resend runs at 14:45 Bangkok on 2026-11-01 (or 15:20 if 14:45 is missed), nothing else', () => {
+  assert.deepEqual(scheduledPaths(MONTHLY, Date.parse('2026-11-01T07:45:30Z')), [RESEND_PATH]);
+  assert.deepEqual(scheduledPaths(MONTHLY, Date.parse('2026-11-01T08:20:10Z')), [RESEND_PATH]);
+  assert.deepEqual(scheduledPaths('0,20 1-10 1-3 * *', Date.parse('2026-11-01T08:20:10Z')), [RESEND_PATH]);
+  assert.deepEqual(scheduledPaths('0,20 1-10 1-3 * *', Date.parse('2026-11-01T09:00:00Z')), MONTHLY_JOBS);
+  for (const at of ['2026-11-01T07:20:00Z', '2026-11-01T08:45:00Z', '2026-11-01T09:20:00Z', '2026-11-02T07:45:00Z', '2026-12-01T08:20:00Z'])
     assert.deepEqual(scheduledPaths(MONTHLY, Date.parse(at)), [], at);
   assert.match(RESEND_PATH, /resend=admins/);
 });
