@@ -64,11 +64,12 @@ export const PHOTOS = {
     title: { th: 'คืนที่ทำงานถึงตี 3–4', en: 'The nights until 3 or 4 am' },
     hint: { th: 'ภาพทำงานตอนดึก หน้าจอที่กำลังสร้าง Krarok', en: 'Working late, with Krarok being built on the screen' },
     size: { th: 'แนวนอน 16:9 · 1920 × 1080 px', en: 'Landscape 16:9 · 1920 × 1080 px' },
-    // The owner's photos, 2026-11-01 ("ทำหน้านี้ให้หน่อย", then "ฟิลให้เห็นการทำงานด้วยน่าจะดี"): the evening work
-    // session (two laptops, the phone) beside the late-night selfie with a cooling patch, turned upright. Strangers'
-    // faces and the screens are blurred (no words or app names can be read); the phones' location data is removed.
+    // The owner's work photo, 2026-11-01 ("ฟิลให้เห็นการทำงาน"; the selfie came out: "เว็บทางการ ... ถ่ายติดเล่นไม่ได้"):
+    // two laptops and the phone, with a clock drawn for it at 03:12 (no picture from the web) and a night tint.
+    // Strangers' faces and the screens are blurred (no words or app names); the phone's location data is removed.
+    // Source: artifacts/founder-night/.
     src: '/landing-v5/founder/night.webp',
-    alt: { th: 'โน้ตบุ๊ก 2 เครื่องที่เปิดงานไว้ตอนกลางคืน และปาร์คแปะเจลลดไข้ชูนิ้วโป้ง', en: 'Two laptops open on the work at night, and Park with a cooling patch on the forehead giving a thumbs up' },
+    alt: { th: 'โน้ตบุ๊ก 2 เครื่องที่เปิดงานไว้ตอนกลางคืน กับนาฬิกาบอกเวลา 03:12 น.', en: 'Two laptops open on the work late at night, with a clock showing 3:12 am' },
   },
   team: {
     id: 'team', ratio: '3 / 2',

@@ -32,7 +32,7 @@ for (const [width, height] of [[1440, 900], [1024, 768], [390, 844]] as const) {
     const desk = page.getByRole('img', { name: 'หน้าจอที่เต็มไปด้วยไฟล์บัญชี ใบเสนอราคาหลายฉบับ โน้ตเตือนตามเงิน และการแจ้งเตือนที่ยังไม่ได้เปิด' });
     await desk.scrollIntoViewIfNeeded();
     await expect.poll(() => desk.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBe(1920);
-    const night = page.getByRole('img', { name: 'โน้ตบุ๊ก 2 เครื่องที่เปิดงานไว้ตอนกลางคืน และปาร์คแปะเจลลดไข้ชูนิ้วโป้ง' });
+    const night = page.getByRole('img', { name: 'โน้ตบุ๊ก 2 เครื่องที่เปิดงานไว้ตอนกลางคืน กับนาฬิกาบอกเวลา 03:12 น.' });
     await night.scrollIntoViewIfNeeded();
     await expect.poll(() => night.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBe(1920);
     await expect(page.getByRole('img', { name: 'พื้นที่สำหรับรูปที่ 5: ทีม Krarok' })).toBeAttached();
