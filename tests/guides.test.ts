@@ -75,9 +75,17 @@ test('the share picture is a 1200×630 PNG and every public page names it', () =
   assert.equal(png.subarray(1, 4).toString(), 'PNG');
   assert.deepEqual([png.readUInt32BE(16), png.readUInt32BE(20)], [1200, 630]);
   for (const path of Object.keys(SEO_PAGES)) {
-    assert.ok(seoHead(path).includes(`<meta property="og:image" content="${SHARE_IMAGE.url}" />`), path);
+    // The founder's page shares as their own card (2026-11-01); every other page uses the site's picture.
+    const image = SEO_PAGES[path].image?.url ?? SHARE_IMAGE.url;
+    assert.ok(seoHead(path).includes(`<meta property="og:image" content="${image}" />`), path);
     assert.ok(seoHead(path).includes('<meta name="twitter:card" content="summary_large_image" />'), path);
   }
+  // The founder's card: a 1200×630 JPEG (its size in the frame header).
+  const card = fs.readFileSync(`frontend/public${new URL(SEO_PAGES['/founder'].image!.url).pathname}`);
+  assert.deepEqual([card[0], card[1]], [0xff, 0xd8]);
+  let at = 2;
+  while (at < card.length && !(card[at] === 0xff && card[at + 1] >= 0xc0 && card[at + 1] <= 0xc3)) at += 2 + card.readUInt16BE(at + 2);
+  assert.deepEqual([card.readUInt16BE(at + 7), card.readUInt16BE(at + 5)], [1200, 630]);
 });
 
 test('the landing footer links to the guides, and the app opens them', () => {
