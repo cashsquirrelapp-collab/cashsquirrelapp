@@ -286,9 +286,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
+  // TEMPORARY (owner, 2026-11-01 13:43: "ลองส่งมาใหม่"): one send again to the admin accounts only, from a scheduled run
+  // with ?resend=admins&tag=<moment>, so the owner sees the October report in the new email. Customers are never included,
+  // the month's normal claim and 'sent' mark are not touched, and the tag makes it a single send. Removed right after.
+  const resendTag = req.query.resend === 'admins' && typeof req.query.tag === 'string' && /^[0-9T-]{1,20}$/.test(req.query.tag) ? req.query.tag : null;
+  const resendEmails = (process.env.ADMIN_REPORT_EMAILS || '').split(/[,\s]+/).map(email => email.trim().toLowerCase()).filter(email => email.includes('@'));
+
   try {
     const monthKey = targetMonthKey();
     const monthLabel = formatMonthKey(monthKey);
+    let adminIds: Set<string> | null = null;
+    if (resendTag) {
+      const roles = await supabaseAdmin.from('cashflow_user_roles').select('user_id').eq('role', 'admin');
+      if (roles.error) throw roles.error;
+      adminIds = new Set(((roles.data ?? []) as { user_id: string }[]).map(role => role.user_id));
+    }
 
     const [{ data: rows, error: rowsErr }, { data: subs, error: subsErr }, createdAtByUserId] = await Promise.all([
       supabaseAdmin.from('cashflow_account_snapshot').select('user_id, email, jobs, goals, settings, expenses, notif_settings'),
@@ -310,6 +322,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       processed += 1;
       const notifSettings: NotifSettingsRow = row.notif_settings || {};
       if (!stagingRecipientAllowed(notifSettings.alertEmail || row.email, notifSettings.lineUserId)) { skipped += 1; continue; }
+      if (adminIds && (!adminIds.has(row.user_id) || (resendEmails.length > 0 && !resendEmails.includes(String(row.email || '').trim().toLowerCase())))) { skipped += 1; continue; }
 
       if (!isPro(row.user_id, createdAtByUserId, subscriptionByUserId)) {
         skipped += 1;
@@ -319,12 +332,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         skipped += 1;
         continue;
       }
-      if (notifSettings.lastMonthlyReportSentMonth === monthKey) {
+      if (!resendTag && notifSettings.lastMonthlyReportSentMonth === monthKey) {
         skipped += 1;
         continue;
       }
 
-      const deliveryKey = `report:${row.user_id}:${monthKey}`;
+      const deliveryKey = resendTag ? `report-resend:${row.user_id}:${monthKey}:${resendTag}` : `report:${row.user_id}:${monthKey}`;
       let claimed = false;
       let accepted = false;
       let uncertain = false;
@@ -396,6 +409,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           continue;
         }
 
+        if (resendTag) continue;
         marking = true;
         await patchPrivate(row.user_id, { lastMonthlyReportSentMonth: monthKey });
       } catch {
