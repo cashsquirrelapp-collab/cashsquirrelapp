@@ -77,11 +77,12 @@ expect(config?.vars?.SUPABASE_URL === PRODUCTION_DATABASE, 'Unexpected productio
 expect(config?.vars?.STRIPE_MODE === 'live', 'Production Stripe mode must remain live');
 expect(['false', 'true'].includes(config?.vars?.CRON_ENABLED), 'CRON_ENABLED must be exactly false or true as a string');
 const crons = config?.triggers?.crons;
-const productionCrons = ['0 1 * * *', '0 2 * * *'];
+// Matches cloudflare/schedule.ts CRONS (four triggers since 2026-11-01, each job its own invocation).
+const productionCrons = ['0 1 * * *', '5 1 * * *', '10 1-10 1-3 * *', '0 2 * * *'];
 const validCronPair = Array.isArray(crons) && crons.length === productionCrons.length &&
   productionCrons.every(cron => crons.includes(cron));
 expect(validCronPair || (config?.vars?.CRON_ENABLED === 'false' && Array.isArray(crons) && crons.length === 0),
-  'Use the two production cron triggers, or an empty list only while CRON_ENABLED is false');
+  'Use the four production cron triggers, or an empty list only while CRON_ENABLED is false');
 expect(config?.assets?.directory === './build/frontend', 'Unexpected frontend assets directory');
 expect(config?.assets?.binding === 'ASSETS', 'ASSETS binding is required');
 expect(config?.assets?.not_found_handling === 'single-page-application', 'SPA asset handling is required');

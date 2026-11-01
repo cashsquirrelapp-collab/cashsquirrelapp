@@ -1,24 +1,29 @@
-// Preserve the four jobs' Bangkok times using only two Cloudflare cron slots.
-//   0 1 * * *   08:00 Bangkok daily       overdue digest; the owner's AI credit check (LINE when a provider runs low);
-//                                         on the 1st also the monthly report and the 50 ทวิ reminder; on the 1st–3rd the
-//                                         owner's profit report (sent once; the 2nd and 3rd only retry a failed send)
-//   0 2 * * *   09:00 Bangkok daily       close expired accounts; LINE menus (admins keep แนบเอกสาร, 2026-10-24);
-//                                         promotion-month card renewals moved to ฿271 before their first December renewal
-// The 50 ทวิ reminder was hidden from 2026-10-22 and is back since the owner launched the page (2026-10-31: "ใบ 50 ทวิ
-// แจ้งเตือนได้ด้วย"): on the 1st, to accounts that turned it on in Settings (Pro, LINE linked).
-export const CRONS = ['0 1 * * *', '0 2 * * *'] as const;
+// Four Cloudflare cron triggers (the Free plan allows five per account; staging has none). Each trigger is its own Worker
+// invocation, so each has its own allowance of 50 outgoing requests. Until 2026-11-01 every 08:00 job ran in one
+// invocation: the overdue digest used most of the 50, and the monthly report, the 50 ทวิ reminder, the owner's profit
+// report and the AI credit check all failed with "network" errors (owner: "ทุกวันที่หนึ่ง ... ไม่เห็นมีอะไรส่งมา").
+//   0 1 * * *          08:00 Bangkok daily   overdue digest
+//   5 1 * * *          08:05 Bangkok daily   the owner's AI credit check (LINE when a provider runs low)
+//   10 1-10 1-3 * *    08:10–17:10 hourly on the 1st–3rd   monthly report, 50 ทวิ reminder, the owner's profit report.
+//                      Each is sent once per account and month (delivery claims), so the later runs only pick up what
+//                      did not go out yet: a failed or over-budget run is retried within the hour, and a long list of
+//                      accounts is spread over several runs.
+//   0 2 * * *          09:00 Bangkok daily   close expired accounts; LINE menus (admins keep แนบเอกสาร, 2026-10-24);
+//                      promotion-month card renewals moved to ฿271 before their first December renewal
+// The 50 ทวิ reminder is back since the owner launched the page (2026-10-31: "ใบ 50 ทวิ แจ้งเตือนได้ด้วย"): to accounts
+// that turned it on in Settings (Pro, LINE linked).
+export const CRONS = ['0 1 * * *', '5 1 * * *', '10 1-10 1-3 * *', '0 2 * * *'] as const;
+const MONTHLY_DAYS = 3;
 
 export function scheduledPaths(cron: string, scheduledTime: number): string[] {
+  // Use the event's intended time, not execution time: delayed events must still make the same decision. Between 01:00
+  // and 10:59 UTC the Bangkok date agrees with the UTC date.
+  const scheduledAt = new Date(scheduledTime);
+  if (!Number.isFinite(scheduledAt.getTime())) throw new Error('Invalid scheduled event time');
   switch (cron) {
-    case '0 1 * * *': {
-      // Use the event's intended time, not execution time: delayed events must
-      // still make the same monthly decision. At 01:00 UTC the Bangkok date agrees.
-      const scheduledAt = new Date(scheduledTime);
-      if (!Number.isFinite(scheduledAt.getTime())) throw new Error('Invalid scheduled event time');
-      const day = scheduledAt.getUTCDate();
-      if (day === 1) return ['/api/send-overdue-digest', '/api/send-monthly-report', '/api/send-wht50-reminder', '/api/send-admin-profit-report', '/api/check-ai-credit'];
-      return day <= 3 ? ['/api/send-overdue-digest', '/api/send-admin-profit-report', '/api/check-ai-credit'] : ['/api/send-overdue-digest', '/api/check-ai-credit'];
-    }
+    case '0 1 * * *': return ['/api/send-overdue-digest'];
+    case '5 1 * * *': return ['/api/check-ai-credit'];
+    case '10 1-10 1-3 * *': return scheduledAt.getUTCDate() <= MONTHLY_DAYS ? ['/api/send-monthly-report', '/api/send-wht50-reminder', '/api/send-admin-profit-report'] : [];
     case '0 2 * * *': return ['/api/close-expired-accounts', '/api/setup-line-richmenu', '/api/advance-card-renewals'];
     default: return [];
   }

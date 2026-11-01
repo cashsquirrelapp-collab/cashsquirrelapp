@@ -10,8 +10,9 @@ export interface WaitingWht50Job { job: Job; days: number | null }
 /** One digest per Bangkok calendar month, leaving LINE's scarce push quota for urgent work. */
 export function wht50ReminderMonth(now = new Date()): string { return todayInBangkok(now).slice(0, 7); }
 
+/** The 1st, with the 2nd and 3rd to retry what did not go out (each account is reminded once a month: its delivery claim). */
 export function isWht50ReminderDay(now = new Date()): boolean {
-  return todayInBangkok(now).endsWith('-01');
+  return Number(todayInBangkok(now).slice(8, 10)) <= 3;
 }
 
 /** Use the same certificate status as the vault UI; no AI, financial writes, or date guesses. */
