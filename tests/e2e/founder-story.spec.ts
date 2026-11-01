@@ -21,8 +21,8 @@ for (const [width, height] of [[1440, 900], [1024, 768], [390, 844]] as const) {
     await expect(page.locator('.fs-section')).toHaveCount(7);
     await expect(page.locator('.fs-section-head h2')).toHaveText(['จุดเริ่มต้นของผม', 'ปัญหาที่ทำให้เกิด Krarok', '5 เดือนแห่งการลงมือสร้าง',
       'ทำไมผมถึงอยากสร้าง Krarok ให้ทุกคน', 'อนาคตที่ผมอยากสร้างให้ Krarok', 'ความไว้วางใจของคุณ คือความรับผิดชอบของเรา', 'ขอบคุณที่เป็นส่วนหนึ่งของการเริ่มต้น']);
-    // Slots 1, 2, 3 and 6 have their pictures since 2026-11-01; the other two still show their marked space.
-    await expect(page.locator('[data-photo-slot]')).toHaveCount(2);
+    // Slots 1–4 and 6 have their pictures since 2026-11-01; the team photo still shows its marked space.
+    await expect(page.locator('[data-photo-slot]')).toHaveCount(1);
     const portrait = page.getByRole('img', { name: 'ปาร์ค นพรัตน์ นาวะบุตร ผู้ก่อตั้ง Krarok' });
     await expect(portrait).toBeVisible();
     await expect.poll(() => portrait.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBeGreaterThan(1000);
@@ -32,7 +32,10 @@ for (const [width, height] of [[1440, 900], [1024, 768], [390, 844]] as const) {
     const desk = page.getByRole('img', { name: 'หน้าจอที่เต็มไปด้วยไฟล์บัญชี ใบเสนอราคาหลายฉบับ โน้ตเตือนตามเงิน และการแจ้งเตือนที่ยังไม่ได้เปิด' });
     await desk.scrollIntoViewIfNeeded();
     await expect.poll(() => desk.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBe(1920);
-    await expect(page.getByRole('img', { name: 'พื้นที่สำหรับรูปที่ 4: คืนที่ทำงานถึงตี 3–4' })).toBeAttached();
+    const night = page.getByRole('img', { name: 'ปาร์คแปะเจลลดไข้ ชูนิ้วโป้งตอนดึก' });
+    await night.scrollIntoViewIfNeeded();
+    await expect.poll(() => night.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBe(1920);
+    await expect(page.getByRole('img', { name: 'พื้นที่สำหรับรูปที่ 5: ทีม Krarok' })).toBeAttached();
     const sign = page.getByRole('img', { name: 'ปาร์คที่ชายหาดตอนพลบค่ำ' });
     await sign.scrollIntoViewIfNeeded();
     await expect.poll(() => sign.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBe(450);

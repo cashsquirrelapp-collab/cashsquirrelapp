@@ -64,6 +64,11 @@ export const PHOTOS = {
     title: { th: 'คืนที่ทำงานถึงตี 3–4', en: 'The nights until 3 or 4 am' },
     hint: { th: 'ภาพทำงานตอนดึก หน้าจอที่กำลังสร้าง Krarok', en: 'Working late, with Krarok being built on the screen' },
     size: { th: 'แนวนอน 16:9 · 1920 × 1080 px', en: 'Landscape 16:9 · 1920 × 1080 px' },
+    // The owner's photo, 2026-11-01 ("ทำหน้านี้ให้หน่อย"): a late-night selfie with a cooling patch, stored on its side
+    // by the phone, so it is turned upright and set whole in the 16:9 frame on a blurred, darkened copy of itself.
+    // The phone's location data is removed.
+    src: '/landing-v5/founder/night.webp',
+    alt: { th: 'ปาร์คแปะเจลลดไข้ ชูนิ้วโป้งตอนดึก', en: 'Park late at night with a cooling patch on the forehead, giving a thumbs up' },
   },
   team: {
     id: 'team', ratio: '3 / 2',
