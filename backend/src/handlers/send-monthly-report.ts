@@ -2,7 +2,7 @@ import { isPhaseOneFeatureAvailable } from '../../../shared/featureAvailability.
 import { inFreeTrial } from '../../../shared/trial.js';
 import { stagingRecipientAllowed } from '../security/staging.js';
 import { randomUUID } from 'node:crypto';
-import { ensurePrivateReportBucket, REPORTS_BUCKET } from '../services/reportStorage.js';
+import { bucketCheckOnce, REPORTS_BUCKET } from '../services/reportStorage.js';
 import { claimDelivery, releaseDelivery } from '../repositories/deliveries.js';
 import { patchPrivate } from '../repositories/accounts.js';
 import type { VercelRequest, VercelResponse } from '../http/types.js';
@@ -161,7 +161,7 @@ export function buildReportFlexMessage(monthLabel: string, s: MonthlySummary, do
 // into a LINE message reads as an unfamiliar, suspicious link; this app's own domain doesn't).
 // Returns null on any failure, which callers treat as "fall back to email-only wording" rather
 // than a hard error -- a broken upload should never take down the rest of the digest run.
-async function uploadReportAndGetLink(userId: string, monthKey: string, excelBase64: string): Promise<string | null> {
+async function uploadReportAndGetLink(userId: string, monthKey: string, excelBase64: string, ensureBucket: () => Promise<void>): Promise<string | null> {
   const appUrl = process.env.APP_URL;
   if (!appUrl) return null;
 
@@ -169,7 +169,7 @@ async function uploadReportAndGetLink(userId: string, monthKey: string, excelBas
     const buffer = Buffer.from(excelBase64, 'base64');
     const path = `${userId}/${monthKey}.xlsx`;
 
-    await ensurePrivateReportBucket();
+    await ensureBucket();
     const { error: uploadErr } = await supabaseAdmin.storage.from(REPORTS_BUCKET).upload(path, buffer, {
       contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       upsert: true,
@@ -260,21 +260,27 @@ async function sendReportEmail(
   );
 }
 
-async function listAllAuthUsers(): Promise<Map<string, string>> {
-  const createdAtByUserId = new Map<string, string>();
+export type AuthAccount = { createdAt: string; paused: boolean };
+
+/** Each sign-in account's start date and whether it is paused, from the list the run already reads (2026-11-01: this
+ *  replaced one look-up per account, an outgoing request each on a plan that allows 50 per run). */
+export function authAccountsFrom(users: { id: string; created_at: string; app_metadata?: Record<string, unknown> | null }[]): Map<string, AuthAccount> {
+  return new Map(users.map(user => [user.id, { createdAt: user.created_at, paused: user.app_metadata?.account_paused === true }]));
+}
+
+async function listAllAuthUsers(): Promise<Map<string, AuthAccount>> {
+  const accounts = new Map<string, AuthAccount>();
   let page = 1;
   const perPage = 200;
   // eslint-disable-next-line no-constant-condition
   while (true) {
     const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage });
     if (error) throw error;
-    for (const u of data.users) {
-      createdAtByUserId.set(u.id, u.created_at);
-    }
+    for (const [id, account] of authAccountsFrom(data.users)) accounts.set(id, account);
     if (data.users.length < perPage) break;
     page += 1;
   }
-  return createdAtByUserId;
+  return accounts;
 }
 
 function isPro(
@@ -307,7 +313,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const monthKey = targetMonthKey();
     const monthLabel = formatMonthKey(monthKey);
 
-    const [{ data: rows, error: rowsErr }, { data: subs, error: subsErr }, createdAtByUserId] = await Promise.all([
+    const [{ data: rows, error: rowsErr }, { data: subs, error: subsErr }, authAccounts] = await Promise.all([
       supabaseAdmin.from('cashflow_account_snapshot').select('user_id, email, jobs, goals, settings, expenses, notif_settings'),
       supabaseAdmin.from('subscriptions').select('user_id, status, plan, current_period_end'),
       listAllAuthUsers(),
@@ -316,6 +322,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (rowsErr) throw rowsErr;
     if (subsErr) throw subsErr;
 
+    const createdAtByUserId = new Map([...authAccounts].map(([id, account]) => [id, account.createdAt] as const));
+    // One bucket check for the whole run, before the first upload (see bucketCheckOnce).
+    const ensureBucket = bucketCheckOnce();
     const subscriptionByUserId = new Map((subs || []).map((s) => [s.user_id, { status: s.status, plan: s.plan, current_period_end: s.current_period_end }] as const));
 
     let processed = 0;
@@ -354,9 +363,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (outcome === 'rejected' && !failureCounted) { failureCounted = true; outcomes.failed += 1; }
       };
       try {
-        const account = await supabaseAdmin.auth.admin.getUserById(row.user_id);
-        if (account.error) throw account.error;
-        if (account.data.user?.app_metadata?.account_paused === true) { skipped += 1; continue; }
+        // From the account list read at the start of the run: no look-up per account.
+        const account = authAccounts.get(row.user_id);
+        if (!account || account.paused) { skipped += 1; continue; }
         const jobs: JobRow[] = row.jobs || [];
         const expenses: ExpenseRow[] = row.expenses || [];
         const goals: GoalRow[] = row.goals || [];
@@ -395,7 +404,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // dropping the LINE push even when this code was reached.
         let lineOutcome: DeliveryOutcome = 'skipped';
         if (row.email) {
-          const downloadUrl = await uploadReportAndGetLink(row.user_id, monthKey, excelBase64);
+          const downloadUrl = await uploadReportAndGetLink(row.user_id, monthKey, excelBase64, ensureBucket);
           const lineMessage = downloadUrl
             ? buildReportFlexMessage(monthLabel, summary, downloadUrl)
             : { type: 'text' as const, text: buildReportLineText(monthLabel, summary, null, emailOutcome === 'accepted') };
