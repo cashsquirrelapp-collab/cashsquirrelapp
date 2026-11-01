@@ -44,6 +44,9 @@ export const PHOTOS = {
     title: { th: 'ยายกับเครื่องกรองน้ำ', en: 'Grandma and the water filter' },
     hint: { th: 'ภาพยาย หรือปาร์คกับยาย คู่กับเครื่องกรองน้ำที่ซื้อจากเงินงานตัดต่อ', en: 'Grandma, or Park with her, beside the water filter bought with the editing money' },
     size: { th: 'แนวนอน 4:3 · 1600 × 1200 px', en: 'Landscape 4:3 · 1600 × 1200 px' },
+    // The owner's photo, 2026-11-01 ("ใส่อันนี้"): two pictures side by side, the other people's faces blurred by the owner.
+    src: '/landing-v5/founder/grandma.webp',
+    alt: { th: 'ปาร์คกับเครื่องกรองน้ำที่ซื้อให้ยาย และยายที่บ้าน', en: 'Park with the water filter bought for grandma, and grandma at home' },
   },
   desk: {
     id: 'desk', ratio: '16 / 9',
