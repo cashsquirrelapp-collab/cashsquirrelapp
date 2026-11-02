@@ -1009,13 +1009,15 @@ export default function JobsTab({
               {/* -top-8 cancels the content panel's lg:pt-8 so the header meets the panel's top edge. */}
               <thead className="lg:sticky lg:-top-8 lg:z-10">
                 <tr className="border-b border-brand-border [&>th]:bg-brand-white [&>th]:shadow-[inset_0_-1px_0_var(--color-brand-border)]">
-                  <th className="w-[34%] px-4 py-2.5 text-xs font-medium text-brand-muted md:w-[30%] xl:w-[23%]">{tr("งาน / แหล่งรายได้")}</th>
+                  {/* iPads (below xl, owner 2026-11-02: "ช่องสถานะ ... ไม่ควรเป็นงี้"): the same columns as a computer minus the client one,
+                      so each status chip has its own column and every row keeps one line. The job name takes the width left over. */}
+                  <th className="px-4 py-2.5 text-xs font-medium text-brand-muted xl:w-[23%]">{tr("งาน / แหล่งรายได้")}</th>
                   <th className="hidden px-3 py-2.5 text-xs font-medium text-brand-muted xl:table-cell">{tr("ลูกค้า / ผู้จ่าย")}</th>
                   <th className="w-[136px] px-3 py-2.5 text-xs font-medium text-brand-muted">{tr("กำหนด")}</th>
-                  <th className="px-3 py-2.5 text-xs font-medium text-brand-muted xl:w-[104px]">{tr("สถานะงาน")}</th>
-                  <th className="hidden w-[108px] px-3 py-2.5 text-xs font-medium text-brand-muted xl:table-cell">{tr("การชำระ")}</th>
-                  <th className="px-3 py-2.5 text-right text-xs font-medium text-brand-muted xl:w-[112px]">{tr("จำนวนเงิน")}</th>
-                  <th className="w-[92px] px-2 py-2.5 md:w-[150px]"><span className="sr-only">{tr("การดำเนินการ")}</span></th>
+                  <th className="w-[104px] px-3 py-2.5 text-xs font-medium text-brand-muted">{tr("สถานะงาน")}</th>
+                  <th className="w-[108px] px-3 py-2.5 text-xs font-medium text-brand-muted">{tr("การชำระ")}</th>
+                  <th className="w-[112px] px-3 py-2.5 text-right text-xs font-medium text-brand-muted">{tr("จำนวนเงิน")}</th>
+                  <th className="w-[48px] px-2 py-2.5 xl:w-[150px]"><span className="sr-only">{tr("การดำเนินการ")}</span></th>
                 </tr>
               </thead>
               <tbody>
@@ -1039,14 +1041,8 @@ export default function JobsTab({
                       </td>
                       <td className="hidden truncate px-3 py-3 text-brand-muted xl:table-cell">{j.client || '—'}</td>
                       <td className={`truncate whitespace-nowrap px-3 py-3 ${dueClass(info.dueTone)}`} title={info.dueText}>{info.dueText}</td>
-                      <td className="px-3 py-3">
-                        <div className="flex flex-wrap gap-1">
-                          {badgeMenu(j, 'stage', i => stageBadge(info.stage, i), tr("สถานะงาน"))}
-                          <span className="xl:hidden">{badgeMenu(j, 'payment', i => paymentBadge(info.payment, i), tr("การชำระ"))}</span>
-                          {showWht50 && <span className="hidden lg:inline xl:hidden"><Wht50Chip job={j} /></span>}
-                        </div>
-                      </td>
-                      <td className="hidden px-3 py-3 xl:table-cell"><div className="flex flex-col items-start gap-1">{badgeMenu(j, 'payment', i => paymentBadge(info.payment, i), tr("การชำระ"))}{showWht50 && <Wht50Chip job={j} />}</div></td>
+                      <td className="px-3 py-3">{badgeMenu(j, 'stage', i => stageBadge(info.stage, i), tr("สถานะงาน"))}</td>
+                      <td className="px-3 py-3"><div className="flex flex-col items-start gap-1">{badgeMenu(j, 'payment', i => paymentBadge(info.payment, i), tr("การชำระ"))}{showWht50 && <Wht50Chip job={j} />}</div></td>
                       <td className="whitespace-nowrap px-3 py-3 text-right font-mono font-semibold text-brand-text">{amountCell(j)}</td>
                       <td className="px-2 py-3 text-right">
                         <div className="flex items-center justify-end gap-1">
