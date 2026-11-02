@@ -69,3 +69,6 @@
 .abc-past summary small { flex-shrink: 0; font-size: 12px; color: var(--muted); }
 .abc-past[open] { padding-bottom: 14px; }
 .abc.is-mobile .abc-panel { padding: 16px; }
+.abc-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.abc-compose.is-mobile .abc-buttons { flex-direction: column; }
+.abc-result-actions { flex-wrap: wrap; gap: 8px; }

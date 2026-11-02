@@ -6,71 +6,47 @@ import { Modal } from '../../components/ui/Modal';
 import { tr } from '../../i18n/tr';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { broadcastApi } from '../../services/broadcast';
-import { COOKIE_CHOICE_EVENT, readCookieConsent } from '../../services/cookieConsent';
 import './broadcast.css';
 
 // The team's message to everyone (shared/broadcast.ts; owner, 2026-11-03). Shown once, when the app has settled and
 // nothing else is open: a centred window on computers and iPads, the Modal's sheet on phones. The account can score the
 // app from 1 to 5 and write a few words; ✕ or ปิด closes it for good.
+// Round 2 (owner, 2026-11-03: "พิมพ์ส่งไปแล้วไม่เห็นว่ามันขึ้นสำหรับผู้ใช้เลย"): it no longer waits for the cookie choice
+// (people who never tap the banner never saw it; the banner now steps aside while the window is open), it asks again when
+// the app comes back on screen, and the admin page opens the same window as a preview.
 
+/** How often an app left open asks again, when it comes back on screen. */
+const RECHECK_MS = 10 * 60_000;
 const scoreWord = (score: number) => [tr("ต้องปรับปรุงมาก"), tr("ต้องปรับปรุง"), tr("พอใช้"), tr("ดี"), tr("ดีมาก")][score - 1];
 
-export default function BroadcastPrompt({ accountId, ready }: {
-  accountId: string;
-  /** The app has loaded and no other window or guide is open. */
-  ready: boolean;
+/** The window itself: the account's prompt, and the admin page's preview (nothing is sent from a preview). */
+export function BroadcastWindow({ notice, open, onClose, onAnswer }: {
+  notice: BroadcastNotice;
+  open: boolean;
+  /** `answered`: closed from the thank-you, not dismissed. */
+  onClose: (answered: boolean) => void;
+  onAnswer: (reply: string, rating?: number) => Promise<void>;
 }) {
   const { language } = useLanguage();
-  const [notice, setNotice] = React.useState<BroadcastNotice | null>(null);
-  const [open, setOpen] = React.useState(false);
   const [rating, setRating] = React.useState(0);
   const [reply, setReply] = React.useState('');
   const [sending, setSending] = React.useState(false);
   const [error, setError] = React.useState('');
   const [done, setDone] = React.useState(false);
-  // The cookie banner sits at the bottom on first visits: the message waits until a choice is made.
-  const [cookieChosen, setCookieChosen] = React.useState(() => readCookieConsent() !== null);
+  // The cookie banner steps aside while this is open (cookieConsent.css), and comes back after.
   React.useEffect(() => {
-    const update = () => setCookieChosen(readCookieConsent() !== null);
-    window.addEventListener(COOKIE_CHOICE_EVENT, update);
-    return () => window.removeEventListener(COOKIE_CHOICE_EVENT, update);
-  }, []);
+    if (!open) return;
+    document.body.dataset.broadcastOpen = '1';
+    return () => { delete document.body.dataset.broadcastOpen; };
+  }, [open]);
 
-  // Asked once per app start and account.
-  const askedRef = React.useRef('');
-  React.useEffect(() => {
-    if (!ready || !cookieChosen || askedRef.current === accountId) return;
-    askedRef.current = accountId;
-    const controller = new AbortController();
-    broadcastApi.current(accountId, controller.signal)
-      .then(result => { if (!controller.signal.aborted && result?.broadcast?.id) setNotice(result.broadcast); })
-      .catch(() => { /* no message this time */ });
-    return () => controller.abort();
-  }, [ready, cookieChosen, accountId]);
-
-  // Opens a moment after the page settles, and only while nothing else is open.
-  const shownRef = React.useRef('');
-  React.useEffect(() => {
-    if (!notice || !ready || open || shownRef.current === notice.id) return;
-    const timer = window.setTimeout(() => {
-      shownRef.current = notice.id;
-      setOpen(true);
-      void broadcastApi.seen(accountId, notice.id).catch(() => {});
-    }, 1200);
-    return () => window.clearTimeout(timer);
-  }, [notice, ready, open, accountId]);
-
-  if (!notice) return null;
-  const close = () => {
-    setOpen(false);
-    if (!done) void broadcastApi.dismiss(accountId, notice.id).catch(() => {});
-  };
+  const close = () => onClose(done);
   const canSend = !sending && (reply.trim().length > 0 || (notice.askRating && rating > 0));
   const send = async () => {
     if (!canSend) return;
     setSending(true); setError('');
     try {
-      await broadcastApi.answer(accountId, notice.id, reply.trim(), notice.askRating && rating ? rating : undefined);
+      await onAnswer(reply.trim(), notice.askRating && rating ? rating : undefined);
       setDone(true);
     } catch (cause) {
       setError((cause as Error).message || tr("ส่งคำตอบไม่สำเร็จ กรุณาลองใหม่"));
@@ -127,5 +103,52 @@ export default function BroadcastPrompt({ accountId, ready }: {
         )}
       </div>
     </Modal>
+  );
+}
+
+export default function BroadcastPrompt({ accountId, ready }: {
+  accountId: string;
+  /** The app has loaded and no other window or guide is open. */
+  ready: boolean;
+}) {
+  const [notice, setNotice] = React.useState<BroadcastNotice | null>(null);
+  const [open, setOpen] = React.useState(false);
+
+  // Asked when the app starts, and again when it comes back on screen after a while (an app left open, a phone's
+  // home-screen app resumed without reloading).
+  const checkedAtRef = React.useRef(0);
+  const [visibleTick, setVisibleTick] = React.useState(0);
+  React.useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible' && Date.now() - checkedAtRef.current > RECHECK_MS) setVisibleTick(tick => tick + 1); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
+  React.useEffect(() => {
+    if (!ready || notice || (checkedAtRef.current && Date.now() - checkedAtRef.current <= RECHECK_MS)) return;
+    checkedAtRef.current = Date.now();
+    const controller = new AbortController();
+    broadcastApi.current(accountId, controller.signal)
+      .then(result => { if (!controller.signal.aborted && result?.broadcast?.id) setNotice(result.broadcast); })
+      .catch(() => { checkedAtRef.current = 0; /* asked again next time it can be */ });
+    return () => controller.abort();
+  }, [ready, notice, accountId, visibleTick]);
+
+  // Opens a moment after the page settles, and only while nothing else is open.
+  const shownRef = React.useRef('');
+  React.useEffect(() => {
+    if (!notice || !ready || open || shownRef.current === notice.id) return;
+    const timer = window.setTimeout(() => {
+      shownRef.current = notice.id;
+      setOpen(true);
+      void broadcastApi.seen(accountId, notice.id).catch(() => {});
+    }, 1200);
+    return () => window.clearTimeout(timer);
+  }, [notice, ready, open, accountId]);
+
+  if (!notice) return null;
+  return (
+    <BroadcastWindow notice={notice} open={open}
+      onClose={answered => { setOpen(false); if (!answered) void broadcastApi.dismiss(accountId, notice.id).catch(() => {}); }}
+      onAnswer={async (reply, rating) => { await broadcastApi.answer(accountId, notice.id, reply, rating); }} />
   );
 }

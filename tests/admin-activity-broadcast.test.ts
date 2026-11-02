@@ -77,15 +77,13 @@ test('the admin view: online, today, away for weeks, no data, statistics off; ho
 
 const sent = (id: string, createdAt: string, over: Partial<Broadcast> = {}): Broadcast => ({ id, body: 'สวัสดีครับ วันนี้เป็นอย่างไรบ้างครับ', askRating: true, createdAt, endedAt: null, ...over });
 
-test('the message: shown once to accounts that existed when it was sent; closed or answered, it stays away; 30 days at most', () => {
+test('the message: shown once to every account, new ones too; closed or answered, it stays away; 30 days at most', () => {
   const list = [sent('b', '2026-11-03T05:00:00Z')];
   const now = at('2026-11-03T06:00:00Z');
-  const old = { createdAt: '2026-10-01T00:00:00Z' };
-  assert.equal(broadcastFor(list, old, {}, now)?.id, 'b');
-  assert.equal(broadcastFor(list, { createdAt: '2026-11-03T05:30:00Z' }, {}, now), null, 'signed up afterwards');
-  assert.equal(broadcastFor(list, old, { b: { status: 'seen', at: now.toISOString() } }, now)?.id, 'b', 'seen but not answered: shown again');
-  assert.equal(broadcastFor(list, old, { b: { status: 'dismissed', at: now.toISOString() } }, now), null);
-  assert.equal(broadcastFor(list, old, { b: { status: 'answered', at: now.toISOString(), rating: 5 } }, now), null);
+  assert.equal(broadcastFor(list, {}, now)?.id, 'b');
+  assert.equal(broadcastFor(list, { b: { status: 'seen', at: now.toISOString() } }, now)?.id, 'b', 'seen but not answered: shown again');
+  assert.equal(broadcastFor(list, { b: { status: 'dismissed', at: now.toISOString() } }, now), null);
+  assert.equal(broadcastFor(list, { b: { status: 'answered', at: now.toISOString(), rating: 5 } }, now), null);
   assert.equal(activeBroadcast(list, at('2026-12-04T06:00:00Z')), null, 'older than 30 days');
   // A new message stops the one showing.
   const next = withNewBroadcast(list, { id: 'c', body: 'ใหม่', askRating: false, createdAt: '2026-11-04T00:00:00Z' });
@@ -100,7 +98,7 @@ test('the message: shown once to accounts that existed when it was sent; closed 
   assert.equal(broadcastReplyBody(list[0], 'ชอบมากครับ', 4), 'ตอบข้อความจากทีมงาน: “สวัสดีครับ วันนี้เป็นอย่างไรบ้างครับ”\nให้คะแนนแอป 4 จาก 5\n\nชอบมากครับ');
 });
 
-test('the results: who it reached (admins and newer accounts not counted), seen, answered, closed, the average score', () => {
+test('the results: who it reached (admins not counted; accounts made after it stopped neither), seen, answered, closed, the average score', () => {
   const broadcast = sent('b', '2026-11-03T05:00:00Z');
   const accounts = [
     { userId: 'a', name: 'เอ', publicId: 'SQ-1', createdAt: '2026-10-01T00:00:00Z', admin: false },
@@ -116,7 +114,8 @@ test('the results: who it reached (admins and newer accounts not counted), seen,
   ]);
   const result = broadcastResult(broadcast, accounts, answers);
   assert.deepEqual({ audience: result.audience, seen: result.seen, answered: result.answered, dismissed: result.dismissed, average: result.average, ratings: result.ratings },
-    { audience: 3, seen: 3, answered: 2, dismissed: 1, average: 4.5, ratings: [0, 0, 0, 1, 1] });
+    { audience: 4, seen: 3, answered: 2, dismissed: 1, average: 4.5, ratings: [0, 0, 0, 1, 1] });
+  assert.equal(broadcastResult({ ...broadcast, endedAt: '2026-11-03T05:30:00Z' }, accounts, answers).audience, 3, 'the newest account came after it stopped');
   assert.equal(result.replies[0].name, 'บี', 'newest first');
   assert.equal(result.replies[1].threadId, 't1');
   assert.match(broadcastAlertText({ broadcastId: 'b', reply: 'ดีมาก', rating: 5 }, 'https://krarok.com'), /ให้คะแนนแอป 5 จาก 5\n“ดีมาก”\nดูคำตอบทั้งหมดได้ที่ แอดมิน › ส่งข้อความถึงผู้ใช้\nhttps:\/\/krarok.com\/adminDashboard\?view=broadcast/);
@@ -242,7 +241,7 @@ test('the owner sends a message; an older account sees it, answers with a score 
 
   const shown = await (await get('/api/broadcast', MEMBER)).json() as { broadcast: { id: string; body: string; askRating: boolean } | null };
   assert.deepEqual({ id: shown.broadcast?.id, body: shown.broadcast?.body, askRating: shown.broadcast?.askRating }, { id, body: 'สวัสดีครับ แอปใช้ดีไหมครับ', askRating: true });
-  assert.equal((await (await get('/api/broadcast', NEWCOMER)).json() as { broadcast: unknown }).broadcast, null, 'signed up after it was sent');
+  assert.equal((await (await get('/api/broadcast', NEWCOMER)).json() as { broadcast: { id: string } | null }).broadcast?.id, id, 'a new account sees it too');
   assert.equal((await (await get('/api/broadcast', OWNER)).json() as { broadcast: unknown }).broadcast, null, 'the sender is not asked');
 
   assert.equal((await post('/api/broadcast', { action: 'seen', id }, MEMBER)).status, 200);

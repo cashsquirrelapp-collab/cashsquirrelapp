@@ -26,3 +26,5 @@
 .dark .ck-btn.is-secondary { border-color: #3A3B40; background: #2A2B30; color: #F5F5F4; }
 @media (prefers-reduced-motion: no-preference) { .ck-banner { animation: ck-in 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both; } }
 @keyframes ck-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+/* The team's message to everyone (BroadcastPrompt.tsx) is open: the banner steps aside, and returns when it closes. */
+body[data-broadcast-open] .ck-banner { display: none; }

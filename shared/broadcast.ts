@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
 // A message from the team to everyone (owner, 2026-11-03: "พิมพ์ไปหา user ทุกคนได้ ... ขึ้นหน้าจอในเว็บเขา ... ให้เขาตอบกลับเราได้
-// ด้วย เพราะกูต้องการฟีดแบ็ก"). The owner writes it on the admin page; every account that existed when it was sent sees it
-// once, the next time it opens the app, and can answer with a score from 1 to 5 and a few words. A written answer becomes a
+// ด้วย เพราะกูต้องการฟีดแบ็ก"). The owner writes it on the admin page; every account sees it once, the next time it opens
+// the app (new accounts too, after their first questions: "เวลาที่คนเข้าเว็บมาก็จะเห็นข้อความนี้ขึ้นหน้าจอทุกคน"), and can answer with a score from 1 to 5 and a few words. A written answer becomes a
 // แจ้งปัญหา conversation from that account, so the team can answer it there. Nothing new in the database: the message
 // lives in the sender's private state (`broadcasts`), each account's answer in its own (`broadcastAnswers`).
 
@@ -73,11 +73,10 @@ export function activeBroadcast(list: Broadcast[], now = new Date()): Broadcast 
   return now.getTime() - Date.parse(newest.createdAt) <= BROADCAST_DAYS * 86_400_000 ? newest : null;
 }
 
-/** What one account sees: the message on show, if the account existed when it was sent and has not answered or closed it. */
-export function broadcastFor(list: Broadcast[], account: { createdAt: string | null | undefined }, answers: Record<string, BroadcastAnswer>, now = new Date()): BroadcastNotice | null {
+/** What one account sees: the message on show, unless the account has answered or closed it. */
+export function broadcastFor(list: Broadcast[], answers: Record<string, BroadcastAnswer>, now = new Date()): BroadcastNotice | null {
   const active = activeBroadcast(list, now);
   if (!active) return null;
-  if (!account.createdAt || Date.parse(account.createdAt) >= Date.parse(active.createdAt)) return null;
   const answer = answers[active.id];
   if (answer && answer.status !== 'seen') return null;
   return { id: active.id, body: active.body, askRating: active.askRating, createdAt: active.createdAt };
@@ -108,7 +107,7 @@ export function broadcastReplyBody(broadcast: Pick<Broadcast, 'body'>, reply: st
 
 export interface BroadcastReply { userId: string; name: string; publicId: string; rating: number | null; reply: string | null; at: string; threadId: string | null }
 export interface BroadcastResult extends Broadcast {
-  /** Accounts that existed when it was sent (admins not counted). */
+  /** Accounts it was shown to: every account (admins not counted) that existed before it stopped. */
   audience: number;
   seen: number;
   answered: number;
@@ -122,7 +121,8 @@ export interface AdminBroadcastResponse { results: BroadcastResult[] }
 
 export function broadcastResult(broadcast: Broadcast, accounts: { userId: string; name: string; publicId: string; createdAt: string; admin: boolean }[],
   answersBy: Map<string, Record<string, BroadcastAnswer>>): BroadcastResult {
-  const audience = accounts.filter(account => !account.admin && Date.parse(account.createdAt) < Date.parse(broadcast.createdAt));
+  const until = broadcast.endedAt ? Date.parse(broadcast.endedAt) : Infinity;
+  const audience = accounts.filter(account => !account.admin && Date.parse(account.createdAt) < until);
   const ratings: [number, number, number, number, number] = [0, 0, 0, 0, 0];
   let seen = 0; let answered = 0; let dismissed = 0;
   const replies: BroadcastReply[] = [];

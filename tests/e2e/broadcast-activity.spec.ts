@@ -93,15 +93,38 @@ test('closing the message tells the server, so it does not come back', async ({ 
   await expect.poll(() => posts.map(post => post.action)).toContain('dismiss');
 });
 
-test('on a first visit the message waits for the cookie choice, then appears', async ({ page }) => {
-  await signIn(page, member, { consent: false });
+// Round 2 (owner, 2026-11-03: "พิมพ์ส่งไปแล้วไม่เห็นว่ามันขึ้นสำหรับผู้ใช้เลย"): people who never tapped the cookie banner never saw
+// the message, and an app left open never asked again.
+for (const size of [{ name: 'computer', width: 1440, height: 900 }, { name: 'phone', width: 390, height: 844 }]) {
+  test(`without a cookie choice the message still shows; the banner steps aside and comes back after (${size.name})`, async ({ page }) => {
+    await page.setViewportSize({ width: size.width, height: size.height });
+    await signIn(page, member, { consent: false });
+    await page.goto('/dashboard');
+    const message = page.getByRole('dialog', { name: 'ข้อความจากทีมกระรอก' });
+    await expect(message).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('.ck-banner')).toBeHidden();
+    // Its buttons are not under anything.
+    const close = message.getByRole('button', { name: 'ปิด', exact: true }).last();
+    const box = (await close.boundingBox())!;
+    expect(await page.evaluate(([x, y]) => !!document.elementFromPoint(x, y)?.closest('[role=dialog]'), [box.x + box.width / 2, box.y + box.height / 2])).toBe(true);
+    await close.click();
+    await expect(page.getByRole('dialog', { name: 'เว็บไซต์นี้ใช้คุกกี้' })).toBeVisible();
+  });
+}
+
+test('an app left open asks again when it comes back on screen', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-11-03T05:00:00Z') });
+  await signIn(page, member);
+  let showing = false;
+  await page.route('**/api/broadcast*', route => (route.request().method() === 'POST' ? route.fulfill({ json: { ok: true } }) : route.fulfill({ json: { broadcast: showing ? notice : null } })));
   await page.goto('/dashboard');
-  const banner = page.getByRole('dialog', { name: 'เว็บไซต์นี้ใช้คุกกี้' });
-  await expect(banner).toBeVisible();
   await page.waitForTimeout(2500);
-  await expect(page.getByRole('dialog', { name: 'ข้อความจากทีมกระรอก' })).toHaveCount(0);
-  await banner.getByRole('button', { name: 'ยอมรับทั้งหมด' }).click();
-  await expect(page.getByRole('dialog', { name: 'ข้อความจากทีมกระรอก' })).toBeVisible({ timeout: 10000 });
+  const message = page.getByRole('dialog', { name: 'ข้อความจากทีมกระรอก' });
+  await expect(message).toHaveCount(0);
+  showing = true; // the owner sends it while this app is open
+  await page.clock.fastForward('11:00');
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+  await expect(message).toBeVisible({ timeout: 10000 });
 });
 
 async function openAdmin(page: Page, view: 'activity' | 'broadcast', size: { width: number; height: number }, mode: 'light' | 'dark' = 'light') {
@@ -153,6 +176,18 @@ for (const size of [{ name: 'computer', width: 1440, height: 900, mode: 'light' 
     await expect(send).toBeDisabled();
     await page.getByRole('textbox', { name: 'ข้อความ' }).fill('สวัสดีครับ ช่วงนี้ใช้แอปเป็นอย่างไรบ้างครับ');
     await expect(page.getByLabel('ตัวอย่างที่ผู้ใช้เห็น')).toContainText('ช่วงนี้ใช้แอปเป็นอย่างไรบ้างครับ');
+    // The admin account is never shown its own message: the real window opens here instead, and sends nothing.
+    await expect(page.getByText('บัญชีแอดมินจะไม่เห็นข้อความของตัวเองตอนเปิดแอป', { exact: false })).toBeVisible();
+    await page.getByRole('button', { name: 'ดูหน้าต่างจริง' }).first().click();
+    const preview = page.getByRole('dialog', { name: 'ข้อความจากทีมกระรอก' });
+    await expect(preview).toContainText('สวัสดีครับ ช่วงนี้ใช้แอปเป็นอย่างไรบ้างครับ');
+    await preview.getByRole('radio', { name: '5 คะแนนจาก 5' }).click();
+    await preview.getByRole('button', { name: 'ส่งคำตอบ' }).click();
+    await expect(preview.getByRole('status')).toContainText('ขอบคุณสำหรับคำตอบ');
+    await page.screenshot({ path: testInfo.outputPath(`admin-broadcast-preview-${size.name}.png`) });
+    await preview.getByRole('button', { name: 'ปิด' }).last().click();
+    await expect(preview).toHaveCount(0);
+    expect(posts.filter(post => post.action !== 'send' && post.action !== 'end')).toEqual([]);
     expect(await textOverlapIssues(page)).toEqual([]);
     await page.screenshot({ path: testInfo.outputPath(`admin-broadcast-${size.name}.png`), fullPage: true });
     await send.click();

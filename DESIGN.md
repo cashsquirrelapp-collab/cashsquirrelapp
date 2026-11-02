@@ -528,7 +528,9 @@ card does not need:
   message showing now with sent / seen / answered / closed / average score, the score bars and the answers.
 - The window people see (`broadcast/BroadcastPrompt.tsx`): the shared Modal (centred on computers and iPads, the sheet on
   phones), the logo as the team's avatar, the words, five stars, a reply box, ส่งคำตอบ and ปิด. Formal, no mascot.
-  It waits for the cookie choice and for every other window, guide and poster to close.
+  It waits for every other window, guide and poster to close (not for the cookie choice: the banner steps aside while
+  it is open), asks again when an app left open comes back on screen, and the admin page opens it as a preview
+  (ดูหน้าต่างจริง) because an admin account is never shown its own message.
 
 ### Mascot (เลขากระรอก)
 

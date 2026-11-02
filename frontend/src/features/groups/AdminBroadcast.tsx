@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { MessageSquare, Send, Star } from 'lucide-react';
+import { Eye, MessageSquare, Send, Star } from 'lucide-react';
 import { BROADCAST_DAYS, BROADCAST_MAX, type BroadcastResult } from '../../../../shared/broadcast';
 import { BrandLogo } from '../../components/brand/BrandLogo';
 import { SkeletonBlock } from '../../components/ui/AppLoadingSkeleton';
 import { uiSurface } from '../../components/ui/uiStyles';
 import { broadcastApi } from '../../services/broadcast';
+import { BroadcastWindow } from '../broadcast/BroadcastPrompt';
 import type { Confirm } from './groupUi';
 import './adminBroadcast.css';
 
@@ -19,8 +20,8 @@ function Stars({ value, size = 13 }: { value: number; size?: number }) {
   return <span className="abc-stars" aria-hidden="true">{[1, 2, 3, 4, 5].map(score => <Star key={score} size={size} className={score <= value ? 'is-on' : ''} />)}</span>;
 }
 
-function Result({ result, copy, locale, onEnd, onOpenFeedback, mobile, past = false }: {
-  result: BroadcastResult; copy: Copy; locale: string; onEnd?: () => void; onOpenFeedback?: () => void; mobile: boolean; past?: boolean;
+function Result({ result, copy, locale, onEnd, onOpenFeedback, onPreview, mobile, past = false }: {
+  result: BroadcastResult; copy: Copy; locale: string; onEnd?: () => void; onOpenFeedback?: () => void; onPreview?: () => void; mobile: boolean; past?: boolean;
 }) {
   const when = (at: string) => new Date(at).toLocaleString(locale, { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   const scored = result.ratings.reduce((sum, count) => sum + count, 0);
@@ -47,7 +48,10 @@ function Result({ result, copy, locale, onEnd, onOpenFeedback, mobile, past = fa
         </div>
       )}
       {!past && !result.endedAt && onEnd && (
-        <div className="abc-result-actions"><button type="button" className="ui-button ui-button-secondary" onClick={onEnd}>{copy('หยุดแสดงข้อความนี้', 'Stop showing this message')}</button></div>
+        <div className="abc-result-actions">
+          {onPreview && <button type="button" className="ui-button ui-button-secondary" onClick={onPreview}><Eye size={16} aria-hidden="true" />{copy('ดูหน้าต่างจริง', 'Open the real window')}</button>}
+          <button type="button" className="ui-button ui-button-secondary" onClick={onEnd}>{copy('หยุดแสดงข้อความนี้', 'Stop showing this message')}</button>
+        </div>
       )}
       <h3 className="abc-subhead">{copy(`คำตอบ ${result.replies.length.toLocaleString(locale)} รายการ`, `${result.replies.length} answers`)}</h3>
       {result.replies.length ? (
@@ -77,6 +81,9 @@ export default function AdminBroadcast({ userId, triggerConfirm, language, onOpe
   const [askRating, setAskRating] = useState(true);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
+  // The real window people see, opened here (an admin account is never shown its own message).
+  const [preview, setPreview] = useState<{ body: string; askRating: boolean; createdAt: string } | null>(null);
+  const [previewKey, setPreviewKey] = useState(0);
 
   const load = useCallback((signal?: AbortSignal) => {
     setError('');
@@ -115,8 +122,11 @@ export default function AdminBroadcast({ userId, triggerConfirm, language, onOpe
           <small className="abc-count">{body.length.toLocaleString(locale)}/{BROADCAST_MAX.toLocaleString(locale)}</small>
         </label>
         <label className="abc-check"><input type="checkbox" checked={askRating} onChange={event => setAskRating(event.target.checked)} /><span>{copy('ขอให้ให้คะแนนแอป 1–5 ดาวด้วย', 'Also ask for a 1–5 star score')}</span></label>
-        <button type="button" className="ui-button ui-button-primary abc-send" disabled={!text || busy} onClick={send}><Send size={16} aria-hidden="true" />{copy('ส่งถึงทุกคน', 'Send to everyone')}</button>
-        <p className="abc-hint">{copy(`ขึ้นบนหน้าจอของบัญชีที่สมัครก่อนเวลาส่ง ครั้งถัดไปที่เปิดแอป บัญชีละครั้ง นาน ${BROADCAST_DAYS} วันหรือจนกว่าจะหยุดแสดง ส่งใหม่เมื่อใด ข้อความเดิมจะหยุดแสดง`, `Shows once to each account that existed when it was sent, the next time it opens the app, for ${BROADCAST_DAYS} days or until you stop it. A new message replaces the one showing.`)}</p>
+        <div className="abc-buttons">
+          <button type="button" className="ui-button ui-button-primary abc-send" disabled={!text || busy} onClick={send}><Send size={16} aria-hidden="true" />{copy('ส่งถึงทุกคน', 'Send to everyone')}</button>
+          <button type="button" className="ui-button ui-button-secondary abc-send" disabled={!text} onClick={() => { setPreviewKey(key => key + 1); setPreview({ body: text, askRating, createdAt: new Date().toISOString() }); }}><Eye size={16} aria-hidden="true" />{copy('ดูหน้าต่างจริง', 'Open the real window')}</button>
+        </div>
+        <p className="abc-hint">{copy(`ขึ้นบนหน้าจอของทุกบัญชีครั้งถัดไปที่เปิดแอปหรือกลับมาที่แอป บัญชีละครั้ง นาน ${BROADCAST_DAYS} วันหรือจนกว่าจะหยุดแสดง ส่งใหม่เมื่อใด ข้อความเดิมจะหยุดแสดง บัญชีแอดมินจะไม่เห็นข้อความของตัวเองตอนเปิดแอป กด ดูหน้าต่างจริง เพื่อดูแบบที่ผู้ใช้เห็น`, `Shows once on every account's screen the next time it opens or comes back to the app, for ${BROADCAST_DAYS} days or until you stop it. A new message replaces the one showing. Admin accounts are not shown their own message; use Open the real window to see what people see.`)}</p>
         {notice && <p className="abc-notice" role="status">{notice}</p>}
       </div>
       <div className="abc-preview" aria-label={copy('ตัวอย่างที่ผู้ใช้เห็น', 'What people see')}>
@@ -132,6 +142,9 @@ export default function AdminBroadcast({ userId, triggerConfirm, language, onOpe
     </div>
   );
 
+  const previewWindow = preview && (
+    <BroadcastWindow key={previewKey} open notice={{ id: 'preview', ...preview }} onClose={() => setPreview(null)} onAnswer={async () => { /* a preview sends nothing */ }} />
+  );
   const failed = error && <div role="alert" className={mobile ? 'ksm-empty ksm-admin-error' : 'rounded-2xl border border-red-300/60 bg-red-50 p-4 text-sm text-red-700 dark:bg-red-950/20 dark:text-red-300'}>{mobile ? <><h3>{copy('โหลดข้อความไม่สำเร็จ', 'Could not load messages')}</h3><p>{error}</p></> : error}</div>;
   const loading = !results && !error && <SkeletonBlock className="h-40 w-full rounded-2xl" />;
 
@@ -141,7 +154,8 @@ export default function AdminBroadcast({ userId, triggerConfirm, language, onOpe
         <div className="ksm-group-title"><h3>{copy('เขียนข้อความใหม่', 'New message')}</h3></div>
         <div className="ksm-panel abc-panel">{composer}</div>
         {failed}{loading}
-        {active && <><div className="ksm-group-title"><h3>{copy('ข้อความที่แสดงอยู่', 'Showing now')}</h3></div><div className="ksm-panel abc-panel"><Result result={active} copy={copy} locale={locale} onEnd={() => end(active.id)} onOpenFeedback={onOpenFeedback} mobile /></div></>}
+        {active && <><div className="ksm-group-title"><h3>{copy('ข้อความที่แสดงอยู่', 'Showing now')}</h3></div><div className="ksm-panel abc-panel"><Result result={active} copy={copy} locale={locale} onEnd={() => end(active.id)} onPreview={() => { setPreviewKey(key => key + 1); setPreview({ body: active.body, askRating: active.askRating, createdAt: active.createdAt }); }} onOpenFeedback={onOpenFeedback} mobile /></div></>}
+        {previewWindow}
         {past.length > 0 && <><div className="ksm-group-title"><h3>{copy('ข้อความก่อนหน้า', 'Earlier messages')}</h3></div>{past.map(result => <div key={result.id} className="ksm-panel abc-panel"><Result result={result} copy={copy} locale={locale} onOpenFeedback={onOpenFeedback} mobile past /></div>)}</>}
       </div>
     );
@@ -149,13 +163,14 @@ export default function AdminBroadcast({ userId, triggerConfirm, language, onOpe
 
   return (
     <div className="abc space-y-4">
+      {previewWindow}
       <section className={`${uiSurface} p-5 sm:p-6`}>
         <h2 className="text-[15px] font-semibold">{copy('ส่งข้อความถึงผู้ใช้ทุกคน', 'Message everyone')}</h2>
         <p className="mt-1 text-xs leading-relaxed text-brand-muted">{copy('ข้อความขึ้นบนหน้าจอเมื่อผู้ใช้เปิดแอป เขาให้คะแนนและตอบกลับได้ คำตอบที่เป็นข้อความจะเข้า ข้อความจากผู้ใช้ ด้วย เพื่อให้ตอบกลับได้', 'The message shows when people open the app. They can score the app and answer; written answers also arrive in User feedback, where you can reply.')}</p>
         {composer}
       </section>
       {failed}{loading}
-      {active && <section className={`${uiSurface} p-5 sm:p-6`}><h2 className="mb-3 text-[15px] font-semibold">{copy('ข้อความที่แสดงอยู่', 'Showing now')}</h2><Result result={active} copy={copy} locale={locale} onEnd={() => end(active.id)} onOpenFeedback={onOpenFeedback} mobile={false} /></section>}
+      {active && <section className={`${uiSurface} p-5 sm:p-6`}><h2 className="mb-3 text-[15px] font-semibold">{copy('ข้อความที่แสดงอยู่', 'Showing now')}</h2><Result result={active} copy={copy} locale={locale} onEnd={() => end(active.id)} onPreview={() => { setPreviewKey(key => key + 1); setPreview({ body: active.body, askRating: active.askRating, createdAt: active.createdAt }); }} onOpenFeedback={onOpenFeedback} mobile={false} /></section>}
       {past.length > 0 && (
         <section className={`${uiSurface} p-5 sm:p-6`}>
           <h2 className="mb-3 text-[15px] font-semibold">{copy('ข้อความก่อนหน้า', 'Earlier messages')}</h2>

@@ -81,7 +81,7 @@ export default withGuard(async (req, res) => {
     const list = await sentBroadcasts(db);
     // The team sends these; an admin account is never asked to answer its own message.
     if (!activeBroadcast(list) || await systemRole(user.id) === 'admin') { res.json({ broadcast: null }); return; }
-    res.json({ broadcast: broadcastFor(list, { createdAt: user.created_at }, readAnswers(await privateValue(db, user.id, 'broadcastAnswers'))) });
+    res.json({ broadcast: broadcastFor(list, readAnswers(await privateValue(db, user.id, 'broadcastAnswers'))) });
     return;
   }
 
