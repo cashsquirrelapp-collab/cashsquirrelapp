@@ -1,0 +1,36 @@
+/* The team's message to everyone (BroadcastPrompt.tsx). Formal and quiet, like the system's own sheets: the logo, the
+   words, a row of stars, a reply box. Thai text keeps a line-height of at least 1.45. */
+.bcp { display: flex; flex-direction: column; gap: 16px; padding: 22px 22px calc(20px + env(safe-area-inset-bottom, 0px)); overflow-y: auto; }
+.bcp-head { display: flex; align-items: center; gap: 12px; padding-right: 40px; }
+.bcp-avatar { display: grid; place-items: center; flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%; background: #FFF1E8; }
+.dark .bcp-avatar { background: #2A2B2F; }
+.bcp-from { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+.bcp-from b { font-size: 15px; font-weight: 600; line-height: 1.45; color: var(--text); }
+.bcp-from small { font-size: 12px; line-height: 1.45; color: var(--muted); }
+.bcp-body { margin: 0; font-size: 15px; line-height: 1.65; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; }
+.bcp-score { margin: 0; padding: 14px 12px 10px; border: 1px solid var(--border); border-radius: 14px; background: var(--bg); text-align: center; }
+.bcp-score legend { padding: 0 6px; font-size: 13px; font-weight: 500; line-height: 1.45; color: var(--muted); }
+.bcp-stars { display: flex; justify-content: center; gap: 4px; }
+.bcp-star { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; color: var(--muted); opacity: .55; cursor: pointer; transition: color .15s, opacity .15s, transform .15s; }
+.bcp-star:hover { opacity: .85; }
+.bcp-star:focus-visible { outline: 2px solid #E65F2B; outline-offset: 1px; }
+.bcp-star.is-on { color: #E65F2B; opacity: 1; }
+.bcp-star.is-on svg { fill: #E65F2B; }
+.bcp-star:active { transform: scale(.92); }
+.bcp-score-word { margin: 4px 0 0; min-height: 1.45em; font-size: 13px; line-height: 1.45; color: var(--text); }
+.bcp-reply { display: flex; flex-direction: column; gap: 6px; }
+.bcp-reply > span { font-size: 13px; font-weight: 500; line-height: 1.45; color: var(--muted); }
+.bcp-reply textarea { min-height: 84px; resize: vertical; font-size: 15px; line-height: 1.55; }
+.bcp-count { align-self: flex-end; font-size: 11px; line-height: 1.45; color: var(--muted); }
+.bcp-error { margin: 0; font-size: 13px; line-height: 1.5; color: #C43A3A; }
+.dark .bcp-error { color: #F19A9A; }
+.bcp-actions { display: flex; flex-direction: column; gap: 8px; }
+.bcp-wide { width: 100%; min-height: 46px; font-size: 15px; font-weight: 600; }
+.bcp-note { margin: -4px 0 0; font-size: 12px; line-height: 1.5; color: var(--muted); text-align: center; }
+.bcp-done { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 6px 0 2px; text-align: center; }
+.bcp-done-icon { display: grid; place-items: center; width: 48px; height: 48px; margin-bottom: 4px; border-radius: 50%; background: rgba(36, 138, 61, .12); color: #248A3D; }
+.dark .bcp-done-icon { background: rgba(48, 209, 88, .14); color: #30D158; }
+.bcp-done h2 { margin: 0; font-size: 17px; font-weight: 600; line-height: 1.45; color: var(--text); }
+.bcp-done p { margin: 0 0 10px; font-size: 14px; line-height: 1.6; color: var(--muted); }
+@media (min-width: 640px) { .bcp { padding: 24px 24px 22px; } }
+@media (prefers-reduced-motion: reduce) { .bcp-star { transition: none; } .bcp-star:active { transform: none; } }

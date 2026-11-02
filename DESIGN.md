@@ -519,6 +519,17 @@ card does not need:
 - Loops are CSS transform/opacity only; they pause while the tab is hidden and stop with reduced motion. Mouse parallax
   moves the backdrop and rings by a few px through CSS variables (no React render).
 
+### Admin: ผู้ใช้งาน and ส่งข้อความถึงผู้ใช้ (owner, 2026-11-03)
+- ผู้ใช้งาน (`groups/AdminActivity.tsx`): status tiles (online, today, 7 days, 8–30 days, 30+ days, no data), a day × hour
+  heatmap in one hue (the brand orange, light to dark, with a น้อย → มาก legend and the busiest hours in words), and a
+  table; a row opens a side panel (computers and iPads) or the phone's sheet: days used, hours used, latest visits.
+  Status chips always carry their words. Data: `shared/userActivity.ts` (visits kept by the presence heartbeat).
+- ส่งข้อความถึงผู้ใช้ (`groups/AdminBroadcast.tsx`): the composer beside a preview of the window people see; below, the
+  message showing now with sent / seen / answered / closed / average score, the score bars and the answers.
+- The window people see (`broadcast/BroadcastPrompt.tsx`): the shared Modal (centred on computers and iPads, the sheet on
+  phones), the logo as the team's avatar, the words, five stars, a reply box, ส่งคำตอบ and ปิด. Formal, no mascot.
+  It waits for the cookie choice and for every other window, guide and poster to close.
+
 ### Mascot (เลขากระรอก)
 
 - **The squirrel is locked (owner):** never redraw it. Only its mood, action and props may change; props are added

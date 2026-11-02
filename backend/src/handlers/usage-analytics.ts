@@ -7,9 +7,22 @@ import { HttpError, withGuard } from '../http/guard.js';
 import { requireUser } from '../security/session.js';
 import { systemRole } from '../repositories/roles.js';
 import { rateLimit } from '../security/rateLimit.js';
+import { patchPrivate } from '../repositories/accounts.js';
+import { heartbeatChangesVisits, readActivity, recordHeartbeat } from '../../../shared/userActivity.js';
 
 const recordSchema = z.object({ feature: z.enum(USAGE_FEATURE_KEYS) }).strict();
 const presenceHeartbeatSchema = z.object({ action: z.literal('presence-heartbeat') }).strict();
+/** The browser's cookie choice, sent once it is signed in (frontend/src/services/cookieConsent.ts). */
+const statsChoiceSchema = z.object({ action: z.literal('stats-choice'), stats: z.boolean() }).strict();
+
+// The visits the admin page shows (shared/userActivity.ts): written at most once every few minutes per account, and
+// never in the way of the heartbeat itself.
+async function recordVisit(db: ReturnType<typeof getSupabaseAdmin>, userId: string, now: Date) {
+  const current = await db.from('cashflow_private_state').select('activity:data->activity').eq('user_id', userId).maybeSingle();
+  if (current.error) throw current.error;
+  const next = recordHeartbeat(readActivity((current.data as { activity?: unknown } | null)?.activity), now);
+  await patchPrivate(userId, { activity: next });
+}
 
 function bangkokDate(date: Date): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -31,11 +44,25 @@ export default withGuard(async (req, res) => {
   if (req.method === 'POST') {
     if (presenceHeartbeatSchema.safeParse(req.body).success) {
       await rateLimit('presence-heartbeat', user.id, 30, 60);
+      const now = new Date();
+      const before = await db.from('cashflow_user_presence').select('last_seen_at').eq('user_id', user.id).maybeSingle();
       const heartbeat = await db.from('cashflow_user_presence').upsert({
         user_id: user.id,
-        last_seen_at: new Date().toISOString(),
+        last_seen_at: now.toISOString(),
       }, { onConflict: 'user_id' });
       if (heartbeat.error) throw heartbeat.error;
+      if (!before.error && heartbeatChangesVisits((before.data as { last_seen_at?: string } | null)?.last_seen_at, now)) {
+        await recordVisit(db, user.id, now).catch(error => console.warn('usage: visit not recorded', (error as Error)?.message));
+      }
+      res.json({ ok: true });
+      return;
+    }
+    const choice = statsChoiceSchema.safeParse(req.body);
+    if (choice.success) {
+      // Essential cookies only: the admin page says so instead of showing the account as gone, and the visits kept so
+      // far are removed. Accepting again only clears the mark.
+      await rateLimit('usage-stats-choice', user.id, 10, 60);
+      await patchPrivate(user.id, choice.data.stats ? {} : { statsOff: true }, choice.data.stats ? ['statsOff'] : ['activity']);
       res.json({ ok: true });
       return;
     }

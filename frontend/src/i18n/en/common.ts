@@ -1,7 +1,7 @@
 // Shared phrases used across many screens.
 export const common: Record<string, string> = {
   'เว็บไซต์นี้ใช้คุกกี้': 'This website uses cookies',
-  'เราใช้คุกกี้ที่จำเป็นต่อการเข้าสู่ระบบและความปลอดภัย และนับการใช้งานแต่ละฟีเจอร์แบบไม่ระบุตัวตนเพื่อปรับปรุงบริการ ไม่มีคุกกี้โฆษณาหรือการติดตามข้ามเว็บไซต์': 'We use cookies needed for sign-in and security, and count how each feature is used, without identifying you, to improve the service. No advertising cookies or cross-site tracking.',
+  'เราใช้คุกกี้ที่จำเป็นต่อการเข้าสู่ระบบและความปลอดภัย และเก็บสถิติการใช้งาน เช่น ฟีเจอร์ที่ใช้และช่วงเวลาที่เข้าใช้ เพื่อดูแลและปรับปรุงบริการ ไม่มีคุกกี้โฆษณาหรือการติดตามข้ามเว็บไซต์': 'We use cookies needed for sign-in and security, and keep usage statistics, such as the features you use and when you use the app, to look after and improve the service. No advertising cookies or cross-site tracking.',
   'เฉพาะที่จำเป็น': 'Essential only',
   'ยอมรับทั้งหมด': 'Accept all',
   'ตั้งค่าคุกกี้': 'Cookie settings',
@@ -141,4 +141,23 @@ export const common: Record<string, string> = {
   'ไม่พบข้อมูล': 'No data found',
   'ไม่พบงานที่ค้นหา': 'No matching jobs',
   'ไม่ระบุลูกค้า': 'No client',
+  // The team's message to everyone (features/broadcast/BroadcastPrompt.tsx).
+  'ข้อความจากทีมกระรอก': 'A message from the Krarok team',
+  'ส่งคำตอบไม่สำเร็จ กรุณาลองใหม่': 'Could not send your answer. Please try again.',
+  'ขอบคุณสำหรับคำตอบ': 'Thank you for your answer',
+  'ทีมงานได้รับข้อความแล้ว หากทีมงานตอบกลับ จะแสดงที่เมนู แจ้งปัญหา': 'The team has your message. If they reply, you will find it under Report a problem.',
+  'ทีมงานได้รับคะแนนของคุณแล้ว': 'The team has your score.',
+  'ให้คะแนนแอปของเรา': 'Rate our app',
+  '{0} คะแนนจาก 5': '{0} out of 5',
+  'ต้องปรับปรุงมาก': 'Needs a lot of work',
+  'ต้องปรับปรุง': 'Needs work',
+  'พอใช้': 'Fair',
+  'ดี': 'Good',
+  'ดีมาก': 'Very good',
+  'แตะดาวเพื่อให้คะแนน': 'Tap a star to score',
+  'ตอบทีมงาน (ไม่บังคับ)': 'Answer the team (optional)',
+  'ตอบทีมงาน': 'Answer the team',
+  'เล่าให้เราฟังได้เลย เช่น สิ่งที่ชอบ หรือสิ่งที่อยากให้ปรับ': 'Tell us anything, such as what you like or what you would like changed',
+  'ส่งคำตอบ': 'Send answer',
+  'คำตอบส่งถึงทีมงาน และคุยต่อได้ที่เมนู แจ้งปัญหา': 'Your answer goes to the team, and you can carry on the conversation under Report a problem.',
 };

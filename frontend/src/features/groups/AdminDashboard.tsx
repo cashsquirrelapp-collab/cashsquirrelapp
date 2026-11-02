@@ -11,6 +11,8 @@ import {
   Cpu,
   Lightbulb,
   MessageSquare,
+  Megaphone,
+  UserRoundCheck,
   RefreshCw,
   Search,
   UsersRound,
@@ -46,8 +48,12 @@ const AdminProfitLive = lazy(() => import('./AdminProfitLive'));
 const AiCreditBanner = lazy(() => import('./AdminAiCredit').then(module => ({ default: module.AiCreditBanner })));
 const AdminDashboardPhone = lazy(() => import('./AdminDashboardPhone'));
 const AdminPaymentReadiness = lazy(() => import('./AdminPaymentReadiness'));
+const AdminActivity = lazy(() => import('./AdminActivity'));
+const AdminBroadcast = lazy(() => import('./AdminBroadcast'));
 
-type View = 'overview' | 'product' | 'revenue' | 'profit' | 'customers' | 'onboarding' | 'feedback' | 'operations';
+type View = 'overview' | 'activity' | 'product' | 'revenue' | 'profit' | 'customers' | 'onboarding' | 'feedback' | 'broadcast' | 'operations';
+/** ?view= opens a section straight away: the LINE alerts link to feedback and broadcast (owner, 2026-10-27 and 2026-11-03). */
+const LINKED_VIEWS: View[] = ['feedback', 'broadcast', 'activity'];
 type OperationsPanel = 'users' | 'groups' | null;
 
 const surface = uiSurface;
@@ -225,7 +231,10 @@ export default function AdminDashboard({ userId, triggerConfirm, mobile = false,
   const copy = (th: string, en: string) => language === 'th' ? th : en;
   const [range, setRange] = useState<AnalyticsRange>(30);
   // The LINE alert for a new บอกเรา message links here with ?view=feedback (owner, 2026-10-27).
-  const [view, setView] = useState<View>(() => (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('view') === 'feedback' ? 'feedback' : 'overview'));
+  const [view, setView] = useState<View>(() => {
+    const linked = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('view') as View | null : null;
+    return linked && LINKED_VIEWS.includes(linked) ? linked : 'overview';
+  });
   const feedbackWaiting = useFeedbackWaiting(userId);
   const [data, setData] = useState<AdminAnalyticsSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -309,12 +318,14 @@ export default function AdminDashboard({ userId, triggerConfirm, mobile = false,
 
   const views: { key: View; label: string; icon: LucideIcon }[] = [
     { key: 'overview', label: copy('ภาพรวม', 'Overview'), icon: BarChart3 },
+    { key: 'activity', label: copy('ผู้ใช้งาน', 'User activity'), icon: UserRoundCheck },
     { key: 'product', label: copy('การใช้ฟีเจอร์', 'Product usage'), icon: Activity },
     { key: 'revenue', label: copy('รายได้ / Pro', 'Revenue / Pro'), icon: CircleDollarSign },
     { key: 'profit', label: copy('กำไรและต้นทุน AI', 'Profit and AI cost'), icon: Cpu },
     { key: 'customers', label: copy('รายบัญชี', 'Customers'), icon: UsersRound },
     { key: 'onboarding', label: copy('ผู้ใช้ใหม่', 'New users'), icon: ClipboardList },
     { key: 'feedback', label: copy('ข้อความจากผู้ใช้', 'User feedback'), icon: MessageSquare },
+    { key: 'broadcast', label: copy('ส่งข้อความถึงผู้ใช้', 'Message everyone'), icon: Megaphone },
     { key: 'operations', label: copy('จัดการระบบ', 'Operations'), icon: BriefcaseBusiness },
   ];
 
@@ -335,7 +346,7 @@ export default function AdminDashboard({ userId, triggerConfirm, mobile = false,
   return (
     <section aria-labelledby="admin-dashboard-title" className="space-y-5 pb-8">
       <PageHeader page="adminDashboard" id="admin-dashboard-title">
-        {view !== 'feedback' && view !== 'profit' && <div className="flex flex-wrap items-center gap-2">
+        {view !== 'feedback' && view !== 'profit' && view !== 'broadcast' && <div className="flex flex-wrap items-center gap-2">
           <select className="ui-input !w-auto" aria-label={copy('เลือกช่วงเวลา', 'Select date range')} value={range} onChange={event => setRange(Number(event.target.value) as AnalyticsRange)}>
             {([7, 30, 90] as AnalyticsRange[]).map(days => <option key={days} value={days}>{copy(`${days} วันล่าสุด`, `Last ${days} days`)}</option>)}
           </select>
@@ -358,9 +369,11 @@ export default function AdminDashboard({ userId, triggerConfirm, mobile = false,
       {(view === 'overview' || view === 'revenue') && <Suspense fallback={null}><AdminPaymentReadiness userId={userId} triggerConfirm={triggerConfirm} /></Suspense>}
       {(view === 'overview' || view === 'revenue') && <Suspense fallback={null}><AdminStripeFinance userId={userId} range={range} revision={revision} liveTick={liveTick} detailed={view === 'revenue'} onViewDetails={() => setView('revenue')} /></Suspense>}
       {view === 'feedback' && <Suspense fallback={<div className={`${surface} p-6`}><SkeletonBlock className="h-5 w-48" /><SkeletonBlock className="mt-5 h-44 w-full" /></div>}><AdminFeedbackInbox userId={userId} /></Suspense>}
+      {view === 'activity' && <Suspense fallback={<div className={`${surface} p-6`}><SkeletonBlock className="h-5 w-48" /><SkeletonBlock className="mt-5 h-44 w-full" /></div>}><AdminActivity userId={userId} range={range} revision={revision} language={language} /></Suspense>}
+      {view === 'broadcast' && <Suspense fallback={<div className={`${surface} p-6`}><SkeletonBlock className="h-5 w-48" /><SkeletonBlock className="mt-5 h-44 w-full" /></div>}><AdminBroadcast userId={userId} triggerConfirm={triggerConfirm} language={language} onOpenFeedback={() => setView('feedback')} /></Suspense>}
       {view === 'profit' && <Suspense fallback={null}><AdminProfitLive userId={userId} accounts={data?.accounts} appDays={range} liveTick={liveTick} revision={revision} /></Suspense>}
-      {view !== 'feedback' && view !== 'profit' && error && <div role="alert" className="rounded-2xl border border-red-300/60 bg-red-50 p-4 text-sm text-red-700 dark:bg-red-950/20 dark:text-red-300">{error}</div>}
-      {view !== 'feedback' && view !== 'profit' && (loading && !data ? <AnalyticsSkeleton /> : data && (
+      {!['feedback', 'profit', 'activity', 'broadcast'].includes(view) && error && <div role="alert" className="rounded-2xl border border-red-300/60 bg-red-50 p-4 text-sm text-red-700 dark:bg-red-950/20 dark:text-red-300">{error}</div>}
+      {!['feedback', 'profit', 'activity', 'broadcast'].includes(view) && (loading && !data ? <AnalyticsSkeleton /> : data && (
         <>
           {view === 'overview' && (
             <div className="space-y-4">
@@ -450,7 +463,7 @@ export default function AdminDashboard({ userId, triggerConfirm, mobile = false,
       ))}
 
       {selectedAccount && data && <AccountDrawer account={selectedAccount} data={data} language={language} onClose={() => setSelectedAccount(null)} formatDate={formatDate} formatMoney={formatMoney} />}
-      {view !== 'feedback' && <div className="flex items-start gap-2 rounded-xl border border-brand-border/50 bg-brand-bg/50 px-4 py-3 text-[11px] leading-relaxed text-brand-muted"><Lightbulb size={14} className="mt-0.5 shrink-0 text-brand-muted" /><p>{copy('Analytics นี้แสดงเฉพาะข้อมูลเพื่อบริหารผลิตภัณฑ์และรายได้ ไม่แสดงรายละเอียดกระแสเงินสด งาน ลูกค้า หรือเอกสารทางการเงินส่วนตัวของผู้ใช้', 'This analytics workspace is limited to product and revenue operations. It does not expose users’ private cash flow, jobs, clients, or financial documents.')}</p></div>}
+      {view !== 'feedback' && view !== 'broadcast' && <div className="flex items-start gap-2 rounded-xl border border-brand-border/50 bg-brand-bg/50 px-4 py-3 text-[11px] leading-relaxed text-brand-muted"><Lightbulb size={14} className="mt-0.5 shrink-0 text-brand-muted" /><p>{copy('Analytics นี้แสดงเฉพาะข้อมูลเพื่อบริหารผลิตภัณฑ์และรายได้ ไม่แสดงรายละเอียดกระแสเงินสด งาน ลูกค้า หรือเอกสารทางการเงินส่วนตัวของผู้ใช้', 'This analytics workspace is limited to product and revenue operations. It does not expose users’ private cash flow, jobs, clients, or financial documents.')}</p></div>}
     </section>
   );
 }

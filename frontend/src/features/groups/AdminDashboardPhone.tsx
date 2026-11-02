@@ -17,9 +17,12 @@ import type { Confirm } from './groupUi';
 const AdminUsersPanel = lazy(() => import('./AdminUsersPanel'));
 const GroupsTab = lazy(() => import('./GroupsTab'));
 const AdminFeedbackInbox = lazy(() => import('../feedback/AdminFeedbackInbox'));
+const AdminActivity = lazy(() => import('./AdminActivity'));
+const AdminBroadcast = lazy(() => import('./AdminBroadcast'));
 import AdminOnboarding from './AdminOnboarding';
 
-type Page = 'payments' | 'accounts' | 'features' | 'onboarding' | 'feedback' | 'users' | 'groups';
+type Page = 'payments' | 'accounts' | 'features' | 'onboarding' | 'feedback' | 'users' | 'groups' | 'activity' | 'broadcast';
+const LINKED_PAGES: Page[] = ['feedback', 'broadcast', 'activity'];
 type Copy = (th: string, en: string) => string;
 
 const baht = (minor: number) => formatCurrency(minor / 100);
@@ -67,7 +70,10 @@ export default function AdminDashboardPhone({
   const lang = language === 'th' ? 0 : 1;
   const locale = language === 'th' ? 'th-TH' : 'en-US';
   // The LINE alert for a new บอกเรา message opens the inbox straight away (?view=feedback).
-  const [page, setPage] = useState<Page | null>(() => (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('view') === 'feedback' ? 'feedback' : null));
+  const [page, setPage] = useState<Page | null>(() => {
+    const linked = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('view') as Page | null : null;
+    return linked && LINKED_PAGES.includes(linked) ? linked : null;
+  });
   const [account, setAccount] = useState<AdminAnalyticsAccount | null>(null);
   const [query, setQuery] = useState('');
   const [plan, setPlan] = useState<AccountPlanStatus | 'all'>('all');
@@ -243,6 +249,26 @@ export default function AdminDashboardPhone({
         {data && <div className="ksm-admin-onboarding"><AdminOnboarding data={data.onboarding} language={language} mobile /></div>}
       </>
     );
+  } else if (page === 'activity') {
+    // ผู้ใช้งาน (owner, 2026-11-03): who is on, who has gone quiet, and when people use the app.
+    body = (
+      <>
+        <MobilePageHero key="activity" title={copy('ผู้ใช้งาน', 'User activity')} {...back} />
+        {rangeSwitch}
+        <Suspense fallback={<SkeletonBlock className="mt-3 h-48 w-full rounded-2xl" />}>
+          <AdminActivity userId={userId} range={range} language={language} mobile />
+        </Suspense>
+      </>
+    );
+  } else if (page === 'broadcast') {
+    body = (
+      <>
+        <MobilePageHero key="broadcast" title={copy('ส่งข้อความถึงผู้ใช้', 'Message everyone')} {...back} />
+        <Suspense fallback={<SkeletonBlock className="mt-3 h-48 w-full rounded-2xl" />}>
+          <AdminBroadcast userId={userId} triggerConfirm={triggerConfirm} language={language} onOpenFeedback={() => go('feedback')} mobile />
+        </Suspense>
+      </>
+    );
   } else if (page === 'feedback' || page === 'users' || page === 'groups') {
     const titles: Record<'feedback' | 'users' | 'groups', string> = {
       feedback: copy('ข้อความจากผู้ใช้', 'User feedback'), users: copy('จัดการผู้ใช้', 'Manage users'), groups: copy('จัดการทีม', 'Manage groups'),
@@ -270,6 +296,8 @@ export default function AdminDashboardPhone({
       { key: 'accounts', icon: 'users', title: copy('รายบัญชี', 'Accounts'), sub: totals ? copy(`${totals.accounts} บัญชี · ค้นหาและกรอง`, `${totals.accounts} accounts · search and filter`) : copy('ค้นหาและกรอง', 'Search and filter'), needsData: true },
       { key: 'features', icon: 'chart', title: copy('การใช้ฟีเจอร์', 'Feature usage'), sub: bestFeature ? copy(`${featureLabels[bestFeature.key][0]} ใช้มากสุด ${bestFeature.activeUsers} คน`, `${featureLabels[bestFeature.key][1]} leads with ${bestFeature.activeUsers}`) : copy('Free และ Pro ใช้อะไร', 'What Free and Pro use'), needsData: true },
       { key: 'onboarding', icon: 'target', title: copy('ผู้ใช้ใหม่', 'New users'), sub: data?.onboarding ? copy(`ตอบแบบสอบถาม ${data.onboarding.completed + data.onboarding.skipped} บัญชี · กลุ่มอาชีพและสิ่งที่ใช้จริง`, `${data.onboarding.completed + data.onboarding.skipped} answered · groups and what they use`) : copy('กลุ่มอาชีพและสิ่งที่ใช้จริง', 'Groups and what they use'), needsData: true },
+      { key: 'activity', icon: 'users', title: copy('ผู้ใช้งาน', 'User activity'), sub: copy('ใครออนไลน์ ใครหายไปนาน ช่วงเวลาที่คนเข้าใช้', 'Who is on, who has gone quiet, when people use the app') },
+      { key: 'broadcast', icon: 'bell', title: copy('ส่งข้อความถึงผู้ใช้', 'Message everyone'), sub: copy('ข้อความขึ้นบนหน้าจอทุกคน พร้อมคะแนนและคำตอบ', 'A message on everyone’s screen, with scores and answers') },
       { key: 'feedback', icon: 'chat', title: copy('ข้อความจากผู้ใช้', 'User feedback'), sub: feedbackWaiting ? copy(`รอตอบ ${feedbackWaiting} เรื่อง · อ่านและตอบได้ที่นี่`, `${feedbackWaiting} waiting · read and answer here`) : copy('อ่านและตอบเรื่องที่ผู้ใช้ส่งมา', 'Read and answer what users sent') },
       { key: 'users', icon: 'shield', title: copy('จัดการผู้ใช้', 'Manage users'), sub: copy('สิทธิ์แอดมิน · ให้หรือยกเลิก Pro', 'Admin roles · grant or revoke Pro') },
       { key: 'groups', icon: 'briefcase', title: copy('จัดการทีม', 'Manage groups'), sub: copy('ทีม สมาชิก คำเชิญ และบทบาท', 'Groups, members, invitations, roles') },

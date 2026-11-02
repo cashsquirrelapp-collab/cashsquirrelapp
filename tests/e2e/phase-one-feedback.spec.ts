@@ -72,6 +72,8 @@ async function setup(page: Page, options: { admin?: boolean; guest?: boolean; se
   await page.route('**/api/vault', route => route.fulfill({ json: { files: [] } }));
   await page.route('**/api/account', route => route.fulfill({ json: { backupEmail: null } }));
   await page.route('**/api/usage-analytics', route => route.fulfill({ json: { ok: true } }));
+  // The team's message to everyone (2026-11-03): none is showing in these tests.
+  await page.route('**/api/broadcast*', route => route.fulfill({ json: { broadcast: null, results: [] } }));
   // เลขากระรอก asks once whether it is switched on (accounts that can see it only); here it is off.
   await page.route('**/api/assistant', route => route.fulfill({ json: { enabled: false, plan: 'admin', tokensLeft: null, trialLeft: null, resetsAt: null, tokenLimit: null, requestLimit: null } }));
   await page.route('**/api/admin-analytics?*', route => route.fulfill({ status: 503, json: { error: 'Analytics is temporarily unavailable' } }));

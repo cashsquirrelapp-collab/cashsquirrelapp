@@ -1,6 +1,7 @@
 // The visitor's cookie choice (owner, 2026-11-02: "ทำปุ่มยอมรับคุกกี้"). The site uses only the cookies sign-in and
-// security need, keeps some preferences in the browser, and counts feature use under a pseudonymous id (the privacy
-// policy, section 7). The one optional part is that count: "เฉพาะที่จำเป็น" turns it off for this browser.
+// security need, keeps some preferences in the browser, and keeps usage statistics: feature use, and when the account
+// is on the app (the privacy policy, sections 2 and 7). The one optional part is those statistics: "เฉพาะที่จำเป็น"
+// turns them off for this browser.
 // Kept in this browser only; the banner comes back when the choice is cleared or its version changes.
 
 export const COOKIE_CONSENT_KEY = 'krarok_cookie_consent';
@@ -18,9 +19,13 @@ export function readCookieConsent(): CookieConsent | null {
   }
 }
 
+/** Fired after a choice is saved, so a signed-in app can pass it on (App.tsx, usageAnalyticsApi.statsChoice). */
+export const COOKIE_CHOICE_EVENT = 'krarok:cookie-choice';
+
 export function saveCookieConsent(stats: boolean): CookieConsent {
   const value: CookieConsent = { v: 1, stats, at: new Date().toISOString() };
   try { window.localStorage.setItem(COOKIE_CONSENT_KEY, JSON.stringify(value)); } catch { /* storage blocked: asked again next visit */ }
+  try { window.dispatchEvent(new Event(COOKIE_CHOICE_EVENT)); } catch { /* no window events (tests) */ }
   return value;
 }
 

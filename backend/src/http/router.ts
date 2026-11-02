@@ -41,6 +41,8 @@ import feedback from '../handlers/feedback.js';
 import feedbackPublic from '../handlers/feedback-public.js';
 import publicStats from '../handlers/public-stats.js';
 import assistant from '../handlers/assistant.js';
+import adminActivity from '../handlers/admin-activity.js';
+import broadcast from '../handlers/broadcast.js';
 const routes:Record<string,Handler>={auth,data,groups,profile,account,billing,'recover-account':recoverAccount,'close-expired-accounts':closeExpiredAccounts,'admin-users':adminUsers,'admin-analytics':adminAnalytics,'confirm-email':confirmEmail,'usage-analytics':usageAnalytics,vault,'vault-upload':vaultUpload,'vault-file':vaultFile,'download-report':download,'line-session':lineSession,'liff-config':liffConfig,'liff-submit':liffSubmit,'line-link-code':lineLink,'line-webhook':lineWebhook,notify,'password-reset-email':reset,'password-reset-line':reset,'send-monthly-report':report,'send-overdue-digest':digest,'send-admin-profit-report':adminProfitReport,'advance-card-renewals':advanceCardRenewals,'setup-line-richmenu':setup,'stripe-webhook':stripe};
 const rawRoutes=new Set(['stripe-webhook','line-webhook','vault-upload']);
 routes.feedback = feedback;
@@ -56,6 +58,9 @@ routes['admin-ai-credit'] = adminAiCredit;
 routes['check-ai-credit'] = checkAiCredit;
 routes['send-wht50-reminder'] = wht50Reminder;
 routes['send-tax-season-reminder'] = taxSeasonReminder;
+// The admin page's ผู้ใช้งาน view, and the team's message to everyone with its answers (owner, 2026-11-03).
+routes['admin-activity'] = adminActivity;
+routes.broadcast = broadcast;
 export function routeHandler(route:string):Handler {
  return withGuard(async(req,res)=>{
   const handler=Object.hasOwn(routes,route)?routes[route]:undefined;if(!handler)throw new HttpError(404,'API not found');
@@ -68,7 +73,7 @@ export function routeHandler(route:string):Handler {
    try{req.body=raw.length?JSON.parse(raw.toString()):{};}catch{throw new HttpError(400,'Invalid JSON');}
   }
   await handler(req,res);
- },{csrf:['line-session','auth','data','groups','profile','account','billing','recover-account','admin-users','admin-analytics','admin-stripe-finance','admin-payment-readiness','admin-profit-live','admin-ai-credit','usage-analytics','line-link-code','password-reset-email','password-reset-line','notify','vault','vault-upload','feedback','feedback-public','assistant'].includes(route)});
+ },{csrf:['line-session','auth','data','groups','profile','account','billing','recover-account','admin-users','admin-analytics','admin-stripe-finance','admin-payment-readiness','admin-profit-live','admin-ai-credit','admin-activity','broadcast','usage-analytics','line-link-code','password-reset-email','password-reset-line','notify','vault','vault-upload','feedback','feedback-public','assistant'].includes(route)});
 }
 export default withGuard(async(req:VercelRequest,res:VercelResponse)=>{
  const route=req.query.route;

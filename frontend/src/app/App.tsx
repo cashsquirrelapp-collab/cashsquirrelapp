@@ -38,6 +38,7 @@ const FlexDisplay = lazy(() => import('../features/flex/FlexDisplay'));
 const AssistantBirth = lazy(() => import('../features/assistant/AssistantBirth'));
 const ProGuide = lazy(() => import('../features/assistant/ProGuide'));
 const ProKvBanner = lazy(() => import('../features/billing/ProKvBanner'));
+const BroadcastPrompt = lazy(() => import('../features/broadcast/BroadcastPrompt'));
 const WelcomeOnboarding = lazy(() => import('../features/onboarding/WelcomeOnboarding'));
 import type { OnboardingResult } from '../features/onboarding/WelcomeOnboarding';
 import { jobTypesForOccupations, onboardingRecord, personaForWorkType, shouldShowOnboarding, type OnboardingStatus } from '../../../shared/onboarding';
@@ -106,7 +107,7 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { nowInBangkok } from '../../../shared/monthlySummary';
 import { DEFAULT_DARK_FROM, DEFAULT_LIGHT_FROM, effectiveThemePreference, readThemePreference, scheduleIsDark, schedulePeriod, shouldOfferThemeTip, type ThemePreference } from '../../../shared/themeSchedule';
 import { ThemeTip, type ThemeTipChoice } from './ThemeTip';
-import { usageStatsAllowed } from '../services/cookieConsent';
+import { usageStatsAllowed, readCookieConsent, COOKIE_CHOICE_EVENT } from '../services/cookieConsent';
 import { buildBriefing } from '../../../shared/briefing';
 import { currentCash } from '../../../shared/cashBalance';
 import { Mascot } from '../components/mascot/Mascot';
@@ -842,6 +843,24 @@ export default function App() {
       window.clearInterval(interval);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
+  }, [loadingSession, session?.isGuest, session?.user?.id]);
+
+  // The cookie choice reaches the account once per app start, and again when it changes, so the admin page can tell
+  // "chose no statistics" from "not using the app" (owner, 2026-11-03). Only the choice is sent.
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId || session?.isGuest || loadingSession) return;
+    const send = () => {
+      const consent = readCookieConsent();
+      if (!consent) return;
+      const key = `krarok.statsChoice.${userId}`;
+      const value = consent.stats ? 'on' : 'off';
+      try { if (sessionStorage.getItem(key) === value) return; sessionStorage.setItem(key, value); } catch { /* storage blocked: sent each time */ }
+      void usageAnalyticsApi.statsChoice(userId, consent.stats).catch(() => { try { sessionStorage.removeItem(key); } catch { /* storage blocked */ } });
+    };
+    send();
+    window.addEventListener(COOKIE_CHOICE_EVENT, send);
+    return () => window.removeEventListener(COOKIE_CHOICE_EVENT, send);
   }, [loadingSession, session?.isGuest, session?.user?.id]);
 
   useEffect(() => {
@@ -3742,6 +3761,14 @@ export default function App() {
                 navigateTab('jobs');
               }}
               onOpenReceivables={() => { setCreditRadarOpen(false); navigateTab('receivables'); }} />
+          </Suspense>
+        )}
+        {/* The team's message to everyone (owner, 2026-11-03): once the account has loaded and nothing else is open. */}
+        {session && !session.isGuest && !financeGroupId && (
+          <Suspense fallback={null}>
+            <BroadcastPrompt key={session.user.id} accountId={session.user.id}
+              ready={accountLoaded && !onboardingFirst && !onboardingEdit && !birthOpen && !dialog.isOpen && !proKvOpen && !creditRadarOpen
+                && !showThemeTip && !isProPromoOpen && !accountSwitcherOpen && !isMobileMenuOpen} />
           </Suspense>
         )}
         {proKvOpen && (

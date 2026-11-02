@@ -74,13 +74,15 @@ test('essential cookies only: the app sends no usage statistics; with everything
   await page.waitForTimeout(1500);
   await page.goto('/jobs');
   await page.waitForTimeout(1500);
-  expect(off).toEqual([]);
+  // Only the choice itself reaches the account (so the admin page can say "statistics off"); no statistics are sent.
+  expect(off.filter(body => !body.includes('"stats-choice"'))).toEqual([]);
+  expect(off.map(body => JSON.parse(body))).toContainEqual({ action: 'stats-choice', stats: false });
 
   const context = await page.context().browser()!.newContext({ baseURL: page.url().replace(/\/jobs.*$/, ''), storageState: { cookies: [], origins: [] } });
   const other = await context.newPage();
   const on = await signedIn(other, { consent: true });
   await other.goto('/dashboard');
-  await expect.poll(() => on.length, { timeout: 8000 }).toBeGreaterThan(0);
+  await expect.poll(() => on.filter(body => !body.includes('"stats-choice"')).length, { timeout: 8000 }).toBeGreaterThan(0);
   await context.close();
 });
 
