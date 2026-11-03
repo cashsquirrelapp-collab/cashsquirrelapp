@@ -3617,6 +3617,12 @@ export default function App() {
                   triggerAlert={triggerAlert}
                   onOpenDocuments={() => navigateTab('invoice')}
                   onOpenVault={() => navigateTab('vault')}
+                  onSetNotNeeded={(job, notNeeded) => {
+                    // Owner, 2026-11-04: "ปุ่มไม่ต้องตามใบนี้รายงาน". Saved on the job; the LINE reminder and เลขา follow it.
+                    handleEditJob(job.id, { wht50NotNeeded: notNeeded }, notNeeded
+                      ? { title: tr("ไม่ต้องตามใบ 50 ทวิของงานนี้แล้ว"), message: tr("ไม่อยู่ในรายการยังรอ และไม่ถูกเตือนใน LINE · กลับมาติดตามได้ที่แท็บทั้งหมด") }
+                      : { title: tr("กลับมาติดตามใบ 50 ทวิแล้ว"), message: tr("งานนี้อยู่ในรายการยังรออีกครั้ง") });
+                  }}
                 />
               )}
               {activeTab === 'receivables' && (

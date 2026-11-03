@@ -4,7 +4,7 @@ import { isEWhtJob, jobNetReceivable, jobWhtAmount } from './wht.js';
 import { nowInBangkok } from './monthlySummary.js';
 
 // One canonical calculation for both the app and LINE; no storage or network access.
-export type WhtTrackingJob = Pick<Job, 'id' | 'value' | 'received' | 'paymentStatus' | 'payDate' | 'depositDate' | 'installments' | 'whtRate' | 'whtAmount'> & { pending?: number };
+export type WhtTrackingJob = Pick<Job, 'id' | 'value' | 'received' | 'paymentStatus' | 'payDate' | 'depositDate' | 'installments' | 'whtRate' | 'whtAmount' | 'wht50NotNeeded'> & { pending?: number };
 
 // Where a job stands on its 50 ทวิ (withholding tax certificate).
 //  none     – no withholding tax on this job
@@ -13,7 +13,8 @@ export type WhtTrackingJob = Pick<Job, 'id' | 'value' | 'received' | 'paymentSta
 //  eWht     – withheld at 1% through e-Withholding Tax: no certificate to wait for, the
 //             evidence is in the Revenue Department's system (see isEWhtJob)
 //  have     – at least one certificate file attached
-export type Wht50Status = 'none' | 'notYet' | 'waiting' | 'eWht' | 'have';
+//  notNeeded – the account chose not to chase a certificate for this job (2026-11-04); a file attached anyway counts as have
+export type Wht50Status = 'none' | 'notYet' | 'waiting' | 'eWht' | 'have' | 'notNeeded';
 export type Wht50TaxYear = number | 'unknown';
 
 const actualDateKey = (value: string | null | undefined): string | null => {
@@ -48,6 +49,7 @@ export function wht50StatusOf(job: WhtTrackingJob, files: VaultFile[]): Wht50Sta
   if (jobWhtAmount(job) <= 0) return 'none';
   if (wht50Files(job, files).length > 0) return 'have';
   if (isEWhtJob(job)) return 'eWht';
+  if (job.wht50NotNeeded === true) return 'notNeeded';
   return isWht50Trackable(job) ? 'waiting' : 'notYet';
 }
 

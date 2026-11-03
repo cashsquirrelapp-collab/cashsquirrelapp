@@ -1,5 +1,6 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
 import { noRadar } from './radarVisit';
+import { textOverlapIssues } from './textOverlap';
 
 const user = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -360,4 +361,40 @@ test('a 1% job is e-WHT: counted as backed, never waited on, and a file can stil
   await expect(row).toContainText('e-WHTไม่ต้องรอใบ 50 ทวิ');
   await row.getByRole('button', { name: 'แนบเอกสารของ Bank e-WHT Campaign (ถ้ามี)' }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
+});
+
+// Owner, 2026-11-04: "ปุ่มไม่ต้องตามใบนี้รายงาน". A waiting job can be left out: it is saved on the job, leaves ยังรอ, shows
+// under ทั้งหมด as ไม่ตามใบ with its tax counted apart, and กลับมาติดตาม brings it back. Computers and phones.
+const shot = async (page: Page, name: string) => { if (process.env.SHOT_DIR) { await page.waitForTimeout(700); await page.screenshot({ path: `${process.env.SHOT_DIR}/${name}.png`, fullPage: true }); } };
+for (const width of [1365, 390]) test(`${width}px: ไม่ต้องตามใบนี้ leaves a job out, saved on the job, and กลับมาติดตาม brings it back`, async ({ page }) => {
+  const saved: string[] = [];
+  page.on('request', request => { if (request.method() === 'POST' && request.url().includes('/api/data')) saved.push(request.postData() || ''); });
+  await page.addInitScript(() => {
+    localStorage.setItem('cashflow_dark_mode', 'false');
+    localStorage.setItem('cashflow_theme_auto_period', String(Math.floor((Date.now() + 7 * 3600e3 - 6 * 3600e3) / (12 * 3600e3))));
+  });
+  await setup(page);
+  await page.setViewportSize({ width, height: 900 });
+  await page.goto(noRadar('/wht50'));
+  const statuses = page.getByRole('tablist', { name: 'สถานะใบ 50 ทวิ' });
+  await expect(statuses.getByRole('tab', { name: /^ยังรอ/ })).toContainText('6');
+  await shot(page, `skip-${width}-waiting`);
+  const rowOf = (name: string) => (width > 1000 ? page.getByRole('table').locator('tbody tr') : page.locator('.dp-whtrow')).filter({ hasText: name });
+  const waitingRow = rowOf('Waiting Campaign 3');
+  await waitingRow.getByTestId('wht-skip-toggle').click();
+  await expect(page.getByText('ไม่ต้องตามใบ 50 ทวิของงานนี้แล้ว')).toBeVisible();
+  await expect(statuses.getByRole('tab', { name: /^ยังรอ/ })).toContainText('5');
+  await expect(page.getByTestId('wht-skipped')).toContainText('฿390');
+  await expect.poll(() => saved.some(body => /"id":"wht-job-3"[^}]*"wht50NotNeeded":true|"wht50NotNeeded":true[^}]*"id":"wht-job-3"/.test(body))).toBe(true);
+  if (width > 1000) await expect(page.getByLabel('สรุปการติดตามใบ 50 ทวิ')).toContainText('7 งานที่ต้องมีใบ 50 ทวิ · ไม่ตามใบ 1 งาน');
+  await statuses.getByRole('tab', { name: /^ทั้งหมด/ }).click();
+  const skippedRow = rowOf('Waiting Campaign 3').filter({ hasText: 'ไม่ตามใบ' });
+  await expect(skippedRow).toHaveCount(1);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await skippedRow.scrollIntoViewIfNeeded();
+  await shot(page, `skip-${width}-all`);
+  await skippedRow.getByTestId('wht-skip-toggle').click();
+  await expect(page.getByText('กลับมาติดตามใบ 50 ทวิแล้ว')).toBeVisible();
+  await expect(statuses.getByRole('tab', { name: /^ยังรอ/ })).toContainText('6');
+  await expect(page.getByTestId('wht-skipped')).toHaveCount(0);
 });

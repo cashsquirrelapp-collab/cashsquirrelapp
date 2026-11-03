@@ -34,6 +34,9 @@ export interface Job {
   hoursSpent?: number; // จำนวนชั่วโมงที่ใช้ทำงานชิ้นนี้ (สำหรับคำนวณ ฿/ชม.)
   whtRate?: number; // หัก ณ ที่จ่าย (%)
   whtAmount?: number; // หัก ณ ที่จ่าย (บาท)
+  /** The account chose not to chase a 50 ทวิ for this job (owner, 2026-11-04: "ปุ่มไม่ต้องตามใบนี้รายงาน"): it is not
+   *  waited on or reminded; its withheld tax still counts, shown apart from what a certificate backs. */
+  wht50NotNeeded?: boolean;
   whtDocId?: string; // Reference to a withholding tax document in settings.whtDocuments
   excludeHolidays?: boolean; // ไม่นับวันหยุดราชการและเสาร์-อาทิตย์ ในการคำนวณวันดีล/เครดิตเทอม
   followUpCount?: number; // จำนวนครั้งที่ติดตามทวงถามเครดิตเทอม

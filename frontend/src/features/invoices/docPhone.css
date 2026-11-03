@@ -239,6 +239,8 @@ html[data-dp-task] #main-content.ksm-home-scroller { padding-bottom: 12px; }
 .dp-whtbar > span { flex-basis: 0; min-width: 6px; border-radius: 4px; }
 .dp-whtbar > .is-have, .dp-legend i.is-have { background: var(--ksm-success); }
 .dp-whtbar > .is-waiting, .dp-legend i.is-waiting { background: #E3A23B; }
+/* Jobs the account chose not to chase (ไม่ตามใบ, 2026-11-04): grey, apart from backed and waiting. */
+.dp-whtbar > .is-skip, .dp-legend i.is-skip { background: #B8B1AA; }
 .dp-legend { margin-top: 10px; display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; line-height: 1.5; }
 .dp-legend > div { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .dp-legend dt { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
@@ -253,6 +255,9 @@ html[data-dp-task] #main-content.ksm-home-scroller { padding-bottom: 12px; }
 .dp-statchip { align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; padding: 1px 8px; border-radius: 999px; font-size: 12px !important; font-weight: 500; line-height: 1.5; }
 .dp-statchip.is-waiting { background: var(--dp-i-bg); color: var(--dp-i-fg) !important; }
 .dp-statchip.is-have, .dp-statchip.is-eWht { background: var(--dp-r-bg); color: var(--dp-r-fg) !important; }
+.dp-statchip.is-notNeeded { background: rgba(120, 113, 108, 0.13); color: var(--ksm-secondary) !important; }
+/* The quiet ไม่ต้องตามใบนี้ / กลับมาติดตาม under a row's chip: text only, a finger-sized target. */
+.dp-skipbtn { align-self: flex-start; min-height: 36px; margin-top: 2px; padding: 6px 0; border: 0; background: none; font-size: 13px; font-weight: 600; line-height: 1.45; color: var(--ksm-secondary); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .dp-attach { flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 12px; border: 1px solid var(--ksm-border); border-radius: 10px; background: var(--ksm-surface); font-size: 14px; font-weight: 600; line-height: 1.45; color: var(--ksm-text); cursor: pointer; }
 .dp-select { position: relative; display: block; }
 .dp-select > select { display: block; width: 100%; min-height: 40px; padding: 0 28px 0 0; border: 0; background: transparent; appearance: none; -webkit-appearance: none; font-size: 16px; font-weight: 500; line-height: 1.5; color: var(--ksm-text); outline: none; }

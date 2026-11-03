@@ -11,14 +11,14 @@ export type VaultLoader = () => Promise<VaultFile[]>;
 const paging = { offset: z.number().int().min(0).max(100_000).default(0), limit: z.number().int().min(1).max(25).default(10) };
 const query = z.string().trim().max(200).default('');
 const filesSchema = z.object({ query, kind: z.enum(['all', ...VAULT_KINDS]).default('all'), job_id: z.string().max(120).optional(), ...paging }).strict();
-const trackingSchema = z.object({ query, status: z.enum(['all', 'none', 'notYet', 'waiting', 'eWht', 'have']).default('all'), year: z.number().int().optional(), ...paging }).strict();
+const trackingSchema = z.object({ query, status: z.enum(['all', 'none', 'notYet', 'waiting', 'eWht', 'have', 'notNeeded']).default('all'), year: z.number().int().optional(), ...paging }).strict();
 const pageProps = { offset: { type: 'integer', minimum: 0 }, limit: { type: 'integer', minimum: 1, maximum: 25 } };
 export const VAULT_TOOLS: ToolSpec[] = [
   { name: 'search_vault', description: 'Search this account’s saved file metadata by filename, client, job or kind. Does NOT read file contents. Returns count and pagination; no download URLs or storage credentials.', parameters: { type: 'object', properties: {
     query: { type: 'string' }, kind: { type: 'string', enum: ['all', ...VAULT_KINDS] }, job_id: { type: 'string', description: 'Own job or expense ID from another tool' }, ...pageProps,
   } } },
   { name: 'wht_tracking', description: 'Check which own jobs have or are waiting for withholding certificates (50 ทวิ), using the app’s saved-file status rules. Optional year uses the latest actual receipt date, NOT a full tax-year income allocation. File metadata only.', parameters: { type: 'object', properties: {
-    query: { type: 'string' }, status: { type: 'string', enum: ['all', 'none', 'notYet', 'waiting', 'eWht', 'have'] }, year: { type: 'integer', description: 'Calendar year CE or BE; jobs with unknown receipt dates are reported separately' }, ...pageProps,
+    query: { type: 'string' }, status: { type: 'string', enum: ['all', 'none', 'notYet', 'waiting', 'eWht', 'have', 'notNeeded'] }, year: { type: 'integer', description: 'Calendar year CE or BE; jobs with unknown receipt dates are reported separately' }, ...pageProps,
   } } },
 ];
 /**

@@ -172,3 +172,21 @@ test('a fully withheld settled job still needs its certificate', () => {
   assert.equal(paidYearOf(notYetPaid), null);
   assert.equal(wht50StatusOf(notYetPaid, []), 'notYet');
 });
+
+// Owner, 2026-11-04: "ปุ่มไม่ต้องตามใบนี้รายงาน". A job marked not needed is never waited on; a certificate attached anyway
+// still counts as have, and e-WHT stays e-WHT.
+test('not needed: a marked job is not waiting; a file attached anyway is have; e-WHT and no-WHT keep their status', () => {
+  assert.equal(wht50StatusOf(job(), []), 'waiting');
+  assert.equal(wht50StatusOf(job({ wht50NotNeeded: true }), []), 'notNeeded');
+  assert.equal(wht50StatusOf(job({ wht50NotNeeded: true }), [file('f1')]), 'have');
+  assert.equal(wht50StatusOf(job({ wht50NotNeeded: true, whtRate: 1, whtAmount: 100 }), []), 'eWht');
+  assert.equal(wht50StatusOf(job({ wht50NotNeeded: true, whtRate: 0, whtAmount: 0 }), []), 'none');
+  assert.equal(wht50StatusOf(job({ wht50NotNeeded: false }), []), 'waiting', 'chased again');
+});
+
+test('not needed: the monthly LINE reminder leaves the job out', async () => {
+  const { findWaitingWht50Jobs } = await import('../backend/src/services/lineWht50Reminders.js');
+  const now = new Date('2026-12-01T01:05:00Z');
+  const waiting = findWaitingWht50Jobs([job({ id: 'a' }), job({ id: 'b', wht50NotNeeded: true })], [], now);
+  assert.deepEqual(waiting.map(item => item.job.id), ['a']);
+});

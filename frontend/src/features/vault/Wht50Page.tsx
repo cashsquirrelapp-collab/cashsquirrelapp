@@ -12,8 +12,10 @@ import { isWht50Trackable, paidYearOf, type Wht50TaxYear } from './vaultStatus';
 import { tr } from '../../i18n/tr';
 import { displayYear } from '../../utils';
 // เอกสาร › ติดตามใบ 50 ทวิ: a dedicated follow-up page under เอกสาร.
-export default function Wht50Page({ jobs, triggerAlert, onOpenDocuments, onOpenVault, onMobileBack }: {
+export default function Wht50Page({ jobs, triggerAlert, onOpenDocuments, onOpenVault, onMobileBack, onSetNotNeeded }: {
   jobs: Job[];
+  /** ไม่ต้องตามใบนี้ / กลับมาติดตาม on one job (2026-11-04). */
+  onSetNotNeeded?: (job: Job, notNeeded: boolean) => void;
   triggerAlert: (title: string, message: string) => void;
   onOpenDocuments: () => void;
   onOpenVault: () => void;
@@ -51,7 +53,7 @@ export default function Wht50Page({ jobs, triggerAlert, onOpenDocuments, onOpenV
             <button type="button" className="ksm-btn is-soft" onClick={() => setYear('unknown')}>{tr("ดูรายการ")}</button>
           </div>
         )}
-        <Wht50Panel jobs={jobs} triggerAlert={triggerAlert} year={year} onOpenVault={onOpenVault} />
+        <Wht50Panel jobs={jobs} triggerAlert={triggerAlert} year={year} onOpenVault={onOpenVault} onSetNotNeeded={onSetNotNeeded} />
       </div>
     );
   }
@@ -81,7 +83,7 @@ export default function Wht50Page({ jobs, triggerAlert, onOpenDocuments, onOpenV
           </div>
         </PageHeader>
       </div>
-      <Wht50Panel jobs={jobs} triggerAlert={triggerAlert} year={year} onOpenVault={onOpenVault} />
+      <Wht50Panel jobs={jobs} triggerAlert={triggerAlert} year={year} onOpenVault={onOpenVault} onSetNotNeeded={onSetNotNeeded} />
     </div>
   );
 }

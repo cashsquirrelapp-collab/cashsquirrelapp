@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertCircle, CheckCircle2, Download, FileText, FolderOpen, Paperclip, RefreshCw, Search } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Download, EyeOff, FileText, FolderOpen, Paperclip, RefreshCw, Search } from 'lucide-react';
 import type { Job } from '../../../../shared/types';
 import type { VaultFile } from '../../../../shared/vault';
 import { jobWhtAmount } from '../../../../shared/wht';
@@ -37,7 +37,7 @@ type Sort = 'waiting' | 'latest' | 'wht' | 'value';
 type TrackingRow = {
   job: Job;
   files: VaultFile[];
-  status: 'have' | 'eWht' | 'waiting';
+  status: 'have' | 'eWht' | 'waiting' | 'notNeeded';
   paidDate: string | null;
   waitingDays: number | null;
 };
@@ -56,11 +56,13 @@ const compareKnownDates = (a: string | null, b: string | null, newestFirst = fal
   return newestFirst ? b.localeCompare(a) : a.localeCompare(b);
 };
 
-export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault }: {
+export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault, onSetNotNeeded }: {
   jobs: Job[];
   triggerAlert: (title: string, message: string) => void;
   year: Wht50TaxYear;
   onOpenVault: () => void;
+  /** ไม่ต้องตามใบนี้ / กลับมาติดตาม on a job (owner, 2026-11-04): saved on the job, so the reminder and เลขา follow it. */
+  onSetNotNeeded?: (job: Job, notNeeded: boolean) => void;
 }) {
   const vault = useVault();
   const [filter, setFilter] = React.useState<Filter>('waiting');
@@ -80,7 +82,7 @@ export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault }: {
       return {
         job,
         files,
-        status: status === 'have' || status === 'eWht' ? status : 'waiting',
+        status: status === 'have' || status === 'eWht' || status === 'notNeeded' ? status : 'waiting',
         paidDate: receivedPaymentDateOf(job),
         waitingDays: wht50WaitingDays(job),
       };
@@ -89,6 +91,8 @@ export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault }: {
   const have = rows.filter(row => row.status === 'have');
   const eWht = rows.filter(row => row.status === 'eWht');
   const waiting = rows.filter(row => row.status === 'waiting');
+  // Jobs the account chose not to chase: not waited on, not counted as backed; their tax still counts in the total.
+  const skipped = rows.filter(row => row.status === 'notNeeded');
   const needCertificate = have.length + waiting.length;
   const receivedFileCount = have.reduce((sum, row) => sum + row.files.length, 0);
   // Tax withheld on these jobs. With a 50 ทวิ, or e-WHT data at the Revenue Department, it can be
@@ -98,8 +102,10 @@ export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault }: {
   const whtTotal = withheld(rows);
   const whtHave = withheld(have) + withheld(eWht);
   const whtWaiting = withheld(waiting);
+  const whtSkipped = withheld(skipped);
   const share = needCertificate ? Math.round((have.length / needCertificate) * 100) : 0;
   const eWhtPart = eWht.length ? tr(" · e-WHT {0} งาน", eWht.length) : '';
+  const skippedPart = skipped.length ? tr(" · ไม่ตามใบ {0} งาน", skipped.length) : '';
   const q = query.trim().toLocaleLowerCase();
   const shown = rows
     .filter(row => filter === 'all' || row.status === filter || (filter === 'have' && row.status === 'eWht'))
@@ -109,7 +115,7 @@ export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault }: {
       if (sort === 'wht') return jobWhtAmount(b.job) - jobWhtAmount(a.job) || a.job.name.localeCompare(b.job.name, 'th');
       if (sort === 'value') return (b.job.value || 0) - (a.job.value || 0) || a.job.name.localeCompare(b.job.name, 'th');
       if (sort === 'latest') return compareKnownDates(a.paidDate, b.paidDate, true) || a.job.name.localeCompare(b.job.name, 'th');
-      const waitingFirst = Number(b.status === 'waiting') - Number(a.status === 'waiting');
+      const waitingFirst = Number(b.status === 'waiting') - Number(a.status === 'waiting') || Number(a.status === 'notNeeded') - Number(b.status === 'notNeeded');
       return waitingFirst || compareKnownDates(a.paidDate, b.paidDate) || a.job.name.localeCompare(b.job.name, 'th');
     });
 
@@ -145,6 +151,11 @@ export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault }: {
           <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-brand-faint px-2.5 py-1 text-xs font-medium text-brand-text"><CheckCircle2 className="h-3.5 w-3.5 text-[#18A66A] dark:text-[#6FD3A3]" />e-WHT</span>
           <span className="block text-[11px] text-brand-muted">{tr("ไม่ต้องรอใบ 50 ทวิ")}</span>
         </span>
+    : row.status === 'notNeeded'
+      ? <span className="block space-y-0.5" data-testid="wht-notneeded-chip">
+          <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-brand-faint px-2.5 py-1 text-xs font-medium text-brand-muted"><EyeOff className="h-3.5 w-3.5" />{tr("ไม่ตามใบ")}</span>
+          <span className="block text-[11px] text-brand-muted">{tr("เลือกไว้ว่าไม่ต้องใช้ใบ 50 ทวิ")}</span>
+        </span>
       : <span className="inline-flex items-center gap-1 rounded-full bg-[#FFF4D8] px-2.5 py-1 text-xs font-medium text-[#93620A] dark:bg-[#F2B84B]/10 dark:text-[#F2C66D]"><span className="h-1.5 w-1.5 rounded-full bg-current" />{tr("รอใบ 50 ทวิ")}</span>;
   const waitingCell = (row: TrackingRow) => (
     <div className="space-y-0.5">
@@ -158,13 +169,22 @@ export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault }: {
     ? <button type="button" aria-label={tr("ดูเอกสารของ {0}", row.job.name)} onClick={() => vault.openJob(row.job)}
       className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-brand-border px-3 text-xs font-medium text-brand-text hover:bg-brand-faint cursor-pointer ${wide ? 'w-full' : ''}`}>
         <FileText className="h-3.5 w-3.5" />{tr("ดูเอกสาร")}</button>
-    : row.status === 'eWht'
+    : row.status === 'eWht' || row.status === 'notNeeded'
       ? <button type="button" aria-label={tr("แนบเอกสารของ {0} (ถ้ามี)", row.job.name)} onClick={() => vault.openUpload({ kind: 'wht50', job: row.job })}
         className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-brand-border px-3 text-xs font-medium text-brand-muted hover:bg-brand-faint hover:text-brand-text cursor-pointer ${wide ? 'w-full' : ''}`}>
           <Paperclip className="h-3.5 w-3.5" />{tr("แนบ (ถ้ามี)")}</button>
     : <button type="button" aria-label={tr("แนบใบ 50 ทวิสำหรับ {0}", row.job.name)} onClick={() => vault.openUpload({ kind: 'wht50', job: row.job })}
       className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-[#F3B08C] px-3 text-xs font-semibold text-[#C24A16] hover:bg-[#FFF5EE] dark:border-[#E65F2B]/40 dark:text-[#FF9A6B] dark:hover:bg-[#E65F2B]/10 cursor-pointer ${wide ? 'w-full' : ''}`}>
         <Paperclip className="h-3.5 w-3.5" />{tr("แนบใบ 50 ทวิ")}</button>;
+  const canSkip = (row: TrackingRow) => Boolean(onSetNotNeeded) && (row.status === 'waiting' || row.status === 'notNeeded');
+  const toggleSkip = (row: TrackingRow) => onSetNotNeeded?.(row.job, row.status === 'waiting');
+  // A quiet text button under the row's action: the attach button stays the one to press.
+  const skipLink = (row: TrackingRow, wide = false) => canSkip(row) ? (
+    <button type="button" onClick={() => toggleSkip(row)} data-testid="wht-skip-toggle"
+      aria-label={row.status === 'waiting' ? tr("ไม่ต้องตามใบ 50 ทวิของ {0}", row.job.name) : tr("กลับมาติดตามใบ 50 ทวิของ {0}", row.job.name)}
+      className={`mt-1.5 inline-flex min-h-8 items-center text-xs font-medium text-brand-muted underline-offset-2 hover:text-brand-text hover:underline cursor-pointer ${wide ? 'w-full justify-center' : ''}`}>
+      {row.status === 'waiting' ? tr("ไม่ต้องตามใบนี้") : tr("กลับมาติดตาม")}</button>
+  ) : null;
   const menu = (row: TrackingRow) => (
     <RowMenu label={tr("ตัวเลือกของ {0}", row.job.name)} items={[
       ...(row.files.length ? [
@@ -172,6 +192,7 @@ export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault }: {
         { label: tr("จัดการไฟล์"), run: () => vault.openJob(row.job) },
       ] : []),
       { label: row.files.length ? tr("แนบเอกสารเพิ่ม") : tr("แนบเอกสาร"), run: () => vault.openUpload({ kind: 'wht50', job: row.job }) },
+      ...(canSkip(row) ? [{ label: row.status === 'waiting' ? tr("ไม่ต้องตามใบนี้") : tr("กลับมาติดตาม"), run: () => toggleSkip(row) }] : []),
     ]} />
   );
 
@@ -210,12 +231,13 @@ export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault }: {
     ? tr("งานที่ยังรอเอกสาร ({0})", waiting.length)
     : filter === 'have'
       ? tr("งานที่มีหลักฐานแล้ว ({0})", have.length + eWht.length)
-      : eWht.length ? tr("งานทั้งหมดที่หัก ณ ที่จ่าย ({0})", rows.length) : tr("งานทั้งหมดที่ต้องมีใบ 50 ทวิ ({0})", rows.length);
+      : eWht.length || skipped.length ? tr("งานทั้งหมดที่หัก ณ ที่จ่าย ({0})", rows.length) : tr("งานทั้งหมดที่ต้องมีใบ 50 ทวิ ({0})", rows.length);
   const sectionHelper = filter === 'waiting'
     ? tr("ควรติดตามตามลำดับจากงานที่รอนานที่สุด")
     : filter === 'have'
       ? eWht.length ? tr("ใบ 50 ทวิที่แนบไว้ และงานที่หัก 1% ผ่าน e-WHT") : tr("เปิดดูหรือจัดการไฟล์ที่ได้รับแล้ว")
-      : eWht.length ? tr("รวมงานที่ยังรอ งานที่ได้รับเอกสารแล้ว และงานที่หักผ่าน e-WHT") : tr("รวมงานที่ยังรอและงานที่ได้รับเอกสารแล้ว");
+      : skipped.length ? tr("รวมงานที่ยังรอ งานที่มีหลักฐานแล้ว และงานที่ไม่ตามใบ")
+        : eWht.length ? tr("รวมงานที่ยังรอ งานที่ได้รับเอกสารแล้ว และงานที่หักผ่าน e-WHT") : tr("รวมงานที่ยังรอและงานที่ได้รับเอกสารแล้ว");
 
   const emptyState = (() => {
     if (q) return { title: tr("ไม่พบงานที่ตรงกับคำค้นหา"), copy: tr("ลองค้นหาด้วยชื่องานหรือลูกค้าอื่น") };
@@ -236,15 +258,17 @@ export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault }: {
         <section aria-label={tr("สรุปการติดตามใบ 50 ทวิ")} aria-live="polite" className="dp-card dp-summary dp-wht">
           <p className="dp-muted">{tr("ภาษีถูกหัก ณ ที่จ่ายรวม · {0} งาน", rows.length)}</p>
           <p className="dp-big dp-money" data-testid="wht-total">{exactBaht(whtTotal)}</p>
-          {whtHave + whtWaiting > 0 && (
+          {whtHave + whtWaiting + whtSkipped > 0 && (
             <div className="dp-whtbar" aria-hidden="true">
               {whtHave > 0 && <span className="is-have" style={{ flexGrow: whtHave }} />}
               {whtWaiting > 0 && <span className="is-waiting" style={{ flexGrow: whtWaiting }} />}
+              {whtSkipped > 0 && <span className="is-skip" style={{ flexGrow: whtSkipped }} />}
             </div>
           )}
           <dl className="dp-legend">
             <div><dt><i className="is-have" aria-hidden="true" />{tr("มีหลักฐานแล้ว · {0} งาน", have.length + eWht.length)}</dt><dd className="dp-money" data-testid="wht-have">{exactBaht(whtHave)}</dd></div>
             <div><dt><i className="is-waiting" aria-hidden="true" />{tr("ยังไม่มีเอกสาร · {0} งาน", waiting.length)}</dt><dd className="dp-money" data-testid="wht-waiting">{exactBaht(whtWaiting)}</dd></div>
+            {skipped.length > 0 && <div><dt><i className="is-skip" aria-hidden="true" />{tr("ไม่ตามใบ · {0} งาน", skipped.length)}</dt><dd className="dp-money" data-testid="wht-skipped">{exactBaht(whtSkipped)}</dd></div>}
           </dl>
           <button type="button" className="dp-linkbtn" onClick={() => setNoteOpen(true)} aria-haspopup="dialog">{tr("ภาษีที่ถูกหักใช้ทำอะไร")}<KsIcon name="chevron" size={15} /></button>
         </section>
@@ -277,19 +301,27 @@ export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault }: {
                     <b>{row.job.client || row.job.name}</b>
                     <span>{tr("{0} · หัก {1}", row.job.name, formatCurrency(jobWhtAmount(row.job)))}</span>
                     <span className={`dp-statchip is-${row.status}`}>
-                      <KsIcon name={row.status === 'waiting' ? 'clock' : 'check'} size={13} />
+                      <KsIcon name={row.status === 'waiting' ? 'clock' : row.status === 'notNeeded' ? 'eyeOff' : 'check'} size={13} />
                       {row.status === 'have'
                         ? tr("ได้รับแล้ว · {0} ไฟล์", row.files.length)
                         : row.status === 'eWht'
                           ? tr("หักผ่าน e-WHT · ไม่ต้องรอใบ")
-                          : row.waitingDays === null ? tr("ยังรอเอกสาร") : row.waitingDays === 0 ? tr("รอตั้งแต่วันนี้") : tr("รอมา {0} วัน", row.waitingDays)}
+                          : row.status === 'notNeeded'
+                            ? tr("ไม่ตามใบ")
+                            : row.waitingDays === null ? tr("ยังรอเอกสาร") : row.waitingDays === 0 ? tr("รอตั้งแต่วันนี้") : tr("รอมา {0} วัน", row.waitingDays)}
                     </span>
+                    {canSkip(row) && (
+                      <button type="button" className="dp-skipbtn" onClick={() => toggleSkip(row)} data-testid="wht-skip-toggle"
+                        aria-label={row.status === 'waiting' ? tr("ไม่ต้องตามใบ 50 ทวิของ {0}", row.job.name) : tr("กลับมาติดตามใบ 50 ทวิของ {0}", row.job.name)}>
+                        {row.status === 'waiting' ? tr("ไม่ต้องตามใบนี้") : tr("กลับมาติดตาม")}
+                      </button>
+                    )}
                   </span>
                   <button type="button" className="dp-attach"
-                    aria-label={row.status === 'have' ? tr("ดูเอกสารของ {0}", row.job.name) : row.status === 'eWht' ? tr("แนบเอกสารของ {0} (ถ้ามี)", row.job.name) : tr("แนบใบ 50 ทวิสำหรับ {0}", row.job.name)}
+                    aria-label={row.status === 'have' ? tr("ดูเอกสารของ {0}", row.job.name) : row.status === 'eWht' || row.status === 'notNeeded' ? tr("แนบเอกสารของ {0} (ถ้ามี)", row.job.name) : tr("แนบใบ 50 ทวิสำหรับ {0}", row.job.name)}
                     onClick={() => (row.status === 'have' ? vault.openJob(row.job) : vault.openUpload({ kind: 'wht50', job: row.job }))}>
                     {row.status === 'have' ? <FileText size={16} aria-hidden="true" /> : <Paperclip size={16} aria-hidden="true" />}
-                    {row.status === 'have' ? tr("ดูไฟล์") : row.status === 'eWht' ? tr("แนบ (ถ้ามี)") : tr("แนบใบ")}
+                    {row.status === 'have' ? tr("ดูไฟล์") : row.status === 'eWht' || row.status === 'notNeeded' ? tr("แนบ (ถ้ามี)") : tr("แนบใบ")}
                   </button>
                 </li>
               ))}
@@ -342,7 +374,7 @@ export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault }: {
           <div className="col-span-2 min-w-0 border-b border-brand-border px-4 py-3 sm:col-span-1 sm:border-b-0 sm:border-r sm:px-5 sm:py-5">
             <p className="inline-flex items-center gap-1.5 text-[11px] text-brand-muted sm:text-xs">{tr("ภาษีหัก ณ ที่จ่ายรวม")}</p>
             <p className="mt-1 font-mono text-[24px] font-semibold leading-8 text-brand-text tabular-nums" data-testid="wht-total">{exactBaht(whtTotal)}</p>
-            <p className="mt-0.5 text-[11px] text-brand-muted sm:text-xs">{tr("{0} งานที่ต้องมีใบ 50 ทวิ{1}", needCertificate, eWhtPart)}</p>
+            <p className="mt-0.5 text-[11px] text-brand-muted sm:text-xs">{tr("{0} งานที่ต้องมีใบ 50 ทวิ{1}", needCertificate, eWhtPart + skippedPart)}</p>
           </div>
           <div className="min-w-0 border-r border-brand-border px-4 py-3 sm:px-5 sm:py-5">
             <p className="inline-flex items-center gap-1.5 text-[11px] text-brand-muted sm:text-xs"><span className="h-1.5 w-1.5 rounded-full bg-[#18A66A]" />{tr("มีหลักฐานรองรับ")}</p>
@@ -353,6 +385,7 @@ export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault }: {
             <p className="inline-flex items-center gap-1.5 text-[11px] text-brand-muted sm:text-xs"><span className="h-1.5 w-1.5 rounded-full bg-[#E79A24]" />{tr("ยังไม่มีเอกสาร")}</p>
             <p className="mt-1 font-mono text-[24px] font-semibold leading-8 text-[#A9650B] tabular-nums dark:text-[#F2C66D]" data-testid="wht-waiting">{exactBaht(whtWaiting)}</p>
             <p className="mt-0.5 text-[11px] text-brand-muted sm:text-xs">{tr("ยังรอ {0} งาน · ต้องได้ใบ 50 ทวิก่อนจึงใช้ได้", waiting.length)}</p>
+            {skipped.length > 0 && <p className="mt-0.5 text-[11px] text-brand-muted sm:text-xs" data-testid="wht-skipped">{tr("ไม่ตามใบ {0} งาน · {1}", skipped.length, exactBaht(whtSkipped))}</p>}
           </div>
         </div>
         <div className="flex flex-col gap-3 border-t border-brand-border px-4 py-4 sm:px-5 lg:flex-row lg:items-center">
@@ -432,7 +465,7 @@ export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault }: {
                       <td className="px-3 py-4 text-right font-mono text-brand-text">{formatCurrency(row.job.value || 0)}</td>
                       <td className="px-3 py-4 text-right font-mono text-brand-text">{row.job.whtRate || 0}% <span className="text-brand-muted">({formatCurrency(jobWhtAmount(row.job))})</span></td>
                       <td className="px-3 py-4">{row.status === 'waiting' ? waitingCell(row) : statusChip(row)}</td>
-                      <td className="px-3 py-4">{action(row)}</td>
+                      <td className="px-3 py-4">{action(row)}{skipLink(row)}</td>
                       <td className="px-2 py-4">{menu(row)}</td>
                     </tr>
                   ))}
@@ -461,6 +494,7 @@ export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault }: {
                     </div>
                   </div>
                   {action(row, true)}
+                  {skipLink(row, true)}
                 </li>
               ))}
             </ul>

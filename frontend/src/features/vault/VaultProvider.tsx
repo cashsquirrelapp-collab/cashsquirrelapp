@@ -135,7 +135,7 @@ export function VaultProvider({ financeKey, available, isPro, jobs, expenses, on
     openJob: job => setJobView(job),
     // Only worth asking when the workspace can actually keep the file.
     // 1% is e-WHT: there is no certificate to ask for (see isEWhtJob).
-    promptAfterPayment: job => { if (available && freeLeft !== 0 && jobWhtAmount(job) > 0 && !isEWhtJob(job)) setPaidPrompt(job); },
+    promptAfterPayment: job => { if (available && freeLeft !== 0 && jobWhtAmount(job) > 0 && !isEWhtJob(job) && job.wht50NotNeeded !== true) setPaidPrompt(job); },
     remove, update, attachToExpense,
   };
   // เลขา's attach card hands over the file sent in the chat (2026-10-31): open the upload window with it and its link.
@@ -607,7 +607,8 @@ function JobFilesDrawer({ job, files, onAdd, onRemove, onClose }: { job: Job | n
 /** Small 50 ทวิ status under a job's payment badge; nothing for jobs without withholding tax, or 1% (e-WHT) jobs without a file. */
 export function Wht50Chip({ job }: { job: Job }) {
   const vault = useVault();
-  if (!vault.available || !isWht50Trackable(job) || wht50StatusOf(job, vault.files) === 'eWht') return null;
+  const status = wht50StatusOf(job, vault.files);
+  if (!vault.available || !isWht50Trackable(job) || status === 'eWht' || status === 'notNeeded') return null;
   const files = wht50Files(job, vault.files);
   return files.length ? (
     <button type="button" onClick={(e) => { e.stopPropagation(); vault.openJob(job); }}
