@@ -231,7 +231,11 @@ card does not need:
   only where the arrival cannot play. After the arrival, a card beside the corner squirrel: "เริ่มใช้ Pro ใน 4 ขั้น", a four-part
   bar and the steps เชื่อม LINE, เปิดแจ้งเตือนอีเมล, ลองคุยกับเลขา, ตั้งข้อมูลผู้ออกเอกสาร (`ProGuide.tsx`).
 - "ไปทำเลย" opens the page, dims it for about three seconds and rings the thing to press (elements marked
-  `data-guide-target`); a bubble says what to do, with ข้ามขั้นนี้ and ดูทุกขั้น. Steps tick themselves from real data.
+  `data-guide-target`); a bubble says what to do. Steps tick themselves from real data.
+- The bubble has ‹ › (owner, 2026-11-03: "ปุ่มลูกศรซ้ายขวา"): one step back to look again, or on (a step left undone shows
+  ข้ามไว้ on the card); no ดูทุกขั้น. A step whose button or fields are on the page already is shown where it is, so going to it
+  again never sends ตั้งค่า back to its first screen and never empties what was typed. Step 4 rings the name down to the
+  address; its › leads to บันทึกโปรไฟล์ธุรกิจ ("กดตรงนี้เพื่อบันทึก", only ‹ there), and saving ends the guide; nothing starts over.
 - Motion (owner, 2026-10-29: "อย่าให้มันกระตุก ... ให้มันนิ่งก่อนแล้วค่อยคุม"): the ring and bubble wait until the page has
   rendered and scrolled to the button and it has stayed put for a few frames; then the ring scales in and the bubble
   drops in from just above. While the page scrolls they follow the button in every frame (placed with `translate`).

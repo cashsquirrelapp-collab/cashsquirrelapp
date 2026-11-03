@@ -1,6 +1,6 @@
 import React from 'react';
 import { flushSync } from 'react-dom';
-import { ArrowRight, Check, ChevronRight, FileText, X } from 'lucide-react';
+import { ArrowRight, Check, ChevronLeft, ChevronRight, FileText, X } from 'lucide-react';
 import { Mascot } from '../../components/mascot/Mascot';
 import { LineLogo } from '../../components/ui/LineLogo';
 import { GmailLogo } from '../../components/ui/GmailLogo';
@@ -58,6 +58,7 @@ function coachTitle(target: string) {
     case 'chat-composer': return tr('พิมพ์ตรงนี้แล้วกดส่ง');
     case 'business': return tr('กดตรงนี้เพื่อตั้งข้อมูลผู้ออกเอกสาร');
     case 'business-form': return tr('กรอกข้อมูลธุรกิจตรงนี้');
+    case 'business-save': return tr('กดตรงนี้เพื่อบันทึก');
     default: return tr('กรอกข้อมูลด้านบน แล้วกดบันทึก');
   }
 }
@@ -83,10 +84,15 @@ function coachSteps(step: ProGuideStep, target: string): React.ReactNode[] {
     tr('กรอกชื่อธุรกิจ เลขผู้เสียภาษี ที่อยู่ เบอร์โทร และอีเมล'),
     save,
   ];
+  if (target === 'business-save') return [
+    tr('ตรวจชื่อธุรกิจ เลขผู้เสียภาษี และที่อยู่อีกครั้ง'),
+    <>{tr('กด')} <b>{tr('บันทึกโปรไฟล์ธุรกิจ')}</b></>,
+    tr('บันทึกแล้ว คู่มือจะจบให้เอง'),
+  ];
   return [
     tr('กรอกชื่อธุรกิจ เลขผู้เสียภาษี และที่อยู่ออกใบเสร็จ'),
     tr('ใส่เบอร์โทรและอีเมลติดต่อ (ถ้ามี)'),
-    save,
+    <>{tr('แล้วกด')} <b>›</b> {tr('น้องจะพาไปที่ปุ่มบันทึก')}</>,
   ];
 }
 
@@ -193,7 +199,9 @@ export default function ProGuide({ accountId, start, practiceStart = 0, line, em
 
   const done: Record<ProGuideStep, boolean> = practice ? practice.done : { line, email, chat: real.chat, business };
   const doneCount = STEPS.filter(step => done[step]).length;
-  const current = STEPS.find(step => !done[step] && !saved.skipped.includes(step)) ?? STEPS.find(step => !done[step]) ?? null;
+  // Forward only (owner, 2026-11-03: "พอถึงขั้นตอนที่4แล้วก็จบ ไม่ต้องพาวนใหม่"): a skipped step is never offered again by
+  // itself; its row stays on the card for anyone who wants to go back.
+  const current = STEPS.find(item => !done[item] && !saved.skipped.includes(item)) ?? null;
   const active = saved.state === 'active' ? saved.active ?? null : null;
 
   // Step 4 on phones and iPads (owner, 2026-11-03: customers "ทำไม่ได้สักที"): once the keyboard is up it takes half the
@@ -213,17 +221,39 @@ export default function ProGuide({ accountId, start, practiceStart = 0, line, em
   }, [active, mobile]);
   const away = typing && active === 'business';
 
-  const go = (step: ProGuideStep) => {
-    update({ state: 'active', active: step, skipped: saved.skipped.filter(item => item !== step) });
-    onGo(step);
+  // A step whose button or fields are on the page already is shown where it is: going to it again (from the card, or with
+  // ‹ ›) never sends the page back to ตั้งค่า's first screen, which emptied the business details being typed in
+  // (owner, 2026-11-03: "มันจะทำการรีเซ็ตหมด ... ทุกคนต้องมากรอกใหม่อีกรอบ").
+  const onPage = (step: ProGuideStep) => TARGETS[step].some(name => Array.from(document.querySelectorAll<HTMLElement>(`[data-guide-target="${name}"]`))
+    .some(item => { const box = item.getBoundingClientRect(); return box.width > 0 && box.height > 0; }));
+  const go = (step: ProGuideStep, from?: ProGuideStep) => {
+    // Moving on from a step not done yet leaves it marked ข้ามไว้ on the card.
+    const skipped = [...saved.skipped.filter(item => item !== step && item !== from), ...(from && !done[from] ? [from] : [])];
+    update({ state: 'active', active: step, skipped });
+    if (!onPage(step)) onGo(step);
   };
-  const skip = (step: ProGuideStep) => update({ state: 'card', active: undefined, skipped: [...saved.skipped.filter(item => item !== step), step] });
+  // ‹ › in the bubble (owner, 2026-11-03: "ปุ่มลูกศรซ้ายขวา ... ข้ามขั้นตอนหรือจะดูขั้นตอนซ้ำ"): one step back or on; past the
+  // last step the guide ends ("พอถึงขั้นตอนที่4แล้วก็จบ ไม่ต้องพาวนใหม่").
+  const moveStep = (dir: -1 | 1) => {
+    if (!active) return;
+    if (active === 'business') {
+      if (dir > 0 && !atSave) { setAtSave(true); return; }
+      if (dir < 0 && atSave) { setAtSave(false); return; }
+    }
+    const to = STEPS[STEPS.indexOf(active) + dir];
+    if (to) { go(to, dir > 0 ? active : undefined); return; }
+    if (dir > 0) update({ state: 'off', active: undefined, skipped: done[active] ? saved.skipped : [...saved.skipped.filter(item => item !== active), active] });
+  };
   const showAll = () => update({ state: 'card', active: undefined });
   const later = () => update({ state: 'pill', active: undefined });
 
   // The step being done is finished: say so by the squirrel for a moment, then show the card with the next step.
   const [cheer, setCheer] = React.useState<ProGuideStep | null>(null);
-  const activeDone = active ? done[active] : false;
+  // Done while this step is open, not done before it was opened: going back with ‹ to a finished step shows it again
+  // instead of cheering and closing at once.
+  const openedDone = React.useRef<{ step: ProGuideStep | null; done: boolean }>({ step: null, done: false });
+  if (openedDone.current.step !== active) openedDone.current = { step: active, done: active ? done[active] : false };
+  const activeDone = active ? done[active] && !openedDone.current.done : false;
   React.useEffect(() => {
     if (!active || !activeDone) return;
     // Saving the business profile ends the guide there and then (owner, 2026-10-31: "พอกดบันทึกโปรไฟล์ปุ๊บก็เลิกสอนทันที").
@@ -237,6 +267,9 @@ export default function ProGuide({ accountId, start, practiceStart = 0, line, em
   // has settled (owner, 2026-10-29: "ให้มันนิ่งก่อนแล้วค่อยคุม", the coach used to jump after the page in 250 ms steps):
   // the new page renders and scrolls to the button, the button stays put for a few frames, then the ring appears and
   // the bubble drops in. After that they follow the button every frame while the page scrolls, so nothing stutters.
+  // Step 4 in two parts: the fields, then (after ›) the save button that ends the guide.
+  const [atSave, setAtSave] = React.useState(false);
+  React.useEffect(() => { setAtSave(false); }, [active]);
   const [spot, setSpot] = React.useState<Spot | null>(null);
   const [lost, setLost] = React.useState(false);
   const spotName = React.useRef('');
@@ -250,7 +283,8 @@ export default function ProGuide({ accountId, start, practiceStart = 0, line, em
     let settled = false;
     let missingSince = 0;
     const measure = (): Spot | null => {
-      for (const name of TARGETS[active]) {
+      // Step 4's second half (owner, 2026-11-03: "ลูกศรขั้นตอนสุดท้าย ... ให้มากดตรงนี้ ... บันทึกโปรไฟล์"): the save button.
+      for (const name of active === 'business' && atSave ? ['business-save', ...TARGETS.business] : TARGETS[active]) {
         const node = Array.from(document.querySelectorAll<HTMLElement>(`[data-guide-target="${name}"]`)).find(item => {
           const box = item.getBoundingClientRect();
           return box.width > 0 && box.height > 0 && getComputedStyle(item).visibility !== 'hidden';
@@ -312,7 +346,7 @@ export default function ProGuide({ accountId, start, practiceStart = 0, line, em
       window.removeEventListener('scroll', kick, { capture: true });
       window.removeEventListener('resize', kick);
     };
-  }, [active, activeDone]);
+  }, [active, activeDone, atSave]);
 
   // While the card is out the corner squirrel's own words step aside, so nothing sits under the card.
   const pillShown = saved.state === 'pill' || (saved.state === 'active' && page !== 'assistant');
@@ -408,9 +442,11 @@ export default function ProGuide({ accountId, start, practiceStart = 0, line, em
   const width = Math.min(380, window.innerWidth - gutter * 2);
   const index = STEPS.indexOf(active);
   const dots = <span aria-hidden="true" className="pg-dots">{STEPS.map((step, at) => <span key={step} className={at === index ? 'is-on' : done[step] ? 'is-done' : ''} />)}</span>;
+  const last = index === STEPS.length - 1;
   const actions = <span className="pg-coach-actions">
-    <button type="button" className="pg-link" onClick={() => skip(active)}>{tr('ข้ามขั้นนี้')}</button>
-    <button type="button" className="pg-link is-quiet" onClick={showAll}>{tr('ดูทุกขั้น')}</button>
+    <button type="button" className="pg-arrow" onClick={() => moveStep(-1)} disabled={index === 0} aria-label={tr('ขั้นก่อนหน้า')} title={tr('ขั้นก่อนหน้า')}><ChevronLeft size={18} aria-hidden="true" /></button>
+    {/* The last step ends by saving, so its › only leads to the save button (no จบคู่มือ). */}
+    {!(last && atSave) && <button type="button" className="pg-arrow" onClick={() => moveStep(1)} aria-label={last ? tr('ไปที่ปุ่มบันทึก') : tr('ขั้นถัดไป')} title={last ? tr('ไปที่ปุ่มบันทึก') : tr('ขั้นถัดไป')}><ChevronRight size={18} aria-hidden="true" /></button>}
   </span>;
   const head = (title: string) => <div className="pg-coach-head">
     <Face size={40} />

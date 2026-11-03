@@ -59,7 +59,17 @@
 .pg-link.is-quiet { color: var(--pg-ink-soft); }
 .dark .pg-link { color: #FFA473; }
 .dark .pg-link.is-quiet { color: var(--pg-ink-soft); }
-.pg-coach-actions { display: inline-flex; gap: 14px; margin-left: auto; }
+.pg-coach-actions { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
+/* ‹ › between steps (owner, 2026-11-03); past the last step the button reads จบคู่มือ. */
+.pg-arrow { display: inline-flex; align-items: center; justify-content: center; min-width: 40px; height: 40px; padding: 0; border: 1px solid var(--pg-track); border-radius: 10px;
+  background: var(--pg-row-strong); color: #C24A16; font-family: inherit; font-size: 13.5px; font-weight: 600; line-height: 1.45; cursor: pointer; }
+.pg-arrow:hover:not(:disabled) { border-color: #F3B08C; }
+.pg-arrow:disabled { opacity: 0.4; cursor: default; }
+.pg-arrow:focus-visible { outline: 2px solid #E65F2B; outline-offset: 2px; }
+.pg-arrow.is-end { padding: 0 14px; border-color: #E65F2B; background: #E65F2B; color: #FFFFFF; }
+.dark .pg-arrow { border-color: rgba(255, 255, 255, 0.12); color: #FFA473; }
+.dark .pg-arrow.is-end { border-color: #E65F2B; color: #FFFFFF; }
+@media (max-width: 743px) { .pg-arrow { min-width: 44px; height: 44px; } }
 
 /* The page dims for a moment and the orange ring blinks three times on what to press; then the ring stays, the page
    comes back so the form can be filled. Neither takes a click. */

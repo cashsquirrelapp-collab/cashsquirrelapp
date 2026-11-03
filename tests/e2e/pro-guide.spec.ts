@@ -78,13 +78,16 @@ test('the guide card lists four steps beside the corner squirrel and walks each 
   await ringsOn(page, 'line-connect');
   await expect(coach(page).getByRole('heading', { name: 'กดเชื่อมต่อ LINE เพื่อรับรหัส' })).toBeVisible();
   await shot(page, 'guide-step-line-connect');
-  await coach(page).getByRole('button', { name: 'ข้ามขั้นนี้' }).click();
-
-  // Back on the card: step 1 waits as skipped, step 2 is current.
-  await expect(card(page)).toBeVisible();
-  await expect(card(page).locator('.pg-step[data-step="line"]')).toContainText('ข้ามไว้');
-  await expect(card(page).locator('.pg-step.is-current')).toHaveAttribute('data-step', 'email');
-  await card(page).getByRole('button', { name: 'ไปทำเลย: เปิดแจ้งเตือนอีเมล' }).click();
+  // ‹ › in the bubble (owner, 2026-11-03): › goes straight on to step 2, ‹ back to step 1 to look again; no ดูทุกขั้น.
+  await expect(coach(page).getByRole('button', { name: 'ขั้นก่อนหน้า' })).toBeDisabled();
+  await expect(coach(page).getByRole('button', { name: 'ดูทุกขั้น' })).toHaveCount(0);
+  await coach(page).getByRole('button', { name: 'ขั้นถัดไป' }).click();
+  await ringsOn(page, 'notif');
+  await expect(coach(page)).toContainText('ขั้นที่ 2 จาก 4');
+  await coach(page).getByRole('button', { name: 'ขั้นก่อนหน้า' }).click();
+  await ringsOn(page, 'line');
+  await expect(coach(page)).toContainText('ขั้นที่ 1 จาก 4');
+  await coach(page).getByRole('button', { name: 'ขั้นถัดไป' }).click();
   await ringsOn(page, 'notif');
   await page.locator('[data-guide-target="notif"]').click();
   await ringsOn(page, 'notif-digest');
@@ -95,6 +98,7 @@ test('the guide card lists four steps beside the corner squirrel and walks each 
   await expect(card(page)).toBeVisible({ timeout: 4000 });
   await expect(card(page).locator('.pg-count')).toHaveText('1/4');
   await expect(card(page).locator('.pg-step[data-step="email"]')).toContainText('เรียบร้อย');
+  await expect(card(page).locator('.pg-step[data-step="line"]')).toContainText('ข้ามไว้');
   await expect(card(page).locator('.pg-step.is-current')).toHaveAttribute('data-step', 'chat');
 
   // "ไว้ทีหลัง" leaves a small pill by the squirrel, which reopens the card, also after a reload.
@@ -128,7 +132,7 @@ test('the guide card lists four steps beside the corner squirrel and walks each 
   await page.locator('[data-guide-target="business"]').click();
   await ringsOn(page, 'business-form');
   await expect(coach(page).getByRole('heading', { name: 'กรอกข้อมูลธุรกิจตรงนี้' })).toBeVisible();
-  await expect(coach(page).locator('.pg-coach-steps li')).toHaveText(['กรอกชื่อธุรกิจ เลขผู้เสียภาษี และที่อยู่ออกใบเสร็จ', 'ใส่เบอร์โทรและอีเมลติดต่อ (ถ้ามี)', 'กรอกเสร็จแล้วกด บันทึกโปรไฟล์ธุรกิจ ด้านล่างขวา']);
+  await expect(coach(page).locator('.pg-coach-steps li')).toHaveText(['กรอกชื่อธุรกิจ เลขผู้เสียภาษี และที่อยู่ออกใบเสร็จ', 'ใส่เบอร์โทรและอีเมลติดต่อ (ถ้ามี)', 'แล้วกด › น้องจะพาไปที่ปุ่มบันทึก']);
   // The ring holds the name and tax ID fields; the bubble sits above them, off the fields.
   const fields = (await page.locator('[data-guide-target="business-form"]').boundingBox())!;
   const bubble = (await coach(page).boundingBox())!;
@@ -136,6 +140,11 @@ test('the guide card lists four steps beside the corner squirrel and walks each 
   expect(bubble.y + bubble.height).toBeLessThanOrEqual(fields.y);
   await expect(page.locator('#biz-name')).toBeInViewport();
   await expect(page.locator('#biz-tax')).toBeInViewport();
+  // The ring runs from the name down to the address (owner, 2026-11-03).
+  const ringed = (await page.locator('[data-guide-target="business-form"]').boundingBox())!;
+  const address = (await page.locator('#biz-address').boundingBox())!;
+  expect(address.y + address.height).toBeLessThanOrEqual(ringed.y + ringed.height + 1);
+  await expect(page.locator('#biz-address')).toBeInViewport();
   await page.waitForTimeout(3800); // the dim has gone, so the page reads again
   expect(await textOverlapIssues(page)).toEqual([]);
   await shot(page, 'guide-step-business');
@@ -144,6 +153,25 @@ test('the guide card lists four steps beside the corner squirrel and walks each 
   await page.locator('#biz-tax').fill('0105555555555');
   await page.locator('#biz-address').fill('99 ถนนสุขุมวิท กรุงเทพมหานคร 10110');
   await expect(coach(page)).toHaveAttribute('data-target', 'business-form');
+  // Opening the card and going to this step again keeps what was typed (it used to send ตั้งค่า back to its first
+  // screen and empty the fields: owner, 2026-11-03).
+  await page.getByTestId('pro-guide-pill').click();
+  await card(page).getByRole('button', { name: 'ไปทำเลย: ตั้งข้อมูลผู้ออกเอกสาร' }).click();
+  await ringsOn(page, 'business-form');
+  await expect(page.locator('#biz-name')).toHaveValue('สตูดิโอตัวอย่าง');
+  await expect(page.locator('#biz-address')).toHaveValue('99 ถนนสุขุมวิท กรุงเทพมหานคร 10110');
+  // Step 4's › leads to บันทึกโปรไฟล์ธุรกิจ (owner, 2026-11-03: "ลูกศรขั้นตอนสุดท้าย ... ให้มากดตรงนี้"); ‹ goes back to
+  // the fields, and at the save button there is no › and no จบคู่มือ: saving ends the guide.
+  await coach(page).getByRole('button', { name: 'ไปที่ปุ่มบันทึก' }).click();
+  await ringsOn(page, 'business-save');
+  await expect(coach(page).getByRole('heading', { name: 'กดตรงนี้เพื่อบันทึก' })).toBeVisible();
+  await expect(coach(page).getByRole('button', { name: /ไปที่ปุ่มบันทึก|จบคู่มือ/ })).toHaveCount(0);
+  await coach(page).getByRole('button', { name: 'ขั้นก่อนหน้า' }).click();
+  await ringsOn(page, 'business-form');
+  await expect(page.locator('#biz-name')).toHaveValue('สตูดิโอตัวอย่าง');
+  await coach(page).getByRole('button', { name: 'ไปที่ปุ่มบันทึก' }).click();
+  await ringsOn(page, 'business-save');
+  await shot(page, 'guide-step-business-save');
   await page.locator('[data-guide-target="business-save"]').click();
   const saved = page.locator('.ksm-modal');
   await expect(saved).toBeVisible();
@@ -197,9 +225,10 @@ test('phones: the card rises as a sheet over the tab bar, and "ไปทำเ�
   await shot(page, 'guide-step-phone');
   await page.locator('[data-guide-target="line"]').click();
   await ringsOn(page, 'line-connect');
-  // Step 3 on a phone: the full chat's composer rings.
-  await coach(page).getByRole('button', { name: 'ดูทุกขั้น' }).click();
-  await card(page).getByRole('button', { name: 'ไปทำเลย: ลองคุยกับเลขา' }).click();
+  // Step 3 on a phone: the full chat's composer rings (› twice: step 2, then step 3).
+  await coach(page).getByRole('button', { name: 'ขั้นถัดไป' }).click();
+  await expect(coach(page)).toContainText('ขั้นที่ 2 จาก 4');
+  await coach(page).getByRole('button', { name: 'ขั้นถัดไป' }).click();
   await expect(page).toHaveURL(/\/assistant/);
   await ringsOn(page, 'chat-composer');
 });
@@ -273,6 +302,15 @@ for (const [label, width, height] of [['a phone', 390, 844], ['a short phone', 3
     expect(await reachable(page, '#biz-name')).toBe(true);
     expect(await reachable(page, '#biz-tax')).toBe(true);
     await shot(page, `guide-business-${width}x${height}`);
+    // › leads to บันทึกโปรไฟล์ธุรกิจ on phones too; ‹ comes back to the fields.
+    await coach(page).getByRole('button', { name: 'ไปที่ปุ่มบันทึก' }).click();
+    await ringsOn(page, 'business-save');
+    const saveBubble = (await coach(page).boundingBox())!;
+    expect(saveBubble.y).toBeGreaterThanOrEqual(0);
+    expect(saveBubble.y + saveBubble.height).toBeLessThanOrEqual(height);
+    await shot(page, `guide-business-save-${width}x${height}`);
+    await coach(page).getByRole('button', { name: 'ขั้นก่อนหน้า' }).click();
+    await ringsOn(page, 'business-form');
 
     // Typing: the keyboard comes up over the bottom of the screen; the bubble, the ring and the pill step aside.
     await page.locator('#biz-name').focus();
@@ -407,4 +445,32 @@ test('the after-payment preview in ตั้งค่า is for admins only', as
   await expect(page.getByRole('heading', { name: /ตั้งค่า/ }).first()).toBeVisible();
   await expect(page.getByRole('button', { name: /บัญชี & ความปลอดภัย/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /ตัวอย่างหลังชำระ Pro/ })).toHaveCount(0);
+});
+
+// Forward only (owner, 2026-11-03: "พอถึงขั้นตอนที่4แล้วก็จบ ไม่ต้องพาวนใหม่"): ‹ goes back to step 3 to look again; step 4
+// ends at the save button, and saving ends the guide without starting over.
+test('step 4 ends at บันทึกโปรไฟล์ธุรกิจ, and ‹ goes back a step without starting over', async ({ page }) => {
+  test.setTimeout(60_000);
+  await openAt(page, 1280, 820, '/dashboard?guide=pro');
+  await expect(card(page).locator('.pg-step.is-current')).toHaveAttribute('data-step', 'business');
+  await card(page).getByRole('button', { name: 'ไปทำเลย: ตั้งข้อมูลผู้ออกเอกสาร' }).click();
+  await ringsOn(page, 'business');
+  await coach(page).getByRole('button', { name: 'ขั้นก่อนหน้า' }).click();
+  await expect(page).toHaveURL(/\/assistant/);
+  await ringsOn(page, 'chat-composer');
+  await expect(coach(page)).toContainText('ขั้นที่ 3 จาก 4');
+  await coach(page).getByRole('button', { name: 'ขั้นถัดไป' }).click();
+  await expect(page).toHaveURL(/\/settings/);
+  await ringsOn(page, 'business');
+  await page.locator('[data-guide-target="business"]').click();
+  await ringsOn(page, 'business-form');
+  await page.locator('#biz-name').fill('สตูดิโอตัวอย่าง');
+  await coach(page).getByRole('button', { name: 'ไปที่ปุ่มบันทึก' }).click();
+  await ringsOn(page, 'business-save');
+  await page.locator('[data-guide-target="business-save"]').click();
+  await page.locator('.ksm-modal').getByRole('button').last().click();
+  await page.waitForTimeout(1500);
+  await expect(card(page)).toHaveCount(0);
+  await expect(coach(page)).toHaveCount(0);
+  await expect(page.getByTestId('pro-guide-pill')).toHaveCount(0);
 });
