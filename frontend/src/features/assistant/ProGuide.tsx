@@ -227,6 +227,7 @@ export default function ProGuide({ accountId, start, practiceStart = 0, line, em
   const onPage = (step: ProGuideStep) => TARGETS[step].some(name => Array.from(document.querySelectorAll<HTMLElement>(`[data-guide-target="${name}"]`))
     .some(item => { const box = item.getBoundingClientRect(); return box.width > 0 && box.height > 0; }));
   const go = (step: ProGuideStep, from?: ProGuideStep) => {
+    setAtSave(false); // a step opens at its beginning
     // Moving on from a step not done yet leaves it marked ข้ามไว้ on the card.
     const skipped = [...saved.skipped.filter(item => item !== step && item !== from), ...(from && !done[from] ? [from] : [])];
     update({ state: 'active', active: step, skipped });
@@ -270,6 +271,24 @@ export default function ProGuide({ accountId, start, practiceStart = 0, line, em
   // Step 4 in two parts: the fields, then (after ›) the save button that ends the guide.
   const [atSave, setAtSave] = React.useState(false);
   React.useEffect(() => { setAtSave(false); }, [active]);
+  // Filled in and done typing (owner, 2026-11-03: "ถ้ากูคลิกเข้าแล้วกรอกเสร็จละมึงต้องพาไปปุ่มกดเสร็จสิ้น"): once no field has
+  // the cursor and the business name is there, step 4 moves on to บันทึกโปรไฟล์ธุรกิจ by itself.
+  React.useEffect(() => {
+    if (active !== 'business' || atSave) return;
+    let timer = 0;
+    const onOut = (event: FocusEvent) => {
+      if (!isField(event.target as Element | null)) return;
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        if (isField(document.activeElement)) return; // still typing, in this field or the next one
+        const form = document.querySelector('[data-guide-target="business-form"]');
+        const name = form?.querySelector<HTMLInputElement>('input');
+        if (name && name.value.trim()) setAtSave(true);
+      }, 450);
+    };
+    document.addEventListener('focusout', onOut);
+    return () => { window.clearTimeout(timer); document.removeEventListener('focusout', onOut); };
+  }, [active, atSave]);
   const [spot, setSpot] = React.useState<Spot | null>(null);
   const [lost, setLost] = React.useState(false);
   const spotName = React.useRef('');

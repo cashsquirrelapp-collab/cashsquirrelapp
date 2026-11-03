@@ -160,6 +160,15 @@ test('the guide card lists four steps beside the corner squirrel and walks each 
   await ringsOn(page, 'business-form');
   await expect(page.locator('#biz-name')).toHaveValue('สตูดิโอตัวอย่าง');
   await expect(page.locator('#biz-address')).toHaveValue('99 ถนนสุขุมวิท กรุงเทพมหานคร 10110');
+  // Done typing: leaving the fields moves the guide on to the save button by itself; from field to field it stays.
+  await page.locator('#biz-name').click();
+  await page.locator('#biz-tax').click();
+  await page.waitForTimeout(700);
+  await expect(coach(page)).toHaveAttribute('data-target', 'business-form');
+  await page.locator('#biz-tax').blur();
+  await ringsOn(page, 'business-save');
+  await coach(page).getByRole('button', { name: 'ขั้นก่อนหน้า' }).click();
+  await ringsOn(page, 'business-form');
   // Step 4's › leads to บันทึกโปรไฟล์ธุรกิจ (owner, 2026-11-03: "ลูกศรขั้นตอนสุดท้าย ... ให้มากดตรงนี้"); ‹ goes back to
   // the fields, and at the save button there is no › and no จบคู่มือ: saving ends the guide.
   await coach(page).getByRole('button', { name: 'ไปที่ปุ่มบันทึก' }).click();
@@ -325,20 +334,18 @@ for (const [label, width, height] of [['a phone', 390, 844], ['a short phone', 3
     await shot(page, `guide-business-typing-${width}`);
     await page.locator('#biz-name').fill('สตูดิโอตัวอย่าง');
     await page.locator('#biz-address').fill('99 ถนนสุขุมวิท กรุงเทพมหานคร 10110');
-    // Moving from field to field keeps them aside; closing the keyboard brings them back, and with the fields scrolled
-    // up to the top the bubble does not drop onto the address below them (it used to: 2026-11-03).
+    // Moving from field to field keeps them aside; once done typing (the keyboard closed), the guide comes back on
+    // บันทึกโปรไฟล์ธุรกิจ by itself (owner, 2026-11-03: "กรอกเสร็จละมึงต้องพาไปปุ่มกดเสร็จสิ้น").
     await page.locator('#biz-tax').focus();
     await page.waitForTimeout(900);
     await expect(ring(page)).toBeHidden();
     await page.locator('#biz-address').focus();
     await page.locator('#biz-address').blur();
     await expect(ring(page)).toBeVisible({ timeout: 3000 });
-    await expect(page.getByTestId('pro-guide-pill')).toBeVisible();
-    await page.waitForTimeout(600);
-    expect(await clearOfGuide(page, '#biz-address')).toBe(true);
-    expect(await clearOfGuide(page, '#biz-phone')).toBe(true);
-    const ringBox = (await ring(page).boundingBox())!;
-    if (await coach(page).count()) expect((await coach(page).boundingBox())!.y + (await coach(page).boundingBox())!.height).toBeLessThanOrEqual(ringBox.y);
+    await ringsOn(page, 'business-save');
+    await expect(coach(page).getByRole('heading', { name: 'กดตรงนี้เพื่อบันทึก' })).toBeVisible();
+    expect(await reachable(page, '[data-guide-target="business-save"]')).toBe(true);
+    await shot(page, `guide-business-done-${width}`);
     // Saving ends the guide.
     await page.locator('[data-guide-target="business-save"]').click();
     await expect(page.locator('.ksm-modal')).toBeVisible();

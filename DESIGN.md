@@ -236,6 +236,8 @@ card does not need:
   ข้ามไว้ on the card); no ดูทุกขั้น. A step whose button or fields are on the page already is shown where it is, so going to it
   again never sends ตั้งค่า back to its first screen and never empties what was typed. Step 4 rings the name down to the
   address; its › leads to บันทึกโปรไฟล์ธุรกิจ ("กดตรงนี้เพื่อบันทึก", only ‹ there), and saving ends the guide; nothing starts over.
+  Done typing (no field has the cursor and the name is there) moves step 4 on to the save button by itself (owner:
+  "กรอกเสร็จละมึงต้องพาไปปุ่มกดเสร็จสิ้น").
 - Motion (owner, 2026-10-29: "อย่าให้มันกระตุก ... ให้มันนิ่งก่อนแล้วค่อยคุม"): the ring and bubble wait until the page has
   rendered and scrolled to the button and it has stayed put for a few frames; then the ring scales in and the bubble
   drops in from just above. While the page scrolls they follow the button in every frame (placed with `translate`).
