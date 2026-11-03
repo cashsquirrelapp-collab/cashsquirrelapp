@@ -18,7 +18,7 @@ import {
   ArrowLeft, Bell, Building2, FileSpreadsheet, CalendarClock, Clock3, Copy, Database, Download, ExternalLink, FileJson, FileText,
   Globe, Link2, LogOut, Mail, Monitor, Moon, PenLine, PiggyBank, Plus, RefreshCw, ShieldCheck, Sun, Target, Trash2,
   Upload, User, UserRound,
-  BriefcaseBusiness,
+  BriefcaseBusiness, Sparkles,
 } from 'lucide-react';
 import { Drawer } from '../../components/ui/Drawer';
 import { LineLogo } from '../../components/ui/LineLogo';
@@ -82,6 +82,8 @@ interface SettingsTabProps {
   initialView?: SettingsView;
   /** Phones: back to the menu, drawn in this page's own terracotta header. */
   onMobileBack?: () => void;
+  /** Admins: what a customer sees right after paying for Pro (the arrival, then the guide as a practice run). */
+  onPreviewAfterPay?: () => void;
   isGroupFinance?: boolean;
   // Same value passed to InvoiceTab's `ownerId` -- the business profile (logo, name, tax ID,
   // bank account) lives in the same `issuer_profile` cloud field InvoiceTab already reads when
@@ -143,6 +145,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   onUndoImport,
   initialView = 'home',
   onMobileBack,
+  onPreviewAfterPay,
   businessProfileOwnerId,
   settings,
   onSwitchTab,
@@ -1166,6 +1169,12 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   {(lineAccess || notificationsAccess || hasExistingNotifications) && <Section icon={Link2} title={tr("LINE AI Pro · การแจ้งเตือน")} id="settings-connect">
                     {lineAccess && <NavRow lead={<LineLogo size={30} />} title="LINE" desc={tr("เชื่อมต่อ LINE เพื่อรับแจ้งเตือน")} value={lineStatus} onClick={() => openView('line')} guide="line" />}
                     {(notificationsAccess || hasExistingNotifications) && <NavRow icon={Bell} title={notificationsAccess ? tr("การแจ้งเตือน") : tr("จัดการการแจ้งเตือนเดิม")} desc={notificationsAccess ? tr("เลือกช่องทางและเรื่องที่อยากให้แจ้งเตือน") : tr("ปิดการแจ้งเตือนหรือยกเลิกช่องทางที่เชื่อมต่อไว้")} value={notificationsAccess && !isPro ? <ProBadge /> : undefined} onClick={() => openView('notif')} guide="notif" />}
+                  </Section>}
+
+                  {/* Admins only (owner, 2026-11-03: "อยากเห็นพรีวิวคู่มือหลังเติมโปร ... เป็นปุ่มไว้ที่ตั้งค่า"): the same scenes a
+                      customer sees after paying, with nothing charged and the account's own guide untouched. */}
+                  {onPreviewAfterPay && <Section icon={Sparkles} title={tr("สำหรับแอดมิน")} id="settings-admin">
+                    <NavRow icon={Sparkles} title={tr("ตัวอย่างหลังชำระ Pro")} desc={tr("น้องเลขามาหาหลังชำระเงิน แล้วเปิดคู่มือ 4 ขั้นแบบทดลอง ไม่มีการชำระเงินจริง")} onClick={onPreviewAfterPay} />
                   </Section>}
 
                   <Section icon={Database} title={tr("ข้อมูล")} id="settings-data">

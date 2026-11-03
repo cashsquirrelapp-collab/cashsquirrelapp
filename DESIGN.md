@@ -245,6 +245,8 @@ card does not need:
 - Admins replay the whole guide from step 1 as often as they like (เลขากระรอก ⋯ → ดูคู่มือเริ่มใช้ Pro อีกครั้ง): a practice
   run marked โหมดทดลองสำหรับแอดมิน that ticks only what is done during it and leaves the account's own guide as it was.
   The admin page has the same as a button (computers: the header; phones: the last row of เครื่องมือแอดมิน).
+  ตั้งค่า › สำหรับแอดมิน › ตัวอย่างหลังชำระ Pro (owner, 2026-11-03) plays the whole after-payment scene: the paid arrival, then the
+  guide as the same practice run; nothing is charged.
 
 ### Weekly Pro invitation (owner, 2026-10-29; Gen Z poster, round 4 design 1)
 

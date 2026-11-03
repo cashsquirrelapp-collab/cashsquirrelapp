@@ -85,7 +85,7 @@ const CreditRadar = lazy(() => import('../features/receivables/radar/CreditRadar
 import { hideSplash } from './splash';
 import { isUpdateReady, reloadForUpdate, setUpdateGuard } from './appUpdate';
 import { MobilePageHero } from '../features/mobile/MobilePageHero';
-import { NEW_DOCUMENT_EVENT } from '../features/invoices/documentEvents';
+import { requestNewDocument } from '../features/invoices/documentEvents';
 import { LineLogo } from '../components/ui/LineLogo';
 const TaxTab = lazy(loadTaxTab);
 const SettingsTab = lazy(loadSettingsTab);
@@ -1534,6 +1534,8 @@ export default function App() {
   // After the arrival that follows a payment (or the team's preview), the four-step "เริ่มใช้ Pro" guide opens beside
   // the corner squirrel (owner, 2026-10-29); ?guide=pro opens it on its own for the team and the tests.
   const birthGuideRef = useRef(false);
+  // The admin preview from ตั้งค่า (owner, 2026-11-03): the paid arrival, then the guide as a practice run.
+  const birthPracticeRef = useRef(false);
   const [proGuideStart, setProGuideStart] = useState(0);
   // The team's practice run of the same guide (เลขากระรอก ⋯ → ดูคู่มือเริ่มใช้ Pro อีกครั้ง; owner, 2026-11-03: "ใช้ซ้ำได้").
   const [proGuidePractice, setProGuidePractice] = useState(0);
@@ -1569,6 +1571,7 @@ export default function App() {
     setBirthOpen(false);
     setBuddyArrival(value => value + 1);
     if (birthGuideRef.current) { birthGuideRef.current = false; setProGuideStart(value => value + 1); }
+    if (birthPracticeRef.current) { birthPracticeRef.current = false; setProGuidePractice(value => value + 1); }
   }, []);
 
   // 🌰 Global Month Exploration (สำรวจฤดูกาลเก็บเกี่ยว)
@@ -3686,6 +3689,13 @@ export default function App() {
               {activeTab === 'settings' && (
                 <SettingsTab
                   onMobileBack={openPhoneMenu}
+                  onPreviewAfterPay={fullFeatureAccess && showProGuide ? () => {
+                    setAssistantFollowing(false);
+                    navigateTab('dashboard');
+                    birthPracticeRef.current = true;
+                    setBirthPaid(true);
+                    window.setTimeout(() => setBirthOpen(true), 400);
+                  } : undefined}
                   onOpenOnboarding={!session?.isGuest && !financeGroupId ? () => setOnboardingEdit(true) : undefined}
                   onOpenImport={() => setIsImportOpen(true)}
                   recentImports={recentImports(jobs, expenses)}
@@ -3746,7 +3756,7 @@ export default function App() {
             onAddJob={() => { setIsMobileMenuOpen(false); setIsAddJobOpen(true); navigateTab('jobs'); }}
             // On the documents page the middle button issues a document (owner, 2026-11-03: "ปุ่มออกเอกสารใหม่อยู่ลึกไป
             // ... เอามาแทนปุ่มเพิ่มงานเวลาเข้าไปในฟีเจอร์เอกสาร").
-            add={activeTab === 'invoice' && !isMobileMenuOpen ? { label: tr("ออกเอกสาร"), glyph: 'document', onClick: () => window.dispatchEvent(new Event(NEW_DOCUMENT_EVENT)) } : undefined}
+            add={activeTab === 'invoice' && !isMobileMenuOpen ? { label: tr("ออกเอกสาร"), glyph: 'document', onClick: requestNewDocument } : undefined}
           />
         )}
         {showBuddy && (

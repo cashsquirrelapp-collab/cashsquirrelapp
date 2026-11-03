@@ -377,3 +377,29 @@ test('the replay is for admins only', async ({ page }) => {
   await expect(page.getByRole('menuitem', { name: 'ตั้งค่าการแจ้งเตือน' })).toBeVisible();
   await expect(page.getByRole('menuitem', { name: 'ดูคู่มือเริ่มใช้ Pro อีกครั้ง' })).toHaveCount(0);
 });
+
+// ตั้งค่า › สำหรับแอดมิน › ตัวอย่างหลังชำระ Pro (owner, 2026-11-03): the paid arrival, then the guide as a practice run.
+for (const [label, width, height] of [['a computer', 1280, 820], ['a phone', 390, 844]] as const) {
+  test(`admins on ${label}: ตัวอย่างหลังชำระ Pro in ตั้งค่า plays the arrival, then the guide from step 1 as a practice run`, async ({ page }) => {
+    test.setTimeout(60_000);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await openAt(page, width, height, '/settings', { admin: true, done: true });
+    const row = page.getByRole('button', { name: /ตัวอย่างหลังชำระ Pro/ });
+    await expect(row).toBeVisible();
+    await row.click();
+    await expect(page).toHaveURL(/\/dashboard/);
+    await expect(page.locator('.kb-stage').first()).toBeVisible({ timeout: 8000 });
+    await expect(card(page)).toBeVisible({ timeout: 20_000 });
+    await expect(card(page)).toHaveAttribute('data-practice', '');
+    await expect(card(page).locator('.pg-count')).toHaveText('0/4');
+    // The account's own guide stays as it was.
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('krarok.proGuide.11111111-1111-4111-8111-111111111111') || '{}').state)).toBe('off');
+  });
+}
+
+test('the after-payment preview in ตั้งค่า is for admins only', async ({ page }) => {
+  await openAt(page, 1280, 820, '/settings', { done: true });
+  await expect(page.getByRole('heading', { name: /ตั้งค่า/ }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: /บัญชี & ความปลอดภัย/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /ตัวอย่างหลังชำระ Pro/ })).toHaveCount(0);
+});

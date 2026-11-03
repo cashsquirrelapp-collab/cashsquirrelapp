@@ -32,7 +32,7 @@ import './docPhone.css';
 // Pages opened from the list cover the tab bar and the corner squirrel (html[data-dp-task]) and take the phone's back
 // gesture (one history entry each).
 
-import { NEW_DOCUMENT_EVENT } from './documentEvents';
+import { NEW_DOCUMENT_EVENT, takeNewDocumentRequest } from './documentEvents';
 
 type Client = Invoice['client'];
 type ClientField = keyof Client;
@@ -287,7 +287,8 @@ export function InvoicePhone({ m }: { m: InvoicePhoneModel }) {
   const [newOpen, setNewOpen] = React.useState(false);
   const [newMode, setNewMode] = React.useState<'types' | 'source'>('types');
   React.useEffect(() => {
-    const open = () => { setNewMode('types'); setNewOpen(true); };
+    const open = () => { takeNewDocumentRequest(); setNewMode('types'); setNewOpen(true); };
+    if (takeNewDocumentRequest()) open(); // tapped while the documents were loading
     window.addEventListener(NEW_DOCUMENT_EVENT, open);
     return () => window.removeEventListener(NEW_DOCUMENT_EVENT, open);
   }, []);
