@@ -16,6 +16,7 @@ import {
   UserRoundCheck,
   RefreshCw,
   Search,
+  Send,
   UsersRound,
   ClipboardList,
   X,
@@ -41,6 +42,7 @@ import { secondary, type Confirm } from './groupUi';
 import { tr } from '../../i18n/tr';
 import { useFeedbackWaiting } from '../feedback/useFeedbackWaiting';
 import AdminOnboarding from './AdminOnboarding';
+import { sendLineSamplesToMe } from './lineSamples';
 const AdminUsersPanel = lazy(() => import('./AdminUsersPanel'));
 const GroupsTab = lazy(() => import('./GroupsTab'));
 const AdminFeedbackInbox = lazy(() => import('../feedback/AdminFeedbackInbox'));
@@ -232,6 +234,12 @@ export default function AdminDashboard({ userId, triggerConfirm, mobile = false,
 }) {
   const { language } = useLanguage();
   const copy = (th: string, en: string) => language === 'th' ? th : en;
+  const [samplesBusy, setSamplesBusy] = useState(false);
+  const sendSamples = async () => {
+    if (samplesBusy) return;
+    setSamplesBusy(true);
+    try { await sendLineSamplesToMe(copy); } finally { setSamplesBusy(false); }
+  };
   const [range, setRange] = useState<AnalyticsRange>(30);
   // The LINE alert for a new บอกเรา message links here with ?view=feedback (owner, 2026-10-27).
   const [view, setView] = useState<View>(() => {
@@ -351,6 +359,9 @@ export default function AdminDashboard({ userId, triggerConfirm, mobile = false,
       <PageHeader page="adminDashboard" id="admin-dashboard-title">
         <div className="flex flex-wrap items-center justify-end gap-2">
         {onPreviewGuide && <button type="button" className={secondary} onClick={onPreviewGuide} data-testid="admin-guide-preview"><ListChecks size={16} />{copy('ดูคู่มือเริ่มใช้ Pro', 'Replay the Pro guide')}</button>}
+        <button type="button" className={secondary} onClick={sendSamples} disabled={samplesBusy} data-testid="admin-line-samples"
+          title={copy('การ์ด 7 แบบที่ลูกค้า Pro ได้รับ จากข้อมูลตัวอย่าง ส่งเข้า LINE ที่เชื่อมกับบัญชีนี้', 'The 7 cards a Pro customer receives, from sample data, to the LINE linked to this account')}>
+          <Send size={16} />{samplesBusy ? copy('กำลังส่ง…', 'Sending…') : copy('ส่งการ์ด LINE ตัวอย่าง', 'Send sample LINE cards')}</button>
         {view !== 'feedback' && view !== 'profit' && view !== 'broadcast' && <div className="flex flex-wrap items-center gap-2">
           <select className="ui-input !w-auto" aria-label={copy('เลือกช่วงเวลา', 'Select date range')} value={range} onChange={event => setRange(Number(event.target.value) as AnalyticsRange)}>
             {([7, 30, 90] as AnalyticsRange[]).map(days => <option key={days} value={days}>{copy(`${days} วันล่าสุด`, `Last ${days} days`)}</option>)}

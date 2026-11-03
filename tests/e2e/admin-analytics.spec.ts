@@ -198,3 +198,17 @@ test('the admin page header has ดูคู่มือเริ่มใช้
   await expect(page.getByTestId('pro-guide')).toHaveAttribute('data-practice', '');
   await expect(page.getByTestId('pro-guide').locator('.pg-count')).toHaveText('0/4');
 });
+
+// Every LINE card a Pro account receives, to the owner's own LINE (owner, 2026-11-03).
+test('ส่งการ์ด LINE ตัวอย่าง asks the server for the owner’s sample cards and says when they are sent', async ({ page }) => {
+  const sent: unknown[] = [];
+  await page.route('**/api/notify', async route => {
+    sent.push(route.request().postDataJSON());
+    await route.fulfill({ json: { ok: true, cards: 7 } });
+  });
+  await page.goto('/adminDashboard/ceo-park');
+  await expect(page.getByRole('heading', { name: 'แดชบอร์ดแอดมิน' })).toBeVisible();
+  await page.getByTestId('admin-line-samples').click();
+  await expect(page.getByText('ส่งการ์ดตัวอย่างแล้ว')).toBeVisible();
+  expect(sent).toEqual([{ event: 'admin-line-samples' }]);
+});

@@ -20,6 +20,7 @@ const AdminFeedbackInbox = lazy(() => import('../feedback/AdminFeedbackInbox'));
 const AdminActivity = lazy(() => import('./AdminActivity'));
 const AdminBroadcast = lazy(() => import('./AdminBroadcast'));
 import AdminOnboarding from './AdminOnboarding';
+import { sendLineSamplesToMe } from './lineSamples';
 
 type Page = 'payments' | 'accounts' | 'features' | 'onboarding' | 'feedback' | 'users' | 'groups' | 'activity' | 'broadcast';
 const LINKED_PAGES: Page[] = ['feedback', 'broadcast', 'activity'];
@@ -69,6 +70,12 @@ export default function AdminDashboardPhone({
   onPreviewGuide?: () => void;
 }) {
   const copy: Copy = (th, en) => (language === 'th' ? th : en);
+  const [samplesBusy, setSamplesBusy] = useState(false);
+  const sendSamples = async () => {
+    if (samplesBusy) return;
+    setSamplesBusy(true);
+    try { await sendLineSamplesToMe(copy); } finally { setSamplesBusy(false); }
+  };
   const lang = language === 'th' ? 0 : 1;
   const locale = language === 'th' ? 'th-TH' : 'en-US';
   // The LINE alert for a new บอกเรา message opens the inbox straight away (?view=feedback).
@@ -348,6 +355,11 @@ export default function AdminDashboardPhone({
               <KsIcon name="chevron" size={16} />
             </button>
           )}
+          <button type="button" onClick={sendSamples} disabled={samplesBusy} aria-label={copy('ส่งการ์ด LINE ตัวอย่าง', 'Send sample LINE cards')} data-testid="admin-line-samples">
+            <span className="ksm-list-icon"><KsIcon name="chat" /></span>
+            <span className="ksm-grow"><b>{samplesBusy ? copy('กำลังส่ง…', 'Sending…') : copy('ส่งการ์ด LINE ตัวอย่าง', 'Send sample LINE cards')}</b><p>{copy('การ์ด 7 แบบที่ลูกค้า Pro ได้รับ ส่งเข้า LINE ของบัญชีนี้ ใช้ข้อมูลตัวอย่าง', 'The 7 cards a Pro customer receives, to this account’s LINE, with sample data')}</p></span>
+            <KsIcon name="chevron" size={16} />
+          </button>
         </div>
         {data && (
           <>

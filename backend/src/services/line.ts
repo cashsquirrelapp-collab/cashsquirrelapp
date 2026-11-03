@@ -40,6 +40,12 @@ export async function sendLineMessagePayload(lineUserId: string, message: LineMe
 }
 
 export async function sendLineMessagePayloadOutcome(lineUserId: string, message: LineMessage, retryKey?: string): Promise<DeliveryOutcome> {
+  return sendLineMessagesOutcome(lineUserId, [message], retryKey);
+}
+
+/** Up to 5 messages in one push: LINE counts a push as one message per recipient however many it carries. */
+export async function sendLineMessagesOutcome(lineUserId: string, messages: LineMessage[], retryKey?: string): Promise<DeliveryOutcome> {
+  if (messages.length < 1 || messages.length > 5) throw new Error('A LINE push carries 1 to 5 messages');
   if (!stagingLineAllowed(lineUserId)) return 'skipped';
   const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
   if (!token) return 'rejected';
@@ -53,7 +59,7 @@ export async function sendLineMessagePayloadOutcome(lineUserId: string, message:
         ...(retryKey ? { 'X-Line-Retry-Key': retryKey } : {}),
       },
       signal: AbortSignal.timeout(10000),
-      body: JSON.stringify({ to: lineUserId, messages: [message] }),
+      body: JSON.stringify({ to: lineUserId, messages }),
     });
     const accepted = res.ok || (res.status === 409 && res.headers.has('x-line-accepted-request-id'));
     // The status already establishes acceptance/rejection; a body-read error cannot change it.

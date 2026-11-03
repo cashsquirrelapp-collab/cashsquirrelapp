@@ -481,3 +481,16 @@ test('step 4 ends at บันทึกโปรไฟล์ธุรกิจ, 
   await expect(coach(page)).toHaveCount(0);
   await expect(page.getByTestId('pro-guide-pill')).toHaveCount(0);
 });
+
+// Owner, 2026-11-03: the monthly 50 ทวิ reminder in LINE is on unless the account turns it off.
+test('ติดตามใบ 50 ทวิ shows on for an account that never touched it, and one press turns it off and saves that', async ({ page }) => {
+  const saved: string[] = [];
+  page.on('request', request => { const body = request.postData() || ''; if (body.includes('wht50ReminderEnabled')) saved.push(body); });
+  await openAt(page, 1280, 860, '/settings');
+  await page.locator('[data-guide-target="notif"]').click();
+  const toggle = page.getByRole('switch', { name: 'ติดตามใบ 50 ทวิ' });
+  await expect(toggle).toHaveAttribute('aria-checked', 'true');
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-checked', 'false');
+  await expect.poll(() => saved.some(body => /"wht50ReminderEnabled":false/.test(body))).toBe(true);
+});

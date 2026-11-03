@@ -3,7 +3,10 @@ import { rateLimit } from '../security/rateLimit.js';
 import { HttpError } from '../http/guard.js';
 import type { VercelRequest, VercelResponse } from '../http/types.js';
 import { supabaseAdmin } from '../config/supabase.js';
-import { sendLineMessagePayload } from '../services/line.js';
+import { sendLineMessagePayload, sendLineMessagesOutcome } from '../services/line.js';
+import { systemRole } from '../repositories/roles.js';
+import { canViewAdminAnalytics } from '../security/adminAnalyticsAccess.js';
+import { buildLineSampleCards } from '../services/lineSampleCards.js';
 import { buildLineDisconnected } from '../services/lineLinkCards.js';
 import { buildReminderTestMessage } from '../services/lineReminders.js';
 import { hasProAccess } from '../services/vault.js';
@@ -31,6 +34,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await rateLimit('line-reminder-test', userId, 1, 60);
     if (!(await hasProAccess(user))) throw new HttpError(402, 'การแจ้งเตือนเป็นฟีเจอร์สำหรับสมาชิก Pro', 'pro_required');
   }
+  // The owner's own LINE only (admin page, 2026-11-03): every card a Pro account receives, from sample data.
+  if (event === 'admin-line-samples') {
+    if (!canViewAdminAnalytics(user, await systemRole(userId))) throw new HttpError(403, 'หน้านี้เข้าถึงได้เฉพาะเจ้าของระบบเท่านั้น');
+    await rateLimit('line-samples', userId, 1, 60);
+  }
 
   try {
     const { data: row, error: rowErr } = await supabaseAdmin
@@ -42,7 +50,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const lineUserId = row?.notif_settings?.lineUserId as string | undefined;
     if (!lineUserId) {
-      if (event === 'reminder-test') {
+      if (event === 'reminder-test' || event === 'admin-line-samples') {
         res.status(409).json({ error: 'กรุณาเชื่อมต่อ LINE ของบัญชีนี้ก่อนทดสอบ' });
         return;
       }
@@ -53,6 +61,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (event === 'reminder-test') {
       const sent = await sendLineMessagePayload(lineUserId, buildReminderTestMessage());
       res.status(sent ? 200 : 502).json(sent ? { ok: true, test: true } : { error: 'ส่งไม่สำเร็จ กรุณาตรวจว่าเพิ่มเพื่อนและไม่ได้บล็อก LINE กระรอกตุนเงิน' });
+      return;
+    }
+
+    if (event === 'admin-line-samples') {
+      // Up to 5 per push, and LINE counts each push once: 8 messages cost 2 of the month's allowance.
+      const messages = await buildLineSampleCards();
+      let delivered = 0;
+      for (let start = 0; start < messages.length; start += 5) {
+        if (await sendLineMessagesOutcome(lineUserId, messages.slice(start, start + 5)) !== 'accepted') break;
+        delivered += 1;
+      }
+      const pushes = Math.ceil(messages.length / 5);
+      res.status(delivered === pushes ? 200 : 502).json(delivered === pushes
+        ? { ok: true, cards: messages.length - 1 }
+        : { error: delivered ? 'ส่งได้บางส่วน กรุณาลองใหม่อีกครั้ง' : 'ส่งไม่สำเร็จ กรุณาตรวจว่าเพิ่มเพื่อนและไม่ได้บล็อก LINE กระรอกตุนเงิน' });
       return;
     }
 

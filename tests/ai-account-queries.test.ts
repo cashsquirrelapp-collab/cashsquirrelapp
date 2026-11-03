@@ -194,7 +194,9 @@ test('client totals do not count documents as extra income and are not truncated
 test('unsaved notification flags are unknown, while explicit false and disconnected are preserved', () => {
   const user = fixture(); user.notif_settings = {};
   let prefs = run({ domain: 'settings' }, user).notification_preferences;
-  for (const key of ['enabled', 'daily_digest_enabled', 'monthly_report_enabled', 'wht50_reminder_enabled', 'line_connected']) assert.equal(prefs[key], null);
+  for (const key of ['enabled', 'daily_digest_enabled', 'monthly_report_enabled', 'line_connected']) assert.equal(prefs[key], null);
+  // The 50 ทวิ reminder is on unless turned off (owner, 2026-11-03), so untouched reads as on.
+  assert.equal(prefs.wht50_reminder_enabled, true);
   user.notif_settings = { enabled: false, dailyDigestEnabled: false, lineUserId: null } as unknown as UserRow['notif_settings'];
   prefs = run({ domain: 'settings' }, user).notification_preferences;
   assert.equal(prefs.enabled, false); assert.equal(prefs.daily_digest_enabled, false); assert.equal(prefs.line_connected, false);

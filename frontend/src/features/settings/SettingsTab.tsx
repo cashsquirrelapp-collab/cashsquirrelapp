@@ -8,6 +8,7 @@ import { AppSettings, FixedExpenseItem, NotifSettings, Invoice, InvoiceProfile }
 import { formatCurrency, sumFixedExpenseItems, dateLocale } from '../../utils';
 import NumberInput from '../../components/ui/NumberInput';
 import { apiFetch, apiJson } from '../../services/api';
+import { wht50ReminderOn } from '../../../../shared/notifDefaults';
 import { authClient } from '../../services/auth';
 import { saveNotificationPatch, readInvoices, saveCloud } from '../../services/cloud';
 import { privateCache } from '../../services/privateCache';
@@ -441,7 +442,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   };
 
   const handleToggleWht50Reminder = () => {
-    const wht50ReminderEnabled = !notifSettings.wht50ReminderEnabled;
+    // On unless turned off (2026-11-03), so the first press turns it off.
+    const wht50ReminderEnabled = !wht50ReminderOn(notifSettings);
     onUpdateNotifSettings({ ...notifSettings, wht50ReminderEnabled });
     persistNotifPatch({ wht50ReminderEnabled });
   };
@@ -976,7 +978,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 [tr("แจ้งเตือนเครดิตเทอม"), tr("เตือนก่อนครบกำหนดรับเงิน 1–2 วัน วันนี้ และเลยกำหนด ทุกวันประมาณ 08:00 น. (เวลาไทย) ทางอีเมลและ LINE ที่เชื่อมไว้"), !!notifSettings.dailyDigestEnabled, handleToggleDailyDigest],
                 // The 50 ทวิ page and its monthly LINE reminder opened to everyone on 2026-10-31 (owner: "แจ้งเตือนได้ด้วย").
                 ...(isPhaseOneFeatureAvailable('wht50', fullFeatureAccess) || notifSettings.wht50ReminderEnabled
-                  ? [[tr("ติดตามใบ 50 ทวิ"), tr("รวมงานที่รับเงินแล้วอย่างน้อย 7 วันและยังไม่มีใบ 50 ทวิแนบ ส่งเข้า LINE ที่เชื่อมไว้วันที่ 1 ของเดือนประมาณ 08:00 น. (เวลาไทย) เมื่อมีรายการค้างเท่านั้น"), !!notifSettings.wht50ReminderEnabled, handleToggleWht50Reminder] as const]
+                  ? [[tr("ติดตามใบ 50 ทวิ"), tr("รวมงานที่รับเงินแล้วอย่างน้อย 7 วันและยังไม่มีใบ 50 ทวิแนบ ส่งเข้า LINE ที่เชื่อมไว้วันที่ 1 ของเดือนประมาณ 08:00 น. (เวลาไทย) เมื่อมีรายการค้างเท่านั้น"), wht50ReminderOn(notifSettings), handleToggleWht50Reminder] as const]
                   : []),
               ] as const).map(([title, desc, on, toggle]) => (
                 <div key={title} className={rowShell} data-guide-target={isPro && title === tr("แจ้งเตือนเครดิตเทอม") ? 'notif-digest' : undefined}>

@@ -33,7 +33,8 @@ export function buildWht50ReminderMessage(waiting: WaitingWht50Job[]): LineMessa
       name: job.name, client: job.client, amount: 'รอเอกสาร',
       meta: days === null ? 'ไม่พบวันที่รับเงินจริง' : `รับเงินมาแล้ว ${days} วัน`,
     })),
-    note: `${waiting.length > visible.length ? `แสดง ${visible.length} จาก ${waiting.length} งาน\n` : ''}เปิด “งานรอเอกสาร” แล้วแนบให้ตรงงาน · แนบครบแล้วรายการนั้นจะหยุดเตือน`,
+    // On unless turned off since 2026-11-03, so the card says where to turn it off.
+    note: `${waiting.length > visible.length ? `แสดง ${visible.length} จาก ${waiting.length} งาน\n` : ''}เปิด “งานรอเอกสาร” แล้วแนบให้ตรงงาน · แนบครบแล้วรายการนั้นจะหยุดเตือน\nไม่ต้องการการเตือนนี้ ปิด “ติดตามใบ 50 ทวิ” ได้ที่ ตั้งค่า › การแจ้งเตือน`,
     footer: lineAppLink('/line-documents?view=missing', 'ดูงานรอเอกสาร'),
   });
   return card;

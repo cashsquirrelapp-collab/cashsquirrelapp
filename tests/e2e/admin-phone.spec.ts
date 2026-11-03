@@ -164,3 +164,13 @@ test('phone: ดูคู่มือเริ่มใช้ Pro in the admin t
   await expect(card.locator('.pg-count')).toHaveText('0/4');
   await expect(card).toContainText('โหมดทดลองสำหรับแอดมิน');
 });
+
+// Every LINE card a Pro account receives, to the owner's own LINE (owner, 2026-11-03).
+test('phone: ส่งการ์ด LINE ตัวอย่าง in the admin tools sends the sample cards and shows the server’s reason when it cannot', async ({ page }) => {
+  await open(page);
+  // After open(): routes added later win over its catch-all.
+  await page.route('**/api/notify', route => route.fulfill({ status: 409, json: { error: 'กรุณาเชื่อมต่อ LINE ของบัญชีนี้ก่อนทดสอบ' } }));
+  await page.getByTestId('admin-line-samples').click();
+  await expect(page.getByText('ส่งการ์ดตัวอย่างไม่สำเร็จ')).toBeVisible();
+  await expect(page.getByText('กรุณาเชื่อมต่อ LINE ของบัญชีนี้ก่อนทดสอบ')).toBeVisible();
+});
