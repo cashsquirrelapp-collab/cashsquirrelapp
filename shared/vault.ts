@@ -22,7 +22,9 @@ export const VAULT_MAX_BYTES = 10 * 1024 * 1024;
 export const VAULT_MAX_FILES = 1000; // per personal account or group workspace
 /** Free accounts keep this many files in the vault; Pro has no limit (owner, 2026-10-31). */
 export const VAULT_FREE_FILES = 5;
-export const VAULT_ACCEPT = 'application/pdf,image/jpeg,image/png,image/webp';
+// HEIC (iPhone photos) is listed so pickers show it; the app turns it into a JPEG before upload (frontend/src/utils/heic.ts),
+// so the server still stores only PDF, JPEG, PNG and WebP.
+export const VAULT_ACCEPT = 'application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif';
 
 export const VAULT_KIND_LABEL: Record<VaultKind, string> = {
   wht50: 'ใบ 50 ทวิ',

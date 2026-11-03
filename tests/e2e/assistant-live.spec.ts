@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { textOverlapIssues } from './textOverlap';
 import { loadLayoutFonts } from './testFonts';
@@ -342,7 +343,7 @@ test('attach: a PDF goes as it is; other files are refused on screen before anyt
   const mock = await open(page);
   const input = page.locator('.asx-composer input[type=file]');
   await input.setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('hello') });
-  await expect(page.locator('.asx-notice')).toContainText('แนบได้เฉพาะรูป (JPG, PNG, WEBP) หรือไฟล์ PDF');
+  await expect(page.locator('.asx-notice')).toContainText('แนบได้เฉพาะรูป (JPG, PNG, WEBP, HEIC) หรือไฟล์ PDF');
   const pdf = Buffer.from('%PDF-1.4\n% ใบเสนอราคา ตัวอย่าง\n');
   await input.setInputFiles({ name: 'ใบเสนอราคา.pdf', mimeType: 'application/pdf', buffer: pdf });
   await expect(page.locator('.asx-notice')).toHaveCount(0);
@@ -1045,9 +1046,9 @@ for (const width of [1440, 390]) test(`buddy ${width}px: the paperclip sends a p
 
   // Anything but a picture or a PDF is refused on screen.
   await composer.locator('input[type=file]').setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('hello') });
-  await expect(chat.getByText('แนบได้เฉพาะรูป (JPG, PNG, WEBP) หรือไฟล์ PDF')).toBeVisible();
+  await expect(chat.getByText('แนบได้เฉพาะรูป (JPG, PNG, WEBP, HEIC) หรือไฟล์ PDF')).toBeVisible();
   await composer.locator('input[type=file]').setInputFiles({ name: 'สลิปโอน.png', mimeType: 'image/png', buffer: PNG });
-  await expect(chat.getByText('แนบได้เฉพาะรูป (JPG, PNG, WEBP) หรือไฟล์ PDF')).toHaveCount(0);
+  await expect(chat.getByText('แนบได้เฉพาะรูป (JPG, PNG, WEBP, HEIC) หรือไฟล์ PDF')).toHaveCount(0);
   const tile = chat.locator('.asx-attach-tile');
   await expect(tile.locator('img')).toHaveAttribute('src', /^data:image\/jpeg;base64,\/9j\//);
   await expect(composer.locator('.asx-send')).toBeEnabled();
@@ -1143,4 +1144,57 @@ test('notifications bell: no sample count for a real account; the thread says it
   await expect(thread.getByText('ออกแบบโลโก้จริง').first()).toBeVisible();
   await expect(thread.getByText('โหลดแจ้งเตือนของบัญชีนี้ไม่สำเร็จ กรุณาเปิดใหม่อีกครั้ง')).toHaveCount(0);
   expect(reads).toBe(4);
+});
+
+// Owner, 2026-11-04: "กดดูภาพได้ด้วย". A chat reopened from history has only the picture's name; the picture this tab
+// sent is shown and opens large again. The floating window opens a sent picture too.
+test('pictures: a chat reopened from history shows the picture this tab sent, and it opens large', async ({ page }) => {
+  const STORED = 'c_55555555-5555-4555-8555-555555555555';
+  const routes = async (target: Page) => {
+    await target.route('**/api/assistant?view=conversations', route => route.fulfill({ json: { conversations: [
+      { id: STORED, title: 'งานตัดต่อ', pinned: false, archived: false, createdAt: '2026-11-03T17:00:00.000Z', updatedAt: '2026-11-03T17:05:00.000Z' }] } }));
+    await target.route('**/api/assistant?view=conversation&id=*', route => route.fulfill({ json: { messages: [
+      { id: 'm-1', role: 'user', text: 'ช่วยบันทึกงานให้หน่อย', at: '2026-11-03T17:00:00.000Z', attachment: { name: 'สลิปโอน.jpg', kind: 'image' } },
+      { id: 'm-2', role: 'assistant', text: 'เตรียมการ์ดให้ตรวจแล้วครับ', at: '2026-11-03T17:00:05.000Z' },
+    ] } }));
+  };
+  await open(page, { routes });
+  await page.locator('.asx-composer input[type=file]').setInputFiles({ name: 'สลิปโอน.png', mimeType: 'image/png', buffer: PNG });
+  await page.locator('.asx-send').click();
+  await expect(page.locator('.asx-sent-image img')).toBeVisible();
+  await page.locator('.asx').getByRole('button', { name: /งานตัดต่อ/ }).first().click();
+  await expect(page.locator('.asx-msg.is-me .asx-bubble').first()).toHaveText('ช่วยบันทึกงานให้หน่อย');
+  await page.getByRole('button', { name: 'ดูรูปที่แนบ' }).click();
+  await expect(page.getByRole('dialog', { name: 'รูปที่แนบ' }).locator('img')).toHaveAttribute('src', /^data:image\/jpeg;base64,/);
+});
+
+test('pictures: in the floating window a sent picture opens large on a tap', async ({ page }) => {
+  await open(page, { path: '/jobs' });
+  await page.locator('.asx-buddy-btn').click();
+  const win = page.locator('.kfw');
+  await expect(win).toBeVisible();
+  await win.locator('input[type=file]').setInputFiles({ name: 'สลิปโอน.png', mimeType: 'image/png', buffer: PNG });
+  await win.locator('.asx-send').click();
+  await win.getByRole('button', { name: 'ดูรูปที่แนบ' }).click();
+  const viewer = page.getByRole('dialog', { name: 'รูปที่แนบ' });
+  await expect(viewer.locator('img')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(viewer).toHaveCount(0);
+  await expect(win).toBeVisible();
+});
+
+// Owner, 2026-11-04: "ฝากทำให้มันรับนามสกุลภาพนี้ด้วย". An iPhone photo (.heic, which Chrome cannot read) is turned into a
+// JPEG on the device and sent as one.
+test('attach: an iPhone HEIC photo becomes a JPEG before sending', async ({ page }) => {
+  const mock = await open(page);
+  const heic = readFileSync(new URL('./fixtures/sample.heic', import.meta.url));
+  await page.locator('.asx-composer input[type=file]').setInputFiles({ name: 'IMG_3095.heic', mimeType: 'image/heic', buffer: heic });
+  const tile = page.locator('.asx-attach-tile');
+  await expect(tile.locator('img')).toHaveAttribute('src', /^data:image\/jpeg;base64,\/9j\//, { timeout: 15000 });
+  await page.locator('.asx-send').click();
+  await expect.poll(() => mock.posts.filter(post => post.body.action === 'message').length).toBe(1);
+  const body = mock.posts.find(post => post.body.action === 'message').body;
+  expect(body.attachment.name).toBe('IMG_3095.jpg');
+  expect(body.attachment.mimeType).toBe('image/jpeg');
+  expect(body.attachment.data.startsWith('/9j/')).toBe(true);
 });

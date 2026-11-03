@@ -352,6 +352,7 @@ export const assistant: Record<string, string> = {
   "หยุดอ่าน": "Stop reading",
   "ไฟล์ใหญ่เกิน 4 MB กรุณาเลือกไฟล์ที่เล็กลง": "The file is larger than 4 MB. Please choose a smaller file.",
   "แนบได้เฉพาะรูป (JPG, PNG, WEBP) หรือไฟล์ PDF": "You can attach pictures (JPG, PNG, WEBP) or PDF files only",
+  "แนบได้เฉพาะรูป (JPG, PNG, WEBP, HEIC) หรือไฟล์ PDF": "You can attach pictures (JPG, PNG, WEBP, HEIC) or PDF files only",
   "ยังไม่ได้อนุญาตให้ใช้ไมโครโฟน เปิดสิทธิ์ไมโครโฟนให้เว็บนี้แล้วลองอีกครั้ง": "Microphone access is not allowed. Allow the microphone for this site and try again.",
   "ไม่ได้ยินเสียง กดไมค์แล้วลองพูดอีกครั้ง": "Nothing was heard. Press the mic and try again.",
   "ใช้การพูดไม่ได้ในตอนนี้ ลองพิมพ์แทนได้": "Speaking is not available right now. You can type instead.",

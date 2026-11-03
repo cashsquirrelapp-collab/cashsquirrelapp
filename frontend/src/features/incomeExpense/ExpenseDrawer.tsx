@@ -8,7 +8,7 @@ import { AppSettings, Expense } from '../../../../shared/types';
 import { sumFixedExpenseItems, toLocalDateKey } from '../../utils';
 import NumberInput from '../../components/ui/NumberInput';
 import { LEGACY_FIXED_NAME } from './expenseMonth';
-import { isVaultFileType, useVaultMaybe } from '../vault/VaultProvider';
+import { isVaultFileType, readyVaultFiles, useVaultMaybe } from '../vault/VaultProvider';
 import { expenseFiles } from '../vault/vaultStatus';
 import { VAULT_ACCEPT, VAULT_MAX_BYTES, formatFileSize } from '../../../../shared/vault';
 
@@ -70,13 +70,18 @@ export default function ExpenseDrawer({ open, expense, preset, settings, onUpdat
   const fileInput = React.useRef<HTMLInputElement>(null);
   const previews = React.useRef<string[]>([]);
   const releasePreviews = () => { previews.current.forEach(url => URL.revokeObjectURL(url)); previews.current = []; };
-  const addSlips = (list: FileList | File[] | null) => {
+  // An iPhone photo (HEIC) becomes a JPEG as it is picked, so it shows its picture (owner, 2026-11-04).
+  const [converting, setConverting] = React.useState(0);
+  const addSlips = async (list: FileList | File[] | null) => {
     if (!list) return;
-    const next = Array.from(list).map((file, i): PickedSlip => {
-      const preview = file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
+    const files = Array.from(list);
+    setConverting(count => count + 1);
+    const ready = await readyVaultFiles(files).finally(() => setConverting(count => count - 1));
+    const next = ready.map(({ file, problem }, i): PickedSlip => {
+      const preview = !problem && file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
       if (preview) previews.current.push(preview);
       return { key: `${Date.now()}-${i}-${file.name}`, file, preview,
-        error: !isVaultFileType(file) ? tr("รองรับเฉพาะ PDF, JPG, PNG, WEBP") : file.size > VAULT_MAX_BYTES ? tr("ไฟล์ใหญ่เกิน 10 MB") : '' };
+        error: problem || (!isVaultFileType(file) ? tr("รองรับเฉพาะ PDF, JPG, PNG, WEBP, HEIC") : file.size > VAULT_MAX_BYTES ? tr("ไฟล์ใหญ่เกิน 10 MB") : '') };
     });
     setPicked(current => [...current, ...next]);
   };
@@ -284,6 +289,7 @@ export default function ExpenseDrawer({ open, expense, preset, settings, onUpdat
                   </div>
                   <input ref={fileInput} type="file" accept={VAULT_ACCEPT} multiple className="sr-only" tabIndex={-1} aria-hidden="true"
                     onChange={(e) => { addSlips(e.target.files); e.target.value = ''; }} />
+                  {converting > 0 && <p role="status" className="mb-2 text-xs text-brand-muted">{tr("กำลังเตรียมรูปจาก iPhone…")}</p>}
                   {picked.length > 0 && (
                     <ul className="mb-2 divide-y divide-brand-border rounded-[10px] border border-brand-border">
                       {picked.map(item => (
@@ -315,7 +321,7 @@ export default function ExpenseDrawer({ open, expense, preset, settings, onUpdat
 
             <div className="flex gap-3 border-t border-brand-border px-6 py-4">
               <button type="button" onClick={onClose} className={`${uiSecondaryButton} h-12`}>{tr("ยกเลิก")}</button>
-              <button type="submit" disabled={Boolean(uploading)} className={`${uiPrimaryButton} h-12 flex-1 disabled:opacity-70`}>
+              <button type="submit" disabled={Boolean(uploading) || converting > 0} className={`${uiPrimaryButton} h-12 flex-1 disabled:opacity-70`}>
                 {uploading ? tr("กำลังแนบสลิป {0}/{1}…", String(uploading.done), String(uploading.total)) : tr("บันทึกรายจ่าย")}
               </button>
             </div>

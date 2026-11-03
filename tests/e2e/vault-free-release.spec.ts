@@ -106,3 +106,18 @@ test('phone, free account: the vault page shows the 5-file note without overlapp
   expect(box.x + box.width).toBeLessThanOrEqual(390);
   expect(await textOverlapIssues(page)).toEqual([]);
 });
+
+// Owner, 2026-11-04: an iPhone photo (.heic) in the vault's upload window becomes a JPEG as it is picked: it shows its
+// picture, passes the type check and goes up named .jpg.
+test('vault: an iPhone HEIC photo shows as a picture and goes up as a JPEG', async ({ page }) => {
+  const { uploads } = await open(page, { pro: true, count: 1 });
+  await page.getByRole('button', { name: 'เพิ่มเอกสาร' }).click();
+  const heic = (await import('node:fs')).readFileSync(new URL('./fixtures/sample.heic', import.meta.url));
+  await page.getByTestId('vault-file-input').setInputFiles({ name: 'IMG_3095.heic', mimeType: 'image/heic', buffer: heic });
+  const picked = page.locator('img[src^="blob:"]').first();
+  await expect(picked).toBeVisible({ timeout: 15000 });
+  await expect(page.getByText('รองรับเฉพาะ PDF, JPG, PNG, WEBP, HEIC')).toHaveCount(0);
+  await page.getByRole('button', { name: 'บันทึก', exact: true }).click();
+  await expect(page.getByText('แนบเอกสารเรียบร้อยแล้ว')).toBeVisible();
+  expect(JSON.parse(decodeURIComponent(uploads[0])).fileName).toBe('IMG_3095.jpg');
+});

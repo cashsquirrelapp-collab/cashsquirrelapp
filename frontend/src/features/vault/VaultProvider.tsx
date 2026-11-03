@@ -1,7 +1,8 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
-import { Camera, CheckCircle2, Download, ExternalLink, FileText, Plus, Trash2, Upload, X } from 'lucide-react';
+import { Camera, CheckCircle2, Download, ExternalLink, FileText, Loader2, Plus, Trash2, Upload, X } from 'lucide-react';
+import { readableFile } from '../../utils/heic';
 import type { Expense, Job } from '../../../../shared/types';
 import { VAULT_ACCEPT, VAULT_FREE_FILES, VAULT_KIND_LABEL, VAULT_MAX_BYTES, formatFileSize, type VaultFile, type VaultKind } from '../../../../shared/vault';
 import { isEWhtJob, jobWhtAmount, jobNetReceivable } from '../../../../shared/wht';
@@ -289,6 +290,17 @@ interface Picked { key: string; file: File; preview: string | null; error: strin
 const okType = (file: File) => /^(application\/pdf|image\/(jpeg|png|webp))$/.test(file.type) || /\.(pdf|jpe?g|png|webp)$/i.test(file.name);
 export const isVaultFileType = okType;
 
+/** Picked files ready for the vault, one by one: an iPhone photo (HEIC) becomes a JPEG here, so it shows its picture and
+ *  passes the type check (owner, 2026-11-04). A HEIC that cannot be read keeps a note instead. */
+export async function readyVaultFiles(list: File[]): Promise<{ file: File; problem: string }[]> {
+  const ready: { file: File; problem: string }[] = [];
+  for (const file of list) {
+    try { ready.push({ file: await readableFile(file), problem: '' }); }
+    catch { ready.push({ file, problem: tr("เปิดรูป HEIC นี้ไม่ได้ ลองบันทึกเป็น JPG แล้วแนบใหม่") }); }
+  }
+  return ready;
+}
+
 /** Expense choices for linking a slip: newest first, with date and amount to tell them apart. */
 const expenseOptionLabel = (e: Expense) => `${e.name} · ${safeFormatThaiDate(e.date, { day: 'numeric', month: 'short', year: '2-digit' })} · ${formatCurrency(e.amount)}`;
 
@@ -340,16 +352,20 @@ function UploadDialog({ request, financeKey, available, freeLeft, jobs, expenses
   const title = kind === 'wht50' ? tr("แนบใบ 50 ทวิ") : forExpense ? tr("แนบสลิป / ใบเสร็จ") : tr("เพิ่มเอกสาร");
   const pickKind = (next: VaultKind) => { if ((next === 'expense') !== forExpense) setJobId(''); setKind(next); };
 
-  const add = (list: FileList | File[] | null) => {
+  const [converting, setConverting] = React.useState(0);
+  const add = async (list: FileList | File[] | null) => {
     if (!list) return;
-    const next = Array.from(list).map((file, i): Picked => {
-      const preview = file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
+    const files = Array.from(list);
+    setConverting(count => count + 1);
+    const ready = await readyVaultFiles(files).finally(() => setConverting(count => count - 1));
+    const next = ready.map(({ file, problem }, i): Picked => {
+      const preview = !problem && file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
       if (preview) previews.current.push(preview);
       return {
       key: `${Date.now()}-${i}-${file.name}`,
       file,
       preview,
-      error: !okType(file) ? tr("รองรับเฉพาะ PDF, JPG, PNG, WEBP") : file.size > VAULT_MAX_BYTES ? tr("ไฟล์ใหญ่เกิน 10 MB") : '',
+      error: problem || (!okType(file) ? tr("รองรับเฉพาะ PDF, JPG, PNG, WEBP, HEIC") : file.size > VAULT_MAX_BYTES ? tr("ไฟล์ใหญ่เกิน 10 MB") : ''),
       };
     });
     setPicked(current => [...current, ...next]);
@@ -484,6 +500,7 @@ function UploadDialog({ request, financeKey, available, freeLeft, jobs, expenses
             <p className="mt-2 text-xs text-brand-muted">{tr("ขนาดไม่เกิน 10 MB ต่อไฟล์")}</p>
             {freeLeft !== null && <p className="mt-1 text-xs leading-[1.5] text-brand-muted" data-testid="vault-free-left">{tr("บัญชีฟรีเพิ่มได้อีก {0} จาก {1} ไฟล์ · Pro เก็บได้ไม่จำกัด", freeLeft, VAULT_FREE_FILES)}</p>}
 
+            {converting > 0 && <p role="status" className="mt-3 flex items-center gap-2 text-[13px] text-brand-muted"><Loader2 size={15} className="animate-spin" aria-hidden="true" />{tr("กำลังเตรียมรูปจาก iPhone…")}</p>}
             {picked.length > 0 && (
               <div className="mt-4">
                 <p className="mb-2 text-[13px] font-medium text-brand-text">{tr("ไฟล์ที่เลือก ({0})", picked.length)}</p>
@@ -510,7 +527,7 @@ function UploadDialog({ request, financeKey, available, freeLeft, jobs, expenses
           </div>
           <div className="flex gap-2 border-t border-brand-border px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
             <button type="button" onClick={onClose} disabled={Boolean(busy)} className="h-11 flex-1 rounded-xl border border-brand-border text-[14px] font-medium text-brand-text hover:bg-brand-faint disabled:opacity-50 cursor-pointer">{tr("ยกเลิก")}</button>
-            <button type="button" onClick={() => void save()} disabled={Boolean(busy) || !checked.some(p => !p.error)}
+            <button type="button" onClick={() => void save()} disabled={Boolean(busy) || converting > 0 || !checked.some(p => !p.error)}
               className="h-11 flex-[1.4] rounded-xl bg-[#E65F2B] text-[14px] font-semibold text-white hover:bg-[#D35221] disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer">
               {busy ? tr("กำลังอัปโหลด {0}/{1}…", busy.done, busy.total) : tr("บันทึก")}
             </button>

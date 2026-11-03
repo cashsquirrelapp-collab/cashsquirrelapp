@@ -36,7 +36,7 @@ export async function addChatFiles(current: PreparedFile[], picked: File[]): Pro
 
 export const FILE_PROBLEM_TEXT: Record<FileProblem, string> = {
   size: T("ไฟล์ใหญ่เกิน 4 MB กรุณาเลือกไฟล์ที่เล็กลง"),
-  type: T("แนบได้เฉพาะรูป (JPG, PNG, WEBP) หรือไฟล์ PDF"),
+  type: T("แนบได้เฉพาะรูป (JPG, PNG, WEBP, HEIC) หรือไฟล์ PDF"),
   count: T("แนบได้ครั้งละไม่เกิน 5 ไฟล์"),
   total: T("ไฟล์รวมกันใหญ่เกิน 8 MB กรุณาส่งทีละน้อยลง"),
 };

@@ -3,6 +3,7 @@ import { financeHeaders } from './financeWorkspace';
 import type { VaultFile, VaultKind } from '../../../shared/vault';
 
 import { tr, trServer } from '../i18n/tr';
+import { readableFile } from '../utils/heic';
 // Document vault API. Every call names the finance workspace (personal account or group) the
 // file belongs to; the server checks the signed-in user may use it.
 
@@ -20,7 +21,9 @@ export async function listVault(financeKey: string): Promise<VaultFile[]> {
   return Array.isArray(result?.files) ? result.files : [];
 }
 
-export async function uploadVault(financeKey: string, file: File, meta: VaultMeta): Promise<VaultFile> {
+export async function uploadVault(financeKey: string, picked: File, meta: VaultMeta): Promise<VaultFile> {
+  // An iPhone photo (HEIC) goes up as a JPEG: the server keeps PDF, JPEG, PNG and WebP only.
+  const file = await readableFile(picked).catch(() => { throw new Error(tr("เปิดรูป HEIC นี้ไม่ได้ ลองบันทึกเป็น JPG แล้วแนบใหม่")); });
   const response = await apiFetch('/api/vault-upload', {
     method: 'POST',
     body: file,

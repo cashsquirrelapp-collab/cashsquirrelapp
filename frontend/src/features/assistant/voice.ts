@@ -1,6 +1,8 @@
 // Files sent to เลขา. Dictation lives in useDictation.ts: record locally, then transcribe once after stopping, with the
 // server's normal token accounting. Reading answers aloud was removed (owner, 2026-10-27).
 
+import { readableFile } from '../../utils/heic';
+
 export type PreparedFile = { name: string; mimeType: 'image/jpeg' | 'image/png' | 'image/webp' | 'application/pdf'; data: string; kind: 'image' | 'pdf'; bytes: number };
 export const FILE_MAX_BYTES = 4 * 1024 * 1024;
 
@@ -15,7 +17,9 @@ const toBase64 = (buffer: ArrayBuffer) => {
  * Ready a picked file for เลขา: pictures are redrawn at most 1600px wide as JPEG (smaller to send, and the
  * photo's hidden location data is dropped); a PDF goes as it is. Throws 'type' or 'size' for the screen to explain.
  */
-export async function prepareFile(file: File): Promise<PreparedFile> {
+export async function prepareFile(picked: File): Promise<PreparedFile> {
+  // An iPhone photo (HEIC) becomes a JPEG first: Chrome cannot read HEIC (frontend/src/utils/heic.ts).
+  const file = await readableFile(picked).catch(() => { throw new Error('type'); });
   const name = file.name.slice(0, 120) || 'file';
   if (file.type === 'application/pdf') {
     if (file.size > FILE_MAX_BYTES) throw new Error('size');
