@@ -19,7 +19,7 @@ let failRevocation=false,providerSignoutFails=false,notifyFailure=false,failStri
 let notifyLinked=false,linePushStatus=200,linePushes=0;
 let lastLinePush:any=null;const lineLinkCalls:string[]=[];
 let signupError={code:'email_address_not_authorized',msg:'private SMTP credentials should never appear'};
-let refreshed=0,lineVerifications=0,downloaded=0,bucketUpdates=0;
+let refreshed=0,lineVerifications=0,downloaded=0,bucketUpdates=0;let reportRedirects=false;
 let currentRole='user', groupError: {code:string;message:string} | null=null;
 const groupCalls: {endpoint:string;body:any}[]=[];
 const revoked=new Set<string>();
@@ -67,7 +67,7 @@ before(async()=>{
   if(url.includes('/auth/v1/logout'))return providerSignoutFails?json({msg:'JWT expired'},401):new Response(null,{status:204});
   if(url.includes('/cashflow_account_snapshot'))return notifyFailure?json({message:'private notification DB details',code:'XX000'},500):json({notif_settings:notifyLinked?{lineUserId:'U-test-user'}:{}});
   if(url.includes('/storage/v1/object/authenticated/monthly-reports/')){
-   downloaded++;assert.ok(url.endsWith(`/${user.id}/2026-09.xlsx`));assert.equal(new Headers(init?.headers).get('apikey'),'test-admin');assert.equal(init?.redirect,'error');return new Response('test-report-bytes');
+   downloaded++;assert.ok(url.endsWith(`/${user.id}/2026-09.xlsx`));assert.equal(new Headers(init?.headers).get('apikey'),'test-admin');assert.equal(init?.redirect,'manual');if(reportRedirects)return new Response(null,{status:302,headers:{location:'https://evil.example/report.xlsx'}});return new Response('test-report-bytes');
   }
   if(url.includes('/storage/v1/bucket/monthly-reports')){
    if(init?.method==='PUT'){bucketUpdates++;const options=JSON.parse(String(init.body));assert.equal(options.public,false);assert.equal(options.file_size_limit,4194304);return json({message:'updated'});}
@@ -269,6 +269,8 @@ test('reports require login, reject other owners and arbitrary URLs, and downloa
  const arbitrary=await realFetch(origin+'/api/download-report?u=https://evil.com',{headers:{cookie}});assert.equal(arbitrary.status,400);
  assert.equal(downloaded,before);
  const owned=await realFetch(origin+'/api/download-report?month=2026-09&account='+user.id,{headers:{cookie}});assert.equal(owned.status,200);assert.equal(await owned.text(),'test-report-bytes');assert.equal(owned.headers.get('cache-control'),'no-store');
+ // Storage answering with a redirect is refused, never followed (Workers cannot use redirect:'error'; 2026-11-03).
+ reportRedirects=true;const redirected=await realFetch(origin+'/api/download-report?month=2026-09&account='+user.id,{headers:{cookie}});reportRedirects=false;assert.equal(redirected.status,502);assert.equal(redirected.headers.get('location'),null);
 });
 test('existing public report buckets are explicitly converted to private with size limits',async()=>{
  await ensurePrivateReportBucket();assert.equal(bucketUpdates,1);

@@ -23,9 +23,11 @@ export default withGuard(async (req, res) => {
   // The target is constructed from the authenticated owner, never a caller URL.
   const path = `/storage/v1/object/authenticated/monthly-reports/${user.id}/${month}.xlsx`;
   const key = required('SUPABASE_SERVICE_ROLE_KEY');
+  // Never follow a redirect: 'manual' hands any 3xx back, and !ok refuses it. ('error' would say the same, but Cloudflare
+  // Workers throws a TypeError for it, so every download answered 500 there; 2026-11-03.)
   const upstream = await fetch(new URL(path, supabaseUrl()), {
     headers: { apikey: key, Authorization: `Bearer ${key}` },
-    redirect: 'error', signal: AbortSignal.timeout(15000)
+    redirect: 'manual', signal: AbortSignal.timeout(15000)
   });
   if (!upstream.ok) throw new HttpError(upstream.status === 404 ? 404 : 502, 'ไม่พบรายงานหรือบริการไม่พร้อมใช้งาน');
   const limit = 4 * 1024 * 1024;
