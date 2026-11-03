@@ -202,4 +202,10 @@ export const vault: Record<string, string> = {
   "ไม่ระบุวันรับเงินจริง": "No payment date",
   "ไว้กับงานนี้": " with this job",
   "ไว้กับรายจ่ายนี้": " with this expense",
+  // The job opened from the 50 ทวิ LINE card (2026-11-04).
+  "แนบเอกสารให้งานนี้": "Attach a document to this job",
+  "ถ่ายรูปหรือเลือกไฟล์": "Take a photo or choose a file",
+  "งานนี้แนบเอกสารไว้แล้ว": "This job already has its document",
+  "ไม่พบงานนี้ในบัญชีที่เชื่อมไว้": "This job is not in the linked account",
+  "แนบใบ 50 ทวิ ให้ {0} แล้ว งานนี้จะไม่ถูกเตือนอีก": "WHT certificate attached to {0}. This job will not be reminded again",
 };

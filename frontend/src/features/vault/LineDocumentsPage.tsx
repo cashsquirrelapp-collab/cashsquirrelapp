@@ -57,6 +57,9 @@ export default function LineDocumentsPage({ financeKey, jobs, expenses }: { fina
   });
   const [selecting, setSelecting] = React.useState(false);
   const [focusedFileId, setFocusedFileId] = React.useState(() => new URLSearchParams(window.location.search).get('file'));
+  // The job named by the 50 ทวิ card's แนบใบ 50 ทวิ (owner, 2026-11-04): shown first, one tap from the camera or files.
+  const [focusedJobId, setFocusedJobId] = React.useState(() => new URLSearchParams(window.location.search).get('attach'));
+  const [focusedDone, setFocusedDone] = React.useState('');
   const [focusedKind] = React.useState(() => {
     const kind = new URLSearchParams(window.location.search).get('kind') as VaultKind;
     return kinds.includes(kind) ? kind : undefined;
@@ -75,6 +78,14 @@ export default function LineDocumentsPage({ financeKey, jobs, expenses }: { fina
   const matches = (...values: (string | null | undefined)[]) => !q || values.some(value => value?.toLocaleLowerCase().includes(q));
   const files = filed.filter(file => matches(file.fileName, file.jobName, file.client));
   const shownGaps = gaps.filter(({ job }) => matches(job.name, job.client));
+  const focusedJob = focusedJobId ? jobs.find(job => job.id === focusedJobId) : undefined;
+  const focusedGap = focusedJob ? gaps.find(gap => gap.job.id === focusedJob.id) : undefined;
+  const closeFocusedJob = () => {
+    setFocusedJobId(null); setFocusedDone('');
+    const url = new URL(window.location.href);
+    url.searchParams.delete('attach');
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}`);
+  };
   const chooseFile = (meta: VaultMeta) => {
     if (busy || !meta.jobId) return;
     setError(''); setNotice('');
@@ -99,7 +110,10 @@ export default function LineDocumentsPage({ financeKey, jobs, expenses }: { fina
       try { await uploadVault(financeKey, file, meta); saved += 1; }
       catch (cause) { failures.push(`${file.name}: ${cause instanceof Error ? cause.message : tr("ส่งไม่สำเร็จ")}`); }
     }
-    if (saved) { vault.refresh(); setFilter('filed'); setSelecting(false); setQuery(''); setNotice(tr("แนบ {0} ไฟล์ให้ {1} แล้ว", saved, meta.jobName)); }
+    if (saved && focusedJobId && meta.jobId === focusedJobId) {
+      vault.refresh(); setSelecting(false);
+      setFocusedDone(meta.kind === 'wht50' ? tr("แนบใบ 50 ทวิ ให้ {0} แล้ว งานนี้จะไม่ถูกเตือนอีก", meta.jobName) : tr("แนบ {0} ไฟล์ให้ {1} แล้ว", saved, meta.jobName));
+    } else if (saved) { vault.refresh(); setFilter('filed'); setSelecting(false); setQuery(''); setNotice(tr("แนบ {0} ไฟล์ให้ {1} แล้ว", saved, meta.jobName)); }
     if (failures.length) setError(failures.join('\n'));
     setBusy(false);
   };
@@ -109,10 +123,28 @@ export default function LineDocumentsPage({ financeKey, jobs, expenses }: { fina
         <BrandLockup size={32} />
         <a href="/app" className="inline-flex items-center gap-1 rounded-full border border-brand-border px-3 py-2 text-xs font-medium">{tr("เปิดแอป")}{' '}<ArrowUpRight size={14} /></a>
       </header>
+      {focusedJobId && vault.ready && <section className="mb-5 rounded-[22px] border border-[#F2C9AE] bg-brand-white p-4" data-testid="line-documents-job" aria-label={tr("แนบเอกสารให้งานนี้")}>
+        {focusedDone ? <>
+          <p role="status" className="flex items-start gap-2 text-[14px] font-semibold leading-relaxed text-[#12804F]"><Check size={18} className="mt-0.5 shrink-0" />{focusedDone}</p>
+          <button type="button" onClick={closeFocusedJob} className="mt-4 flex h-11 w-full items-center justify-center rounded-xl bg-brand-faint text-sm font-semibold">{tr("เสร็จสิ้น")}</button>
+        </> : focusedJob && focusedGap ? <>
+          <p className="text-xs font-semibold text-[#C24A16]">{focusedGap.required ? tr("แนบใบ 50 ทวิ") : tr("แนบเอกสาร")}</p>
+          <h2 className="mt-1 break-words text-[17px] font-semibold leading-snug">{focusedJob.name}</h2>
+          {focusedJob.client && <p className="mt-1 text-xs leading-relaxed text-brand-muted">{focusedJob.client}</p>}
+          <button type="button" disabled={busy} onClick={() => chooseFile({ kind: focusedGap.kind, jobId: focusedJob.id, jobName: focusedJob.name, client: focusedJob.client })} className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#E65F2B] text-sm font-semibold text-white disabled:opacity-50" data-testid="line-documents-job-attach">
+            {busy ? <LoaderCircle size={19} className="animate-spin" /> : <Paperclip size={18} />}{busy ? tr("กำลังแนบไฟล์…") : tr("ถ่ายรูปหรือเลือกไฟล์")}
+          </button>
+          <p className="mt-2 text-center text-[11px] text-brand-muted">{tr("PDF หรือรูปภาพ · ไม่เกิน 10 MB ต่อไฟล์")}</p>
+          {error && <p role="alert" className="mt-3 whitespace-pre-line rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
+        </> : <>
+          <p className="text-sm leading-relaxed text-brand-muted">{focusedJob ? tr("งานนี้แนบเอกสารไว้แล้ว") : tr("ไม่พบงานนี้ในบัญชีที่เชื่อมไว้")}</p>
+          <button type="button" onClick={closeFocusedJob} className="mt-3 flex h-11 w-full items-center justify-center rounded-xl bg-brand-faint text-sm font-semibold">{tr("ปิด")}</button>
+        </>}
+      </section>}
       <section className="relative mb-5 overflow-hidden rounded-[26px] border border-[#EED8C1] bg-[linear-gradient(115deg,#FFF9F1,#F7E8D6)] px-5 pb-5 pt-6 text-[#4A2D1A]">
         <div className="relative z-10 max-w-[72%]"><p className="mb-1 text-xs font-medium text-[#996C47]">{tr("ไฟล์พร้อม งานก็ไปต่อ")}</p><h1 className="text-[27px] font-bold leading-tight">{tr("เอกสารของฉัน")}</h1><p className="mt-2 text-[13px] leading-relaxed text-[#80634E]">{tr("เลือกงาน แนบไฟล์ เก็บให้ตรงรายการ")}</p></div>
         <img src="/line/mascot-v6-document.png" alt="" className="pointer-events-none absolute -right-3 top-2 h-36 w-36 object-contain" />
-        <button type="button" onClick={() => { setError(''); setNotice(''); if (!vault.isPro) { setError(tr("แนบไฟล์ได้ในช่วงทดลองหรือแพ็กเกจ Pro")); return; } setSelecting(true); setEditing(null); }} disabled={busy || !vault.ready} className="relative z-10 mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#E65F2B] text-sm font-semibold text-white shadow-[0_5px_15px_#E65F2B25] disabled:opacity-50">
+        <button type="button" onClick={() => { setError(''); setNotice(''); if (!vault.isPro) { setError(tr("แนบไฟล์ได้ในช่วงทดลองหรือแพ็กเกจ Pro")); return; } setSelecting(true); setEditing(null); }} disabled={busy || !vault.ready} className={`relative z-10 mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-semibold disabled:opacity-50 ${focusedJobId ? 'border border-[#EED8C1] bg-white/85 text-[#4A2D1A]' : 'bg-[#E65F2B] text-white shadow-[0_5px_15px_#E65F2B25]'}`}>
           {busy ? <LoaderCircle size={19} className="animate-spin" /> : <Plus size={21} />}{busy ? tr("กำลังแนบไฟล์…") : tr("แนบไฟล์ใหม่")}
         </button>
         <input ref={input} type="file" accept={VAULT_ACCEPT} multiple onChange={receiveFiles} className="hidden" aria-label={tr("เลือกไฟล์เอกสาร")} />
@@ -130,7 +162,7 @@ export default function LineDocumentsPage({ financeKey, jobs, expenses }: { fina
       <p className="mb-3 text-xs leading-relaxed text-brand-muted">{filter === 'filed' ? tr("ไฟล์ที่ผูกกับงานหรือรายจ่ายแล้ว เปิดดูหรือย้ายรายการได้") : tr("ใบ 50 ทวิที่ยังรอ และงานที่ยังไม่มีไฟล์แนบ")}</p>
       <div className="relative mb-4"><Search className="absolute left-3 top-3.5 text-brand-muted" size={18} /><input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder={tr("ค้นหาไฟล์ ชื่องาน หรือลูกค้า")} aria-label={tr("ค้นหาเอกสาร")} className={`${inputClass} pl-10`} /></div>
       {notice && <p role="status" className="mb-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
-      {error && <p role="alert" className="mb-4 whitespace-pre-line rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
+      {error && !(focusedJobId && focusedGap && !focusedDone) && <p role="alert" className="mb-4 whitespace-pre-line rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
       {vault.error ? <div role="alert" className="rounded-2xl border border-brand-border p-5 text-sm">{tr("โหลดไฟล์ไม่สำเร็จ")}{' '}<button type="button" onClick={vault.refresh} className="ml-2 font-semibold text-[#C24A16] underline">{tr("ลองอีกครั้ง")}</button></div>
         : !vault.ready ? <div className="flex justify-center gap-2 py-14 text-sm text-brand-muted" role="status"><LoaderCircle className="animate-spin" size={18} />{tr("กำลังเปิดเอกสารของคุณ…")}</div>
         : filter === 'missing' ? <div className="space-y-3">{shownGaps.map(({ job, kind, required }) => <article key={job.id} className="rounded-2xl border border-brand-border bg-brand-white p-4">

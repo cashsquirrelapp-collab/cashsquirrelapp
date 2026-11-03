@@ -18,6 +18,11 @@ export function safeLineDestination(value: unknown): string | undefined {
       query.set('file', file);
       if (kind && ['wht50', 'contract', 'expense', 'other'].includes(kind)) query.set('kind', kind);
     }
+    // One job to attach to, from the 50 ทวิ card's แนบใบ 50 ทวิ (owner, 2026-11-04). Navigation only: the page finds the
+    // job among the signed-in account's own jobs, or says it is not there.
+    // `attach`, not `job`: ?job= anywhere opens that job on the งาน page (App.tsx).
+    const attach = url.searchParams.get('attach');
+    if (attach && /^[A-Za-z0-9_.-]{1,128}$/.test(attach) && !['__proto__', 'constructor', 'prototype'].includes(attach)) query.set('attach', attach);
   }
   if (url.pathname === '/invoice') {
     const type = url.searchParams.get('type');

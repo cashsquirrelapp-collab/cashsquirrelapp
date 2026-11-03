@@ -126,3 +126,31 @@ test('an account already claimed this month is remembered too, so it is not look
   assert.ok(calls.includes('checked:u-a:2026-12'));
   assert.equal(calls.some(call => call.startsWith('send:')), false);
 });
+
+// Owner, 2026-11-04: "ตรงปุ่มรอเอกสาร ... กดแล้วก็แนบเอกสารได้เลยในไลน์". Each job on the card has แนบใบ 50 ทวิ, which opens
+// that job on the LINE documents page; the link names the job and nothing more.
+test('each job on the 50 ทวิ card has แนบใบ 50 ทวิ, opening that job on the LINE documents page', async () => {
+  const saved = { APP_URL: process.env.APP_URL, LIFF_ID: process.env.LIFF_ID };
+  process.env.APP_URL = 'https://krarok.example.test'; process.env.LIFF_ID = '1234567890-abcdEFGH';
+  try {
+    const { buildWht50ReminderMessage, findWaitingWht50Jobs } = await import('../backend/src/services/lineWht50Reminders.js');
+    const card = buildWht50ReminderMessage(findWaitingWht50Jobs([paidJob('job_a1'), paidJob('job-b.2')] as never, [], NOW));
+    const json = JSON.stringify(card);
+    const links = [...json.matchAll(/"uri":"https:\/\/liff\.line\.me\/1234567890-abcdEFGH\?openPath=([^"]+)"/g)].map(match => decodeURIComponent(match[1]));
+    assert.ok(links.includes('/line-documents?view=missing&attach=job_a1&from=line'));
+    assert.ok(links.includes('/line-documents?view=missing&attach=job-b.2&from=line'));
+    assert.equal((json.match(/"label":"แนบใบ 50 ทวิ"/g) || []).length, 2, 'one button per job');
+    assert.match(json, /"style":"secondary"[^}]*"label":"ดูงานรอเอกสาร"/, 'the card link turns grey beside the orange buttons');
+    assert.match(json, /กด แนบใบ 50 ทวิ ใต้งาน/);
+  } finally {
+    for (const [key, value] of Object.entries(saved)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
+  }
+});
+
+test('the LINE link keeps a job id that looks like one, and drops anything else', async () => {
+  const { safeLineDestination } = await import('../shared/lineDestination.js');
+  assert.equal(safeLineDestination('/line-documents?view=missing&attach=job_a1'), '/line-documents?view=missing&attach=job_a1&from=line');
+  for (const bad of ['../etc', 'a b', '__proto__', 'x'.repeat(129), 'job<script>']) {
+    assert.equal(safeLineDestination(`/line-documents?view=missing&attach=${encodeURIComponent(bad)}`), '/line-documents?view=missing&from=line', bad);
+  }
+});

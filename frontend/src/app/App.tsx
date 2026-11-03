@@ -1956,7 +1956,9 @@ export default function App() {
     if (!session?.user?.id) return;
     // LINE's document inbox is a focused personal-account screen, outside the app navigation.
     if (pathname === '/line-documents') {
-      if (!fullFeatureAccess) {
+      // Open to every account since the vault opened to all (2026-10-31); until 2026-11-04 this still sent everyone but
+      // admins to the overview, so the 50 ทวิ card's links did not reach the page for customers.
+      if (!isPhaseOneFeatureAvailable('vault', fullFeatureAccess)) {
         if (session.isGuest) navigatePath(workspaceRoutePath('dashboard', 'demo'), true);
         else if (routeContext && routeContext.userId === session.user.id) navigatePath(workspaceRoutePath('dashboard', personalWorkspaceSlug(routeContext.profile)), true);
         return;
