@@ -26,7 +26,7 @@ async function open(page: Page, width: number, height: number, path: string, dar
   await page.route('**/api/profile', route => route.fulfill({ json: { userId: user.id, publicId: 'SQ-1111111111', displayName: 'ผู้ใช้ตัวอย่าง' } }));
   await page.route('**/api/groups?*', route => route.fulfill({ json: { systemRole: 'user', groups: [], invitations: [], total: 0, page: 0 } }));
   await page.route('**/api/vault', route => route.fulfill({ json: { files: [] } }));
-  await page.route('**/api/data*', route => route.fulfill({ json: route.request().method() === 'POST' ? { ok: true, versions } : { snapshot, versions, subscription: { status: 'active', plan: 'pro_monthly', current_period_end: '2099-01-01T00:00:00Z' } } }));
+  await page.route('**/api/data*', route => route.fulfill({ json: route.request().method() === 'POST' ? { ok: true, versions } : { snapshot: snapshotFor ?? snapshot, versions, subscription: { status: 'active', plan: 'pro_monthly', current_period_end: '2099-01-01T00:00:00Z' } } }));
   await page.setViewportSize({ width, height });
   await page.goto(path);
 }
@@ -214,4 +214,166 @@ test('the guide reads in dark mode and on an iPad', async ({ page }) => {
   await card(page).getByRole('button', { name: 'ไปทำเลย: เชื่อม LINE' }).click();
   await ringsOn(page, 'line');
   await shot(page, 'guide-step-ipad-dark');
+});
+
+// Step 4 on phones (owner, 2026-11-03: customers "ทำไม่ได้สักที"): with the keyboard up, the bubble, the ring and the pill
+// sat on the very fields being filled in. They step aside while a field is typed into, the bubble never covers the
+// fields, and saving still ends the guide.
+async function openAt(page: Page, width: number, height: number, path: string, extra: { admin?: boolean; done?: boolean } = {}) {
+  // LINE, the e-mail switch and the first chat are done already; `done` saves the business profile too.
+  await page.addInitScript(() => {
+    localStorage.setItem('krarok.proGuide.11111111-1111-4111-8111-111111111111', JSON.stringify({ state: 'off', skipped: [], chat: true }));
+  });
+  if (extra.done) {
+    snapshotFor = { ...snapshot, notif_settings: { ...snapshot.notif_settings, lineUserId: 'U-line', dailyDigestEnabled: true },
+      issuer_profile: { name: 'สตูดิโอเดิม', address: '', phone: '', email: '', taxId: '', bankName: '', bankAccount: '', bankAccountName: '' } };
+  } else snapshotFor = { ...snapshot, notif_settings: { ...snapshot.notif_settings, lineUserId: 'U-line', dailyDigestEnabled: true } };
+  await open(page, width, height, path);
+  if (extra.admin) await page.route('**/api/groups?*', route => route.fulfill({ json: { systemRole: 'admin', groups: [], invitations: [], total: 0, page: 0 } }));
+}
+let snapshotFor: Record<string, unknown> | null = null;
+test.beforeEach(() => { snapshotFor = null; });
+
+/** The middle of this element is the element itself, not a piece of the guide. */
+async function reachable(page: Page, selector: string) {
+  return page.locator(selector).first().evaluate(node => {
+    const box = node.getBoundingClientRect();
+    const hit = document.elementFromPoint(box.left + box.width / 2, box.top + Math.min(box.height / 2, 20));
+    return Boolean(hit && (hit === node || node.contains(hit)));
+  });
+}
+/** No piece of the guide sits on this element (the phone's own tab bar is not the guide's). */
+async function clearOfGuide(page: Page, selector: string) {
+  return page.locator(selector).first().evaluate(node => {
+    const box = node.getBoundingClientRect();
+    return !Array.from(document.querySelectorAll('.pg-coach, .pg-pill-wrap')).some(item => {
+      const style = getComputedStyle(item);
+      if (style.visibility === 'hidden') return false;
+      const other = item.getBoundingClientRect();
+      return other.left < box.right && other.right > box.left && other.top < box.bottom && other.bottom > box.top;
+    });
+  });
+}
+
+for (const [label, width, height] of [['a phone', 390, 844], ['a short phone', 375, 667]] as const) {
+  test(`phones: step 4 on ${label} can be filled in, the guide steps aside while typing, and saving ends it`, async ({ page }) => {
+    test.setTimeout(60_000);
+    await openAt(page, width, height, '/dashboard?guide=pro');
+    await expect(card(page).locator('.pg-count')).toHaveText('3/4');
+    await card(page).getByRole('button', { name: 'ไปทำเลย: ตั้งข้อมูลผู้ออกเอกสาร' }).click();
+    await ringsOn(page, 'business');
+    await page.locator('[data-guide-target="business"]').click();
+    await ringsOn(page, 'business-form');
+    // The bubble sits above the fields, inside the screen, and both fields can be pressed.
+    const fields = (await page.locator('[data-guide-target="business-form"]').boundingBox())!;
+    const bubble = (await coach(page).boundingBox())!;
+    expect(bubble.y).toBeGreaterThanOrEqual(12);
+    expect(bubble.y + bubble.height).toBeLessThanOrEqual(fields.y);
+    await expect(page.locator('#biz-name')).toBeInViewport();
+    expect(await reachable(page, '#biz-name')).toBe(true);
+    expect(await reachable(page, '#biz-tax')).toBe(true);
+    await shot(page, `guide-business-${width}x${height}`);
+
+    // Typing: the keyboard comes up over the bottom of the screen; the bubble, the ring and the pill step aside.
+    await page.locator('#biz-name').focus();
+    await expect(coach(page)).toBeHidden();
+    await expect(ring(page)).toBeHidden();
+    await expect(page.getByTestId('pro-guide-pill')).toBeHidden();
+    for (const field of ['#biz-name', '#biz-tax', '#biz-address', '#biz-phone']) {
+      await page.locator(field).focus();
+      await page.locator(field).evaluate(node => node.scrollIntoView({ block: 'start' })); // as the phone does, above the keyboard
+      expect(await clearOfGuide(page, field), field).toBe(true);
+    }
+    await shot(page, `guide-business-typing-${width}`);
+    await page.locator('#biz-name').fill('สตูดิโอตัวอย่าง');
+    await page.locator('#biz-address').fill('99 ถนนสุขุมวิท กรุงเทพมหานคร 10110');
+    // Moving from field to field keeps them aside; closing the keyboard brings them back, and with the fields scrolled
+    // up to the top the bubble does not drop onto the address below them (it used to: 2026-11-03).
+    await page.locator('#biz-tax').focus();
+    await page.waitForTimeout(900);
+    await expect(ring(page)).toBeHidden();
+    await page.locator('#biz-address').focus();
+    await page.locator('#biz-address').blur();
+    await expect(ring(page)).toBeVisible({ timeout: 3000 });
+    await expect(page.getByTestId('pro-guide-pill')).toBeVisible();
+    await page.waitForTimeout(600);
+    expect(await clearOfGuide(page, '#biz-address')).toBe(true);
+    expect(await clearOfGuide(page, '#biz-phone')).toBe(true);
+    const ringBox = (await ring(page).boundingBox())!;
+    if (await coach(page).count()) expect((await coach(page).boundingBox())!.y + (await coach(page).boundingBox())!.height).toBeLessThanOrEqual(ringBox.y);
+    // Saving ends the guide.
+    await page.locator('[data-guide-target="business-save"]').click();
+    await expect(page.locator('.ksm-modal')).toBeVisible();
+    await page.locator('.ksm-modal').getByRole('button').last().click();
+    await page.waitForTimeout(2000);
+    await expect(card(page)).toHaveCount(0);
+    await expect(coach(page)).toHaveCount(0);
+    await expect(page.getByTestId('pro-guide-pill')).toHaveCount(0);
+  });
+}
+
+test('iPads: step 4 steps aside while typing too, and the bubble stays off the fields', async ({ page }) => {
+  test.setTimeout(45_000);
+  // A touch screen: `(pointer: coarse)` matches.
+  await page.addInitScript(() => {
+    const original = window.matchMedia.bind(window);
+    window.matchMedia = (query: string) => (query.includes('pointer: coarse')
+      ? { matches: true, media: query, onchange: null, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent: () => false } as unknown as MediaQueryList
+      : original(query));
+  });
+  await openAt(page, 820, 1180, '/dashboard?guide=pro');
+  await card(page).getByRole('button', { name: 'ไปทำเลย: ตั้งข้อมูลผู้ออกเอกสาร' }).click();
+  await page.locator('[data-guide-target="business"]').click();
+  await ringsOn(page, 'business-form');
+  const fields = (await page.locator('[data-guide-target="business-form"]').boundingBox())!;
+  expect((await coach(page).boundingBox())!.y + (await coach(page).boundingBox())!.height).toBeLessThanOrEqual(fields.y);
+  await page.locator('#biz-name').focus();
+  await expect(coach(page)).toBeHidden();
+  await expect(ring(page)).toBeHidden();
+  await page.locator('#biz-name').blur();
+  await expect(ring(page)).toBeVisible({ timeout: 3000 });
+});
+
+test('admins can replay the guide from step 1 as often as they like; the account’s own progress stays', async ({ page }) => {
+  test.setTimeout(60_000);
+  await openAt(page, 1280, 820, '/assistant', { admin: true, done: true });
+  const openPractice = async () => {
+    await page.getByRole('button', { name: 'จัดการแชต' }).click();
+    await page.getByRole('menuitem', { name: 'ดูคู่มือเริ่มใช้ Pro อีกครั้ง' }).click();
+    await expect(page).toHaveURL(/\/dashboard/);
+    await expect(card(page)).toBeVisible();
+  };
+  await openPractice();
+  await expect(card(page)).toHaveAttribute('data-practice', '');
+  await expect(card(page).locator('.pg-count')).toHaveText('0/4');
+  await expect(card(page)).toContainText('โหมดทดลองสำหรับแอดมิน');
+  await shot(page, 'guide-practice');
+  // Straight to step 4: the account's profile is already saved, yet the step waits for this run's save.
+  await card(page).getByRole('button', { name: 'ไปทำเลย: ตั้งข้อมูลผู้ออกเอกสาร' }).click();
+  await ringsOn(page, 'business');
+  await page.locator('[data-guide-target="business"]').click();
+  await ringsOn(page, 'business-form');
+  await page.waitForTimeout(2500);
+  await expect(coach(page)).toHaveAttribute('data-target', 'business-form');
+  await page.locator('[data-guide-target="business-save"]').click();
+  await page.locator('.ksm-modal').getByRole('button').last().click();
+  await page.waitForTimeout(1500);
+  await expect(coach(page)).toHaveCount(0);
+  await expect(card(page)).toHaveCount(0);
+  // The account's own guide is untouched, and the run can start again.
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('krarok.proGuide.11111111-1111-4111-8111-111111111111') || '{}').state)).toBe('off');
+  await page.goto('/assistant');
+  await openPractice();
+  await expect(card(page).locator('.pg-count')).toHaveText('0/4');
+  await card(page).getByRole('button', { name: 'ไว้ทีหลัง' }).click();
+  await page.getByTestId('pro-guide-pill').locator('..').getByRole('button', { name: 'ปิดคำแนะนำเริ่มใช้ Pro' }).click();
+  await expect(page.getByTestId('pro-guide-pill')).toHaveCount(0);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('krarok.proGuide.11111111-1111-4111-8111-111111111111') || '{}').state)).toBe('off');
+});
+
+test('the replay is for admins only', async ({ page }) => {
+  await openAt(page, 1280, 820, '/assistant', { done: true });
+  await page.getByRole('button', { name: 'จัดการแชต' }).click();
+  await expect(page.getByRole('menuitem', { name: 'ตั้งค่าการแจ้งเตือน' })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'ดูคู่มือเริ่มใช้ Pro อีกครั้ง' })).toHaveCount(0);
 });

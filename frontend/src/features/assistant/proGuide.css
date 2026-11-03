@@ -73,6 +73,9 @@
 /* Beside a button: placed with `translate`; after the ring, the bubble drops in from just above ("ค่อยคุมปุ๊บลงมา"). */
 .pg-coach.is-follow { left: 0; top: 0; will-change: translate, transform; animation: pg-drop 0.5s cubic-bezier(0.34, 1.32, 0.64, 1) 0.2s both; }
 .pg-coach.is-lost { right: 124px; bottom: 70px; }
+/* Step 4 while the keyboard is up (phones and iPads): the bubble, the ring, the dim and the pill step aside but stay on
+   the page, so nothing drops in or dims again when they come back. */
+.pg-away { visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }
 .pg-coach-tail { position: absolute; width: 18px; height: 18px; transform: rotate(45deg); background: var(--pg-surface-a); }
 .pg-coach.is-below .pg-coach-tail { top: -9px; border-left: 1px solid rgba(255, 255, 255, 0.95); border-top: 1px solid rgba(255, 255, 255, 0.95); }
 .pg-coach.is-above .pg-coach-tail { bottom: -9px; background: var(--pg-surface-b); border-right: 1px solid rgba(255, 255, 255, 0.95); border-bottom: 1px solid rgba(255, 255, 255, 0.95); }

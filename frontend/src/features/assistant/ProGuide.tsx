@@ -103,11 +103,25 @@ function Face({ size }: { size: number }) {
 
 type Spot = { name: string; left: number; top: number; width: number; height: number };
 const modalOpen = () => Boolean(document.querySelector('[role="dialog"][aria-modal="true"], [role="alertdialog"]'));
+// A place to type: the on-screen keyboard opens for these on phones and iPads.
+const FIELD = 'input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]), textarea, select, [contenteditable="true"]';
+const isField = (node: Element | null) => node instanceof HTMLElement && node.matches(FIELD);
+/** The nearest box that scrolls this node (the app's page card), or the page itself. */
+function scrollerOf(node: HTMLElement): HTMLElement {
+  for (let item = node.parentElement; item; item = item.parentElement) {
+    const overflow = getComputedStyle(item).overflowY;
+    if ((overflow === 'auto' || overflow === 'scroll') && item.scrollHeight > item.clientHeight) return item;
+  }
+  return (document.scrollingElement as HTMLElement | null) ?? document.documentElement;
+}
+const NO_STEPS_DONE: Record<ProGuideStep, boolean> = { line: false, email: false, chat: false, business: false };
 
-export default function ProGuide({ accountId, start, line, email, businessSaved, page, onGo, mobile = false }: {
+export default function ProGuide({ accountId, start, practiceStart = 0, line, email, businessSaved, page, onGo, mobile = false }: {
   accountId: string;
   /** Goes up by one each time the guide should open (after the payment arrival, ?guide=pro). */
   start: number;
+  /** Goes up by one each time the team opens a practice run (เลขากระรอก ⋯ → ดูคู่มือเริ่มใช้ Pro อีกครั้ง, admins). */
+  practiceStart?: number;
   line: boolean;
   email: boolean;
   businessSaved: () => boolean;
@@ -116,40 +130,84 @@ export default function ProGuide({ accountId, start, line, email, businessSaved,
   /** Phones: the card as a bottom sheet, the pill beside the phone's squirrel. */
   mobile?: boolean;
 }) {
-  const [saved, setSaved] = React.useState<Saved>(() => load(accountId));
-  const update = React.useCallback((patch: Partial<Saved>) => setSaved(current => {
+  const [real, setReal] = React.useState<Saved>(() => load(accountId));
+  const updateReal = React.useCallback((patch: Partial<Saved>) => setReal(current => {
     const next = { ...current, ...patch };
     try { localStorage.setItem(storageKey(accountId), JSON.stringify(next)); } catch { /* the guide still works for this visit */ }
     return next;
   }), [accountId]);
+  // The team's practice run (owner, 2026-11-03: "ขึ้นพรีวิว สำหรับแอดมินให้กูใช้ซ้ำได้"): the same guide from step 1, as often
+  // as they like. A step ticks only when it is done during the run; the account's own guide and progress stay as they were.
+  const [practice, setPractice] = React.useState<(Saved & { done: Record<ProGuideStep, boolean> }) | null>(null);
+  const practiceOn = React.useRef(false);
+  const saved: Saved = practice ?? real;
+  const update = React.useCallback((patch: Partial<Saved>) => {
+    if (!practiceOn.current) { updateReal(patch); return; }
+    if (patch.state === 'off') { practiceOn.current = false; setPractice(null); return; }
+    setPractice(current => current && { ...current, ...patch });
+  }, [updateReal]);
+  const practiceDone = React.useCallback((step: ProGuideStep) => {
+    if (practiceOn.current) setPractice(current => current && { ...current, done: { ...current.done, [step]: true } });
+  }, []);
 
   const startSeen = React.useRef(0);
   React.useEffect(() => {
     if (start <= startSeen.current) return;
     startSeen.current = start;
-    update({ state: 'card', active: undefined });
-  }, [start, update]);
+    practiceOn.current = false; setPractice(null);
+    updateReal({ state: 'card', active: undefined });
+  }, [start, updateReal]);
+  const practiceSeen = React.useRef(0);
+  React.useEffect(() => {
+    if (practiceStart <= practiceSeen.current) return;
+    practiceSeen.current = practiceStart;
+    practiceOn.current = true;
+    setPractice({ state: 'card', skipped: [], chat: false, done: NO_STEPS_DONE });
+  }, [practiceStart]);
+  // In a practice run LINE and the e-mail switch tick when they are turned on during the run.
+  const lineBefore = React.useRef(line);
+  const emailBefore = React.useRef(email);
+  React.useEffect(() => { if (line && !lineBefore.current) practiceDone('line'); lineBefore.current = line; }, [line, practiceDone]);
+  React.useEffect(() => { if (email && !emailBefore.current) practiceDone('email'); emailBefore.current = email; }, [email, practiceDone]);
 
   // The issuer profile lives in this account's private cache; Settings says when it saves, and a slow poll covers the rest.
   const [business, setBusiness] = React.useState(() => businessSaved());
   React.useEffect(() => {
     if (saved.state === 'off') return;
     const check = () => setBusiness(businessSaved());
+    const savedNow = () => { check(); if (businessSaved()) practiceDone('business'); };
     check();
     const timer = window.setInterval(check, 2000);
-    window.addEventListener(ISSUER_SAVED_EVENT, check);
-    return () => { window.clearInterval(timer); window.removeEventListener(ISSUER_SAVED_EVENT, check); };
-  }, [saved.state, businessSaved]);
+    window.addEventListener(ISSUER_SAVED_EVENT, savedNow);
+    return () => { window.clearInterval(timer); window.removeEventListener(ISSUER_SAVED_EVENT, savedNow); };
+  }, [saved.state, businessSaved, practiceDone]);
   React.useEffect(() => {
-    const sent = () => update({ chat: true });
+    const sent = () => { updateReal({ chat: true }); practiceDone('chat'); };
     window.addEventListener(ASSISTANT_SENT_EVENT, sent);
     return () => window.removeEventListener(ASSISTANT_SENT_EVENT, sent);
-  }, [update]);
+  }, [updateReal, practiceDone]);
 
-  const done: Record<ProGuideStep, boolean> = { line, email, chat: saved.chat, business };
+  const done: Record<ProGuideStep, boolean> = practice ? practice.done : { line, email, chat: real.chat, business };
   const doneCount = STEPS.filter(step => done[step]).length;
   const current = STEPS.find(step => !done[step] && !saved.skipped.includes(step)) ?? STEPS.find(step => !done[step]) ?? null;
   const active = saved.state === 'active' ? saved.active ?? null : null;
+
+  // Step 4 on phones and iPads (owner, 2026-11-03: customers "ทำไม่ได้สักที"): once the keyboard is up it takes half the
+  // screen, and the bubble, the ring and the pill sat on the very fields being filled in. While a field is being typed
+  // into they step aside, and come back a moment after the keyboard has closed (kept on the page, so nothing replays).
+  const [typing, setTyping] = React.useState(false);
+  React.useEffect(() => {
+    setTyping(false);
+    if (active !== 'business' || !(mobile || window.matchMedia('(pointer: coarse)').matches)) return;
+    let timer = 0;
+    const onIn = (event: FocusEvent) => { if (isField(event.target as Element | null)) { window.clearTimeout(timer); setTyping(true); } };
+    const onOut = () => { window.clearTimeout(timer); timer = window.setTimeout(() => setTyping(isField(document.activeElement)), 700); };
+    document.addEventListener('focusin', onIn);
+    document.addEventListener('focusout', onOut);
+    setTyping(isField(document.activeElement));
+    return () => { window.clearTimeout(timer); document.removeEventListener('focusin', onIn); document.removeEventListener('focusout', onOut); };
+  }, [active, mobile]);
+  const away = typing && active === 'business';
 
   const go = (step: ProGuideStep) => {
     update({ state: 'active', active: step, skipped: saved.skipped.filter(item => item !== step) });
@@ -199,7 +257,13 @@ export default function ProGuide({ accountId, start, line, email, businessSaved,
           spotName.current = name;
           settled = false; still = 0; last = null;
           setSpot(null);
-          node.scrollIntoView({ block: 'center', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+          const behavior: ScrollBehavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+          if (name === 'business-form') {
+            // The fields' bubble goes above them, so they land low enough to leave it room (a short phone too).
+            const box = node.getBoundingClientRect();
+            const want = Math.max((window.innerHeight - box.height) / 2, coachHeightRef.current + 18 + 16);
+            scrollerOf(node).scrollBy({ top: box.top - want, behavior });
+          } else node.scrollIntoView({ block: 'center', behavior });
         }
         const box = node.getBoundingClientRect();
         return { name, left: Math.round(box.left), top: Math.round(box.top), width: Math.round(box.width), height: Math.round(box.height) };
@@ -267,6 +331,8 @@ export default function ProGuide({ accountId, start, line, email, businessSaved,
 
   const coachRef = React.useRef<HTMLElement | null>(null);
   const [coachHeight, setCoachHeight] = React.useState(196);
+  const coachHeightRef = React.useRef(coachHeight);
+  coachHeightRef.current = coachHeight;
   React.useLayoutEffect(() => {
     const height = coachRef.current?.offsetHeight;
     if (height && Math.abs(height - coachHeight) > 2) setCoachHeight(height);
@@ -281,13 +347,13 @@ export default function ProGuide({ accountId, start, line, email, businessSaved,
   if (saved.state === 'card') {
     const finished = doneCount === STEPS.length;
     return (
-      <section className={`pg-card${mobile ? ' is-mobile' : ''}`} aria-labelledby="pg-title" data-testid="pro-guide">
+      <section className={`pg-card${mobile ? ' is-mobile' : ''}`} aria-labelledby="pg-title" data-testid="pro-guide" data-practice={practice ? '' : undefined}>
         {mobile ? <span aria-hidden="true" className="pg-grip" /> : <span aria-hidden="true" className="pg-card-tail" />}
         <div className="pg-head">
           <Face size={46} />
           <div className="pg-head-text">
             <h2 id="pg-title">{finished ? tr('ครบ 4 ขั้นแล้ว พร้อมใช้ Pro') : tr('เริ่มใช้ Pro ใน 4 ขั้น')}</h2>
-            <p>{finished ? tr('ต่อจากนี้คุยกับเลขาได้ทุกหน้า ทั้งในแอปและ LINE') : tr('กดไปทำเลย แล้วน้องพาไปที่ปุ่มให้ทีละขั้น')}</p>
+            <p>{practice ? tr('โหมดทดลองสำหรับแอดมิน ความคืบหน้าจริงของบัญชีไม่เปลี่ยน') : finished ? tr('ต่อจากนี้คุยกับเลขาได้ทุกหน้า ทั้งในแอปและ LINE') : tr('กดไปทำเลย แล้วน้องพาไปที่ปุ่มให้ทีละขั้น')}</p>
           </div>
           <span className="pg-count" aria-label={tr('ทำแล้ว {0} จาก {1} ขั้น', String(doneCount), String(STEPS.length))}>{doneCount}/{STEPS.length}</span>
         </div>
@@ -321,7 +387,7 @@ export default function ProGuide({ accountId, start, line, email, businessSaved,
 
   const pillStep = cheer ?? active;
   const pill = page === 'assistant' && saved.state === 'active' ? null : (
-    <div className={`pg-pill-wrap${page === 'assistant' ? ' is-chat-page' : ''}${mobile ? ' is-mobile' : ''}`}>
+    <div className={`pg-pill-wrap${page === 'assistant' ? ' is-chat-page' : ''}${mobile ? ' is-mobile' : ''}${away ? ' pg-away' : ''}`}>
       <button type="button" className={`pg-pill ${cheer ? 'is-cheer' : ''}`} onClick={showAll} data-testid="pro-guide-pill"
         aria-label={pillStep ? tr('ขั้นที่ {0} จาก {1}: {2} · ดูทุกขั้น', String(STEPS.indexOf(pillStep) + 1), String(STEPS.length), stepTitle(pillStep)) : tr('เริ่มใช้ Pro {0}/{1} · เปิดอีกครั้ง', String(doneCount), String(STEPS.length))}>
         {cheer ? <><span className="pg-pill-tick" aria-hidden="true"><Check size={12} strokeWidth={3} /></span>{tr('{0} เรียบร้อย', stepTitle(cheer))}</>
@@ -351,15 +417,18 @@ export default function ProGuide({ accountId, start, line, email, businessSaved,
   let coach: React.ReactNode = null;
   if (cheer) coach = null;
   else if (spot) {
-    // The business details are filled in under their first row, so the bubble goes above it when it fits.
     const fitsBelow = spot.top + spot.height + 18 + coachHeight <= window.innerHeight - 12;
     const fitsAbove = spot.top - 18 - coachHeight >= 12;
-    const below = spot.name === 'business-form' ? !fitsAbove && fitsBelow : fitsBelow;
+    // The business details go on under their first fields (address, phone, e-mail), so that bubble only ever goes above
+    // them; with no room there it waits until the fields are scrolled lower, and the pill names the step meanwhile
+    // (2026-11-03: on phones it used to drop onto the very fields being filled in).
+    const form = spot.name === 'business-form';
+    const below = form ? false : fitsBelow;
     const left = Math.max(gutter, Math.min(spot.left - 6, window.innerWidth - width - gutter));
     const top = below ? spot.top + spot.height + 18 : Math.max(12, spot.top - 18 - coachHeight);
     const tail = Math.max(20, Math.min(spot.left + Math.min(spot.width / 2, 34) - left, width - 40));
-    coach = (
-      <section ref={coachRef} className={`pg-coach is-follow ${below ? 'is-below' : 'is-above'}`} style={{ translate: `${left}px ${top}px`, width }} aria-labelledby="pg-coach-title" aria-live="polite" data-testid="pro-guide-coach" data-target={spot.name}>
+    coach = form && !fitsAbove ? null : (
+      <section ref={coachRef} className={`pg-coach is-follow ${below ? 'is-below' : 'is-above'}${away ? ' pg-away' : ''}`} style={{ translate: `${left}px ${top}px`, width }} aria-labelledby="pg-coach-title" aria-live="polite" data-testid="pro-guide-coach" data-target={spot.name}>
         <span aria-hidden="true" className="pg-coach-tail" style={{ left: tail }} />
         {head(coachTitle(spot.name))}
         <ol className="pg-coach-steps">{coachSteps(active, spot.name).map((item, at) => <li key={at}>{item}</li>)}</ol>
@@ -382,8 +451,8 @@ export default function ProGuide({ accountId, start, line, email, businessSaved,
   return (
     <>
       {spot && !cheer && <>
-        <span key={`dim-${spot.name}`} aria-hidden="true" className="pg-dim" style={{ translate: `${spot.left - 6}px ${spot.top - 6}px`, width: spot.width + 12, height: spot.height + 12 }} />
-        <span key={`ring-${spot.name}`} aria-hidden="true" className="pg-ring" data-testid="pro-guide-ring" style={{ translate: `${spot.left - 6}px ${spot.top - 6}px`, width: spot.width + 12, height: spot.height + 12 }} />
+        <span key={`dim-${spot.name}`} aria-hidden="true" className={`pg-dim${away ? ' pg-away' : ''}`} style={{ translate: `${spot.left - 6}px ${spot.top - 6}px`, width: spot.width + 12, height: spot.height + 12 }} />
+        <span key={`ring-${spot.name}`} aria-hidden="true" className={`pg-ring${away ? ' pg-away' : ''}`} data-testid="pro-guide-ring" style={{ translate: `${spot.left - 6}px ${spot.top - 6}px`, width: spot.width + 12, height: spot.height + 12 }} />
       </>}
       {coach}
       {pill}

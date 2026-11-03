@@ -1534,6 +1534,8 @@ export default function App() {
   // the corner squirrel (owner, 2026-10-29); ?guide=pro opens it on its own for the team and the tests.
   const birthGuideRef = useRef(false);
   const [proGuideStart, setProGuideStart] = useState(0);
+  // The team's practice run of the same guide (เลขากระรอก ⋯ → ดูคู่มือเริ่มใช้ Pro อีกครั้ง; owner, 2026-11-03: "ใช้ซ้ำได้").
+  const [proGuidePractice, setProGuidePractice] = useState(0);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('guide') !== 'pro') return;
@@ -3351,6 +3353,7 @@ export default function App() {
                 onExpand={() => navigateTab('assistant')} onBack={() => setIsMobileMenuOpen(true)}
                 onExit={() => { setAssistantFollowing(false); if (activeTab === 'assistant') navigateTab(chatReturnTab.current); }} focus={chatFocus} previewTools={fullFeatureAccess}
                 onPreviewBirth={fullFeatureAccess && isPro ? () => { setAssistantFollowing(false); navigateTab('dashboard'); window.setTimeout(() => setBirthOpen(true), 500); } : undefined}
+                onPreviewGuide={fullFeatureAccess && showProGuide ? () => { setAssistantFollowing(false); navigateTab('dashboard'); window.setTimeout(() => setProGuidePractice(value => value + 1), 300); } : undefined}
                 onOpenNotifications={() => { setAssistantFollowing(false); setSettingsEntry(entry => ({ view: 'notif', n: entry.n + 1 })); navigateTab('settings'); }}
                 onUpgrade={() => { setAssistantFollowing(false); navigateTab('plans'); }}
                 onNavigate={(path, carry) => navigateAssistant(path, true, carry)} onAutoNavigate={path => navigateAssistant(path, true)} transport={assistantTransport}
@@ -3778,7 +3781,7 @@ export default function App() {
         )}
         {showProGuide && session && (
           <Suspense fallback={null}>
-            <ProGuide key={session.user.id} accountId={session.user.id} start={proGuideStart} page={activeTab} mobile={isPhone}
+            <ProGuide key={session.user.id} accountId={session.user.id} start={proGuideStart} practiceStart={fullFeatureAccess ? proGuidePractice : 0} page={activeTab} mobile={isPhone}
               line={Boolean(notifSettings.lineUserId)} email={Boolean(notifSettings.dailyDigestEnabled)} businessSaved={issuerSaved}
               onGo={step => {
                 setAssistantFollowing(false);

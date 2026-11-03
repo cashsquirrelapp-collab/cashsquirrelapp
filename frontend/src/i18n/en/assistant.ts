@@ -332,6 +332,8 @@ export const assistant: Record<string, string> = {
   "แตะผมได้ทุกหน้า": "Tap me on any page",
   "ถามเรื่องงาน รายรับ กำไร หรือให้ช่วยทำ": "Ask about jobs, income, profit, or ask me to do it",
   "ดูตอนน้องเกิดอีกครั้ง": "Replay the squirrel's arrival",
+  "ดูคู่มือเริ่มใช้ Pro อีกครั้ง": "Replay the Pro getting-started guide",
+  'โหมดทดลองสำหรับแอดมิน ความคืบหน้าจริงของบัญชีไม่เปลี่ยน': "Practice run for admins. The account's own progress does not change.",
   "ถามเลขากระรอก": "Ask Krarok Assistant",
   "บันทึกแล้ว": "Saved",
   "ประวัติแชตจะหายเมื่อโหลดหน้าใหม่": "Chat history clears when you reload the page",

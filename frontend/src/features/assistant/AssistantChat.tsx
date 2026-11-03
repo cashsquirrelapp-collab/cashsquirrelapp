@@ -63,6 +63,8 @@ type Props = {
   previewTools?: boolean;
   /** Admins: play the squirrel's birth again on the overview. */
   onPreviewBirth?: () => void;
+  /** The team: a practice run of the "เริ่มใช้ Pro" guide from step 1 (ProGuide.tsx). */
+  onPreviewGuide?: () => void;
   /** The AI connection; defaults to the sample transport. */
   transport?: AssistantTransport;
   /** Admins only: why the real เลขา is not on for this account (shown under the composer). */
@@ -199,7 +201,7 @@ function withInbox(list: Conversation[], inbox: LineInbox, openId: string | null
     : conversation));
 }
 
-export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = false, previewTools = false, onPreviewBirth, onOpenNotifications, onUpgrade, onNavigate, transport: given, liveNote, lineInbox, accountId, workspaceSlug, fullFeatureAccess, floating = false, onExpand, onAutoNavigate, handoff, onHandoff, connecting = false, briefing }: Props) {
+export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = false, previewTools = false, onPreviewBirth, onPreviewGuide, onOpenNotifications, onUpgrade, onNavigate, transport: given, liveNote, lineInbox, accountId, workspaceSlug, fullFeatureAccess, floating = false, onExpand, onAutoNavigate, handoff, onHandoff, connecting = false, briefing }: Props) {
   const reduce = useReducedMotion();
   const rootRef = React.useRef<HTMLElement>(null);
   const listRef = React.useRef<HTMLDivElement>(null);
@@ -1066,6 +1068,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                         <div className="asx-menu-sep" role="separator" />
                         <button type="button" role="menuitem" onClick={simulatePush}><span>{tr("จำลองแจ้งเตือนเข้า")}</span><BellRing size={16} /></button>
                         {onPreviewBirth && <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); onPreviewBirth(); }}><span>{tr("ดูตอนน้องเกิดอีกครั้ง")}</span><Sparkles size={16} /></button>}
+                        {onPreviewGuide && <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); onPreviewGuide(); }}><span>{tr("ดูคู่มือเริ่มใช้ Pro อีกครั้ง")}</span><ListChecks size={16} /></button>}
                       </>
                     )}
                   </motion.div>
