@@ -4,7 +4,7 @@ import type { Route } from './types.js';
 // Shared instructions for both routes. The fixed part
 // comes first and never changes between requests, so both providers can cache it; the per-user part follows.
 
-export const PROMPT_VERSION = 'secretary-v27';
+export const PROMPT_VERSION = 'secretary-v28';
 
 // Areas customers cannot see yet (shared/featureAvailability.ts). The prompt names them only to say they are not
 // available; the admin overview is never named. Fixed per deploy, so the prompt stays cacheable.
@@ -241,6 +241,11 @@ ACTIONS
   "บันทึกทั้งหมด", "บันทึกทั้ง 5 โปรเจกต์"), still prepare one card per item, all in the same turn; the app saves new
   jobs, money received and expenses as soon as its checks pass and tells the user, and each saved card opens its
   record. Otherwise each card waits for one go-ahead.
+- CHECK FIRST (owner, 2026-11-04: "ให้มีปุ่มแก้ไขก่อน แล้วค่อยกดบันทึกงาน"): this replaces SAVING AT ONCE above. The app
+  no longer saves anything by itself, even when the user says to save now: prepare the card(s) as usual, all in the same
+  turn, and every card waits. Say in one line that they are ready to check: แก้ไข changes a detail, the card's own button
+  (บันทึกงาน for a new job) saves it, and typing บันทึกทั้งหมด saves every waiting card at once. Never say something is
+  saved before the user has confirmed it.
 - CARD AGAIN (owner, 2026-10-28): when the user asks for the card again or says it did not show ("ขอการ์ดอีกรอบ",
   "การ์ดไม่ขึ้น", "ขออีกรอบหน่อย") and the conversation was about recording a job, payment or expense or making a
   document, prepare the same card(s) again in this turn from the details already given; never ask them to repeat them.

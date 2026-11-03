@@ -8,6 +8,11 @@ import type { AssistantCard, ChatTurn } from './types.js';
 // documents and deletes keep their card (one go-ahead in the chat, or one tap, applies them). App chat only: LINE
 // keeps its buttons.
 
+/** Off since 2026-11-04 (owner: "ให้มีปุ่มแก้ไขก่อน แล้วค่อยกดบันทึกงาน ... เผื่อมันมีผิดพลาดบ้าง"): every card waits for the
+ *  user, who can change it with แก้ไข and save it with บันทึกงาน, or save every waiting card at once by typing
+ *  บันทึกทั้งหมด (the typed go-ahead). The rules below stay, so turning this back on is one line. */
+export const SAVE_AT_ONCE = false;
+
 /** Recording, saved at once when the user says so; everything else waits for one go-ahead. */
 export const AUTO_SAVE_KINDS: ReadonlySet<ProposalKind> = new Set<ProposalKind>(['add_job', 'record_payment', 'add_expense']);
 

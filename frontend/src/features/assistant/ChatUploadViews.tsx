@@ -3,6 +3,7 @@ import { FileText, X } from 'lucide-react';
 import { tr } from '../../i18n/tr';
 import type { PreparedFile } from './voice';
 import { MAX_CHAT_FILES, sizeText } from './chatUploads';
+import { chatImagePreview } from './chatFiles';
 
 // The files of a message to เลขากระรอก, up to 5 (owner, 2026-10-31): the tray above the box before sending, and what the
 // sent message shows. Shared by the full chat and the floating window; one file looks as it did before.
@@ -32,8 +33,10 @@ export function UploadTray({ files, onRemove, className = '' }: { files: Prepare
 type Shown = { name: string; kind: 'image' | 'pdf'; preview?: string };
 
 /** A sent message's files: one as before (a large picture or a file row), several as a small grid. */
-export function SentFiles({ files, onView }: { files: Shown[]; onView?: (preview: string) => void }) {
-  if (!files.length) return null;
+export function SentFiles({ files: given, onView }: { files: Shown[]; onView?: (preview: string) => void }) {
+  if (!given.length) return null;
+  // A picture whose message came back from history without it: this tab may still hold the one it sent.
+  const files = given.map(file => (file.preview || file.kind !== 'image' ? file : { ...file, preview: chatImagePreview(file.name) }));
   const one = (file: Shown, key: React.Key) => (file.preview ? (onView
     ? <button key={key} type="button" className="asx-sent-image" onClick={() => onView(file.preview!)} aria-label={tr("ดูรูปที่แนบ")}><img src={file.preview} alt={tr("รูปที่แนบ")} /></button>
     : <span key={key} className="asx-sent-image is-still"><img src={file.preview} alt={tr("รูปที่แนบ")} /></span>)

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { AlertCircle, ArrowUp, BarChart3, Check, ChevronRight, Clock, FileText, FolderPlus, HelpCircle, ListChecks, Maximize2, Mic, MousePointerClick, Paperclip, Pointer, Sparkles, Wallet, X } from 'lucide-react';
 import { Mascot } from '../../components/mascot/Mascot';
+import { Modal } from '../../components/ui/Modal';
 import { tr, T } from '../../i18n/tr';
 import { createSampleTransport, tokenLevel, type AssistantTransport } from './assistantApi';
 import { TokenRing } from './TokenRing';
@@ -210,6 +211,8 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
   const voiceRef = React.useRef(voice); voiceRef.current = voice;
   React.useEffect(() => { if (!open && voiceRef.current.active) voiceRef.current.cancel(); }, [open]);
   const [messages, setMessages] = React.useState<ChatMessage[]>([]);
+  // A sent picture opens large on a tap, as in the full chat (owner, 2026-11-04: "กดดูภาพได้ด้วย").
+  const [viewer, setViewer] = React.useState<string | null>(null);
   // Krarok Tokens left, in the window's corner for everyone (owner, 2026-10-27: "จำนวนโทเค็นอะให้ทุกคนเห็นด้วย ... เป็นยอด
   // แบบโทเค็นวงกลม"), read when the window opens and after each answer.
   const [balance, setBalance] = React.useState<TokenBalance | null>(null);
@@ -272,6 +275,8 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
     const onKey = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === 'k') { event.preventDefault(); if (minimized) restore(); else setOpen(value => !value); }
       else if (event.key === 'Escape' && open) {
+        // A picture opened from the window takes Escape: the picture closes, the window stays.
+        if (viewer) return;
         // From inside the window, or when nothing else has the keyboard and no dialog or menu is open over the page.
         const active = document.activeElement;
         const idle = !active || active === document.body;
@@ -280,7 +285,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [open, minimized, mobile, close, restore]);
+  }, [open, minimized, mobile, close, restore, viewer]);
   React.useEffect(() => { if (open && !mobile) window.setTimeout(() => inputRef.current?.focus(), 80); }, [open, mobile]);
   const answers = messages.filter(message => message.from === 'bot').length;
   React.useEffect(() => {
@@ -599,7 +604,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
                   <ol className="asx-thread is-buddy">
                     {messages.map((message, index) => message.from === 'me' ? (
                       <li key={message.id} className="asx-msg is-me"><div className="asx-me-row"><div className="asx-me-stack">
-                        <SentFiles files={messageFiles(message)} />
+                        <SentFiles files={messageFiles(message)} onView={setViewer} />
                         {!message.textAuto && <p className="asx-bubble">{message.text}</p>}
                       </div></div></li>
                     ) : (
@@ -761,6 +766,9 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
           bubbleKey={climb ? (climb.said ? 'said' : climb.kind) : undefined}
           bubble={climb ? <><TypedWords text={climb.said ? climb.words : tr(climb.words)} instant={Boolean(reduce)} quiet={climb.kind === 'working'} />{climb.dots && <span className="asx-climb-dots" aria-hidden="true"><i /><i /><i /></span>}</> : undefined} />,
         document.body)}
+      <Modal open={Boolean(viewer)} onClose={() => setViewer(null)} label={tr("รูปที่แนบ")} width={760}>
+        {viewer && <img className="asx-viewer-img" src={viewer} alt={tr("รูปที่แนบ")} />}
+      </Modal>
     </>
   );
 }

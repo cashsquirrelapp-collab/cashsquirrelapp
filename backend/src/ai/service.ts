@@ -7,7 +7,7 @@ import { decideRoute, routingRecord, type RoutingRecord } from './routingPolicy.
 import { CARD_AGAIN, CONTINUE_WINDOW_MS, continuationTurns, EXPLICIT_GO_AHEAD, GO_AHEAD, goAheadFits, mentionsCard, PENDING_WINDOW_MS, type ChannelTurn } from './crossChannel.js';
 import { PROMPT_VERSION } from './prompt.js';
 import { quickAnswer, quickKind } from './quickAnswers.js';
-import { autoSaveCards, autoSaveText, wantsSaveNow } from './autoSave.js';
+import { SAVE_AT_ONCE, autoSaveCards, autoSaveText, wantsSaveNow } from './autoSave.js';
 import type { PromptSlots } from './prompt.js';
 import { applyCardEdit, cardForStoredProposal, cardValue, createToolbox, EDITABLE_FIELDS, type MemoryStore, type Proposal, type ProposalStore } from './tools.js';
 import { learnedPairs, learnFromConfirmed, mergePairs, pairFromCardEdit, type CorrectionDomain, type LearnPair } from './learning.js';
@@ -369,7 +369,8 @@ export async function handleMessage(db: AssistantDb, deps: MessageDeps, userId: 
 
   // "บันทึกให้หน่อย" (owner, 2026-10-28): the new jobs, money received and expenses this answer prepared are saved now,
   // through the same confirm as a tap, with every check it runs. A card that does not pass stays to confirm by hand.
-  if (channel === 'app' && reply.cards?.length && wantsSaveNow(input.text, input.history)) {
+  // Off since 2026-11-04 (SAVE_AT_ONCE): the cards wait for แก้ไข / บันทึกงาน, or a typed บันทึกทั้งหมด.
+  if (SAVE_AT_ONCE && channel === 'app' && reply.cards?.length && wantsSaveNow(input.text, input.history)) {
     const { save, others } = autoSaveCards(reply.cards, preparedKinds);
     let saved = 0;
     let failed = 0;

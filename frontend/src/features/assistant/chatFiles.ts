@@ -18,6 +18,16 @@ export function chatFileFor(name?: string): PreparedFile | null {
   return files.at(-1) ?? null;
 }
 
+/** A picture sent in this tab, by its exact name, for a message whose stored copy has only the name (a chat reopened
+ *  from history keeps names, never pictures). Owner, 2026-11-04: "กดดูภาพได้ด้วย". */
+export function chatImagePreview(name: string): string | undefined {
+  for (let at = files.length - 1; at >= 0; at -= 1) {
+    const file = files[at];
+    if (file.name === name && file.kind === 'image') return `data:${file.mimeType};base64,${file.data}`;
+  }
+  return undefined;
+}
+
 /** The prepared file as a browser File, ready for the vault's upload window. */
 export function asFile(prepared: PreparedFile): File {
   const binary = atob(prepared.data);

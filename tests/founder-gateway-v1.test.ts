@@ -229,6 +229,7 @@ test('gateway: an action-first mixed request retains founder context and its nor
 });
 
 test('gateway: prompt version and bytes remain unchanged by the knowledge connection', async () => {
+  // secretary-v28 (owner, 2026-11-04): CHECK FIRST added after SAVING AT ONCE (cards wait for แก้ไข / บันทึกงาน); none removed.
   // secretary-v27 (owner, 2026-11-01): WEB SEARCH THIS TURN rules, only on a question about facts outside the app (web slot); none removed.
   // secretary-v26 (owner, 2026-10-31): several files in one message, each its own item (VAULT_FILE_RULES line added); none removed.
   // secretary-v25 (owner, 2026-10-31): the ใบ 50 ทวิ follow-up and FILES TO KEEP (attach_file) rules added; none removed.
@@ -241,8 +242,8 @@ test('gateway: prompt version and bytes remain unchanged by the knowledge connec
   // replaces the remembered PREFERRED NAME. secretary-v17 (owner-approved
   // 2026-10-26, Accounting Brain): one ACCOUNTING REFERENCE slot added after FOUNDER;
   // every existing rule is byte-identical and a message without that slot builds exactly the v16 prompt.
-  assert.equal(PROMPT_VERSION, 'secretary-v27');
+  assert.equal(PROMPT_VERSION, 'secretary-v28');
   const prompt = await readFile(new URL('../backend/src/ai/prompt.ts', import.meta.url));
-  // Captured before the approved gateway-only connection; recaptured for secretary-v27. No dependency on a local audit folder.
-  assert.equal(createHash('sha256').update(prompt).digest('hex'), 'c4894cefc2d41de2145d4c394fe231bc5776cd645c544cb59c7f54d248f2a767');
+  // Captured before the approved gateway-only connection; recaptured for secretary-v28. No dependency on a local audit folder.
+  assert.equal(createHash('sha256').update(prompt).digest('hex'), '87d0ed9bc9ac6ae0d0f560315f4b09bddeb48eaba695c60832e49e6f498004a0');
 });

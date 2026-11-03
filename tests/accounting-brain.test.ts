@@ -286,13 +286,14 @@ test('prompt: without the accounting slot the prompt is byte-identical to the ap
   // เลขา could repeat about itself; no rule removed. Recaptured the same day when the vault and 50 ทวิ opened to everyone:
   // the existing launch-gated vault lines (file metadata, search_vault, wht_tracking) now appear; no wording changed.
   // secretary-v25 (owner, 2026-10-31): the action route adds the ใบ 50 ทวิ follow-up line (WHT50_RULES), and with a file the
-  // FILES TO KEEP rule (attach_file); the chat route is unchanged.
+  // FILES TO KEEP rule (attach_file); the chat route is unchanged. secretary-v28 (owner, 2026-11-04): CHECK FIRST added
+  // right after SAVING AT ONCE (every card waits for แก้ไข / บันทึกงาน, or a typed บันทึกทั้งหมด); no rule removed.
   const slots: PromptSlots[] = [
     { route: 'chat', plan: 'pro', nowLocal: '26 ต.ค. 2569 10:00', knowledge: 'K', accountContext: '{}', offer: 'O' },
     { route: 'action', plan: 'admin', nowLocal: '26 ต.ค. 2569 10:00', knowledge: 'K', accountContext: '{}', founder: 'F', channel: 'line' },
   ];
-  const v25 = ['c92e1cf123f0c3ef7d4baf89e04ebd2018cd5b34555fa5bb8893b4e65be6ebcb', '767f02f4e45057b496283a85b9bd584d31707bd0ef70a6bebf597189d3750b70'];
-  slots.forEach((slot, index) => assert.equal(createHash('sha256').update(buildSystemPrompt(slot)).digest('hex'), v25[index]));
+  const v28 = ['eaef3184b6fdd494abb9e0f7c1ffb0bcf99344883f6589193e8b2db1753e42de', 'f5018c5c4f1777cb864b3ff58e0ad86fc281644e4dccbba5d251f806e52bcfe7'];
+  slots.forEach((slot, index) => assert.equal(createHash('sha256').update(buildSystemPrompt(slot)).digest('hex'), v28[index]));
   const withAccounting = buildSystemPrompt({ ...slots[0], accounting: 'REF' });
   assert.match(withAccounting, /ACCOUNTING REFERENCE \(selected for this message; general information with sources, not a ruling\)\n\nREF\n\nACCOUNT CONTEXT/);
 });

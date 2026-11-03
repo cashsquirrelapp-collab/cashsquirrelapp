@@ -175,21 +175,17 @@ function fakeModels(steps: Array<Array<[string, Record<string, unknown>]> | stri
 const config = () => aiConfig({ AI_ENABLED: 'true', GEMINI_API_KEY: 'g', ANTHROPIC_API_KEY: 'a', AI_SMART_MODEL: 'claude-sonnet-5-5' });
 const job = (name: string, value: number) => ['propose_add_job', { name, value, client: 'ลูกค้าตัวอย่าง', delivered: false, payment_status: 'unpaid', credit_term_days: 15, wht_rate: 0 }] as [string, Record<string, unknown>];
 
-test('save now, end to end: "บันทึกให้หน่อย" saves every new job at once, each card opens its job; otherwise cards wait', async () => {
+test('check first (owner, 2026-11-04): even "บันทึกให้หน่อย" leaves every card waiting for แก้ไข / บันทึกงาน; nothing is saved', async () => {
   const state = memoryDb([], {});
   const said = 'บันทึกให้หน่อย งานตัดคลิป 2,000 งานออกแบบปก 3,500 งานถ่ายรูป 5,000 ลูกค้าตัวอย่าง';
   const reply = await handleMessage(state.db, { config: config(), fetchImpl: fakeModels([[job('ตัดคลิป', 2000), job('ออกแบบปก', 3500), job('ถ่ายรูป', 5000)], 'เตรียมการ์ดไว้ 3 ใบครับ กดยืนยันได้เลย']), now: new Date(now) },
     A, 'pro', { text: said, history: [] });
   const cards = reply.cards.filter(card => card.kind === 'confirm') as Array<{ id: string; status?: string; path?: string }>;
   assert.equal(cards.length, 3);
-  assert.deepEqual(cards.map(card => card.status), ['applied', 'applied', 'applied']);
-  for (const card of cards) {
-    const stored = state.proposals.get(card.id)!;
-    assert.equal(stored.status, 'applied');
-    assert.equal(card.path, `/jobs?job=${encodeURIComponent(stored.jobId)}`);
-  }
-  assert.equal(state.writes.length, 3, 'one save per job, through the same confirm as a tap');
-  assert.equal(reply.text, 'บันทึกให้แล้ว 3 รายการครับ กดปุ่มบนการ์ดเพื่อเปิดดูหรือแก้ไขรายละเอียดได้เลย');
+  assert.deepEqual(cards.map(card => card.status), [undefined, undefined, undefined]);
+  for (const card of cards) assert.equal(state.proposals.get(card.id)!.status, 'pending');
+  assert.equal(state.writes.length, 0, 'nothing saved before the user confirms');
+  assert.doesNotMatch(reply.text, /บันทึกให้แล้ว/);
 
   // The same jobs without "บันทึกให้หน่อย": the cards wait for a tap, as before.
   const waiting = memoryDb([], {});
