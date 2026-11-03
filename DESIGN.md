@@ -238,6 +238,12 @@ card does not need:
 - "ไว้ทีหลัง" leaves a small pill by the squirrel that reopens the card. `?guide=pro` opens it.
 - Phones (owner, 2026-10-29): the card rises from the bottom over the tab bar like an iOS sheet (grip, no tail); the
   pill sits beside the phone's squirrel, whose hello bubble waits meanwhile.
+- Step 4 never covers the fields being filled in (owner, 2026-11-03: customers "ทำไม่ได้สักที" on phones): on phones and
+  iPads the bubble, ring, dim and pill step aside while a field has the keyboard and come back a moment after it closes
+  (kept on the page, so nothing dims or drops in again); the fields' bubble only ever goes above them, and the fields land
+  low enough to leave it room.
+- Admins replay the whole guide from step 1 as often as they like (เลขากระรอก ⋯ → ดูคู่มือเริ่มใช้ Pro อีกครั้ง): a practice
+  run marked โหมดทดลองสำหรับแอดมิน that ticks only what is done during it and leaves the account's own guide as it was.
 
 ### Weekly Pro invitation (owner, 2026-10-29; Gen Z poster, round 4 design 1)
 
