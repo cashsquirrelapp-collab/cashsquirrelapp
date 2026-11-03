@@ -26,6 +26,7 @@ import type { CashOpening } from '../../../shared/cashBalance.js';
 import { type LineCardCharacter, lineCard, lineJobItem, lineValueRow, lineSection, lineDivider, lineAppLink, LINE_CARD_COLORS as C, MAX_LINE_ITEMS } from './lineCards.js';
 import { checkLinkedAccountWriteAccess } from './linkedAccountAccess.js';
 import { decodeDueAction, handleDueAction, handleDuePartialText } from './lineDuePayments.js';
+import { decodeWht50Action, handleWht50Action } from './lineWht50Reminders.js';
 import {
   JobRow,
   ExpenseRow,
@@ -1106,6 +1107,7 @@ export interface LineAssistantDependencies {
   listVaultFiles?: typeof listVaultFiles;
   findLineDocuments?: typeof findLineDocuments;
   handleDueAction?: typeof handleDueAction;
+  handleWht50Action?: typeof handleWht50Action;
   handleDuePartialText?: typeof handleDuePartialText;
   /** Whether a not-yet-launched area (document vault, 50 ทวิ) is open to this account in LINE; tests replace it. */
   lineAreaOpen?: typeof lineAreaOpen;
@@ -1289,6 +1291,9 @@ async function handleAssistantMessageInner(
   // Deterministic: recorded without the model, after the same account and Pro checks as every message.
   const dueAction = decodeDueAction(trimmed);
   if (dueAction) return await (dependencies.handleDueAction ?? handleDueAction)(user, dueAction);
+  // ไม่ต้องตามใบนี้ / กลับมาติดตาม on the monthly 50 ทวิ card (owner, 2026-11-04), the same way.
+  const wht50Action = decodeWht50Action(trimmed);
+  if (wht50Action) return await (dependencies.handleWht50Action ?? handleWht50Action)(user, wht50Action);
   const duePartial = await (dependencies.handleDuePartialText ?? handleDuePartialText)(user, trimmed);
   if (duePartial) return duePartial;
   // Quotations and invoices as cards, with no model call (owner, 2026-10-30): "ทำ/ออก/ขอ ใบเสนอราคา …" opens a draft

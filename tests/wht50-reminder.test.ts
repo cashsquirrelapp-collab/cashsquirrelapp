@@ -154,3 +154,52 @@ test('the LINE link keeps a job id that looks like one, and drops anything else'
     assert.equal(safeLineDestination(`/line-documents?view=missing&attach=${encodeURIComponent(bad)}`), '/line-documents?view=missing&from=line', bad);
   }
 });
+
+// Owner, 2026-11-04: "ทำปุ่มไม่ต้องตามใบนี้ในการ์ด LINE ด้วย". Each job on the card also has a grey ไม่ต้องตามใบนี้: a
+// postback saved on the job without the model, answered with กลับมาติดตาม to undo.
+test('the card: every job has แนบใบ 50 ทวิ and a grey ไม่ต้องตามใบนี้ that names the job', async () => {
+  const { buildWht50ReminderMessage, findWaitingWht50Jobs } = await import('../backend/src/services/lineWht50Reminders.js');
+  const json = JSON.stringify(buildWht50ReminderMessage(findWaitingWht50Jobs([paidJob('job_a1'), paidJob('job-b.2')] as never, [], NOW)));
+  assert.ok(json.includes('"data":"wht50:skip:job_a1"') && json.includes('"data":"wht50:skip:job-b.2"'));
+  assert.equal((json.match(/"text":"ไม่ต้องตามใบนี้"/g) || []).length, 2);
+  assert.match(json, /งานไหนไม่ต้องใช้ใบ กด ไม่ต้องตามใบนี้/);
+});
+
+test('the tap: only an id-shaped job, both ways', async () => {
+  const { encodeWht50Action, decodeWht50Action } = await import('../backend/src/services/lineWht50Reminders.js');
+  assert.deepEqual(decodeWht50Action(encodeWht50Action('skip', 'job_a1')!), { kind: 'skip', jobId: 'job_a1' });
+  assert.deepEqual(decodeWht50Action('wht50:track:job-b.2'), { kind: 'track', jobId: 'job-b.2' });
+  for (const bad of ['wht50:skip:', 'wht50:skip:a b', 'wht50:delete:job_a1', 'due:paid:job_a1']) assert.equal(decodeWht50Action(bad), null, bad);
+  assert.equal(encodeWht50Action('skip', '../x'), null);
+  const { lineEventCommand } = await import('../backend/src/handlers/line-webhook.js');
+  assert.equal(lineEventCommand({ type: 'postback', source: { type: 'user', userId: 'U1' }, postback: { data: 'wht50:skip:job_a1' } }), 'wht50:skip:job_a1');
+});
+
+test('ไม่ต้องตามใบนี้ saves on the job with its version and offers กลับมาติดตาม; กลับมาติดตาม undoes it', async () => {
+  const { handleWht50Action } = await import('../backend/src/services/lineWht50Reminders.js');
+  let stored = { data: { ...paidJob('job_a1') } as Record<string, unknown>, version: 4 };
+  const saves: { version: number; flag: unknown }[] = [];
+  const deps = {
+    loadJob: async () => ({ data: stored.data as never, version: stored.version }),
+    saveJob: async (_user: string, _id: string, version: number, data: Record<string, unknown>) => { saves.push({ version, flag: data.wht50NotNeeded }); stored = { data, version: version + 1 }; return true; },
+    today: () => '2026-12-01', now: () => NOW,
+  };
+  const skipped = JSON.stringify(await handleWht50Action({ user_id: 'u' }, { kind: 'skip', jobId: 'job_a1' }, deps as never));
+  assert.deepEqual(saves, [{ version: 4, flag: true }]);
+  assert.match(skipped, /ไม่ต้องตามใบ 50 ทวิของ “งาน job_a1” แล้วครับ/);
+  assert.ok(skipped.includes('"data":"wht50:track:job_a1"'), 'the way back');
+  const tracked = JSON.stringify(await handleWht50Action({ user_id: 'u' }, { kind: 'track', jobId: 'job_a1' }, deps as never));
+  assert.deepEqual(saves.at(-1), { version: 5, flag: false });
+  assert.match(tracked, /กลับมาติดตามใบ 50 ทวิของ “งาน job_a1” แล้วครับ/);
+});
+
+test('samples, missing jobs and a job saved elsewhere at the same moment get a plain answer and no save', async () => {
+  const { handleWht50Action } = await import('../backend/src/services/lineWht50Reminders.js');
+  let saves = 0;
+  const deps = (row: unknown, ok = true) => ({ loadJob: async () => row, saveJob: async () => { saves += 1; return ok; }, today: () => '2026-12-01', now: () => NOW });
+  assert.match(JSON.stringify(await handleWht50Action({ user_id: 'u' }, { kind: 'skip', jobId: 'demo-wht-1' }, deps(null) as never)), /การ์ดตัวอย่าง/);
+  assert.match(JSON.stringify(await handleWht50Action({ user_id: 'u' }, { kind: 'skip', jobId: 'gone' }, deps(null) as never)), /ไม่พบงานนี้แล้ว/);
+  assert.equal(saves, 0);
+  assert.match(JSON.stringify(await handleWht50Action({ user_id: 'u' }, { kind: 'skip', jobId: 'job_a1' }, deps({ data: paidJob('job_a1'), version: 1 }, false) as never)), /เพิ่งถูกแก้จากอีกเครื่อง/);
+  assert.equal(saves, 2, 'one retry');
+});

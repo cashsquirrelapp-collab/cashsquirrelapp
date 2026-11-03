@@ -12,6 +12,7 @@ import { decodeLineDocumentAction } from '../services/lineDocumentDraft.js';
 import { decodeVaultAction, handleLineFile, handleLineVaultAction } from '../services/lineVaultChat.js';
 import { forgetLineMenu, lineMenuDeps, syncLineMenuFor } from '../services/lineRichMenus.js';
 import { decodeDueAction } from '../services/lineDuePayments.js';
+import { decodeWht50Action } from '../services/lineWht50Reminders.js';
 
 export const config = {
   api: {
@@ -55,7 +56,7 @@ export function lineEventCommand(event: LineEvent): string | null {
   if (event.type === 'postback') {
     const data = event.postback?.data || '';
     // Payment buttons in the 08:00 reminder pass through as-is; the assistant records them.
-    if (decodeVaultAction(data) || decodeDueAction(data)) return data;
+    if (decodeVaultAction(data) || decodeDueAction(data) || decodeWht50Action(data)) return data;
     // ยืนยัน / ยกเลิก on a เลขากระรอก confirmation card.
     const ai = /^ai:(confirm|cancel):(p_[0-9a-f-]{36})$/.exec(data);
     if (ai) return `${ai[1] === 'confirm' ? 'ยืนยัน' : 'ยกเลิก'}รายการเลขา ${ai[2]}`;
