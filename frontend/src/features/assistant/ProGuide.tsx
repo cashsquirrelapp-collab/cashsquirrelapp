@@ -158,11 +158,15 @@ export default function ProGuide({ accountId, start, practiceStart = 0, line, em
     updateReal({ state: 'card', active: undefined });
   }, [start, updateReal]);
   const practiceSeen = React.useRef(0);
+  // LINE already linked and the e-mail summary already on count as done from the start of a run (owner, 2026-11-03:
+  // "ถ้าเชื่อมแล้วก็พาข้ามอันถัดไปเลย"): they cannot be done again, so the run goes on to the next step.
+  const accountNow = React.useRef({ line, email });
+  accountNow.current = { line, email };
   React.useEffect(() => {
     if (practiceStart <= practiceSeen.current) return;
     practiceSeen.current = practiceStart;
     practiceOn.current = true;
-    setPractice({ state: 'card', skipped: [], chat: false, done: NO_STEPS_DONE });
+    setPractice({ state: 'card', skipped: [], chat: false, done: { ...NO_STEPS_DONE, line: accountNow.current.line, email: accountNow.current.email } });
   }, [practiceStart]);
   // In a practice run LINE and the e-mail switch tick when they are turned on during the run.
   const lineBefore = React.useRef(line);

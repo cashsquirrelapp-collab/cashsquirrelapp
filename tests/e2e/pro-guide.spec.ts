@@ -345,7 +345,12 @@ test('admins can replay the guide from step 1 as often as they like; the account
   };
   await openPractice();
   await expect(card(page)).toHaveAttribute('data-practice', '');
-  await expect(card(page).locator('.pg-count')).toHaveText('0/4');
+  await expect(card(page).locator('.pg-count')).toHaveText('2/4');
+  // LINE is linked and the e-mail summary is on already, so the run starts at the next step
+  // (owner, 2026-11-03: "ถ้าเชื่อมแล้วก็พาข้ามอันถัดไปเลย").
+  await expect(card(page).locator('.pg-step[data-step="line"]')).toContainText('เรียบร้อย');
+  await expect(card(page).locator('.pg-step[data-step="email"]')).toContainText('เรียบร้อย');
+  await expect(card(page).locator('.pg-step.is-current')).toHaveAttribute('data-step', 'chat');
   await expect(card(page)).toContainText('โหมดทดลองสำหรับแอดมิน');
   await shot(page, 'guide-practice');
   // Straight to step 4: the account's profile is already saved, yet the step waits for this run's save.
@@ -364,7 +369,7 @@ test('admins can replay the guide from step 1 as often as they like; the account
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('krarok.proGuide.11111111-1111-4111-8111-111111111111') || '{}').state)).toBe('off');
   await page.goto('/assistant');
   await openPractice();
-  await expect(card(page).locator('.pg-count')).toHaveText('0/4');
+  await expect(card(page).locator('.pg-count')).toHaveText('2/4');
   await card(page).getByRole('button', { name: 'ไว้ทีหลัง' }).click();
   await page.getByTestId('pro-guide-pill').locator('..').getByRole('button', { name: 'ปิดคำแนะนำเริ่มใช้ Pro' }).click();
   await expect(page.getByTestId('pro-guide-pill')).toHaveCount(0);
@@ -391,7 +396,7 @@ for (const [label, width, height] of [['a computer', 1280, 820], ['a phone', 390
     await expect(page.locator('.kb-stage').first()).toBeVisible({ timeout: 8000 });
     await expect(card(page)).toBeVisible({ timeout: 20_000 });
     await expect(card(page)).toHaveAttribute('data-practice', '');
-    await expect(card(page).locator('.pg-count')).toHaveText('0/4');
+    await expect(card(page).locator('.pg-count')).toHaveText('2/4');
     // The account's own guide stays as it was.
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('krarok.proGuide.11111111-1111-4111-8111-111111111111') || '{}').state)).toBe('off');
   });

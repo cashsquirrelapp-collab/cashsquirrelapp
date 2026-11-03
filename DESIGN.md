@@ -244,6 +244,7 @@ card does not need:
   low enough to leave it room.
 - Admins replay the whole guide from step 1 as often as they like (เลขากระรอก ⋯ → ดูคู่มือเริ่มใช้ Pro อีกครั้ง): a practice
   run marked โหมดทดลองสำหรับแอดมิน that ticks only what is done during it and leaves the account's own guide as it was.
+  LINE already linked and the e-mail summary already on count as done from the start (owner: "ถ้าเชื่อมแล้วก็พาข้ามอันถัดไปเลย").
   The admin page has the same as a button (computers: the header; phones: the last row of เครื่องมือแอดมิน).
   ตั้งค่า › สำหรับแอดมิน › ตัวอย่างหลังชำระ Pro (owner, 2026-11-03) plays the whole after-payment scene: the paid arrival, then the
   guide as the same practice run; nothing is charged.
