@@ -6,15 +6,18 @@ import { systemRole } from '../repositories/roles.js';
 // เห็นได้"). Everyone gets the 5-tile menu without แนบเอกสาร as LINE's default. A LINE chat linked to a system admin
 // gets the 6-tile menu attached to it, because แนบเอกสาร opens the document vault, which only admins have on the
 // website. Once the vault opens to everyone (shared/featureAvailability.ts), the 6-tile menu becomes the default.
+// It did on 2026-10-31. Owner, 2026-11-03: the tiles in CI colours (the LINE card's rust-to-orange band) and แนบเอกสาร
+// opens คลังเอกสาร in the app. Only the colours of the pictures changed (scripts/line-menu/recolor.py); letters, icons
+// and the squirrel are the ones in use since 2026-10-24.
 //
 // The server publishes both menus itself, once per version and launch state: a claim through
 // cashflow_claim_webhook keeps two Workers from publishing at the same time, and later runs find the menus again
 // by name. It runs on the first LINE message after a release and every day at 09:00 Bangkok.
 
-export const MENU_VERSION = '2026-10-24';
+export const MENU_VERSION = '2026-11-03';
 export type MenuKind = 'everyone' | 'admin';
 const NAME: Record<MenuKind, string> = { everyone: `กระรอกตุนเงิน ทุกบัญชี ${MENU_VERSION}`, admin: `กระรอกตุนเงิน แอดมิน ${MENU_VERSION}` };
-const IMAGE: Record<MenuKind, string> = { everyone: '/line/richmenu-everyone-2026-10-24.jpg', admin: '/line/secretary-richmenu.jpg' };
+const IMAGE: Record<MenuKind, string> = { everyone: '/line/richmenu-ci-5-2026-11-03.jpg', admin: '/line/richmenu-ci-6-2026-11-03.jpg' };
 const BULK = 500;
 
 const vaultOpenToAll = () => isPhaseOneFeatureAvailable('vault', false);
@@ -28,7 +31,7 @@ export function menuPayload(kind: MenuKind, liffId: string) {
     { bounds: { x: 1450, y: 560, width: 1050, height: 560 }, action: { type: 'message', label: 'สรุปเดือนนี้', text: 'สรุปเดือนนี้' } },
   ];
   const bottom = kind === 'admin' ? [
-    { bounds: { x: 0, y: 1120, width: 833, height: 566 }, action: { type: 'uri', label: 'แนบเอกสาร', uri: liff('/line-documents') } },
+    { bounds: { x: 0, y: 1120, width: 833, height: 566 }, action: { type: 'uri', label: 'แนบเอกสาร', uri: liff('/vault') } },
     { bounds: { x: 833, y: 1120, width: 834, height: 566 }, action: { type: 'message', label: 'กำลังดำเนินงาน', text: 'กำลังดำเนินการ' } },
     { bounds: { x: 1667, y: 1120, width: 833, height: 566 }, action: { type: 'uri', label: 'เปิดแอป', uri: liff('/app') } },
   ] : [

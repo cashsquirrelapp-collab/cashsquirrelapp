@@ -56,8 +56,12 @@ function fakeLine(over: { claim?: string; imageFails?: boolean; menus?: { richMe
 
 beforeEach(() => clearLineMenuCache());
 
-test('admin menu keeps the live 6 tiles exactly; the everyone menu has 5 tiles and no แนบเอกสาร', () => {
-  assert.deepEqual(menuPayload('admin', LIFF).areas, live.areas, 'the admin menu is the one LINE shows today');
+test('admin menu keeps the live 6 tiles; แนบเอกสาร opens คลังเอกสาร; the everyone menu has 5 tiles and no แนบเอกสาร', () => {
+  // Owner, 2026-11-03: แนบเอกสาร goes to the app's คลังเอกสาร (/vault), no longer the LINE documents page.
+  const vault = `https://liff.line.me/${LIFF}?openPath=${encodeURIComponent('/vault')}`;
+  const expected = live.areas.map((area: { action: { label: string } }) => area.action.label === 'แนบเอกสาร' ? { ...area, action: { ...area.action, uri: vault } } : area);
+  assert.deepEqual(menuPayload('admin', LIFF).areas, expected, 'the 6 tiles LINE shows, with แนบเอกสาร opening คลังเอกสาร');
+  assert.ok(!JSON.stringify(menuPayload('admin', LIFF)).includes('line-documents'));
   const everyone = menuPayload('everyone', LIFF);
   assert.equal(everyone.areas.length, 5);
   assert.ok(!JSON.stringify(everyone).includes('แนบเอกสาร') && !JSON.stringify(everyone).includes('line-documents'));
@@ -68,14 +72,16 @@ test('admin menu keeps the live 6 tiles exactly; the everyone menu has 5 tiles a
   assert.ok(everyone.chatBarText.length <= 14 && everyone.name.length <= 300);
 });
 
-test('the everyone picture is a 2500x1686 JPEG under LINE\'s 1 MB limit', () => {
-  const image = readFileSync(new URL('../frontend/public/line/richmenu-everyone-2026-10-24.jpg', import.meta.url));
-  assert.deepEqual([...image.subarray(0, 3)], [0xff, 0xd8, 0xff]);
-  assert.ok(image.length < 1_000_000);
-  // Size from the JPEG frame header (SOF0/SOF2).
-  let at = 2;
-  while (at < image.length && !(image[at] === 0xff && [0xc0, 0xc2].includes(image[at + 1]))) at += 2 + image.readUInt16BE(at + 2);
-  assert.deepEqual([image.readUInt16BE(at + 7), image.readUInt16BE(at + 5)], [2500, 1686]);
+test('both CI pictures (scripts/line-menu/recolor.py) are 2500x1686 JPEGs under LINE\'s 1 MB limit', () => {
+  for (const name of ['richmenu-ci-5-2026-11-03.jpg', 'richmenu-ci-6-2026-11-03.jpg']) {
+    const image = readFileSync(new URL(`../frontend/public/line/${name}`, import.meta.url));
+    assert.deepEqual([...image.subarray(0, 3)], [0xff, 0xd8, 0xff]);
+    assert.ok(image.length < 1_000_000);
+    // Size from the JPEG frame header (SOF0/SOF2).
+    let at = 2;
+    while (at < image.length && !(image[at] === 0xff && [0xc0, 0xc2].includes(image[at + 1]))) at += 2 + image.readUInt16BE(at + 2);
+    assert.deepEqual([image.readUInt16BE(at + 7), image.readUInt16BE(at + 5)], [2500, 1686], name);
+  }
 });
 
 test('publishing: both menus once, the 5-tile one becomes the default, then nothing is published again', async () => {
@@ -83,7 +89,7 @@ test('publishing: both menus once, the 5-tile one becomes the default, then noth
   const ids = await ensureLineMenus(line.deps);
   assert.ok(ids);
   assert.deepEqual(line.calls.filter(call => call === 'POST richmenu').length, 2);
-  assert.deepEqual(line.images, ['/line/richmenu-everyone-2026-10-24.jpg', '/line/secretary-richmenu.jpg']);
+  assert.deepEqual(line.images, ['/line/richmenu-ci-5-2026-11-03.jpg', '/line/richmenu-ci-6-2026-11-03.jpg']);
   assert.equal(line.defaultMenu(), vaultOpen ? ids!.admin : ids!.everyone);
   assert.equal(line.done.length, 1);
   line.calls.length = 0;

@@ -13,7 +13,7 @@ const PHASE_ONE_FEATURES = new Set([
   'assistant',
   // Released to everyone on 2026-10-31 (owner: "ฝากเอา 2 ฟีเจอร์นี้เข้ามาด้วย ... ฟรีจำกัดได้แค่ 5 เอกสาร ... Pro ใช้ได้ไม่จำกัด"):
   // เอกสาร › คลังเอกสาร and ติดตามใบ 50 ทวิ. Free accounts keep up to VAULT_FREE_FILES files (shared/vault.ts); Pro has
-  // no limit. The monthly 50 ทวิ LINE reminder stays off (cloudflare/schedule.ts) until the owner turns it on.
+  // no limit. The monthly 50 ทวิ LINE reminder: on for Pro accounts with LINE unless turned off (since 2026-11-03).
   'vault', 'wht50',
 ]);
 
