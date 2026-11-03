@@ -538,6 +538,29 @@ card does not need:
   it is open), asks again when an app left open comes back on screen, and the admin page opens it as a preview
   (ดูหน้าต่างจริง) because an admin account is never shown its own message.
 
+### เอกสาร on phones (owner, 2026-11-03: "มันแอบเหมือนคอม ... ใช้ยาก"; preview canvas 1AELuDw5eab1Kk1hPNrwUm, "ทำจริงทั้งชุดเลย")
+
+- Phones only (`InvoicePhone.tsx`, `docPhone.css`, the phone branches of `VaultTab` and `Wht50Panel`); computers and iPads
+  keep their page, which gains a ข้อมูลผู้ออกเอกสาร button that opens ตั้งค่า › โปรไฟล์ธุรกิจ.
+- The list: the page's own terracotta header, a ข้อมูลผู้ออกเอกสาร row, a four-part type switch with short words
+  (เสนอราคา / แจ้งหนี้ / ใบเสร็จ / กำกับภาษี) and counts, search, documents grouped by month in one white card, a linked chip
+  ("ออกใบแจ้งหนี้ต่อแล้ว", "ต่อจาก QT-…"). No orange button at the top: on this page the tab bar's middle button is ออกเอกสาร
+  (a document with a plus on the same eared circle; owner: "เอามาแทนปุ่มเพิ่มงานเวลาเข้าไปในฟีเจอร์เอกสาร") and opens a
+  sheet of the four types plus จากงานที่บันทึกไว้ and ออกต่อจากเอกสารเดิม.
+- Pages opened from the list (a document, the form, ข้อมูลผู้ออกเอกสาร) cover the tab bar and the corner squirrel
+  (`html[data-dp-task]`), have their own bottom bar (secondary tiles, one orange action last) and take the phone's back
+  gesture (one history entry each).
+- A document: ยอดรับสุทธิ large with the breakdown, the linked documents, the A4 page small (a picture, `.dp-paper`; a tap
+  opens it full screen on dark, a tap on the page zooms), and แก้ไข / PDF / ออกต่อ / แชร์ให้ลูกค้า.
+- The form in three steps with bars in the header that can be tapped: ลูกค้า (saved customers as a radio list, ลูกค้าใหม่,
+  label-left fields), รายการและภาษี (item cards with a quantity stepper, VAT as a two-part switch, WHT as chips, the total
+  in the bar), ตรวจแล้วบันทึก (the A4 picture, the details with labels above, ผู้ออกเอกสาร).
+- ข้อมูลผู้ออกเอกสาร (owner: "ควรไปอยู่ในส่วนของเอกสาร") is the same business profile as ตั้งค่า, saved the same way: ธุรกิจ →
+  บัญชีรับเงิน → โลโก้และลายเซ็น (each in a sheet).
+- คลังเอกสาร: one เพิ่มไฟล์ button, search, the four kinds as 2×2 tiles that filter, files as one grouped list; the year, the
+  ZIP and ติดตามใบ 50 ทวิ behind ⋯. ติดตามใบ 50 ทวิ: one summary card (total, a bar of backed and waiting, the two amounts,
+  "ภาษีที่ถูกหักใช้ทำอะไร" in a sheet), a three-part switch, one grouped list with แนบใบ per job.
+
 ### Mascot (เลขากระรอก)
 
 - **The squirrel is locked (owner):** never redraw it. Only its mood, action and props may change; props are added

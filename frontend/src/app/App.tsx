@@ -85,6 +85,7 @@ const CreditRadar = lazy(() => import('../features/receivables/radar/CreditRadar
 import { hideSplash } from './splash';
 import { isUpdateReady, reloadForUpdate, setUpdateGuard } from './appUpdate';
 import { MobilePageHero } from '../features/mobile/MobilePageHero';
+import { NEW_DOCUMENT_EVENT } from '../features/invoices/documentEvents';
 import { LineLogo } from '../components/ui/LineLogo';
 const TaxTab = lazy(loadTaxTab);
 const SettingsTab = lazy(loadSettingsTab);
@@ -472,7 +473,7 @@ const markRecentlyDeleted = (storageKey: string, id: string) => {
 
 // Phones: tool pages that draw their own terracotta header (it holds their summary box), and the
 // names the header shows where the sidebar's label is not the one the phone menu uses.
-const PHONE_OWN_HEADER: string[] = ['incomeExpense', 'receivables', 'split', 'wht50', 'settings', 'adminDashboard'];
+const PHONE_OWN_HEADER: string[] = ['incomeExpense', 'receivables', 'split', 'wht50', 'settings', 'adminDashboard', 'invoice', 'vault'];
 const PHONE_PAGE_TITLES: Partial<Record<string, string>> = { plans: T("แพ็กเกจ Pro"), receivables: T("เงินรอรับ") };
 
 export default function App() {
@@ -3555,6 +3556,8 @@ export default function App() {
                   triggerConfirm={triggerConfirm}
                   freePlan={!isPro}
                   onUpgradePrompt={openProPromo}
+                  onMobileBack={openPhoneMenu}
+                  onOpenIssuer={() => { setSettingsEntry(entry => ({ view: 'business', n: entry.n + 1 })); navigateTab('settings'); }}
                 />
               )}
 
@@ -3600,7 +3603,7 @@ export default function App() {
                       />
                     : <div role="alert" className="rounded-2xl border border-brand-border bg-brand-white p-6 text-sm text-brand-muted">{t('admin.noAccess')}</div>
               )}
-              {activeTab === 'vault' && <VaultPage jobs={jobs} expenses={expenses} onOpenWht50={() => navigateTab('wht50')} />}
+              {activeTab === 'vault' && <VaultPage jobs={jobs} expenses={expenses} onOpenWht50={() => navigateTab('wht50')} onMobileBack={openPhoneMenu} />}
               {activeTab === 'wht50' && (
                 <Wht50Page
                   onMobileBack={openPhoneMenu}
@@ -3740,6 +3743,9 @@ export default function App() {
               navigateTab(tab);
             }}
             onAddJob={() => { setIsMobileMenuOpen(false); setIsAddJobOpen(true); navigateTab('jobs'); }}
+            // On the documents page the middle button issues a document (owner, 2026-11-03: "ปุ่มออกเอกสารใหม่อยู่ลึกไป
+            // ... เอามาแทนปุ่มเพิ่มงานเวลาเข้าไปในฟีเจอร์เอกสาร").
+            add={activeTab === 'invoice' && !isMobileMenuOpen ? { label: tr("ออกเอกสาร"), glyph: 'document', onClick: () => window.dispatchEvent(new Event(NEW_DOCUMENT_EVENT)) } : undefined}
           />
         )}
         {showBuddy && (

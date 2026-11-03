@@ -21,6 +21,7 @@ import {
   type Wht50TaxYear,
 } from './vaultStatus';
 import { downloadVaultZip } from './zip';
+import '../invoices/docPhone.css';
 
 import { tr, T } from '../../i18n/tr';
 import { currentLanguage } from '../../i18n/currentLanguage';
@@ -68,6 +69,7 @@ export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault }: {
   const [zipping, setZipping] = React.useState(false);
   const mobile = useMobileLayout();
   const [toolsOpen, setToolsOpen] = React.useState(false);
+  const [noteOpen, setNoteOpen] = React.useState(false);
 
   const rows = React.useMemo<TrackingRow[]>(() => jobs
     .filter(isWht50Trackable)
@@ -229,22 +231,33 @@ export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault }: {
     const toolsActive = Boolean(q) || sort !== 'waiting';
     return (
       <div>
-        <section aria-label={tr("สรุปการติดตามใบ 50 ทวิ")} aria-live="polite" className="ksm-metrics">
-          <div className="ksm-metric is-wide"><small>{tr("ภาษีหัก ณ ที่จ่ายรวม · {0} งาน", rows.length)}</small><b data-testid="wht-total">{exactBaht(whtTotal)}</b></div>
-          <div className={`ksm-metric${waiting.length > 0 ? ' is-warning' : ''}`}><small>{tr("ยังไม่มีเอกสาร · {0} งาน", waiting.length)}</small><b data-testid="wht-waiting">{exactBaht(whtWaiting)}</b></div>
-          <div className="ksm-metric"><small>{tr("มีหลักฐานรองรับ · {0} งาน", have.length + eWht.length)}</small><b data-testid="wht-have">{exactBaht(whtHave)}</b></div>
+        {/* One summary card (owner, 2026-11-03 preview): the total, a bar of what is backed and what still waits, the two
+            amounts; why it matters sits behind a link instead of a paragraph. */}
+        <section aria-label={tr("สรุปการติดตามใบ 50 ทวิ")} aria-live="polite" className="dp-card dp-summary dp-wht">
+          <p className="dp-muted">{tr("ภาษีถูกหัก ณ ที่จ่ายรวม · {0} งาน", rows.length)}</p>
+          <p className="dp-big dp-money" data-testid="wht-total">{exactBaht(whtTotal)}</p>
+          {whtHave + whtWaiting > 0 && (
+            <div className="dp-whtbar" aria-hidden="true">
+              {whtHave > 0 && <span className="is-have" style={{ flexGrow: whtHave }} />}
+              {whtWaiting > 0 && <span className="is-waiting" style={{ flexGrow: whtWaiting }} />}
+            </div>
+          )}
+          <dl className="dp-legend">
+            <div><dt><i className="is-have" aria-hidden="true" />{tr("มีหลักฐานแล้ว · {0} งาน", have.length + eWht.length)}</dt><dd className="dp-money" data-testid="wht-have">{exactBaht(whtHave)}</dd></div>
+            <div><dt><i className="is-waiting" aria-hidden="true" />{tr("ยังไม่มีเอกสาร · {0} งาน", waiting.length)}</dt><dd className="dp-money" data-testid="wht-waiting">{exactBaht(whtWaiting)}</dd></div>
+          </dl>
+          <button type="button" className="dp-linkbtn" onClick={() => setNoteOpen(true)} aria-haspopup="dialog">{tr("ภาษีที่ถูกหักใช้ทำอะไร")}<KsIcon name="chevron" size={15} /></button>
         </section>
-        <p className="ksm-hint">{tr(WHT_CREDIT_NOTE)}</p>
         {eWht.length > 0 && <p className="ksm-hint" data-testid="ewht-note">{tr(E_WHT_NOTE)}</p>}
-        <div className="ksm-row-between">
-          <div className="ksm-chips" role="tablist" aria-label={tr("สถานะใบ 50 ทวิ")}>
+        <div className="dp-whttabs">
+          <div className="dp-seg" role="tablist" aria-label={tr("สถานะใบ 50 ทวิ")} style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
             {filterOrder.map(option => {
               const label = option === 'waiting' ? tr("ยังรอ") : option === 'have' ? tr("ได้รับแล้ว") : tr("ทั้งหมด");
               const count = option === 'waiting' ? waiting.length : option === 'have' ? have.length + eWht.length : rows.length;
               return (
                 <button key={option} id={`wht50-tab-${option}`} type="button" role="tab" aria-selected={filter === option} aria-controls="wht50-tabpanel"
                   tabIndex={filter === option ? 0 : -1} onClick={() => setFilter(option)} onKeyDown={event => moveFilterFocus(event, option)}>
-                  {label} {count}
+                  {label} <span className="dp-count">{count}</span>
                 </button>
               );
             })}
@@ -255,29 +268,41 @@ export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault }: {
         </div>
         <section id="wht50-tabpanel" role="tabpanel" aria-labelledby={`wht50-tab-${filter}`}>
           {shown.length === 0 ? (
-            <div className="ksm-empty" style={{ marginTop: 12 }}><h3>{emptyState.title}</h3><p>{emptyState.copy}</p></div>
-          ) : shown.map(row => (
-            <article key={row.job.id} className="ksm-whtcard">
-              <h3>{row.job.client || row.job.name}</h3>
-              <p>{tr("{0} · หัก ณ ที่จ่าย {1}", row.job.name, formatCurrency(jobWhtAmount(row.job)))}</p>
-              <div className="ksm-whtcard-foot">
-                <span className={`ksm-badge ${row.status === 'waiting' ? 'is-warning' : 'is-success'}`}>
-                  <KsIcon name={row.status === 'waiting' ? 'clock' : 'check'} size={14} />
-                  {row.status === 'have'
-                    ? tr("ได้รับไฟล์แล้ว · {0} ไฟล์", row.files.length)
-                    : row.status === 'eWht'
-                      ? tr("หักผ่าน e-WHT · ไม่ต้องรอใบ")
-                      : tr("ยังรอเอกสาร{0}", row.waitingDays === null ? '' : row.waitingDays === 0 ? tr(" · วันนี้") : tr(" · {0} วัน", row.waitingDays))}
-                </span>
-                <button type="button" className="ksm-btn is-soft is-small"
-                  aria-label={row.status === 'have' ? tr("ดูเอกสารของ {0}", row.job.name) : tr("แนบใบ 50 ทวิสำหรับ {0}", row.job.name)}
-                  onClick={() => (row.status === 'have' ? vault.openJob(row.job) : vault.openUpload({ kind: 'wht50', job: row.job }))}>
-                  <KsIcon name="upload" size={17} />{tr("แนบ / จัดการ")}</button>
-              </div>
-            </article>
-          ))}
+            <div className="dp-empty" style={{ marginTop: 12 }}><h3>{emptyState.title}</h3><p>{emptyState.copy}</p></div>
+          ) : (
+            <ul className="dp-card dp-whtlist">
+              {shown.map(row => (
+                <li key={row.job.id} className="dp-whtrow">
+                  <span className="dp-row-text">
+                    <b>{row.job.client || row.job.name}</b>
+                    <span>{tr("{0} · หัก {1}", row.job.name, formatCurrency(jobWhtAmount(row.job)))}</span>
+                    <span className={`dp-statchip is-${row.status}`}>
+                      <KsIcon name={row.status === 'waiting' ? 'clock' : 'check'} size={13} />
+                      {row.status === 'have'
+                        ? tr("ได้รับแล้ว · {0} ไฟล์", row.files.length)
+                        : row.status === 'eWht'
+                          ? tr("หักผ่าน e-WHT · ไม่ต้องรอใบ")
+                          : row.waitingDays === null ? tr("ยังรอเอกสาร") : row.waitingDays === 0 ? tr("รอตั้งแต่วันนี้") : tr("รอมา {0} วัน", row.waitingDays)}
+                    </span>
+                  </span>
+                  <button type="button" className="dp-attach"
+                    aria-label={row.status === 'have' ? tr("ดูเอกสารของ {0}", row.job.name) : row.status === 'eWht' ? tr("แนบเอกสารของ {0} (ถ้ามี)", row.job.name) : tr("แนบใบ 50 ทวิสำหรับ {0}", row.job.name)}
+                    onClick={() => (row.status === 'have' ? vault.openJob(row.job) : vault.openUpload({ kind: 'wht50', job: row.job }))}>
+                    {row.status === 'have' ? <FileText size={16} aria-hidden="true" /> : <Paperclip size={16} aria-hidden="true" />}
+                    {row.status === 'have' ? tr("ดูไฟล์") : row.status === 'eWht' ? tr("แนบ (ถ้ามี)") : tr("แนบใบ")}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
         <p className="ksm-caption">{tr("สถานะมีใบรับรองอ้างอิงไฟล์ที่แนบ ไม่ใช่สถานะการรับเงิน")}</p>
+        {noteOpen && (
+          <MobileSheet title={tr("ภาษีที่ถูกหักใช้ทำอะไร")} onClose={() => setNoteOpen(false)}>
+            <p className="dp-note" style={{ fontSize: 14 }}>{tr(WHT_CREDIT_NOTE)}</p>
+            {eWht.length > 0 && <p className="dp-note" style={{ fontSize: 14 }}>{tr(E_WHT_NOTE)}</p>}
+          </MobileSheet>
+        )}
         {toolsOpen && (
           <MobileSheet title={tr("เครื่องมือ 50 ทวิ")} onClose={() => setToolsOpen(false)}>
             <div className="ksm-search" style={{ marginTop: 14 }}>
@@ -298,6 +323,10 @@ export function Wht50Panel({ jobs, triggerAlert, year, onOpenVault }: {
               <button type="button" disabled={!receivedFileCount || zipping} onClick={() => { setToolsOpen(false); void downloadAll(); }}>
                 <span className="ksm-list-icon"><KsIcon name="download" /></span>
                 <span className="ksm-grow"><b>{zipping ? tr("กำลังรวมไฟล์…") : tr("ดาวน์โหลดใบที่ได้รับแล้ว ({0} ไฟล์)", receivedFileCount)}</b><p>{tr("ได้รับแล้ว {0} จาก {1} งานที่ต้องมีใบ · {2}%", have.length, needCertificate, share)}</p></span>
+              </button>
+              <button type="button" onClick={() => { setToolsOpen(false); onOpenVault(); }}>
+                <span className="ksm-list-icon"><KsIcon name="folder" /></span>
+                <span className="ksm-grow"><b>{tr("เปิดคลังเอกสาร")}</b><p>{tr("ไฟล์ 50 ทวิ สัญญา และสลิปทั้งหมด")}</p></span>
               </button>
             </div>
           </MobileSheet>

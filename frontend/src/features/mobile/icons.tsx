@@ -77,13 +77,19 @@ export function KsIcon({ name, size = 22, className = '', filled = false }: { na
 }
 
 /** The squirrel's head in silhouette with a plus sign: the centre button of the bottom bar, as drawn in the design. */
-export function SquirrelAdd() {
+/** The tab bar's middle button: the squirrel's ears on an orange circle, a plus (add a job) or, on the documents page,
+ * a document with a plus (owner, 2026-11-03: "เอามาแทนปุ่มเพิ่มงานเวลาเข้าไปในฟีเจอร์เอกสาร"). */
+export function SquirrelAdd({ glyph = 'plus' }: { glyph?: 'plus' | 'document' }) {
   return (
     <svg viewBox="27 17 46 58" fill="currentColor" aria-hidden="true">
       <path d="M38 35C35 25 39 18 42 18C45 18 45 27 42 35" />
       <path d="M62 35C65 25 61 18 58 18C55 18 55 27 58 35" />
       <circle cx="50" cy="52" r="22" />
-      <path d="M50 44v15m-7.5-7.5h15" fill="none" stroke="#FFFFFF" strokeWidth={2.5} strokeLinecap="round" />
+      {glyph === 'document'
+        ? <g transform="translate(41.6 43.6) scale(0.7)" fill="none" stroke="#FFFFFF" strokeWidth={2.7} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" /><path d="M14 2v4a2 2 0 0 0 2 2h4" /><path d="M9 15h6" /><path d="M12 18v-6" />
+          </g>
+        : <path d="M50 44v15m-7.5-7.5h15" fill="none" stroke="#FFFFFF" strokeWidth={2.5} strokeLinecap="round" />}
     </svg>
   );
 }

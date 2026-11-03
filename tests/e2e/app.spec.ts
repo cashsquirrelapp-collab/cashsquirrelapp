@@ -1110,6 +1110,10 @@ test('mobile shell: top bar, bottom bar with the squirrel add button, tools scre
  await tools.getByRole('button',{name:/^เอกสาร/}).first().click();
  await expect(page.getByRole('heading',{name:'เอกสาร',exact:true})).toBeVisible();
  await expect(nav.getByRole('button',{name:'เมนู',exact:true})).toHaveAttribute('aria-current','page');
+ // on เอกสาร the centre button issues a document (owner, 2026-11-03); on every other page it adds a job
+ await expect(nav.getByRole('button',{name:'ออกเอกสาร',exact:true})).toBeVisible();
+ await expect(nav.getByRole('button',{name:'เพิ่มงาน',exact:true})).toHaveCount(0);
+ await nav.getByRole('button',{name:'งาน',exact:true}).click();
  // the centre button opens the add-job form at once, and the job value formats itself
  await nav.getByRole('button',{name:'เพิ่มงาน',exact:true}).click();
  const value=page.locator('#job-form-value-input');

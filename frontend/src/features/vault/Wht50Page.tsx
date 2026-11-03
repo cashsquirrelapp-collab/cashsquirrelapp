@@ -38,18 +38,13 @@ export default function Wht50Page({ jobs, triggerAlert, onOpenDocuments, onOpenV
   // Phones: the mobile design's heading and the three document sections as chips.
   if (mobile) {
     return (
-      <div className="page-content ksm ksm-screen">
+      <div className="page-content ksm ksm-screen dp">
         <MobilePageHero title={t('nav.wht50')} sub={tr("ใบรับรองหัก ณ ที่จ่ายของงานที่รับเงินแล้ว")} onBack={onMobileBack} actions={(
           <select value={String(year)} onChange={event => setYear(event.target.value === 'unknown' ? 'unknown' : Number(event.target.value))} aria-label={tr("ปีภาษี")} className="ksm-btn-secondary ksm-yearselect">
             {years.map(option => <option key={option} value={option}>{tr("ปีภาษี {0}", displayYear(option))}</option>)}
             {unknownYearCount > 0 && <option value="unknown">{tr("ไม่ระบุปีภาษี ({0} งาน)", unknownYearCount)}</option>}
           </select>
         )} />
-        <div className="ksm-chips" role="tablist" aria-label={tr("หมวดเอกสาร")}>
-          <button type="button" role="tab" aria-selected={false} onClick={onOpenDocuments}>{tr("เอกสาร")}</button>
-          <button type="button" role="tab" aria-selected={false} onClick={onOpenVault}>{tr("คลังไฟล์")}</button>
-          <button type="button" role="tab" aria-selected>{tr("50 ทวิ")}</button>
-        </div>
         {unknownYearCount > 0 && year !== 'unknown' && (
           <div className="ksm-info">
             <span>{tr("{0} งานไม่พบวันที่รับเงินจริง", unknownYearCount)}</span>

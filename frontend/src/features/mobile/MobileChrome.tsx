@@ -64,7 +64,11 @@ export function MobileHeader({ dark, onToggleTheme, alerts, onOpenAlerts, onHome
   );
 }
 
-export function MobileBottomNav({ current, onSelect, onAddJob, calendarAccess = false }: { current: MobileTab | null; onSelect: (tab: MobileTab) => void; onAddJob: () => void; calendarAccess?: boolean }) {
+export function MobileBottomNav({ current, onSelect, onAddJob, calendarAccess = false, add }: {
+  current: MobileTab | null; onSelect: (tab: MobileTab) => void; onAddJob: () => void; calendarAccess?: boolean;
+  /** The middle button for this page instead of เพิ่มงาน (the documents page: ออกเอกสาร). */
+  add?: { label: string; glyph: 'document'; onClick: () => void };
+}) {
   // The five slots come from mobileNavigation.ts; the fourth is ปฏิทิน wherever the launch policy opens it.
   const { left, right } = mobileBottomTabs(calendarAccess);
   const item = (tab: MobileBottomTab) => (
@@ -79,9 +83,9 @@ export function MobileBottomNav({ current, onSelect, onAddJob, calendarAccess = 
     <nav className="ksm ksm-nav lg-glass" aria-label={tr("เมนูหลัก")}>
       {left.map(item)}
       {/* Opens the add-job form straight away: no second menu to choose from. */}
-      <button type="button" className="ksm-nav-item ksm-nav-add" onClick={onAddJob} aria-label={tr("เพิ่มงาน")}>
-        <span className="ksm-squirrel"><SquirrelAdd /></span>
-        <span>{tr("เพิ่มงาน")}</span>
+      <button type="button" className="ksm-nav-item ksm-nav-add" onClick={add ? add.onClick : onAddJob} aria-label={add ? add.label : tr("เพิ่มงาน")} data-add={add ? add.glyph : undefined}>
+        <span className="ksm-squirrel"><SquirrelAdd glyph={add?.glyph} /></span>
+        <span>{add ? add.label : tr("เพิ่มงาน")}</span>
       </button>
       {right.map(item)}
     </nav>

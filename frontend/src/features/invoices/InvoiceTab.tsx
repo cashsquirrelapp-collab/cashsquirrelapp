@@ -2,7 +2,6 @@ import PageHeader from '../../components/ui/PageHeader';
 import { ContentLoadingSkeleton } from '../../components/ui/AppLoadingSkeleton';
 import { uiPrimaryButton, uiSurface } from '../../components/ui/uiStyles';
 import { privateCache } from '../../services/privateCache';
-import { imageFileToDataUrl } from '../../services/images';
 import { readInvoices, saveCloud, type DocumentQuota } from '../../services/cloud';
 import { validateChanges } from '../../../../shared/validation';
 import { applyDocumentBranding, issuerForDocumentEdit } from '../../../../shared/documentBranding';
@@ -16,7 +15,10 @@ import { NewDocumentButton, PreviewCanvas, RowMenu, ShareButton } from './Docume
 import { DocumentFullView } from './DocumentFullView';
 import { downloadBlob, usePdfFile } from './documentPdf';
 import { DOCUMENT_WORKSPACE_TABS, getWorkspaceTab, isWorkspaceTab, isDocumentTypeAvailable, resolveDocumentWorkspaceTab, resolveDocumentSelection, mergeImportedDocuments, type DocumentWorkspaceTab } from './documentAvailability';
-import { ChevronRight, Eye, Link2, Search } from 'lucide-react';
+import { Building2, ChevronRight, Eye, Link2, Search } from 'lucide-react';
+import { useMobileLayout } from '../mobile/useMobileLayout';
+import { noteIssuerSaved } from '../assistant/proGuideEvents';
+import { InvoicePhone, type InvoicePhoneModel } from './InvoicePhone';
 import { clientHasMoreDetails, documentChain, draftFromSource, findSavedClient, savedClients } from './documentLinks';
 import NumberInput from '../../components/ui/NumberInput';
 import { motion, AnimatePresence } from 'motion/react';
@@ -33,7 +35,6 @@ import {
   Briefcase,
   AlertCircle,
   Download,
-  Upload,
   Send,
   ChevronDown,
   RotateCcw,
@@ -70,94 +71,8 @@ const writeTabToUrl = (tab: DocumentWorkspaceTab) => {
   } catch { /* the tab still works without the URL */ }
 };
 
-// Upload box for the logo / signature images kept on the issuer profile. Exported so the
-// business-profile editor on the Settings page (the only place that edits this profile now)
-// can reuse it without duplicating the upload/crop/position UI.
-export const BrandImageField: React.FC<{
-  title: string;
-  hint: string;
-  emptyLabel: string;
-  uploadLabel: string;
-  removeLabel: string;
-  value?: string;
-  onChange: (value: string) => void;
-  onError: (title: string, message: string) => void;
-  size?: { label: string; value: number; min: number; max: number; onChange: (value: number) => void };
-  extra?: React.ReactNode;
-}> = ({ title, hint, emptyLabel, uploadLabel, removeLabel, value, onChange, onError, size, extra }) => (
-  <div className="space-y-3">
-    <div>
-      <h4 className="text-[14px] font-medium text-brand-text">{title}</h4>
-      <p className="mt-0.5 text-xs text-brand-muted">{hint}</p>
-    </div>
-
-    <div className="flex flex-col sm:flex-row gap-5 items-center">
-      <div className="w-24 h-24 border border-dashed border-brand-border rounded-xl bg-white dark:bg-[#141518] flex items-center justify-center overflow-hidden shrink-0">
-        {value ? (
-          <img src={value} alt="" className="w-full h-full object-contain p-2" referrerPolicy="no-referrer" />
-        ) : (
-          <div className="text-center p-2 flex flex-col items-center gap-1">
-            <Upload className="w-5 h-5 text-brand-muted" />
-            <span className="text-[11px] text-brand-muted">{emptyLabel}</span>
-          </div>
-        )}
-      </div>
-
-      <div className="flex-1 space-y-2 w-full">
-        <div className="flex flex-wrap gap-2">
-          <label className="px-3.5 py-2 bg-[#E65F2B] hover:bg-[#D35221] text-white text-[13px] font-medium rounded-xl cursor-pointer transition-colors flex items-center gap-1.5">
-            <Upload className="w-3.5 h-3.5" />
-            <span>{uploadLabel}</span>
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              className="hidden"
-              onChange={(e) => {
-                const input = e.currentTarget;
-                const file = input.files?.[0];
-                input.value = ''; // picking the same file again must still fire onChange
-                if (!file) return;
-                if (file.size > 2 * 1024 * 1024) {
-                  onError(tr("ไฟล์มีขนาดใหญ่เกินไป"), tr("กรุณาอัปโหลดภาพที่มีขนาดไม่เกิน 2MB เพื่อประสิทธิภาพที่รวดเร็ว"));
-                  return;
-                }
-                imageFileToDataUrl(file).then(onChange).catch(error => onError(tr("อัปโหลดภาพไม่สำเร็จ"), error.message));
-              }}
-            />
-          </label>
-          {value && (
-            <button
-              type="button"
-              onClick={() => onChange('')}
-              className="px-3.5 py-2 border border-brand-border text-brand-text hover:bg-[#FDEEEE] hover:text-[#C43A3A] dark:hover:bg-[#F19A9A]/10 dark:hover:text-[#F19A9A] text-[13px] rounded-xl transition-colors cursor-pointer"
-            >
-              {removeLabel}
-            </button>
-          )}
-        </div>
-        {size && value ? (
-          <label className="flex items-center gap-3 text-xs text-brand-muted">
-            <span className="w-24 shrink-0">{tr("ขนาดบนเอกสาร")}</span>
-            <input
-              type="range"
-              min={size.min}
-              max={size.max}
-              step={4}
-              value={size.value}
-              onChange={(e) => size.onChange(Number(e.target.value))}
-              aria-label={size.label}
-              className="w-full max-w-xs accent-[#E65F2B] cursor-pointer"
-            />
-            <span className="font-mono w-14 text-right">{size.value}px</span>
-          </label>
-        ) : null}
-        {value ? extra : null}
-        <p className="text-[11px] text-brand-muted leading-relaxed">
-          {tr("* รองรับ PNG, JPEG และ WebP ไม่เกิน 2MB ระบบย่อภาพก่อนบันทึก")}</p>
-      </div>
-    </div>
-  </div>
-);
+// The logo / signature upload box lives in BrandImageField.tsx; Settings imports it from here.
+export { BrandImageField } from './BrandImageField';
 
 
 interface InvoiceTabProps {
@@ -171,6 +86,10 @@ interface InvoiceTabProps {
   onUpgradePrompt?: (notice: string) => void;
   /** Resolved from the current account's trusted system role by App. */
   fullFeatureAccess?: boolean;
+  /** Phones: back to the menu, drawn in this page's own terracotta header. */
+  onMobileBack?: () => void;
+  /** Computers and iPads: the business profile (ตั้งค่า › โปรไฟล์ธุรกิจ); phones edit it on this page. */
+  onOpenIssuer?: () => void;
 }
 
 export const InvoiceTab: React.FC<InvoiceTabProps> = ({
@@ -181,8 +100,11 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
   freePlan = false,
   onUpgradePrompt,
   fullFeatureAccess = false,
+  onMobileBack,
+  onOpenIssuer,
 }) => {
   const { t } = useLanguage();
+  const mobile = useMobileLayout();
   const fullFeatureAccessRef = React.useRef(fullFeatureAccess);
   fullFeatureAccessRef.current = fullFeatureAccess;
   const [quota, setQuota] = useState<DocumentQuota | null>(null);
@@ -492,20 +414,20 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
   });
 
   // Create or Update Invoice
-  const handleSaveInvoice = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!canAccessDraft) return;
+  const handleSaveInvoice = (e?: React.FormEvent): boolean => {
+    e?.preventDefault();
+    if (!canAccessDraft) return false;
 
     if (!docNo.trim()) {
       triggerAlert(tr("ป้อนข้อมูลไม่ครบ"), tr("กรุณาระบุเลขที่เอกสาร"));
-      return;
+      return false;
     }
 
     if (!clientName.trim()) {
       triggerAlert(tr("ป้อนข้อมูลไม่ครบ"), tr("กรุณาระบุชื่อลูกค้าหรือบริษัทผู้รับบริการ"));
-      return;
+      return false;
     }
-    if (!editingInvoiceId && !allowNewDocuments()) return;
+    if (!editingInvoiceId && !allowNewDocuments()) return false;
 
     const newInvoice: Invoice = { ...buildDraftInvoice(), id: editingInvoiceId || crypto.randomUUID() };
 
@@ -523,10 +445,11 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
     setDocTypeFilter(getWorkspaceTab(newInvoice.documentType));
     setEditingInvoiceId(null);
     setActiveSubTab('list');
+    return true;
   };
 
   // Delete invoice
-  const handleDeleteInvoice = (id: string, event?: React.MouseEvent) => {
+  const handleDeleteInvoice = (id: string, event?: React.MouseEvent, after?: () => void) => {
     event?.stopPropagation();
     const target = invoices.find(inv => inv.id === id);
     if (!target || !isDocumentTypeAvailable(target.documentType, fullFeatureAccess)) return;
@@ -542,6 +465,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
           // stay on the same tab: select the next document of this type, if any
           setSelectedInvoice(updated.find(inv => getWorkspaceTab(inv.documentType) === docTypeFilter) || null);
         }
+        after?.();
       }
     );
   };
@@ -588,9 +512,9 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
   };
 
   // "ออกต่อเป็น…": a new document of another type, filled from `source`, linked to it unless the user unticks.
-  const handleIssueFrom = (source: Invoice, type: DocumentType) => {
-    if (!isDocumentTypeAvailable(source.documentType, fullFeatureAccess)) return;
-    if (!handleOpenCreateForm(type)) return;
+  const handleIssueFrom = (source: Invoice, type: DocumentType): boolean => {
+    if (!isDocumentTypeAvailable(source.documentType, fullFeatureAccess)) return false;
+    if (!handleOpenCreateForm(type)) return false;
     const draft = draftFromSource(source, type, new Date().toISOString().split('T')[0]);
     applySavedClient(draft.client);
     setClientName(draft.client.name);
@@ -603,6 +527,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
     setRefNo(draft.refNo);
     setLinkSource(source);
     setLinkedFromId(draft.linkedFromId);
+    return true;
   };
   const setKeepLinked = (keep: boolean) => {
     if (!linkSource) return;
@@ -682,6 +607,32 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
     setLinkSource(null);
     setLinkedFromId(inv.linkedFromId);
     setActiveSubTab('create');
+  };
+
+  // Another document type while filling the form: the number takes that type's prefix; tax invoices carry VAT.
+  const changeDocType = (val: DocumentType) => {
+    if (!isDocumentTypeAvailable(val, fullFeatureAccess)) return;
+    setDocType(val);
+    const thaiYear = new Date().getFullYear() + 543;
+    const serial = String(invoices.length + 1).padStart(3, '0');
+    setDocNo(`${getDocumentMeta(val).prefix}-${thaiYear}-${serial}`);
+    if (getDocumentMeta(val).isTax && vatRate === 0) setVatRate(7);
+  };
+
+  // The business profile from this page (phones; the same profile as ตั้งค่า › โปรไฟล์ธุรกิจ, saved the same way).
+  const saveIssuerProfile = async (profile: InvoiceProfile): Promise<boolean> => {
+    privateCache.setItem(issuerKey, JSON.stringify(profile));
+    if (!ownerId) { setIssuerProfile(profile); triggerAlert(tr("บันทึกสำเร็จ"), tr("บันทึกโปรไฟล์ธุรกิจไว้ในเครื่องนี้แล้ว")); return true; }
+    try {
+      await saveCloud(ownerId, { issuer_profile: profile });
+      setIssuerProfile(profile);
+      noteIssuerSaved();
+      triggerAlert(tr("บันทึกสำเร็จ"), tr("บันทึกโปรไฟล์ธุรกิจแล้ว ข้อมูลนี้จะถูกนำไปใช้เป็นค่าเริ่มต้นในเอกสารใบถัดไป"));
+      return true;
+    } catch (error) {
+      triggerAlert(tr("บันทึกไม่สำเร็จ"), (error as Error).message);
+      return false;
+    }
   };
 
   // Clients from earlier documents, to fill a new one without typing the details again.
@@ -835,6 +786,86 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
     </div>
   );
 
+  // Phones: their own screens over the same documents, rules and saving (InvoicePhone.tsx; owner, 2026-11-03).
+  if (mobile) {
+    const clientSetters: Record<keyof Invoice['client'], (value: string) => void> = {
+      name: setClientName, address: setClientAddress, phone: setClientPhone, email: setClientEmail, taxId: setClientTaxId,
+      contactName: setClientContactName, code: setClientCode, branch: setClientBranch,
+    };
+    const phone: InvoicePhoneModel = {
+      invoices: invoices.filter(inv => isDocumentTypeAvailable(inv.documentType, fullFeatureAccess)),
+      tab: docTypeFilter,
+      tabs: workspaceTabs,
+      setTab: handleWorkspaceTabChange,
+      query: listQuery,
+      setQuery: setListQuery,
+      tabInvoices,
+      shown: filteredInvoices,
+      selected: selectedInvoice && isDocumentTypeAvailable(selectedInvoice.documentType, fullFeatureAccess) ? selectedInvoice : null,
+      open: openDocument,
+      chain: selectedChain,
+      branded: withCurrentBranding,
+      totals: inv => calculateTotals(inv.items, inv.vatRate, inv.whtRate),
+      creatable: creatableTypes,
+      create: type => handleOpenCreateForm(type),
+      issueTypes,
+      issueFrom: handleIssueFrom,
+      edit: inv => handleStartEditInvoice(inv),
+      duplicate: inv => handleDuplicateInvoice(inv),
+      remove: (id, after) => handleDeleteInvoice(id, undefined, after),
+      pdf,
+      pdfBusy,
+      downloadPdf: () => void handleDownloadPdf(),
+      print: handlePrintDocument,
+      notify: triggerAlert,
+      freePlan,
+      quota,
+      quotaLeft,
+      upgradeQuota: () => { allowNewDocuments(); },
+      storageError,
+      saving,
+      legacy: Boolean(ownerId && localStorage.getItem('remix_invoices')),
+      importLegacy,
+      linkedFocus: focusLinkedDocument,
+      linkFrom: linkFrom.current,
+      spotlight: documentSpotlight,
+      showAll: showAllDocuments,
+      jobs,
+      clients,
+      issuer: issuerProfile,
+      saveIssuer: saveIssuerProfile,
+      formOpen: activeSubTab === 'create' && canAccessDraft,
+      draft: {
+        editingId: editingInvoiceId,
+        docType, changeType: changeDocType,
+        docNo, setDocNo, createdDate, setCreatedDate, dueDate, setDueDate, responseDate, setResponseDate,
+        client: currentClient,
+        setClientField: (field, value) => clientSetters[field](value),
+        applyClient: applySavedClient,
+        paidDate, setPaidDate, paymentMethod, setPaymentMethod, paidAmount, setPaidAmount,
+        paymentTerm, setPaymentTerm, deliveryTerm, setDeliveryTerm, refNo, setRefNo,
+        items: invoiceItems,
+        addItem: handleAddItemRow,
+        removeItem: handleRemoveItemRow,
+        setItemField: handleItemFieldChange,
+        vatRate, setVatRate, whtRate, setWhtRate,
+        note: docNote, setNote: setDocNote,
+        totals: { subtotal, vatAmount, whtAmount, grandTotal },
+        linkSource,
+        keepLinked: Boolean(linkedFromId),
+        setKeepLinked,
+        selectedJobId,
+        selectJob: handleSelectJob,
+        preview: () => withCurrentBranding(buildDraftInvoice()),
+        save: () => handleSaveInvoice(),
+        clear: handleClearForm,
+        close: () => setActiveSubTab('list'),
+      },
+      onMobileBack,
+    };
+    return <InvoicePhone m={phone} />;
+  }
+
   return (
     <div ref={pageTopRef} className="page-content app-tab-enter space-y-6 pb-16">
       {(storageError || saving || (ownerId && localStorage.getItem('remix_invoices'))) && (
@@ -845,7 +876,15 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
       )}
       
       <PageHeader page="invoice" description={isDocumentTypeAvailable('quotation', fullFeatureAccess) ? undefined : t('page.invoicePhaseOneDescription')} className="no-print">
-        <NewDocumentButton types={creatableTypes} onPick={handleOpenCreateForm} />
+        <div className="flex flex-wrap items-center gap-2">
+          {/* The business profile, one click away from the documents it is printed on (owner, 2026-11-03). */}
+          {onOpenIssuer && (
+            <button type="button" onClick={onOpenIssuer} data-testid="issuer-button"
+              className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-brand-border bg-brand-white px-3.5 text-[13px] font-medium text-brand-text transition-colors hover:bg-brand-faint cursor-pointer">
+              <Building2 className="h-4 w-4" />{tr("ข้อมูลผู้ออกเอกสาร")}</button>
+          )}
+          <NewDocumentButton types={creatableTypes} onPick={handleOpenCreateForm} />
+        </div>
       </PageHeader>
 
       {freePlan && quota && (
@@ -1055,17 +1094,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                 <select
                   id="doc-type"
                   value={docType}
-                  onChange={(e) => {
-                    const val = e.target.value as DocumentType;
-                    if (!isDocumentTypeAvailable(val, fullFeatureAccess)) return;
-                    setDocType(val);
-                    // Update prefix if current document number matches the default structure
-                    const thaiYear = new Date().getFullYear() + 543;
-                    const serial = String(invoices.length + 1).padStart(3, '0');
-                    setDocNo(`${getDocumentMeta(val).prefix}-${thaiYear}-${serial}`);
-                    // Tax invoices carry VAT by definition
-                    if (getDocumentMeta(val).isTax && vatRate === 0) setVatRate(7);
-                  }}
+                  onChange={(e) => changeDocType(e.target.value as DocumentType)}
                   className={`${formInput} cursor-pointer`}
                 >
                   {(docType === 'receiptTaxInvoice' ? [...creatableTypes, docType] : creatableTypes).map(type => (

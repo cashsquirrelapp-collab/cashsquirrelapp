@@ -1,5 +1,9 @@
 import React from 'react';
-import { Download, ExternalLink, FolderOpen, Pencil, Plus, Search, Trash2, Upload } from 'lucide-react';
+import { ChevronRight, Download, ExternalLink, FileCheck2, FileSignature, Folder, FolderOpen, MoreHorizontal, Pencil, Plus, ReceiptText, Search, Trash2, Upload } from 'lucide-react';
+import { MobilePageHero } from '../mobile/MobilePageHero';
+import { MobileSheet } from '../mobile/MobileHome';
+import { KsIcon } from '../mobile/icons';
+import '../invoices/docPhone.css';
 import type { Expense, Job } from '../../../../shared/types';
 import { VAULT_FREE_FILES, VAULT_KIND_LABEL, formatFileSize, type VaultFile, type VaultKind } from '../../../../shared/vault';
 import { safeFormatThaiDate } from '../../utils';
@@ -24,9 +28,11 @@ const FILTERS: { key: Filter; label: string }[] = [
 ];
 const thaiYear = (iso: string) => Number(iso.slice(0, 4)) + 543;
 
-export function VaultTab({ jobs, expenses }: {
+export function VaultTab({ jobs, expenses, phone }: {
   jobs: Job[];
   expenses: Expense[];
+  /** Phones: this page's own header and the way to 50 ทวิ (VaultPage). */
+  phone?: { onBack?: () => void; onOpenWht50: () => void };
 }) {
   const vault = useVault();
   const [filter, setFilter] = React.useState<Filter>('all');
@@ -43,6 +49,7 @@ export function VaultTab({ jobs, expenses }: {
   const count = (key: Filter) => (key === 'all' ? vault.files.length : vault.files.filter(f => f.kind === key).length);
   const opened = vault.files.find(f => f.id === openId) || null;
   const [zipping, setZipping] = React.useState(false);
+  const [toolsOpen, setToolsOpen] = React.useState(false);
   // Drop files anywhere on the page: the upload dialog opens with them already picked.
   const [pageDragging, setPageDragging] = React.useState(false);
   const pageDepth = React.useRef(0);
@@ -74,6 +81,109 @@ export function VaultTab({ jobs, expenses }: {
         <FolderOpen className="mb-3 h-10 w-10 text-brand-border" />
         <p className="text-[15px] font-medium text-brand-text">{tr("คลังเอกสารใช้ได้กับบัญชีจริง")}</p>
         <p className="mt-1 max-w-sm text-[13px] text-brand-muted">{tr("เก็บใบ 50 ทวิ สัญญา และ PO ไว้กับงาน ออกจากโหมดทดลองแล้วเข้าสู่ระบบเพื่อใช้งาน")}</p>
+      </div>
+    );
+  }
+
+  // Phones (owner, 2026-11-03, the preview's คลังเอกสาร): the header, one add button, search, the four kinds as tiles
+  // that filter the list, the files as one grouped list; the year and the ZIP download sit behind ⋯.
+  if (phone) {
+    const kinds: { key: VaultKind; label: string; icon: React.ReactNode; tile: string }[] = [
+      { key: 'wht50', label: tr("ใบ 50 ทวิ"), icon: <FileCheck2 size={17} />, tile: 'is-quotation' },
+      { key: 'contract', label: tr("สัญญา / PO"), icon: <FileSignature size={17} />, tile: 'is-taxInvoice' },
+      { key: 'expense', label: tr("สลิปรายจ่าย"), icon: <ReceiptText size={17} />, tile: 'is-receipt' },
+      { key: 'other', label: tr("อื่น ๆ"), icon: <Folder size={17} />, tile: 'is-neutral' },
+    ];
+    const hero = (
+      <MobilePageHero title={tr("คลังเอกสาร")} onBack={phone.onBack}
+        sub={vault.files.length ? tr("{0} ไฟล์ · ใบ 50 ทวิ สัญญา สลิป และหลักฐานของงาน", vault.files.length) : tr("ใบ 50 ทวิ สัญญา PO สลิป และเอกสารอื่นที่อัปโหลดไว้")}
+        actions={vault.available ? <button type="button" className={`ksm-toolbtn${year !== 'all' ? ' is-active' : ''}`} onClick={() => setToolsOpen(true)} aria-haspopup="dialog" aria-label={tr("เครื่องมือคลังเอกสาร")}><MoreHorizontal size={19} />{year !== 'all' && <i aria-hidden="true" />}</button> : undefined} />
+    );
+    if (!vault.available) {
+      return (
+        <div className="page-content ksm ksm-screen dp">
+          {hero}
+          <div className="dp-empty"><FolderOpen size={34} aria-hidden="true" /><h3>{tr("คลังเอกสารใช้ได้กับบัญชีจริง")}</h3><p>{tr("เก็บใบ 50 ทวิ สัญญา และ PO ไว้กับงาน ออกจากโหมดทดลองแล้วเข้าสู่ระบบเพื่อใช้งาน")}</p></div>
+        </div>
+      );
+    }
+    return (
+      <div className="page-content ksm ksm-screen dp" data-testid="vault-page">
+        {hero}
+        {vault.freeLeft !== null && (
+          <p className="dp-quota" data-testid="vault-free-usage">
+            <span>{tr("บัญชีฟรีเก็บได้ {0} ไฟล์ · ใช้ไป {1} ไฟล์", VAULT_FREE_FILES, vault.files.length)}</span>
+            <button type="button" onClick={vault.upgrade}>{tr("Pro เก็บได้ไม่จำกัด")}</button>
+          </p>
+        )}
+        <button type="button" className="dp-primary dp-block" onClick={() => vault.openUpload({ kind: filter === 'all' ? 'wht50' : filter })}>
+          <Upload size={18} aria-hidden="true" />{tr("เพิ่มไฟล์")}</button>
+        <div className="ksm-search dp-search">
+          <KsIcon name="search" />
+          <input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder={tr("ค้นหาชื่อไฟล์ งาน หรือลูกค้า")} aria-label={tr("ค้นหาเอกสาร")} enterKeyHint="search" />
+        </div>
+        <div className="dp-folders" role="group" aria-label={tr("ประเภทไฟล์ที่จัดเก็บ")}>
+          {kinds.map(kind => (
+            <button key={kind.key} type="button" className="dp-card dp-folder" aria-pressed={filter === kind.key} onClick={() => setFilter(filter === kind.key ? 'all' : kind.key)}>
+              <span className="dp-folder-top"><span className={`dp-tile is-small ${kind.tile}`} aria-hidden="true">{kind.icon}</span><b className="dp-money">{count(kind.key)}</b></span>
+              <span className="dp-folder-name">{kind.label}</span>
+            </button>
+          ))}
+        </div>
+        {vault.error ? (
+          <div role="alert" className="dp-status"><span className="is-error">{tr("โหลดคลังเอกสารไม่สำเร็จ: {0}", vault.error)}</span><button type="button" onClick={vault.refresh}>{tr("ลองอีกครั้ง")}</button></div>
+        ) : !vault.ready ? (
+          <div className="dp-card dp-skeleton" aria-busy="true">{[0, 1, 2].map(i => <span key={i} />)}</div>
+        ) : shown.length === 0 ? (
+          <div className="dp-empty">
+            <FolderOpen size={34} aria-hidden="true" />
+            <h3>{vault.files.length ? tr("ไม่พบไฟล์ที่ตรงกับตัวกรอง") : tr("ยังไม่มีเอกสารในคลัง")}</h3>
+            <p>{vault.files.length ? tr("ลองเปลี่ยนคำค้นหา ประเภท หรือปี") : tr("แนบใบ 50 ทวิ สัญญา PO หรือสลิปรายจ่าย หาเจอได้ทันทีตอนยื่นภาษี")}</p>
+          </div>
+        ) : (
+          <section aria-label={tr("ไฟล์ในคลัง")}>
+            <div className="dp-group-head dp-files-head"><span>{filter === 'all' ? tr("ล่าสุด") : VAULT_KIND_LABEL[filter]}</span><span>{tr("{0} ไฟล์", shown.length)}</span></div>
+            <ul className="dp-card">
+              {shown.map(file => (
+                <li key={file.id}>
+                  <button type="button" className="dp-row dp-filerow" onClick={() => setOpenId(file.id)} aria-label={tr("เปิด {0}", file.fileName)}>
+                    <FileThumb file={file} className="dp-filethumb" />
+                    <span className="dp-row-text">
+                      <b className="dp-ellipsis">{file.fileName}</b>
+                      <span className="dp-ellipsis">{[VAULT_KIND_LABEL[file.kind], file.jobName || file.client].filter(Boolean).join(' · ')}</span>
+                    </span>
+                    <span className="dp-muted dp-filedate">{safeFormatThaiDate(file.createdAt.slice(0, 10), { day: 'numeric', month: 'short' })}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+        {toolsOpen && (
+          <MobileSheet title={tr("เครื่องมือคลังเอกสาร")} onClose={() => setToolsOpen(false)}>
+            <p className="dp-label">{tr("ปีที่อัปโหลด")}</p>
+            <div className="dp-card" role="radiogroup" aria-label={tr("ปีที่อัปโหลด")}>
+              {(['all', ...years] as const).map(option => (
+                <button key={option} type="button" role="radio" aria-checked={year === option} className={`dp-row${year === option ? ' is-selected' : ''}`} onClick={() => setYear(option)}>
+                  <span className="dp-row-text"><b>{option === 'all' ? tr("ทุกปีที่อัปโหลด") : tr("อัปโหลดปี {0}", currentLanguage === 'en' ? option - 543 : option)}</b></span>
+                  {year === option && <KsIcon name="check" size={18} />}
+                </button>
+              ))}
+            </div>
+            <div className="dp-card dp-sheet-list">
+              <button type="button" className="dp-row" disabled={!shown.length || zipping} onClick={() => { setToolsOpen(false); void downloadShown(); }}>
+                <span className="dp-tile is-neutral" aria-hidden="true"><Download size={18} /></span>
+                <span className="dp-row-text"><b>{zipping ? tr("กำลังรวมไฟล์…") : tr("ดาวน์โหลดไฟล์ที่แสดง ({0})", shown.length)}</b><span>{tr("ไฟล์ ZIP เดียว แยกโฟลเดอร์ตามงาน")}</span></span>
+              </button>
+              <button type="button" className="dp-row" onClick={() => { setToolsOpen(false); phone.onOpenWht50(); }}>
+                <span className="dp-tile is-quotation" aria-hidden="true"><FileCheck2 size={18} /></span>
+                <span className="dp-row-text"><b>{tr("ติดตามใบ 50 ทวิ")}</b><span>{tr("งานที่ยังรอใบรับรองหัก ณ ที่จ่าย")}</span></span>
+                <ChevronRight size={17} className="dp-chevron" aria-hidden="true" />
+              </button>
+            </div>
+          </MobileSheet>
+        )}
+        <FileDrawer file={opened} jobs={jobs} expenses={expenses} onClose={() => setOpenId(null)} />
       </div>
     );
   }

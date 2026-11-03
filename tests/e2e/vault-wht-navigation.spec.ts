@@ -228,15 +228,16 @@ test('the vault opens the separate 50 ทวิ page without conflating job and 
   expect(download.suggestedFilename()).toBe(`ใบ50ทวิ-${currentYear + 543}.zip`);
   expect(fetchedFiles.filter(Boolean).sort()).toEqual(files.filter(file => file.kind === 'wht50').map(file => file.id).sort());
 
-  // Phones show the mobile design: one card per job, the sections of เอกสาร as chips.
+  // Phones show the mobile design (2026-11-03): one grouped list of jobs; the vault is behind ⋯ (the menu has all three pages).
   await page.setViewportSize({ width: 320, height: 800 });
   await expect(page.getByRole('heading', { name: 'ติดตามใบ 50 ทวิ', level: 2 })).toBeVisible();
-  const mobileWaitingRow = page.locator('.ksm-whtcard').filter({ hasText: 'Waiting Campaign 3' });
+  const mobileWaitingRow = page.locator('.dp-whtrow').filter({ hasText: 'Waiting Campaign 3' });
   await expect(mobileWaitingRow.getByText(new RegExp(`${waitedDays}\\s*วัน`))).toBeVisible();
   await expect(mobileWaitingRow.getByRole('button', { name: 'แนบใบ 50 ทวิ' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 
-  await page.getByRole('tab', { name: 'คลังไฟล์' }).click();
+  await page.getByRole('button', { name: 'เครื่องมือ 50 ทวิ' }).click();
+  await page.getByRole('button', { name: /เปิดคลังเอกสาร/ }).click();
   await expect(page).toHaveURL(/\/vault\/test-user$/);
   await expect(page.getByRole('heading', { name: 'คลังเอกสาร', level: 2 })).toBeVisible(); // the phone page title, as for 50 ทวิ above
   await expect(page.getByText('PO_General.pdf')).toBeVisible();

@@ -33,8 +33,10 @@ import { report } from './report';
 import { settings } from './settings';
 import { tax } from './tax';
 import { vault } from './vault';
+import { documentsPhone } from './documentsPhone';
 
 export const EN: Record<string, string> = {
+  ...documentsPhone,
   ...admin,
   ...assistant,
   ...briefing,

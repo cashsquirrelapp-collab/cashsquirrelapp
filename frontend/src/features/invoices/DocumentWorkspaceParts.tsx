@@ -85,8 +85,8 @@ export function PreviewCanvas({ invoice, className = '', watermark = false }: { 
   );
 }
 
-const canNativeShare = () => typeof navigator !== 'undefined' && typeof navigator.share === 'function';
-const canShareFile = (file?: File) => {
+export const canNativeShare = () => typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+export const canShareFile = (file?: File) => {
   try { return Boolean(file) && canNativeShare() && typeof navigator.canShare === 'function' && navigator.canShare({ files: [file as File] }); }
   catch { return false; }
 };
