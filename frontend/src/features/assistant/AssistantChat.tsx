@@ -1244,7 +1244,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                   <button type="button" className="asx-link-btn" onClick={() => { setFileProblem(null); voice.clearError(); }}>{tr("ปิด")}</button>
                 </p>
               )}
-              <UploadTray files={uploads} onRemove={index => setUploads(list => list.filter((_, at) => at !== index))} />
+              <UploadTray files={uploads} onView={setViewer} onRemove={index => setUploads(list => list.filter((_, at) => at !== index))} />
               {draft.length > MAX_MESSAGE && <p className="asx-notice is-low" role="alert">{tr("ข้อความยาวเกิน 6,000 ตัวอักษร กรุณาย่อก่อนส่ง")}</p>}
               {voice.review && !voice.active && (
                 <p className="asx-notice asx-voice-review" role="status"><Check size={14} />{tr("ถอดเสียงแล้ว ตรวจแก้ก่อนกดส่ง")}</p>

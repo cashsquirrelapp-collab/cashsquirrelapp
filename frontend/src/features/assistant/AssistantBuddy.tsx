@@ -640,7 +640,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
                 </p>
               )}
               {voice.review && !voice.active && <p className="asx-notice asx-voice-review kfw-voice-note" role="status"><Check size={14} />{tr("ถอดเสียงแล้ว ตรวจแก้ก่อนกดส่ง")}</p>}
-              {!voice.active && <UploadTray className="kfw-attach-row" files={uploads} onRemove={index => setUploads(list => list.filter((_, at) => at !== index))} />}
+              {!voice.active && <UploadTray className="kfw-attach-row" files={uploads} onView={setViewer} onRemove={index => setUploads(list => list.filter((_, at) => at !== index))} />}
               <form className={`asx-buddy-composer${voice.active ? ' has-voice' : ''}`} onSubmit={event => { event.preventDefault(); void send(draft, true); }}>
                 {voice.active ? (
                   <VoiceComposer phase={voice.phase} seconds={voice.seconds} levels={voice.levels} levelsAt={voice.levelsAt} reduce={Boolean(reduce)}

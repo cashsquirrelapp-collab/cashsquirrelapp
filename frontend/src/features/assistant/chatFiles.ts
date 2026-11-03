@@ -28,6 +28,20 @@ export function chatImagePreview(name: string): string | undefined {
   return undefined;
 }
 
+/** A file sent in this tab, by its exact name (picture or PDF), to open again from the chat. */
+export function chatSentFile(name: string): PreparedFile | null {
+  for (let at = files.length - 1; at >= 0; at -= 1) if (files[at].name === name) return files[at];
+  return null;
+}
+
+/** A PDF opens in a new tab in the browser's own viewer: the site's policy keeps PDFs out of the page itself.
+ *  Owner, 2026-11-04: "ไฟล์ที่ทำการส่งไปแล้วไม่ว่าจะเป็น PDF หรือรูปภาพสามารถกดดูพรีวิวได้หมด". */
+export function openPreparedFile(prepared: PreparedFile): void {
+  const url = URL.createObjectURL(asFile(prepared));
+  window.open(url, '_blank', 'noopener');
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
 /** The prepared file as a browser File, ready for the vault's upload window. */
 export function asFile(prepared: PreparedFile): File {
   const binary = atob(prepared.data);

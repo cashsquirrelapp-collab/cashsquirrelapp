@@ -1198,3 +1198,32 @@ test('attach: an iPhone HEIC photo becomes a JPEG before sending', async ({ page
   expect(body.attachment.mimeType).toBe('image/jpeg');
   expect(body.attachment.data.startsWith('/9j/')).toBe(true);
 });
+
+// Owner, 2026-11-04: "กดเข้าไปตรงรูปภาพที่เป็นย่อแล้วให้มันขยายใหญ่ ... ไฟล์ที่ทำการส่งไปแล้วไม่ว่าจะเป็น PDF หรือรูปภาพสามารถกด
+// ดูพรีวิวได้หมด". Before sending, the thumbnail opens large and a PDF opens in the browser's viewer; after sending, both
+// open again.
+test('preview: a picture before sending opens large; a PDF before and after sending opens in a new tab', async ({ page, context }) => {
+  await open(page);
+  const input = page.locator('.asx-composer input[type=file]');
+  await input.setInputFiles({ name: 'สลิปโอน.png', mimeType: 'image/png', buffer: PNG });
+  await page.getByRole('button', { name: 'ดูรูปก่อนส่ง' }).click();
+  const viewer = page.getByRole('dialog', { name: 'รูปที่แนบ' });
+  await expect(viewer.locator('img')).toHaveAttribute('src', /^data:image\/jpeg;base64,/);
+  await page.keyboard.press('Escape');
+  await expect(viewer).toHaveCount(0);
+  await expect(page.locator('.asx-attach-tile')).toHaveCount(1);
+  await page.locator('.asx-attach-tile').getByRole('button', { name: 'เอารูปออก' }).click();
+
+  const pdf = Buffer.from('%PDF-1.4\n% ใบเสนอราคา ตัวอย่าง\n');
+  await input.setInputFiles({ name: 'ใบเสนอราคา.pdf', mimeType: 'application/pdf', buffer: pdf });
+  const before = context.waitForEvent('page');
+  await page.getByRole('button', { name: 'เปิดดู ใบเสนอราคา.pdf' }).click();
+  expect((await before).url()).toMatch(/^blob:/);
+  await page.locator('#asx-message').fill('ช่วยเพิ่มงานจากใบนี้');
+  await page.locator('.asx-send').click();
+  const sent = page.locator('.asx-msg.is-me').getByRole('button', { name: 'เปิดดู ใบเสนอราคา.pdf' });
+  await expect(sent).toContainText('แตะเพื่อเปิดดู');
+  const after = context.waitForEvent('page');
+  await sent.click();
+  expect((await after).url()).toMatch(/^blob:/);
+});
