@@ -188,3 +188,13 @@ test('Stripe payout estimate stays distinct from settlement and fits the narrowe
     await page.screenshot({ path: process.env.ADMIN_STRIPE_SCREENSHOT, fullPage: true, animations: 'disabled' });
   }
 });
+
+// The post-payment guide's practice run from the admin page header (owner, 2026-11-03: "เพิ่มปุ่มในหน้าแอดมินเลย").
+test('the admin page header has ดูคู่มือเริ่มใช้ Pro, which opens the guide from step 1 as a practice run', async ({ page }) => {
+  await page.goto('/adminDashboard/ceo-park');
+  await expect(page.getByRole('heading', { name: 'แดชบอร์ดแอดมิน' })).toBeVisible();
+  await page.getByTestId('admin-guide-preview').click();
+  await expect(page).toHaveURL(/\/dashboard/);
+  await expect(page.getByTestId('pro-guide')).toHaveAttribute('data-practice', '');
+  await expect(page.getByTestId('pro-guide').locator('.pg-count')).toHaveText('0/4');
+});

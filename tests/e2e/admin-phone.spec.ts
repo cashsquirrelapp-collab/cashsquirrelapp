@@ -152,3 +152,15 @@ test('phone: when the figures fail, the error shows and the admin tools still op
   await page.getByRole('button', { name: 'จัดการทีม', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'จัดการทีม', exact: true }).first()).toBeVisible();
 });
+
+// The post-payment guide's practice run from the admin page (owner, 2026-11-03: "เพิ่มปุ่มในหน้าแอดมินเลย").
+test('phone: ดูคู่มือเริ่มใช้ Pro in the admin tools opens the guide from step 1 as a practice run', async ({ page }) => {
+  await open(page);
+  await page.getByTestId('admin-guide-preview').click();
+  await expect(page).toHaveURL(/\/dashboard/);
+  const card = page.getByTestId('pro-guide');
+  await expect(card).toBeVisible();
+  await expect(card).toHaveAttribute('data-practice', '');
+  await expect(card.locator('.pg-count')).toHaveText('0/4');
+  await expect(card).toContainText('โหมดทดลองสำหรับแอดมิน');
+});

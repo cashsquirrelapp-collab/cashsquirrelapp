@@ -3600,6 +3600,7 @@ export default function App() {
                         triggerConfirm={triggerConfirm}
                         mobile={isPhone}
                         onMobileBack={openPhoneMenu}
+                        onPreviewGuide={fullFeatureAccess && showProGuide ? () => { navigateTab('dashboard'); window.setTimeout(() => setProGuidePractice(value => value + 1), 300); } : undefined}
                       />
                     : <div role="alert" className="rounded-2xl border border-brand-border bg-brand-white p-6 text-sm text-brand-muted">{t('admin.noAccess')}</div>
               )}

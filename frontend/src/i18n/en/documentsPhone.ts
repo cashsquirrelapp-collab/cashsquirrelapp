@@ -114,4 +114,7 @@ export const documentsPhone: Record<string, string> = {
   'แจ้งยอดที่ลูกค้าต้องชำระ และวันครบกำหนด': 'What the customer owes, and when',
   'แจ้งหนี้': 'Invoice',
   'ใบที่กำลังทำ': 'This document',
+  'ธนาคาร: {0}': 'Bank: {0}',
+  'ชื่อช่องทาง': 'Channel name',
+  'เช่น พร้อมเพย์': 'e.g. PromptPay',
 };

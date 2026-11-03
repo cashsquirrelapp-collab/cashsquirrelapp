@@ -235,13 +235,24 @@ test('phones: ข้อมูลผู้ออกเอกสาร is edited i
   await shot(page, 'docs-issuer');
   await page.locator('#dp-biz-name').fill('สตูดิโอกระรอกน้อย');
   await page.locator('#dp-biz-account').fill('987-6-54321-0');
+  // The bank opens as a sheet with the whole list to scroll (it was cut off by its card, 2026-11-03).
+  await page.getByRole('button', { name: /^ธนาคาร:/ }).click();
+  const banks = page.getByRole('dialog', { name: 'เลือกธนาคาร' });
+  await expect(banks.getByRole('option')).not.toHaveCount(0);
+  expect(await banks.getByRole('option').count()).toBeGreaterThan(8);
+  await shot(page, 'docs-banks');
+  await expect(banks.getByRole('option', { name: /ธนาคารกสิกรไทย/ })).toHaveAttribute('aria-selected', 'true');
+  await banks.getByPlaceholder('ค้นหาธนาคาร').fill('กรุงเทพ');
+  await banks.getByRole('option', { name: /ธนาคารกรุงเทพ/ }).click();
+  await expect(banks).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^ธนาคาร:/ })).toContainText('ธนาคารกรุงเทพ');
   await page.getByRole('button', { name: /โลโก้ธุรกิจ/ }).click();
   await expect(page.getByRole('dialog', { name: 'โลโก้ธุรกิจ' })).toContainText('อัปโหลดโลโก้');
   await page.getByRole('dialog', { name: 'โลโก้ธุรกิจ' }).getByRole('button', { name: 'เสร็จ' }).click();
   await page.locator('.dp-bar').getByRole('button', { name: 'บันทึก' }).click();
   await expect(dialog(page)).toContainText('บันทึกโปรไฟล์ธุรกิจแล้ว');
   await dialog(page).getByRole('button').last().click();
-  await expect.poll(() => saved.find(change => change.table === 'cashflow_documents' && change.id === 'issuer_profile')?.data).toMatchObject({ name: 'สตูดิโอกระรอกน้อย', bankAccount: '987-6-54321-0', taxId: '0105555555555' });
+  await expect.poll(() => saved.find(change => change.table === 'cashflow_documents' && change.id === 'issuer_profile')?.data).toMatchObject({ name: 'สตูดิโอกระรอกน้อย', bankName: 'ธนาคารกรุงเทพ', bankAccount: '987-6-54321-0', taxId: '0105555555555' });
   await expect.poll(() => screen(page)).toBe('list');
   await expect(page.getByTestId('issuer-row')).toContainText('สตูดิโอกระรอกน้อย');
 });

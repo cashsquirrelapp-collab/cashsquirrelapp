@@ -47,7 +47,7 @@ function Bars({ values, label }: { values: number[]; label: string }) {
 }
 
 export default function AdminDashboardPhone({
-  userId, feedbackWaiting = null, triggerConfirm, data, loading, error, range, onRange, onRefresh, live, onBack, onRoleChanged, language,
+  userId, feedbackWaiting = null, triggerConfirm, data, loading, error, range, onRange, onRefresh, live, onBack, onRoleChanged, language, onPreviewGuide,
 }: {
   userId: string;
   /** บอกเรา conversations waiting for the team (useFeedbackWaiting), shown on the ข้อความจากผู้ใช้ row. */
@@ -65,6 +65,8 @@ export default function AdminDashboardPhone({
   onBack?: () => void;
   onRoleChanged: () => Promise<void>;
   language: 'th' | 'en';
+  /** A practice run of the post-payment guide (App; owner, 2026-11-03). */
+  onPreviewGuide?: () => void;
 }) {
   const copy: Copy = (th, en) => (language === 'th' ? th : en);
   const lang = language === 'th' ? 0 : 1;
@@ -339,6 +341,13 @@ export default function AdminDashboardPhone({
               <KsIcon name="chevron" size={16} />
             </button>
           ))}
+          {onPreviewGuide && (
+            <button type="button" onClick={onPreviewGuide} aria-label={copy('ดูคู่มือเริ่มใช้ Pro', 'Replay the Pro guide')} data-testid="admin-guide-preview">
+              <span className="ksm-list-icon"><KsIcon name="check" /></span>
+              <span className="ksm-grow"><b>{copy('ดูคู่มือเริ่มใช้ Pro', 'Replay the Pro guide')}</b><p>{copy('เล่นคู่มือ 4 ขั้นหลังจ่ายเงินแบบทดลอง ความคืบหน้าจริงไม่เปลี่ยน', 'The 4-step guide after paying, as a practice run; real progress stays')}</p></span>
+              <KsIcon name="chevron" size={16} />
+            </button>
+          )}
         </div>
         {data && (
           <>

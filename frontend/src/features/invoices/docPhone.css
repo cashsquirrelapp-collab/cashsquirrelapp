@@ -257,3 +257,8 @@ html[data-dp-task] #main-content.ksm-home-scroller { padding-bottom: 12px; }
 .dp-select { position: relative; display: block; }
 .dp-select > select { display: block; width: 100%; min-height: 40px; padding: 0 28px 0 0; border: 0; background: transparent; appearance: none; -webkit-appearance: none; font-size: 16px; font-weight: 500; line-height: 1.5; color: var(--ksm-text); outline: none; }
 .dp-select > svg { position: absolute; right: 0; top: 50%; transform: translateY(-50%); color: var(--ksm-secondary); pointer-events: none; }
+.dp-bankrow { gap: 10px; min-height: 52px; border-top: 1px solid var(--dp-line); }
+.dp-form > .dp-bankrow:first-child { border-top: 0; }
+.dp-bankname { flex: 1; min-width: 0; font-size: 16px; line-height: 1.5; color: var(--ksm-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dp-bankname.is-empty { color: var(--ksm-secondary); }
+.dp-banksearch { margin-top: 14px; }

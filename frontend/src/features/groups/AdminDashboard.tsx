@@ -10,6 +10,7 @@ import {
   CircleDollarSign,
   Cpu,
   Lightbulb,
+  ListChecks,
   MessageSquare,
   Megaphone,
   UserRoundCheck,
@@ -221,11 +222,13 @@ function announceNewPayments(before: AdminAnalyticsSummary | null, next: AdminAn
   });
 }
 
-export default function AdminDashboard({ userId, triggerConfirm, mobile = false, onMobileBack }: {
+export default function AdminDashboard({ userId, triggerConfirm, mobile = false, onMobileBack, onPreviewGuide }: {
   userId: string; triggerConfirm: Confirm;
   /** Phones (the app's phone layout): the page is drawn in the phone design instead. */
   mobile?: boolean;
   onMobileBack?: () => void;
+  /** A practice run of the post-payment guide "เริ่มใช้ Pro ใน 4 ขั้น" (owner, 2026-11-03: "เพิ่มปุ่มในหน้าแอดมินเลย"). */
+  onPreviewGuide?: () => void;
 }) {
   const { language } = useLanguage();
   const copy = (th: string, en: string) => language === 'th' ? th : en;
@@ -337,7 +340,7 @@ export default function AdminDashboard({ userId, triggerConfirm, mobile = false,
     return (
       <Suspense fallback={null}>
         <AdminDashboardPhone userId={userId} feedbackWaiting={feedbackWaiting} triggerConfirm={triggerConfirm} data={data} loading={loading} error={error} range={range}
-          onRange={setRange} onRefresh={() => setRevision(value => value + 1)} live={live} onBack={onMobileBack}
+          onRange={setRange} onRefresh={() => setRevision(value => value + 1)} live={live} onBack={onMobileBack} onPreviewGuide={onPreviewGuide}
           onRoleChanged={async () => setRevision(value => value + 1)} language={language} />
       </Suspense>
     );
@@ -346,6 +349,8 @@ export default function AdminDashboard({ userId, triggerConfirm, mobile = false,
   return (
     <section aria-labelledby="admin-dashboard-title" className="space-y-5 pb-8">
       <PageHeader page="adminDashboard" id="admin-dashboard-title">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+        {onPreviewGuide && <button type="button" className={secondary} onClick={onPreviewGuide} data-testid="admin-guide-preview"><ListChecks size={16} />{copy('ดูคู่มือเริ่มใช้ Pro', 'Replay the Pro guide')}</button>}
         {view !== 'feedback' && view !== 'profit' && view !== 'broadcast' && <div className="flex flex-wrap items-center gap-2">
           <select className="ui-input !w-auto" aria-label={copy('เลือกช่วงเวลา', 'Select date range')} value={range} onChange={event => setRange(Number(event.target.value) as AnalyticsRange)}>
             {([7, 30, 90] as AnalyticsRange[]).map(days => <option key={days} value={days}>{copy(`${days} วันล่าสุด`, `Last ${days} days`)}</option>)}
@@ -353,6 +358,7 @@ export default function AdminDashboard({ userId, triggerConfirm, mobile = false,
           {live && <span className="inline-flex items-center gap-1.5 px-1 text-[12px] font-medium text-brand-muted" title={copy('ยอดรายได้อัปเดตเองทุก 15 วินาทีขณะเปิดหน้านี้', 'Revenue updates by itself every 15 seconds while this page is open')}><span className="h-2 w-2 rounded-full bg-brand-green-acc" aria-hidden="true" />{copy('อัปเดตอัตโนมัติ', 'Live updates')}</span>}
           <button type="button" className={secondary} onClick={() => setRevision(value => value + 1)} disabled={loading}><RefreshCw size={16} className={loading ? 'animate-spin' : ''} />{copy('อัปเดต', 'Refresh')}</button>
         </div>}
+        </div>
       </PageHeader>
 
       <Suspense fallback={null}><AiCreditBanner userId={userId} onOpen={() => setView('profit')} /></Suspense>

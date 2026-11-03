@@ -244,6 +244,7 @@ card does not need:
   low enough to leave it room.
 - Admins replay the whole guide from step 1 as often as they like (เลขากระรอก ⋯ → ดูคู่มือเริ่มใช้ Pro อีกครั้ง): a practice
   run marked โหมดทดลองสำหรับแอดมิน that ticks only what is done during it and leaves the account's own guide as it was.
+  The admin page has the same as a button (computers: the header; phones: the last row of เครื่องมือแอดมิน).
 
 ### Weekly Pro invitation (owner, 2026-10-29; Gen Z poster, round 4 design 1)
 
@@ -556,7 +557,8 @@ card does not need:
   label-left fields), รายการและภาษี (item cards with a quantity stepper, VAT as a two-part switch, WHT as chips, the total
   in the bar), ตรวจแล้วบันทึก (the A4 picture, the details with labels above, ผู้ออกเอกสาร).
 - ข้อมูลผู้ออกเอกสาร (owner: "ควรไปอยู่ในส่วนของเอกสาร") is the same business profile as ตั้งค่า, saved the same way: ธุรกิจ →
-  บัญชีรับเงิน → โลโก้และลายเซ็น (each in a sheet).
+  บัญชีรับเงิน → โลโก้และลายเซ็น (each in a sheet). The bank opens as a sheet with the whole list, logos and search (owner:
+  the drop-down was cut off by its card, "อยากให้มันเลื่อนเห็นชัดๆ").
 - คลังเอกสาร: one เพิ่มไฟล์ button, search, the four kinds as 2×2 tiles that filter, files as one grouped list; the year, the
   ZIP and ติดตามใบ 50 ทวิ behind ⋯. ติดตามใบ 50 ทวิ: one summary card (total, a bar of backed and waiting, the two amounts,
   "ภาษีที่ถูกหักใช้ทำอะไร" in a sheet), a three-part switch, one grouped list with แนบใบ per job.

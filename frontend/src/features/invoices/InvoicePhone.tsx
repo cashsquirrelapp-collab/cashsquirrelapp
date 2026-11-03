@@ -10,8 +10,8 @@ import { getWorkspaceTab, type DocumentWorkspaceTab } from './documentAvailabili
 import { canNativeShare, canShareFile } from './DocumentWorkspaceParts';
 import { documentPdfName, type PdfFileState } from './documentPdf';
 import { BrandImageField } from './BrandImageField';
-import { findThaiBank } from './thaiBanks';
-import { BankPicker } from '../settings/BankPicker';
+import { THAI_BANKS, findThaiBank } from './thaiBanks';
+import { BankLogo } from './BankLogo';
 import { MobilePageHero } from '../mobile/MobilePageHero';
 import { MobileSheet } from '../mobile/MobileHome';
 import { KsIcon } from '../mobile/icons';
@@ -845,6 +845,10 @@ function IssuerScreen({ m, backLabel, onBack }: { m: InvoicePhoneModel; backLabe
   const [saving, setSaving] = React.useState(false);
   const [brand, setBrand] = React.useState<'logo' | 'signature' | null>(null);
   const [viewer, setViewer] = React.useState(false);
+  // The bank as a sheet from the bottom with the whole list to scroll (owner, 2026-11-03: the drop-down was cut off by its
+  // card, "อยากให้มันเลื่อนเห็นชัดๆ").
+  const [bankSheet, setBankSheet] = React.useState(false);
+  const [bankQuery, setBankQuery] = React.useState('');
   const set = (field: keyof InvoiceProfile, value: string) => setProfile(current => ({ ...current, [field]: value }));
   const sample: Invoice = {
     id: 'issuer-preview', documentType: 'invoice', documentNo: 'INV-2026-001', createdDate: new Date().toISOString().slice(0, 10), issuer: profile,
@@ -875,16 +879,17 @@ function IssuerScreen({ m, backLabel, onBack }: { m: InvoicePhoneModel; backLabe
 
       <p className="dp-label">{tr("บัญชีรับเงิน (แสดงท้ายเอกสาร)")}</p>
       <div className="dp-card dp-form">
-        <div className="dp-stack">
-          <span className="dp-stack-label">{tr("ธนาคาร")}</span>
-          <BankPicker value={profile.bankName} otherMode={bankOther} onPick={choice => {
-            if (choice === 'other') { setBankOther(true); if (findThaiBank(profile.bankName)) set('bankName', ''); }
-            else { setBankOther(false); set('bankName', choice.bankName); }
-          }} />
-          {!knownBank && (profile.bankName || bankOther) && (
-            <input type="text" value={profile.bankName} onChange={event => set('bankName', event.target.value)} placeholder={tr("พิมพ์ชื่อธนาคาร / ช่องทางรับเงิน เช่น พร้อมเพย์")} aria-label={tr("ชื่อธนาคารอื่น ๆ")} className="dp-input" />
-          )}
-        </div>
+        <button type="button" className="dp-row dp-bankrow" onClick={() => { setBankQuery(''); setBankSheet(true); }} aria-haspopup="dialog" aria-label={tr("ธนาคาร: {0}", knownBank ? tr(knownBank.name) : profile.bankName || tr("เลือกธนาคาร"))}>
+          <span className="dp-field-label">{tr("ธนาคาร")}</span>
+          {knownBank ? <BankLogo bank={knownBank} size={26} /> : null}
+          <span className={`dp-bankname${knownBank || profile.bankName ? '' : ' is-empty'}`}>{knownBank ? tr(knownBank.name) : profile.bankName ? profile.bankName : bankOther ? tr("อื่น ๆ (พิมพ์ชื่อเอง)") : tr("เลือกธนาคาร")}</span>
+          <ChevronRight size={17} className="dp-chevron" aria-hidden="true" />
+        </button>
+        {!knownBank && (profile.bankName || bankOther) && (
+          <Field label={tr("ชื่อช่องทาง")} htmlFor="dp-biz-bank-other">
+            <input id="dp-biz-bank-other" type="text" value={profile.bankName} onChange={event => set('bankName', event.target.value)} placeholder={tr("เช่น พร้อมเพย์")} />
+          </Field>
+        )}
         <Field label={tr("เลขที่บัญชี")} htmlFor="dp-biz-account"><input id="dp-biz-account" type="text" inputMode="numeric" value={profile.bankAccount} onChange={event => set('bankAccount', event.target.value)} placeholder={tr("เช่น 123-4-56789-0")} /></Field>
         <Field label={tr("ชื่อบัญชี")} htmlFor="dp-biz-account-name"><input id="dp-biz-account-name" type="text" value={profile.bankAccountName} onChange={event => set('bankAccountName', event.target.value)} placeholder={tr("ชื่อบัญชีโอนรับเงิน")} /></Field>
       </div>
@@ -909,6 +914,39 @@ function IssuerScreen({ m, backLabel, onBack }: { m: InvoicePhoneModel; backLabe
         <button type="button" className="dp-primary" onClick={() => void save()} disabled={saving}>{saving ? tr("กำลังบันทึก…") : tr("บันทึก")}</button>
       </BottomBar>
 
+      {bankSheet && (
+        <MobileSheet title={tr("เลือกธนาคาร")} onClose={() => setBankSheet(false)}>
+          <div className="ksm-search dp-search dp-banksearch">
+            <KsIcon name="search" />
+            <input type="search" value={bankQuery} onChange={event => setBankQuery(event.target.value)} placeholder={tr("ค้นหาธนาคาร")} aria-label={tr("ค้นหาธนาคาร")} enterKeyHint="search" />
+          </div>
+          {(() => {
+            const q = bankQuery.trim().toLowerCase();
+            const banks = THAI_BANKS.filter(bank => !q || bank.name.toLowerCase().includes(q) || tr(bank.name).toLowerCase().includes(q) || bank.code.toLowerCase().includes(q));
+            return (
+              <div className="dp-card dp-sheet-list" role="listbox" aria-label={tr("ธนาคาร")}>
+                {banks.map(bank => {
+                  const on = knownBank?.code === bank.code;
+                  return (
+                    <button key={bank.code} type="button" role="option" aria-selected={on} className={`dp-row${on ? ' is-selected' : ''}`}
+                      onClick={() => { setBankOther(false); set('bankName', bank.name); setBankSheet(false); }}>
+                      <BankLogo bank={bank} size={34} />
+                      <span className="dp-row-text"><b>{tr(bank.name)}</b><span>{bank.code}</span></span>
+                      {on && <Check size={18} className="dp-accent" aria-hidden="true" />}
+                    </button>
+                  );
+                })}
+                {banks.length === 0 && <p className="dp-note" style={{ padding: '4px 14px 12px' }}>{tr("ไม่พบธนาคารนี้ ลองเลือก “อื่น ๆ” แล้วพิมพ์ชื่อเอง")}</p>}
+                <button type="button" role="option" aria-selected={!knownBank && Boolean(profile.bankName || bankOther)} className="dp-row"
+                  onClick={() => { setBankOther(true); if (knownBank) set('bankName', ''); setBankSheet(false); }}>
+                  <span className="dp-tile is-neutral" aria-hidden="true"><PenLine size={17} /></span>
+                  <span className="dp-row-text"><b>{tr("อื่น ๆ (พิมพ์ชื่อเอง)")}</b><span>{tr("เช่น พร้อมเพย์")}</span></span>
+                </button>
+              </div>
+            );
+          })()}
+        </MobileSheet>
+      )}
       {brand && (
         <MobileSheet title={brand === 'logo' ? tr("โลโก้ธุรกิจ") : tr("ลายเซ็นผู้ออกเอกสาร")} onClose={() => setBrand(null)}>
           <div className="dp-brandsheet">
