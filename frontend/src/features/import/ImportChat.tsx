@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, ArrowUp, Check, CheckCircle2, Download, FileSpreadsheet, Loader2, Paperclip, RefreshCw, Undo2, Upload } from 'lucide-react';
+import { AlertTriangle, ArrowUp, Check, CheckCircle2, Download, FileSpreadsheet, Info, Loader2, Paperclip, RefreshCw, Undo2, Upload } from 'lucide-react';
 import type { Expense, Job, StatusOption } from '../../../../shared/types';
 import { roundMoney } from '../../../../shared/wht';
 import { Modal } from '../../components/ui/Modal';
@@ -459,59 +459,109 @@ export function ImportChat({ open, initialFile, onClose, jobs, expenses, statuse
             {reading && <Bot mood="thinking"><p className="ic-text ic-typing" role="status"><Loader2 className="h-4 w-4 animate-spin text-[#E65F2B]" aria-hidden="true" />{tr("กำลังอ่านไฟล์…")}</p></Bot>}
 
             {sheets.length > 0 && plan && (<>
+              {/* One report card (owner, 2026-11-04: "ทำการ์ดในช่องเดียวแล้วแบบทำให้มันดูง่ายๆ ... เหมือนมึงรายงานอ่ะเป็นคอลัมน์"):
+                  what will be saved first, then what to answer, then what to know, and one button to import. */}
               <Bot testId="import-read">
                 <p className="ic-text">{tr("อ่านไฟล์แล้วครับ")} {readLine}</p>
-                {earlier !== null && <p className="ic-note" data-testid="import-seen-before"><RefreshCw className="h-4 w-4 shrink-0" aria-hidden="true" />{earlier ? tr("ไฟล์นี้เคยนำเข้าแล้วเมื่อ {0} แถวที่นำเข้าไปแล้วจะไม่ถูกนำเข้าซ้ำ", importedLabel(earlier)) : tr("ไฟล์นี้เคยนำเข้าแล้ว แถวที่นำเข้าไปแล้วจะไม่ถูกนำเข้าซ้ำ")}</p>}
-                {aiAsking && <p className="ic-note" role="status"><Loader2 className="h-4 w-4 shrink-0 animate-spin text-[#E65F2B]" aria-hidden="true" />{tr("เลขากระรอกกำลังช่วยดูคอลัมน์ที่ระบบยังไม่รู้จัก")}</p>}
-                {totalRows > MAX_IMPORT_ROWS && <p className="ic-alert"><AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />{tr("นำเข้าได้ครั้งละไม่เกิน {0} แถว แถวที่เกินจะยังไม่นำเข้า", MAX_IMPORT_ROWS.toLocaleString('en-US'))}</p>}
-                {showQuestions && (
-                  <section className="ic-card" aria-label={tr("คำถามก่อนบันทึก")} data-testid="import-questions">
-                    {missingTabs.map(missingAsk)}
-                    {columnAsks.map(({ report, column }) => columnAsk(report, column))}
-                    {hasWht && (
-                      <div className="ic-ask is-stack" data-testid="import-wht-ask">
-                        <p>{tr("ยอดเงินในไฟล์เป็นยอดก่อนหรือหลังหัก ณ ที่จ่ายครับ")}</p>
-                        <div className="ic-segment" role="radiogroup" aria-label={tr("ยอดเงินในไฟล์")}>
-                          <button type="button" role="radio" aria-checked={!amountsAreNet} onClick={() => setNet(false)}>{tr("ยอดเต็มก่อนหัก")}</button>
-                          <button type="button" role="radio" aria-checked={amountsAreNet} onClick={() => setNet(true)}>{tr("หลังหักแล้ว")}</button>
-                        </div>
-                        <p className="ic-meta">{tr("เช่น งาน 10,000 บาท หัก 3% แล้วกรอกไว้ 9,700 ให้เลือก หลังหักแล้ว ระบบจะคำนวณมูลค่างานก่อนหักให้")}</p>
+                {!result && (
+                  <section className="ic-card ic-report" aria-label={tr("ผลตรวจไฟล์")} data-testid="import-summary">
+                    <div className="ic-report-top">
+                      <p className="ic-card-title">{blocked ? tr("ตอบคำถามด้านล่างก่อน แล้วจึงบันทึกได้") : tr("บันทึกได้ {0} รายการ", importCount)}</p>
+                      <div className="ic-tiles">
+                        <div><span>{tr("งาน")}</span><b data-testid="import-job-count">{tr("{0} งาน", totals.jobs)}</b><em>{formatCurrency(totals.value)}</em></div>
+                        <div><span>{tr("รายจ่าย")}</span><b data-testid="import-expense-count">{tr("{0} รายการ", newExpenses)}</b><em>{formatCurrency(totals.expenseAmount)}</em></div>
+                      </div>
+                      {details.updates > 0 && <p className="ic-meta">{tr("อัปเดต {0} รายการ", details.updates)}</p>}
+                      {allMatch && (
+                        <p className="ic-check is-ok" data-testid="import-total-check">
+                          <CheckCircle2 className="h-4 w-4" aria-hidden="true" />{reconciliation.length === 1 ? tr("ตรงกับยอดในไฟล์ {0}", reconciliation[0].count ? String(reconciliation[0].file) : formatCurrency(reconciliation[0].file)) : tr("ตรงกับยอดในไฟล์ทุกตัว ({0} ยอด)", reconciliation.length)}
+                        </p>
+                      )}
+                    </div>
+
+                    {showQuestions && (
+                      <div className="ic-report-part" aria-label={tr("คำถามก่อนบันทึก")} data-testid="import-questions">
+                        <p className="ic-report-title">{tr("ต้องตอบก่อนนำเข้า")}</p>
+                        {missingTabs.map(missingAsk)}
+                        {columnAsks.map(({ report, column }) => columnAsk(report, column))}
+                        {hasWht && (
+                          <div className="ic-ask is-stack" data-testid="import-wht-ask">
+                            <p>{tr("ยอดเงินในไฟล์เป็นยอดก่อนหรือหลังหัก ณ ที่จ่ายครับ")}</p>
+                            <div className="ic-segment" role="radiogroup" aria-label={tr("ยอดเงินในไฟล์")}>
+                              <button type="button" role="radio" aria-checked={!amountsAreNet} onClick={() => setNet(false)}>{tr("ยอดเต็มก่อนหัก")}</button>
+                              <button type="button" role="radio" aria-checked={amountsAreNet} onClick={() => setNet(true)}>{tr("หลังหักแล้ว")}</button>
+                            </div>
+                            <p className="ic-meta">{tr("เช่น งาน 10,000 บาท หัก 3% แล้วกรอกไว้ 9,700 ให้เลือก หลังหักแล้ว ระบบจะคำนวณมูลค่างานก่อนหักให้")}</p>
+                          </div>
+                        )}
+                        {questionGroups.map(groupRow)}
+                        {fixedRows.map(item => (
+                          <div className="ic-issue is-done" key={`done-${item.issue}`}>
+                            <div className="ic-issue-head"><p className="ic-issue-title">{tr("{0} · {1} แถว", tr(ISSUE_LABELS[item.issue]), item.count)}</p><span className="ic-pill is-ok"><Check className="h-3 w-3" aria-hidden="true" />{tr(item.label)}</span></div>
+                          </div>
+                        ))}
                       </div>
                     )}
-                    {questionGroups.map(groupRow)}
-                    {fixedRows.map(item => (
-                      <div className="ic-issue is-done" key={`done-${item.issue}`}>
-                        <div className="ic-issue-head"><p className="ic-issue-title">{tr("{0} · {1} แถว", tr(ISSUE_LABELS[item.issue]), item.count)}</p><span className="ic-pill is-ok"><Check className="h-3 w-3" aria-hidden="true" />{tr(item.label)}</span></div>
+
+                    {(earlier !== null || aiAsking || totalRows > MAX_IMPORT_ROWS || tabsLeft.length > 0 || problems > 0 || heldRows > 0 || personalRows.length > 0 || missingExpenseDates > 0) && (
+                      <div className="ic-report-part">
+                        <p className="ic-report-title">{tr("ข้อควรรู้")}</p>
+                        <ul className="ic-report-notes">
+                          {earlier !== null && <li data-testid="import-seen-before"><RefreshCw className="h-4 w-4" aria-hidden="true" /><span>{earlier ? tr("ไฟล์นี้เคยนำเข้าแล้วเมื่อ {0} แถวที่นำเข้าไปแล้วจะไม่ถูกนำเข้าซ้ำ", importedLabel(earlier)) : tr("ไฟล์นี้เคยนำเข้าแล้ว แถวที่นำเข้าไปแล้วจะไม่ถูกนำเข้าซ้ำ")}</span></li>}
+                          {aiAsking && <li role="status"><Loader2 className="h-4 w-4 animate-spin text-[#E65F2B]" aria-hidden="true" /><span>{tr("เลขากระรอกกำลังช่วยดูคอลัมน์ที่ระบบยังไม่รู้จัก")}</span></li>}
+                          {totalRows > MAX_IMPORT_ROWS && <li className="is-warn"><AlertTriangle className="h-4 w-4" aria-hidden="true" /><span>{tr("นำเข้าได้ครั้งละไม่เกิน {0} แถว แถวที่เกินจะยังไม่นำเข้า", MAX_IMPORT_ROWS.toLocaleString('en-US'))}</span></li>}
+                          {tabsLeft.length > 0 && (
+                            <li data-testid="import-tabs-left"><Info className="h-4 w-4" aria-hidden="true" />
+                              <span className="ic-report-note">{tabsLeft.some(report => report.notImported === 'summary') ? tr("แท็บที่เป็นหน้าสรุปหรือคำอธิบายไม่ได้นำเข้า แตะชื่อแท็บถ้าต้องการนำเข้าด้วย") : tr("แท็บที่เป็นหน้าสรุปหรือคำอธิบายไม่ได้นำเข้า")}
+                                <span className="ic-chips">
+                                  {tabsLeft.map(report => (report.notImported === 'summary'
+                                    ? <button key={report.index} type="button" className="ic-chip is-small" data-testid="import-tab-left" title={tr(NOT_IMPORTED.summary, report.name)} aria-label={tr("นำเข้าแท็บ {0} ด้วย", report.name)} onClick={() => updateSheet(report.index, s => ({ ...s, include: true }))}>+ {report.name}</button>
+                                    : <span key={report.index} className="ic-pill" data-testid="import-tab-left" title={tr(NOT_IMPORTED.monthsAcross, report.name)}>{report.name}</span>))}
+                                </span>
+                              </span>
+                            </li>
+                          )}
+                          {mismatch.length > 0 && (
+                            <li className="is-warn" data-testid="import-total-check" data-state="mismatch"><AlertTriangle className="h-4 w-4" aria-hidden="true" />
+                              <span>{tr("ยอดรวมไม่ตรงกับไฟล์ {0} จาก {1} ยอด: {2}", mismatch.length, reconciliation.length, mismatch.map(check => check.label).slice(0, 3).join(', '))}</span></li>
+                          )}
+                          {heldRows > 0 && (
+                            <li className="is-warn" data-testid="import-held"><AlertTriangle className="h-4 w-4" aria-hidden="true" /><span>{tr("ยังไม่บันทึก {0} แถว รอคำตอบหรือผิดปกติ", heldRows)} · <button type="button" className="ic-link" onClick={() => { setReviewFilter('skip'); setReviewOpen(true); requestAnimationFrame(() => reviewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })); }}>{tr("ดูแถว")}</button></span></li>
+                          )}
+                          {missingExpenseDates > 0 && <li className="is-warn"><AlertTriangle className="h-4 w-4" aria-hidden="true" /><span>{tr("รายจ่าย {0} รายการยังไม่มีวันที่ ใส่วันที่ก่อน ไม่อย่างนั้นจะยังไม่นำเข้า", missingExpenseDates)}</span></li>}
+                          {personalRows.length > 0 && (
+                            <li><Info className="h-4 w-4" aria-hidden="true" />
+                              <label className="ic-tick">
+                                <input type="checkbox" checked={includePersonal} onChange={e => { setIncludePersonal(e.target.checked); setIncluded(all => Object.fromEntries(Object.entries(all).filter(([key]) => !personalRows.some(row => row.key === key)))); }} className="accent-[#E65F2B]" />
+                                <span>{tr("นำเข้ารายจ่ายส่วนตัวด้วย ({0} รายการ {1})", personalRows.length, formatCurrency(personalTotal))}</span>
+                              </label>
+                            </li>
+                          )}
+                        </ul>
+                        {problemGroups.length > 0 && <div className="ic-report-issues" data-testid="import-problems">{problemGroups.map(groupRow)}</div>}
+                        {problemGroups.length === 0 && mismatch.length > 0 && <span className="sr-only" data-testid="import-problems">{tr("พบจุดผิดปกติ {0} จุดครับ", problems)}</span>}
                       </div>
-                    ))}
+                    )}
+
+                    <div className="ic-report-actions">
+                      <button type="button" className="ic-button is-primary" onClick={commit} disabled={blocked || !importCount} data-testid="import-commit">
+                        <Upload className="h-4 w-4" aria-hidden="true" />{tr("นำเข้า {0} รายการ", importCount)}
+                      </button>
+                      <p className="ic-meta">{tr("ยังไม่ได้บันทึกจนกว่าจะกดนำเข้า · ยกเลิกทั้งชุดได้ภายใน 7 วัน")}
+                        {' · '}<button type="button" className="ic-link" aria-expanded={reviewOpen} onClick={() => { setReviewFilter('all'); setReviewOpen(shown => !shown); }}>{reviewOpen ? tr("ซ่อนตาราง") : tr("ดูทุกแถวก่อน")}</button>
+                        {' · '}<button type="button" className="ic-link" aria-expanded={settingsOpen} onClick={() => (settingsOpen ? setSettingsOpen(false) : openSettings())}>{settingsOpen ? tr("ซ่อนการตั้งค่าคอลัมน์") : tr("ตั้งค่าคอลัมน์")}</button>
+                        {history.length > 0 && <>{' · '}<button type="button" className="ic-link" onClick={undo}><Undo2 className="inline h-3.5 w-3.5 align-[-2px]" aria-hidden="true" /> {tr("เปลี่ยนกลับการแก้ล่าสุด")}</button></>}</p>
+                    </div>
                   </section>
                 )}
-                {tabsLeft.length > 0 && (
-                  <div className="ic-note is-col" data-testid="import-tabs-left">
-                    <p>{tabsLeft.some(report => report.notImported === 'summary') ? tr("แท็บที่เป็นหน้าสรุปหรือคำอธิบายไม่ได้นำเข้า แตะชื่อแท็บถ้าต้องการนำเข้าด้วย") : tr("แท็บที่เป็นหน้าสรุปหรือคำอธิบายไม่ได้นำเข้า")}</p>
-                    <div className="ic-chips">
-                      {tabsLeft.map(report => (report.notImported === 'summary'
-                        ? <button key={report.index} type="button" className="ic-chip" data-testid="import-tab-left" title={tr(NOT_IMPORTED.summary, report.name)} aria-label={tr("นำเข้าแท็บ {0} ด้วย", report.name)} onClick={() => updateSheet(report.index, s => ({ ...s, include: true }))}>+ {report.name}</button>
-                        : <span key={report.index} className="ic-pill" data-testid="import-tab-left" title={tr(NOT_IMPORTED.monthsAcross, report.name)}>{report.name}</span>))}
-                    </div>
+                {!result && settingsOpen && <div ref={settingsRef} className="ic-review ic-settings-list">{tabsRead.map(settingsCard)}</div>}
+                {!result && reviewOpen && (
+                  <div ref={reviewRef} className="ic-review">
+                    <ImportReview rows={rows} isIncluded={isIncluded} included={included} setIncluded={change2 => setIncluded(change2)} edits={edits} setEdits={change2 => setEdits(change2)}
+                      multiSheet={multiSheet} filter={reviewFilter} setFilter={setReviewFilter} phone={phone} />
                   </div>
                 )}
               </Bot>
-
-              {problems > 0 && (
-                <Bot face={false} testId="import-problems">
-                  <p className="ic-text">{tr("พบจุดผิดปกติ {0} จุดครับ", problems)}</p>
-                  <section className="ic-card" aria-label={tr("จุดที่ผิดปกติ")}>
-                    {mismatch.length > 0 && (
-                      <div className="ic-issue" data-testid="import-total-check" data-state="mismatch">
-                        <div className="ic-issue-head"><p className="ic-issue-title">{tr("ยอดรวมไม่ตรงกับไฟล์")}</p><span className="ic-pill is-wait">{tr("ไม่ตรง {0} จาก {1} ยอด", mismatch.length, reconciliation.length)}</span></div>
-                        <p className="ic-issue-rows">{mismatch.map(check => check.label).slice(0, 3).join(', ')}</p>
-                      </div>
-                    )}
-                    {problemGroups.map(groupRow)}
-                  </section>
-                </Bot>
-              )}
 
               {talk.map(item => (item.who === 'me' ? <Me key={item.id}>{item.text}</Me> : (
                 <Bot key={item.id} mood={item.failed ? 'worried' : 'happy'}>
@@ -520,50 +570,6 @@ export function ImportChat({ open, initialFile, onClose, jobs, expenses, statuse
                 </Bot>
               )))}
               {sending && <Bot mood="thinking"><p className="ic-text ic-typing" role="status"><span className="ic-dots" aria-hidden="true"><i /><i /><i /></span>{tr("เลขากำลังดูให้…")}</p></Bot>}
-
-              {!result && (
-                <Bot face={false} testId="import-summary">
-                  <section className="ic-card ic-summary" aria-label={tr("สรุปก่อนนำเข้า")}>
-                    <p className="ic-card-title">{blocked ? tr("ตอบคำถามด้านบนก่อน แล้วจึงบันทึกได้") : tr("บันทึกได้ {0} รายการ", importCount)}</p>
-                    <div className="ic-tiles">
-                      <div><span>{tr("งาน")}</span><b data-testid="import-job-count">{tr("{0} งาน", totals.jobs)}</b><em>{formatCurrency(totals.value)}</em></div>
-                      <div><span>{tr("รายจ่าย")}</span><b data-testid="import-expense-count">{tr("{0} รายการ", newExpenses)}</b><em>{formatCurrency(totals.expenseAmount)}</em></div>
-                    </div>
-                    {details.updates > 0 && <p className="ic-meta">{tr("อัปเดต {0} รายการ", details.updates)}</p>}
-                    {allMatch && (
-                      <p className="ic-check is-ok" data-testid="import-total-check">
-                        <CheckCircle2 className="h-4 w-4" aria-hidden="true" />{reconciliation.length === 1 ? tr("ตรงกับยอดในไฟล์ {0}", reconciliation[0].count ? String(reconciliation[0].file) : formatCurrency(reconciliation[0].file)) : tr("ตรงกับยอดในไฟล์ทุกตัว ({0} ยอด)", reconciliation.length)}
-                      </p>
-                    )}
-                    {heldRows > 0 && (
-                      <p className="ic-meta is-warn" data-testid="import-held">{tr("ยังไม่บันทึก {0} แถว รอคำตอบหรือผิดปกติ", heldRows)} · <button type="button" className="ic-link" onClick={() => { setReviewFilter('skip'); setReviewOpen(true); requestAnimationFrame(() => reviewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })); }}>{tr("ดูแถว")}</button></p>
-                    )}
-                    {personalRows.length > 0 && (
-                      <label className="ic-tick">
-                        <input type="checkbox" checked={includePersonal} onChange={e => { setIncludePersonal(e.target.checked); setIncluded(all => Object.fromEntries(Object.entries(all).filter(([key]) => !personalRows.some(row => row.key === key)))); }} className="accent-[#E65F2B]" />
-                        <span>{tr("นำเข้ารายจ่ายส่วนตัวด้วย ({0} รายการ {1})", personalRows.length, formatCurrency(personalTotal))}</span>
-                      </label>
-                    )}
-                    {missingExpenseDates > 0 && <p className="ic-meta is-warn">{tr("รายจ่าย {0} รายการยังไม่มีวันที่ ใส่วันที่ก่อน ไม่อย่างนั้นจะยังไม่นำเข้า", missingExpenseDates)}</p>}
-                    <p className="ic-meta">{tr("ยังไม่ได้บันทึกจนกว่าจะกดนำเข้า · ยกเลิกทั้งชุดได้ภายใน 7 วัน")}
-                      {history.length > 0 && <> · <button type="button" className="ic-link" onClick={undo}><Undo2 className="inline h-3.5 w-3.5 align-[-2px]" aria-hidden="true" /> {tr("เปลี่ยนกลับการแก้ล่าสุด")}</button></>}</p>
-                    <div className="ic-actions">
-                      <button type="button" className="ic-button" aria-expanded={settingsOpen} onClick={() => (settingsOpen ? setSettingsOpen(false) : openSettings())}>{settingsOpen ? tr("ซ่อนการตั้งค่าคอลัมน์") : tr("ตั้งค่าคอลัมน์")}</button>
-                      <button type="button" className="ic-button" aria-expanded={reviewOpen} onClick={() => { setReviewFilter('all'); setReviewOpen(shown => !shown); }}>{reviewOpen ? tr("ซ่อนตาราง") : tr("ดูทุกแถวก่อน")}</button>
-                      <button type="button" className="ic-button is-primary" onClick={commit} disabled={blocked || !importCount} data-testid="import-commit">
-                        <Upload className="h-4 w-4" aria-hidden="true" />{tr("นำเข้า {0} รายการ", importCount)}
-                      </button>
-                    </div>
-                  </section>
-                  {settingsOpen && <div ref={settingsRef} className="ic-review ic-settings-list">{tabsRead.map(settingsCard)}</div>}
-                  {reviewOpen && (
-                    <div ref={reviewRef} className="ic-review">
-                      <ImportReview rows={rows} isIncluded={isIncluded} included={included} setIncluded={change2 => setIncluded(change2)} edits={edits} setEdits={change2 => setEdits(change2)}
-                        multiSheet={multiSheet} filter={reviewFilter} setFilter={setReviewFilter} phone={phone} />
-                    </div>
-                  )}
-                </Bot>
-              )}
 
               {result && (
                 <Bot mood={undone ? 'happy' : saveState === 'saving' ? 'waiting' : saveState.state === 'failed' ? 'worried' : 'celebrate'}>

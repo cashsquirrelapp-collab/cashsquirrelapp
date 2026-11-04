@@ -517,6 +517,11 @@ card does not need:
   the groups of rows that need a decision (one primary issue per row, each with its fixes as chips: ใช้วันนี้,
   ใช้วันสิ้นเดือน, นำเข้าตามที่อ่านได้, ข้าม N แถวนี้, ดูแถว), rows skipped by themselves in one muted line, typed messages,
   then the summary card (งาน / รายจ่าย / ไม่นำเข้า, the file's totals, ดูทุกแถวก่อน and the one primary นำเข้า N รายการ).
+- One report card after the file is read (owner, 2026-11-04: "ทำการ์ดในช่องเดียวแล้วแบบทำให้มันดูง่ายๆ ... เหมือนมึงรายงาน
+  อ่ะเป็นคอลัมน์"): "บันทึกได้ N รายการ" with two columns งาน / รายจ่าย (count and amount) and the totals check; then
+  "ต้องตอบก่อนนำเข้า" (questions with their chips) when there are any; then "ข้อควรรู้" as plain rows with an icon (seen
+  before, tabs left out with + chips, totals that differ, rows held, personal spending, missing dates, issue groups); then
+  one full-width นำเข้า N รายการ, with ดูทุกแถวก่อน · ตั้งค่าคอลัมน์ · เปลี่ยนกลับ as quiet links under it.
 - Every fix is kept so เปลี่ยนกลับ restores what was there. White grouped cards, the user's bubble in cream, เลขา's looped
   type, chips are pills (quick replies), one orange primary.
 - Typing to เลขา (owner's answer, 2026-10-31): free for every account, 10 messages a file, 3 files a day, 6 a minute, no

@@ -194,6 +194,10 @@ test('computer: the owner\'s code-linked workbook matches its Dashboard, saves w
   await expect(chat.getByTestId('import-job-count')).toHaveText('8 งาน');
   await expect(chat.getByTestId('import-expense-count')).toHaveText('30 รายการ');
   await expect(chat.getByTestId('import-total-check')).toHaveText('ตรงกับยอดในไฟล์ทุกตัว (7 ยอด)');
+  // One report card (owner, 2026-11-04): the import is one button; the table and the column settings are quiet links.
+  await expect(chat.getByTestId('import-summary').locator('.ic-button')).toHaveCount(1);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  if (process.env.SHOT_DIR) await chat.screenshot({ path: `${process.env.SHOT_DIR}/import-report-1280.png` });
   await chat.getByRole('button', { name: 'ดูทุกแถวก่อน' }).click();
   await chat.getByRole('button', { name: 'ดูที่มาของแถว 2' }).first().click();
   await expect(chat.getByTestId('import-row-detail')).toContainText('ในไฟล์ · แท็บ');
@@ -279,7 +283,7 @@ test('computer: unknown columns get เลขากระรอก suggestions t
   await expect(chat.getByTestId('import-column-ask').first()).toContainText('เลขาแนะนำ');
   // Not importable until both are confirmed.
   await expect(chat.getByTestId('import-commit')).toBeDisabled();
-  await expect(chat.getByTestId('import-summary')).toContainText('ตอบคำถามด้านบนก่อน แล้วจึงบันทึกได้');
+  await expect(chat.getByTestId('import-summary')).toContainText('ตอบคำถามด้านล่างก่อน แล้วจึงบันทึกได้');
   await expect(chat.getByTestId('import-read')).toContainText('ขอถามก่อน 2 ข้อ');
   await chat.getByRole('button', { name: 'ยืนยันว่าคอลัมน์ Bill to คือ ลูกค้า' }).click();
   await chat.getByRole('button', { name: 'ยืนยันว่าคอลัมน์ ช่องทาง คือ ประเภทงาน' }).click();

@@ -115,4 +115,10 @@ export const importChat: Record<string, string> = {
   'แท็บที่เป็นหน้าสรุปหรือคำอธิบายไม่ได้นำเข้า แตะชื่อแท็บถ้าต้องการนำเข้าด้วย': 'Summary and notes tabs are not imported. Tap a tab to import it too.',
   'แท็บที่เป็นหน้าสรุปหรือคำอธิบายไม่ได้นำเข้า': 'Summary and notes tabs are not imported.',
   'นำเข้าแท็บ {0} ด้วย': 'Import tab {0} too',
+  // One report card (2026-11-04).
+  "ตอบคำถามด้านล่างก่อน แล้วจึงบันทึกได้": "Answer the questions below first, then you can save",
+  "ผลตรวจไฟล์": "File check",
+  "ต้องตอบก่อนนำเข้า": "To answer before importing",
+  "ข้อควรรู้": "Good to know",
+  "ยอดรวมไม่ตรงกับไฟล์ {0} จาก {1} ยอด: {2}": "{0} of {1} totals differ from the file: {2}",
 };
