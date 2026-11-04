@@ -104,12 +104,13 @@ test('phones get the phone design: revenue in the header, period switch, account
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
-test('other admins cannot see the menu or fetch analytics through a direct URL', async ({ page }) => {
+test('an account the server gives no admin level cannot see the menu or fetch analytics through a direct URL', async ({ page }) => {
+  // Team admins (adminLevel 'admin', 2026-11-04) open the page without money: tests/e2e/admin-team.spec.ts.
   let analyticsRequests = 0;
   page.on('request', request => { if (/\/api\/admin-(analytics|stripe-finance)/.test(request.url())) analyticsRequests++; });
   await page.route('**/api/auth', route => route.fulfill({ json: { session: { user: {
-    ...user, email: 'another-admin@example.com', canViewAdminAnalytics: false,
-    user_metadata: { email: user.email, canViewAdminAnalytics: true },
+    ...user, email: 'another-admin@example.com', canViewAdminAnalytics: false, adminLevel: null,
+    user_metadata: { email: user.email, canViewAdminAnalytics: true, adminLevel: 'owner' },
   } } } }));
   await page.goto('/adminDashboard/ceo-park');
   await expect(page.getByRole('alert').filter({ hasText: 'หน้านี้เข้าถึงได้เฉพาะเจ้าของระบบเท่านั้น' })).toBeVisible();

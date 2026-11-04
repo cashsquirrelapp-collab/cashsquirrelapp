@@ -8,11 +8,11 @@ import { HttpError, withGuard } from '../http/guard.js';
 import { systemRole } from '../repositories/roles.js';
 import { rateLimit } from '../security/rateLimit.js';
 import { requireUser } from '../security/session.js';
-import { canViewAdminAnalytics } from '../security/adminAnalyticsAccess.js';
+import { adminLevel } from '../security/adminAnalyticsAccess.js';
 import { planStatusOf } from './admin-analytics.js';
 
 // The admin page's ผู้ใช้งาน view (owner, 2026-11-03): for every account, when it was last active, how long it has been
-// away, how often and at what time of day it uses the app. The owner only, like the rest of the statistics. Read from
+// away, how often and at what time of day it uses the app. The owner and team admins (2026-11-04). Read from
 // what is already kept: the presence heartbeat, pages opened (cashflow_usage_daily), the visits the heartbeat keeps
 // (shared/userActivity.ts) and the last sign-in.
 
@@ -46,7 +46,8 @@ export default withGuard(async (req, res) => {
   if (req.method !== 'GET') throw new HttpError(405, 'Method not allowed');
   const user = await requireUser(req, res);
   if (req.headers['x-account-id'] !== user.id) throw new HttpError(401, 'บัญชีเปลี่ยน กรุณาโหลดหน้าใหม่');
-  if (!canViewAdminAnalytics(user, await systemRole(user.id))) throw new HttpError(403, 'หน้านี้เข้าถึงได้เฉพาะเจ้าของระบบเท่านั้น');
+  // The owner and team admins (owner, 2026-11-04: "แอดมินจะสามารถเห็นผู้ใช้งานได้ว่าใครแอคทีฟอยู่ใครออนไลน์อยู่"). No money here.
+  if (!adminLevel(user, await systemRole(user.id))) throw new HttpError(403, 'หน้านี้เข้าถึงได้เฉพาะแอดมินเท่านั้น');
   await rateLimit('admin-activity', user.id, 30, 60);
   const parsed = querySchema.safeParse(req.query);
   if (!parsed.success) throw new HttpError(400, 'ช่วงเวลาสถิติไม่ถูกต้อง');

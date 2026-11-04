@@ -1,0 +1,76 @@
+/* ทีมงานและโทเคน (AdminTeamTokens.tsx): find an account by UID, give it tokens or admin rights; the team; the log. */
+.atk { --atk-on: #E65F2B; display: flex; flex-direction: column; gap: 16px; }
+.atk.is-mobile { gap: 0; }
+.atk-section { padding: 20px; }
+@media (min-width: 640px) { .atk-section { padding: 24px; } }
+.atk-title { margin: 0; font-size: 15px; font-weight: 600; line-height: 1.45; color: var(--text); }
+.atk-sub { margin: 4px 0 0; font-size: 12.5px; line-height: 1.55; color: var(--muted); }
+.atk-panel { padding: 16px; }
+.atk-panel > .atk-sub { margin: 0 0 12px; }
+.atk-grow { flex: 1 1 auto; }
+.atk-min { min-width: 0; }
+.atk-num { font-variant-numeric: tabular-nums; }
+
+.atk-find { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; margin-top: 14px; }
+.atk.is-mobile .atk-find { margin-top: 0; }
+.atk-field { display: flex; min-width: 0; flex-direction: column; gap: 6px; }
+.atk-field > span { font-size: 13px; font-weight: 500; line-height: 1.45; color: var(--muted); }
+.atk-find .atk-field { min-width: 220px; }
+.atk-find-button { min-height: 42px; }
+.atk.is-mobile .atk-find-button { flex: 1 1 100%; min-height: 44px; justify-content: center; }
+
+.atk-card { display: flex; flex-direction: column; gap: 16px; margin-top: 16px; border: 1px solid var(--border); border-radius: 16px; background: var(--bg); padding: 16px; }
+.atk-card-head { display: flex; align-items: center; gap: 12px; }
+.atk-avatar { display: grid; flex: none; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: #FFF1E8; font-size: 15px; font-weight: 600; line-height: 1; color: #B5461C; }
+.atk-avatar.is-small { width: 32px; height: 32px; font-size: 13px; }
+.dark .atk-avatar { background: #2A2B2F; color: #FFB08A; }
+.atk-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 600; line-height: 1.45; color: var(--text); }
+.atk-meta { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; line-height: 1.45; color: var(--muted); }
+.atk-role { flex: none; border-radius: 999px; background: var(--faint); padding: 3px 10px; font-size: 12px; font-weight: 600; line-height: 1.45; color: var(--muted); }
+.atk-role.is-admin { background: #FFF1E8; color: #B5461C; }
+.dark .atk-role.is-admin { background: rgba(230, 95, 43, .16); color: #FFB08A; }
+
+.atk-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.atk.is-mobile .atk-facts { grid-template-columns: minmax(0, 1fr); }
+.atk-facts div { display: flex; min-width: 0; flex-direction: column; gap: 2px; border: 1px solid var(--border); border-radius: 12px; background: var(--white); padding: 10px 12px; }
+.atk-facts dt { font-size: 12px; line-height: 1.45; color: var(--muted); }
+.atk-facts dd { margin: 0; font-size: 14px; font-weight: 500; line-height: 1.5; color: var(--text); overflow-wrap: anywhere; }
+
+.atk-give, .atk-rights { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--border); padding-top: 14px; }
+.atk-rights { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 12px; }
+.atk.is-mobile .atk-rights > button { flex: 1 1 100%; min-height: 44px; justify-content: center; }
+.atk-subhead { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; font-weight: 600; line-height: 1.45; color: var(--text); }
+.atk-subhead svg { color: var(--atk-on); }
+.atk-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.atk-chip { min-height: 34px; border: 1px solid var(--border); border-radius: 999px; background: var(--white); padding: 4px 14px; font-size: 13px; font-weight: 500; line-height: 1.45; color: var(--text); font-variant-numeric: tabular-nums; }
+.atk-chip.is-on { border-color: var(--atk-on); background: #FFF1E8; color: #B5461C; }
+.dark .atk-chip.is-on { background: rgba(230, 95, 43, .16); color: #FFB08A; }
+.atk-give-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.atk-amount { flex: 0 0 140px; }
+.atk.is-mobile .atk-amount, .atk.is-mobile .atk-give-row .atk-grow { flex: 1 1 100%; }
+.atk-hint { margin: 0; font-size: 12.5px; line-height: 1.55; color: var(--muted); }
+.atk-primary { align-self: flex-start; min-height: 44px; padding-inline: 18px; font-weight: 600; }
+.atk.is-mobile .atk-primary { align-self: stretch; justify-content: center; }
+
+.atk-history summary { cursor: pointer; font-size: 13px; font-weight: 500; line-height: 1.45; color: var(--text); }
+.atk-history:not([open]) > :not(summary) { display: none; }
+.atk-history ul { margin: 8px 0 0; padding: 0; list-style: none; border: 1px solid var(--border); border-radius: 12px; background: var(--white); }
+.atk-history li { display: flex; align-items: baseline; gap: 10px; padding: 8px 12px; border-top: 1px solid var(--border); font-size: 13px; line-height: 1.5; color: var(--text); }
+.atk-history li:first-child { border-top: 0; }
+.atk-history li small { flex: none; font-size: 12px; color: var(--muted); }
+
+.atk-notice { margin: 12px 0 0; font-size: 13px; line-height: 1.5; color: #248A3D; }
+.dark .atk-notice { color: #30D158; }
+.atk-error { margin: 12px 0 0; font-size: 13px; line-height: 1.5; color: #C4321D; overflow-wrap: anywhere; }
+.dark .atk-error { color: #FF8A73; }
+.atk-empty { margin: 12px 0 0; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.atk.is-mobile .atk-empty { margin-top: 0; }
+
+.atk-list { margin: 14px 0 0; padding: 0; list-style: none; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+.atk.is-mobile .atk-list { margin-top: 0; }
+.atk-list li + li { border-top: 1px solid var(--border); }
+.atk-row { display: flex; width: 100%; align-items: center; gap: 12px; background: transparent; padding: 10px 14px; text-align: left; }
+.atk-row:hover { background: var(--faint); }
+.atk-log-side { display: flex; flex: none; flex-direction: column; align-items: flex-end; gap: 0; }
+.atk-log-side b { font-size: 14px; font-weight: 600; line-height: 1.45; color: var(--text); }
+.atk-log-side small { font-size: 12px; line-height: 1.45; color: var(--muted); }

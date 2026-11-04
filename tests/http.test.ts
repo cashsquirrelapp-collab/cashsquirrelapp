@@ -119,10 +119,13 @@ test('admin routes use the current database role and recheck authorization insid
  assert.equal(groupCalls.length,before);
  currentRole='admin';
  try {
+  // A team admin (not the owner's email) reads the account list but changes no role (owner, 2026-11-04).
   assert.equal((await realFetch(origin+'/api/admin-users',{headers})).status,200);
-  assert.equal((await realFetch(origin+'/api/admin-users',{method:'POST',headers,body:JSON.stringify({userId:user.id,role:'user',actor:'spoofed'})})).status,400);
-  groupError={code:'42501',message:'forbidden'};
-  assert.equal((await realFetch(origin+'/api/admin-users',{method:'POST',headers,body:JSON.stringify({userId:user.id,role:'user'})})).status,403);
+  const writes=groupCalls.length;
+  assert.equal((await realFetch(origin+'/api/admin-users',{method:'POST',headers,body:JSON.stringify({userId:user.id,role:'user',actor:'spoofed'})})).status,403);
+  assert.equal((await realFetch(origin+'/api/admin-users',{method:'POST',headers,body:JSON.stringify({userId:user.id,role:'admin'})})).status,403);
+  assert.equal((await realFetch(origin+'/api/admin-users?action=lookup&target=SQ-0000000001',{headers})).status,403);
+  assert.equal(groupCalls.length,writes);
  } finally {currentRole='user';groupError=null;}
 });
 test('finance scope binds the actor to the session and validates group identifiers and privileges',async()=>{

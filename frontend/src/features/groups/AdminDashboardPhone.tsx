@@ -19,10 +19,13 @@ const GroupsTab = lazy(() => import('./GroupsTab'));
 const AdminFeedbackInbox = lazy(() => import('../feedback/AdminFeedbackInbox'));
 const AdminActivity = lazy(() => import('./AdminActivity'));
 const AdminBroadcast = lazy(() => import('./AdminBroadcast'));
+const AdminTeamTokens = lazy(() => import('./AdminTeamTokens'));
 import AdminOnboarding from './AdminOnboarding';
 import { sendLineSamplesToMe } from './lineSamples';
 
-type Page = 'payments' | 'accounts' | 'features' | 'onboarding' | 'feedback' | 'users' | 'groups' | 'activity' | 'broadcast';
+type Page = 'payments' | 'accounts' | 'features' | 'onboarding' | 'feedback' | 'users' | 'groups' | 'activity' | 'broadcast' | 'team';
+/** The owner's pages alone (owner, 2026-11-04): money, account rights and tokens, every team and its members. */
+const OWNER_PAGES: Page[] = ['payments', 'users', 'groups', 'team'];
 const LINKED_PAGES: Page[] = ['feedback', 'broadcast', 'activity'];
 type Copy = (th: string, en: string) => string;
 
@@ -48,9 +51,11 @@ function Bars({ values, label }: { values: number[]; label: string }) {
 }
 
 export default function AdminDashboardPhone({
-  userId, feedbackWaiting = null, triggerConfirm, data, loading, error, range, onRange, onRefresh, live, onBack, onRoleChanged, language, onPreviewGuide,
+  userId, level = 'owner', feedbackWaiting = null, triggerConfirm, data, loading, error, range, onRange, onRefresh, live, onBack, onRoleChanged, language, onPreviewGuide,
 }: {
   userId: string;
+  /** ผู้ดูแล (the owner) or a team admin, who never sees money (AdminDashboard.tsx). */
+  level?: 'owner' | 'admin';
   /** บอกเรา conversations waiting for the team (useFeedbackWaiting), shown on the ข้อความจากผู้ใช้ row. */
   feedbackWaiting?: number | null;
   triggerConfirm: Confirm;
@@ -70,6 +75,8 @@ export default function AdminDashboardPhone({
   onPreviewGuide?: () => void;
 }) {
   const copy: Copy = (th, en) => (language === 'th' ? th : en);
+  const isOwner = level === 'owner';
+  const showMoney = isOwner && !data?.moneyHidden;
   const [samplesBusy, setSamplesBusy] = useState(false);
   const sendSamples = async () => {
     if (samplesBusy) return;
@@ -81,7 +88,7 @@ export default function AdminDashboardPhone({
   // The LINE alert for a new บอกเรา message opens the inbox straight away (?view=feedback).
   const [page, setPage] = useState<Page | null>(() => {
     const linked = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('view') as Page | null : null;
-    return linked && LINKED_PAGES.includes(linked) ? linked : null;
+    return linked && LINKED_PAGES.includes(linked) && (isOwner || !OWNER_PAGES.includes(linked)) ? linked : null;
   });
   const [account, setAccount] = useState<AdminAnalyticsAccount | null>(null);
   const [query, setQuery] = useState('');
@@ -89,7 +96,7 @@ export default function AdminDashboardPhone({
   const [persona, setPersona] = useState<AccountPersona | 'all'>('all');
 
   const go = (next: Page | null) => {
-    setPage(next);
+    setPage(next && !isOwner && OWNER_PAGES.includes(next) ? null : next);
     document.getElementById('main-content')?.scrollTo({ top: 0 });
   };
   const day = (value: string | null) => (value ? new Date(value.includes('T') ? value : `${value}T12:00:00+07:00`).toLocaleDateString(locale, { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', year: 'numeric' }) : '—');
@@ -122,6 +129,18 @@ export default function AdminDashboardPhone({
     detail: totals ? <p>{copy(`${totals.paymentCount} รายการชำระเงิน`, `${totals.paymentCount} payments`)}{revenueChange !== null && <> · {revenueChange >= 0 ? '+' : '−'}{percent(Math.abs(revenueChange))} {copy('จากช่วงก่อน', 'vs previous')}</>}</p> : pending,
   };
 
+  // A team admin's header carries the accounts, never the revenue.
+  const accountsBox = {
+    label: copy('บัญชีที่สมัครทั้งหมด', 'Registered accounts'), icon: 'users' as KsIconName, amount: totals ? totals.accounts.toLocaleString(locale) : '—', region: copy('สรุปบัญชี', 'Accounts summary'),
+    detail: totals ? <p>{copy(`Pro ${totals.proAccounts} · ทดลอง ${totals.trialAccounts} · Free ${totals.freeAccounts}`, `Pro ${totals.proAccounts} · trial ${totals.trialAccounts} · free ${totals.freeAccounts}`)}</p> : pending,
+  };
+
+  // A team admin's dashboard header: who used the app in the period (the accounts are the first card below).
+  const activeBox = {
+    label: copy(`ผู้ใช้งาน · ${range} วันล่าสุด`, `Active users · last ${range} days`), icon: 'users' as KsIconName, amount: totals ? totals.activeUsers.toLocaleString(locale) : '—', region: copy('สรุปผู้ใช้งาน', 'Activity summary'),
+    detail: totals ? <p>{copy(`สมัครใหม่ ${totals.newAccounts} · เปิดฟีเจอร์ ${totals.pageViews.toLocaleString(locale)} ครั้ง`, `${totals.newAccounts} new · ${totals.pageViews.toLocaleString(locale)} feature views`)}</p> : pending,
+  };
+
   const rangeSwitch = (
     <div className="ksm-scope" role="tablist" aria-label={copy('ช่วงเวลา', 'Period')}>
       {RANGES.map(days => <button key={days} type="button" role="tab" aria-selected={range === days} onClick={() => onRange(days)}>{copy(`${days} วัน`, `${days} days`)}</button>)}
@@ -145,7 +164,7 @@ export default function AdminDashboardPhone({
 
   // ── Pages opened from the dashboard ───────────────────────────────────────────────────────────
   let body: ReactNode;
-  if (page === 'payments') {
+  if (page === 'payments' && isOwner) {
     body = (
       <>
         <MobilePageHero key="payments" title={copy('รายได้', 'Revenue')} {...back} actions={actions} box={{ ...revenueBox, detail: totals ? <p>{copy(`${totals.paymentCount} รายการ · เฉลี่ย ${baht(totals.averageRevenuePerPayer)} ต่อผู้จ่าย`, `${totals.paymentCount} payments · ${baht(totals.averageRevenuePerPayer)} per payer`)}</p> : pending }} />
@@ -169,10 +188,7 @@ export default function AdminDashboardPhone({
   } else if (page === 'accounts') {
     body = (
       <>
-        <MobilePageHero key="accounts" title={copy('รายบัญชี', 'Accounts')} {...back} actions={actions} box={{
-          label: copy('บัญชีที่สมัครทั้งหมด', 'Registered accounts'), icon: 'users', amount: totals ? totals.accounts.toLocaleString(locale) : '—', region: copy('สรุปบัญชี', 'Accounts summary'),
-          detail: totals ? <p>{copy(`Pro ${totals.proAccounts} · ทดลอง ${totals.trialAccounts} · Free ${totals.freeAccounts}`, `Pro ${totals.proAccounts} · trial ${totals.trialAccounts} · free ${totals.freeAccounts}`)}</p> : pending,
-        }} />
+        <MobilePageHero key="accounts" title={copy('รายบัญชี', 'Accounts')} {...back} actions={actions} box={accountsBox} />
         {failed}
         {data && (
           <>
@@ -201,12 +217,16 @@ export default function AdminDashboardPhone({
                   <button key={item.userId} type="button" onClick={() => setAccount(item)} aria-label={`${copy('เปิดรายละเอียดบัญชี', 'Open account')} ${item.displayName}`}>
                     <span className={`ksm-list-icon ksm-admin-initial${['pro', 'admin'].includes(item.planStatus) ? '' : ' is-neutral'}`} aria-hidden="true">{item.displayName.slice(0, 1).toUpperCase()}</span>
                     <span className="ksm-grow"><b>{item.displayName}</b><p>{planLabels[item.planStatus][lang]} · {personaLabels[item.persona][lang]}</p></span>
-                    <span className="ksm-admin-side"><strong>{baht(item.totalSpent)}</strong><small>{item.lastSeenAt ? day(item.lastSeenAt) : copy('ยังไม่ใช้งาน', 'Not active')}</small></span>
+                    {showMoney
+                      ? <span className="ksm-admin-side"><strong>{baht(item.totalSpent)}</strong><small>{item.lastSeenAt ? day(item.lastSeenAt) : copy('ยังไม่ใช้งาน', 'Not active')}</small></span>
+                      : <span className="ksm-admin-side"><small>{item.lastSeenAt ? day(item.lastSeenAt) : copy('ยังไม่ใช้งาน', 'Not active')}</small></span>}
                   </button>
                 ))}
               </div>
             ) : <div className="ksm-empty"><h3>{copy('ไม่พบบัญชีที่ตรงกับตัวกรอง', 'No accounts match')}</h3>{(query || plan !== 'all' || persona !== 'all') && <button type="button" className="ksm-link" onClick={() => { setQuery(''); setPlan('all'); setPersona('all'); }}>{copy('ล้างตัวกรอง', 'Clear filters')}</button>}</div>}
-            <p className="ksm-micro">{copy(`ใช้งาน · ยอดเติม ใน ${range} วันล่าสุด · ไม่แสดงข้อมูลการเงินส่วนตัวของผู้ใช้`, `Usage and spend in the last ${range} days · no private finances are shown`)}</p>
+            <p className="ksm-micro">{showMoney
+              ? copy(`ใช้งาน · ยอดเติม ใน ${range} วันล่าสุด · ไม่แสดงข้อมูลการเงินส่วนตัวของผู้ใช้`, `Usage and spend in the last ${range} days · no private finances are shown`)
+              : copy(`การใช้งานใน ${range} วันล่าสุด · ไม่แสดงข้อมูลการเงินส่วนตัวของผู้ใช้`, `Usage in the last ${range} days · no private finances are shown`)}</p>
           </>
         )}
       </>
@@ -278,7 +298,19 @@ export default function AdminDashboardPhone({
         </Suspense>
       </>
     );
-  } else if (page === 'feedback' || page === 'users' || page === 'groups') {
+  } else if (page === 'team' && isOwner) {
+    // The owner's tools (2026-11-04): admin rights for the team and tokens by UID.
+    body = (
+      <>
+        <MobilePageHero key="team" title={copy('ทีมงานและโทเคน', 'Team and tokens')} {...back} />
+        <div className="ksm-admin-embed">
+          <Suspense fallback={<SkeletonBlock className="mt-3 h-48 w-full rounded-2xl" />}>
+            <AdminTeamTokens userId={userId} triggerConfirm={triggerConfirm} language={language} mobile />
+          </Suspense>
+        </div>
+      </>
+    );
+  } else if (page === 'feedback' || ((page === 'users' || page === 'groups') && isOwner)) {
     const titles: Record<'feedback' | 'users' | 'groups', string> = {
       feedback: copy('ข้อความจากผู้ใช้', 'User feedback'), users: copy('จัดการผู้ใช้', 'Manage users'), groups: copy('จัดการทีม', 'Manage groups'),
     };
@@ -308,12 +340,15 @@ export default function AdminDashboardPhone({
       { key: 'activity', icon: 'users', title: copy('ผู้ใช้งาน', 'User activity'), sub: copy('ใครออนไลน์ ใครหายไปนาน ช่วงเวลาที่คนเข้าใช้', 'Who is on, who has gone quiet, when people use the app') },
       { key: 'broadcast', icon: 'bell', title: copy('ส่งข้อความถึงผู้ใช้', 'Message everyone'), sub: copy('ข้อความขึ้นบนหน้าจอทุกคน พร้อมคะแนนและคำตอบ', 'A message on everyone’s screen, with scores and answers') },
       { key: 'feedback', icon: 'chat', title: copy('ข้อความจากผู้ใช้', 'User feedback'), sub: feedbackWaiting ? copy(`รอตอบ ${feedbackWaiting} เรื่อง · อ่านและตอบได้ที่นี่`, `${feedbackWaiting} waiting · read and answer here`) : copy('อ่านและตอบเรื่องที่ผู้ใช้ส่งมา', 'Read and answer what users sent') },
+      { key: 'team', icon: 'coins', title: copy('ทีมงานและโทเคน', 'Team and tokens'), sub: copy('ให้สิทธิ์แอดมิน · แจกโทเคนตาม UID', 'Admin rights · give tokens by UID') },
       { key: 'users', icon: 'shield', title: copy('จัดการผู้ใช้', 'Manage users'), sub: copy('สิทธิ์แอดมิน · ให้หรือยกเลิก Pro', 'Admin roles · grant or revoke Pro') },
       { key: 'groups', icon: 'briefcase', title: copy('จัดการทีม', 'Manage groups'), sub: copy('ทีม สมาชิก คำเชิญ และบทบาท', 'Groups, members, invitations, roles') },
     ];
     body = (
       <>
-        <MobilePageHero key="home" title={copy('แดชบอร์ดแอดมิน', 'Admin dashboard')} onBack={onBack} actions={actions} box={{ ...revenueBox, onOpen: () => go('payments'), openLabel: copy('ดูรายได้และการชำระเงิน', 'Open revenue and payments') }} />
+        <MobilePageHero key="home" title={copy('แดชบอร์ดแอดมิน', 'Admin dashboard')} onBack={onBack} actions={actions} box={isOwner
+          ? { ...revenueBox, onOpen: () => go('payments'), openLabel: copy('ดูรายได้และการชำระเงิน', 'Open revenue and payments') }
+          : { ...activeBox, onOpen: () => go('activity'), openLabel: copy('ดูผู้ใช้งาน', 'Open user activity') }} />
         {rangeSwitch}
         {failed}
         {waiting}
@@ -331,7 +366,7 @@ export default function AdminDashboardPhone({
             <Bars values={data.daily.map(item => item.activeUsers)} label={copy('กราฟผู้ใช้งานรายวัน', 'Daily active users chart')} />
           </section>
         )}
-        {data && (
+        {data && showMoney && (
           <>
             <div className="ksm-group-title"><h3>{copy('ชำระเงินล่าสุด', 'Latest payments')}</h3>{data.payments.length > 0 && <button type="button" className="ksm-link" onClick={() => go('payments')}>{copy('ดูทั้งหมด', 'See all')}</button>}</div>
             {data.payments.length
@@ -341,7 +376,7 @@ export default function AdminDashboardPhone({
         )}
         <div className="ksm-group-title"><h3>{copy('เครื่องมือแอดมิน', 'Admin tools')}</h3></div>
         <div className="ksm-list" style={{ marginTop: 0 }}>
-          {tools.filter(tool => !tool.needsData || data).map(tool => (
+          {tools.filter(tool => (!tool.needsData || data) && (isOwner || !OWNER_PAGES.includes(tool.key))).map(tool => (
             <button key={tool.key} type="button" onClick={() => go(tool.key)} aria-label={tool.title}>
               <span className="ksm-list-icon"><KsIcon name={tool.icon} /></span>
               <span className="ksm-grow"><b>{tool.title}</b><p>{tool.sub}</p></span>
@@ -355,11 +390,11 @@ export default function AdminDashboardPhone({
               <KsIcon name="chevron" size={16} />
             </button>
           )}
-          <button type="button" onClick={sendSamples} disabled={samplesBusy} aria-label={copy('ส่งการ์ด LINE ตัวอย่าง', 'Send sample LINE cards')} data-testid="admin-line-samples">
+          {isOwner && <button type="button" onClick={sendSamples} disabled={samplesBusy} aria-label={copy('ส่งการ์ด LINE ตัวอย่าง', 'Send sample LINE cards')} data-testid="admin-line-samples">
             <span className="ksm-list-icon"><KsIcon name="chat" /></span>
             <span className="ksm-grow"><b>{samplesBusy ? copy('กำลังส่ง…', 'Sending…') : copy('ส่งการ์ด LINE ตัวอย่าง', 'Send sample LINE cards')}</b><p>{copy('การ์ด 7 แบบที่ลูกค้า Pro ได้รับ ส่งเข้า LINE ของบัญชีนี้ ใช้ข้อมูลตัวอย่าง', 'The 7 cards a Pro customer receives, to this account’s LINE, with sample data')}</p></span>
             <KsIcon name="chevron" size={16} />
-          </button>
+          </button>}
         </div>
         {data && (
           <>
@@ -397,8 +432,8 @@ export default function AdminDashboardPhone({
             <small>{account.publicId}</small>
           </div>
           <div className="ksm-metrics">
-            <div className="ksm-metric"><small>{copy('ยอดเติมสะสม', 'Lifetime spend')}</small><b>{baht(account.totalSpent)}</b></div>
-            <div className="ksm-metric"><small>{copy('จำนวนครั้งที่เติม', 'Payments')}</small><b>{account.paymentCount.toLocaleString(locale)}</b></div>
+            {showMoney && <div className="ksm-metric"><small>{copy('ยอดเติมสะสม', 'Lifetime spend')}</small><b>{baht(account.totalSpent)}</b></div>}
+            {showMoney && <div className="ksm-metric"><small>{copy('จำนวนครั้งที่เติม', 'Payments')}</small><b>{account.paymentCount.toLocaleString(locale)}</b></div>}
             <div className="ksm-metric"><small>{copy('วันที่ใช้งาน', 'Active days')}</small><b>{account.activeDays}</b></div>
             <div className="ksm-metric"><small>{copy('เปิดฟีเจอร์', 'Feature views')}</small><b>{account.pageViews.toLocaleString(locale)}</b></div>
           </div>
@@ -412,8 +447,8 @@ export default function AdminDashboardPhone({
           {account.topFeatures.length
             ? <div className="ksm-panel ksm-admin-tops">{account.topFeatures.map((feature, index) => <p key={feature.key}><i>{index + 1}</i><span className="ksm-grow">{featureLabels[feature.key][lang]}</span><span>{feature.pageViews.toLocaleString(locale)}</span></p>)}</div>
             : <p className="ksm-caption">{copy('ยังไม่มีข้อมูลในช่วงเวลานี้', 'No activity in this period')}</p>}
-          <div className="ksm-group-title"><h3>{copy('ประวัติการเติม Pro', 'Payment history')}</h3></div>
-          {(() => {
+          {showMoney && <div className="ksm-group-title"><h3>{copy('ประวัติการเติม Pro', 'Payment history')}</h3></div>}
+          {showMoney && (() => {
             const own = data.payments.filter(payment => payment.userId === account.userId);
             return own.length
               ? <div className="ksm-panel ksm-admin-tops">{own.map(payment => <p key={payment.id}><span className="ksm-grow">{day(payment.paidAt)}</span><span className={payment.refunded ? 'ksm-admin-refunded' : 'ksm-admin-paid'}>{baht(payment.amount)}{payment.refunded ? ` · ${copy('คืนเงินแล้ว', 'refunded')}` : ''}</span></p>)}</div>

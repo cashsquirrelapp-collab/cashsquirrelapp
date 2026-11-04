@@ -133,7 +133,7 @@ const OWNER = '11111111-1111-4111-8111-111111111111';
 const MEMBER = '22222222-2222-4222-8222-222222222222';
 const NEWCOMER = '33333333-3333-4333-8333-333333333333';
 // The owner's address, read from the access rule so it is not written out again here.
-const ownerEmail = readFileSync(new URL('../backend/src/security/adminAnalyticsAccess.ts', import.meta.url), 'utf8').match(/=== '([^']+@[^']+)'/)![1];
+const ownerEmail = readFileSync(new URL('../backend/src/security/adminAnalyticsAccess.ts', import.meta.url), 'utf8').match(/OWNER_EMAIL = '([^']+@[^']+)'/)![1];
 const created: Record<string, string> = { [OWNER]: '2026-01-01T00:00:00Z', [MEMBER]: '2026-10-01T00:00:00Z', [NEWCOMER]: '2099-01-01T00:00:00Z' };
 const realFetch = globalThis.fetch;
 let server: Server;

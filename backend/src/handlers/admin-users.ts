@@ -12,6 +12,13 @@ import { challengeHash, rateLimit } from '../security/rateLimit.js';
 import { groupDbError } from './groups.js';
 import { loadPresenceByUserId, ONLINE_WINDOW_MS } from '../repositories/presence.js';
 import { buildRecoveryLink } from '../../../shared/recoveryLink.js';
+import { accountTarget, GRANT_MAX_TOKENS, GRANT_NOTE_MAX, grantedTotal, type TokenGrant } from '../../../shared/tokenGrants.js';
+import type { AdminLookup, AdminTokenGrantLog } from '../../../shared/adminTeam.js';
+import { adminLevel, isOwnerAccount } from '../security/adminAnalyticsAccess.js';
+import { addTokenGrant, loadTokenGrants, recentTokenGrants } from '../repositories/tokenGrants.js';
+import { assistantPlan, supabaseAssistantDb } from '../ai/supabaseDb.js';
+import { aiConfig, aiConfigFor } from '../ai/config.js';
+import { usageStatus } from '../ai/service.js';
 
 const RECOVERY_LINK_TTL_MS = 60 * 60 * 1000;
 const createRecoveryLinkSchema = z.object({ action: z.literal('create-recovery-link') }).strict();
@@ -19,6 +26,14 @@ const setProAccessSchema = z.object({
   action: z.literal('set-pro-access'),
   userId: z.uuid(),
   operation: z.enum(['grant', 'revoke', 'ban', 'unban']),
+}).strict();
+const lookupQuerySchema = z.object({ action: z.literal('lookup'), target: z.string().trim().min(1).max(64) });
+const grantTokensSchema = z.object({
+  action: z.literal('grant-tokens'),
+  userId: z.uuid(),
+  tokens: z.number().int().min(1).max(GRANT_MAX_TOKENS),
+  note: z.string().trim().max(GRANT_NOTE_MAX).optional(),
+  requestId: z.string().regex(/^[A-Za-z0-9_-]{8,64}$/),
 }).strict();
 const dashboardDetailsQuerySchema = z.object({
   action: z.literal('dashboard-details'),
@@ -47,6 +62,34 @@ async function listDeletionRequests(db: ReturnType<typeof getSupabaseAdmin>) {
   return { requests: requests.filter(request => request !== null) };
 }
 
+type Db = ReturnType<typeof getSupabaseAdmin>;
+
+/** One account as the owner's tools show it: who it is, its role, its plan for เลขา and the tokens given to it. */
+async function lookupAccount(db: Db, text: string): Promise<AdminLookup> {
+  const target = accountTarget(text);
+  if (!target) throw new HttpError(400, 'กรุณาใส่ UID แบบ SQ-XXXXXXXXXX');
+  let query = db.from('cashflow_profiles').select('user_id,public_id,display_name,created_at');
+  query = 'publicId' in target ? query.eq('public_id', target.publicId) : query.eq('user_id', target.userId);
+  const profile = await query.maybeSingle();
+  if (profile.error) throw profile.error;
+  if (!profile.data) throw new HttpError(404, 'ไม่พบบัญชีที่มี UID นี้');
+  const userId = profile.data.user_id as string;
+  const [role, account, grants] = await Promise.all([systemRole(userId), db.auth.admin.getUserById(userId), loadTokenGrants(userId)]);
+  if (account.error || !account.data.user) throw new HttpError(404, 'ไม่พบบัญชีที่มี UID นี้');
+  // The tokens left are context: the owner can still give tokens if they cannot be read.
+  let tokens: AdminLookup['tokens'] = null;
+  try {
+    const plan = await assistantPlan(account.data.user);
+    const status = await usageStatus(supabaseAssistantDb, aiConfigFor(aiConfig(process.env), plan.plan, account.data.user.email), userId, plan);
+    tokens = { plan: status.plan, left: status.tokensLeft, limit: status.tokenLimit, resetsAt: status.resetsAt };
+  } catch { tokens = null; }
+  return {
+    userId, publicId: profile.data.public_id || '—', displayName: profile.data.display_name || 'Unknown account',
+    createdAt: profile.data.created_at || '', role, isOwner: isOwnerAccount(account.data.user),
+    granted: grantedTotal(grants), grants: grants.slice(-10).reverse(), tokens,
+  };
+}
+
 export default withGuard(
   async (req, res) => {
     if (!['GET', 'POST'].includes(req.method || ''))
@@ -54,11 +97,35 @@ export default withGuard(
     const user = await requireUser(req, res);
     if (req.headers['x-account-id'] !== user.id)
       throw new HttpError(401, 'บัญชีเปลี่ยน กรุณาโหลดหน้าใหม่');
-    if ((await systemRole(user.id)) !== 'admin')
-      throw new HttpError(403, 'เฉพาะ admin เท่านั้น');
+    const level = adminLevel(user, await systemRole(user.id));
+    if (!level) throw new HttpError(403, 'เฉพาะ admin เท่านั้น');
+    // Team admins see the account list (owner, 2026-11-04). Everything else here (Pro access, recovery links, admin
+    // rights, tokens, the counts and emails of operations) stays the owner's.
+    const ownerOnly = () => {
+      if (level !== 'owner') throw new HttpError(403, 'เฉพาะผู้ดูแลระบบเท่านั้น');
+    };
     await rateLimit('admin-users', user.id, 30, 60);
     const db = getSupabaseAdmin();
     if (req.method === 'GET') {
+      if (req.query.action !== undefined) ownerOnly();
+      if (req.query.action === 'lookup') {
+        const parsed = lookupQuerySchema.safeParse(req.query);
+        if (!parsed.success) throw new HttpError(400, 'กรุณาใส่ UID แบบ SQ-XXXXXXXXXX');
+        res.json(await lookupAccount(db, parsed.data.target));
+        return;
+      }
+      if (req.query.action === 'token-grants') {
+        const recent = await recentTokenGrants(30);
+        const ids = [...new Set(recent.map(item => item.userId))];
+        const profiles = ids.length ? await db.from('cashflow_profiles').select('user_id,public_id,display_name').in('user_id', ids) : { data: [], error: null };
+        if (profiles.error) throw profiles.error;
+        const byId = new Map((profiles.data || []).map(row => [row.user_id, row] as const));
+        const grants: AdminTokenGrantLog[] = recent.map(({ userId, grant }) => ({
+          ...grant, userId, publicId: byId.get(userId)?.public_id || '—', displayName: byId.get(userId)?.display_name || 'Unknown account',
+        }));
+        res.json({ grants });
+        return;
+      }
       if (req.query.action === 'dashboard') {
         const now = new Date().toISOString();
         const [accounts, admins, groups, proAccounts, invitations, pauses, deletions] = await Promise.all([
@@ -342,6 +409,20 @@ export default withGuard(
       });
       return;
     }
+    ownerOnly();
+    if (req.body?.action === 'grant-tokens') {
+      const parsed = grantTokensSchema.safeParse(req.body);
+      if (!parsed.success) throw new HttpError(400, `กรุณาใส่จำนวนโทเคน 1–${GRANT_MAX_TOKENS.toLocaleString('en-US')}`);
+      const { userId, tokens, note, requestId } = parsed.data;
+      const profile = await db.from('cashflow_profiles').select('user_id').eq('user_id', userId).maybeSingle();
+      if (profile.error) throw profile.error;
+      if (!profile.data) throw new HttpError(404, 'ไม่พบบัญชีนี้');
+      await rateLimit('admin-grant-tokens', user.id, 30, 3600);
+      const grant: TokenGrant = { id: requestId, tokens, at: new Date().toISOString(), ...(note ? { note } : {}) };
+      const saved = await addTokenGrant(userId, grant);
+      res.json({ ok: true, added: saved.added, account: await lookupAccount(db, userId) });
+      return;
+    }
     if (req.body?.action === 'set-pro-access') {
       const parsed = setProAccessSchema.safeParse(req.body);
       if (!parsed.success) throw new HttpError(400, 'ข้อมูลแพ็กเกจ Pro ไม่ถูกต้อง');
@@ -382,8 +463,12 @@ export default withGuard(
     }
     const action = systemRoleActionSchema.safeParse(req.body);
     if (!action.success) throw new HttpError(400, 'ข้อมูลสิทธิ์ไม่ถูกต้อง');
-    if (action.data.role !== 'user')
-      throw new HttpError(403, 'ไม่สามารถเพิ่มสิทธิ์ Admin ผ่านหน้านี้ได้');
+    // Admin rights are given and taken by the owner alone (owner, 2026-11-04: "อีเมลนี้จะมีสิทธิ์ในการให้สิทธิ์แอดมิน"),
+    // and the owner's own account always stays ผู้ดูแล.
+    if (action.data.userId === user.id) throw new HttpError(409, 'เปลี่ยนสิทธิ์ของบัญชีผู้ดูแลไม่ได้');
+    const target = await db.auth.admin.getUserById(action.data.userId);
+    if (target.error || !target.data.user) throw new HttpError(404, 'ไม่พบบัญชีนี้');
+    if (isOwnerAccount(target.data.user)) throw new HttpError(409, 'เปลี่ยนสิทธิ์ของบัญชีผู้ดูแลไม่ได้');
     const result = await db.rpc('cashflow_set_system_role', {
       p_actor: user.id,
       p_target: action.data.userId,

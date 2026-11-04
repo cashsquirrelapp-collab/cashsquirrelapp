@@ -55,6 +55,8 @@ export interface AdminAnalyticsSummary {
   payments: AdminAnalyticsPayment[];
   /** Welcome Onboarding V1: who signs up, what they want, and what each group does (counts only). */
   onboarding?: OnboardingAnalytics;
+  /** Sent to a team admin (not the owner): every money figure is 0 and the payments list is empty (withoutMoney). */
+  moneyHidden?: true;
 }
 
 export interface AdminAnalyticsAccount {
@@ -85,4 +87,22 @@ export interface AdminAnalyticsPayment {
   currency: string;
   paidAt: string;
   refunded: boolean;
+}
+
+/**
+ * The statistics as a team admin receives them (owner, 2026-11-04: "รายได้โปรแอดมินธรรมดาจะไม่มีสิทธิ์ในการเห็น ... กำไรต้นทุน
+ * ... ภาพรวมของเงินสดอ่ะห้ามไม่เห็นเด็ดขาดนอกจากผู้ดูแล"). Removed on the server, so the figures never reach a team admin's
+ * browser: revenue, payments and what each account paid. Accounts, activity, features and plans stay.
+ */
+export function withoutMoney(summary: AdminAnalyticsSummary): AdminAnalyticsSummary {
+  const { liveSignature: _signature, ...rest } = summary;
+  return {
+    ...rest,
+    totals: { ...summary.totals, revenue: 0, previousRevenue: 0, paymentCount: 0, averageRevenuePerPayer: 0 },
+    daily: summary.daily.map(day => ({ ...day, revenue: 0, payments: 0 })),
+    personas: summary.personas.map(persona => ({ ...persona, revenue: 0 })),
+    accounts: summary.accounts.map(account => ({ ...account, totalSpent: 0, paymentCount: 0, lastPaymentAt: null })),
+    payments: [],
+    moneyHidden: true,
+  };
 }

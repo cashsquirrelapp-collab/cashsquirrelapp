@@ -207,15 +207,16 @@ test('presence is never shown as online once it stops refreshing', async ({ page
   await expect(page.getByText('ออนไลน์', { exact: true })).toHaveCount(0);
 });
 
-test('admin can browse outside groups and manage roles; self demotion removes admin views', async ({
+test('admin can browse outside groups; the owner removes another admin, never itself', async ({
   page,
 }) => {
+  // Admin rights are given and taken by the owner (ผู้ดูแล) alone since 2026-11-04; the owner's own account keeps them.
   let role: SystemRole = 'admin',
-    memberRole: SystemRole = 'user';
+    memberRole: SystemRole = 'admin';
   const group = initialGroup();
   group.myRole = null;
   group.members[0] = { ...group.members[0], userId: '33333333-3333-4333-8333-333333333333', publicId: 'SQ-3333333333', displayName: 'Group creator' };
-  await page.route('**/api/auth', (route) => route.fulfill({ json: { session: { user: { ...user, role } } } }));
+  await page.route('**/api/auth', (route) => route.fulfill({ json: { session: { user: { ...user, role, adminLevel: role === 'admin' ? 'owner' : null } } } }));
   await finance(page);
   await page.route('**/api/groups**', (route) => {
     const query = new URL(route.request().url()).searchParams;
@@ -249,13 +250,13 @@ test('admin can browse outside groups and manage roles; self demotion removes ad
   await expect(page.getByRole('menuitem', { name: 'โอนหัวหน้ากลุ่ม' })).toHaveCount(0);
   await page.screenshot({ path: 'artifacts/groups-admin.png', fullPage: true });
   await page.getByRole('tab', { name: 'จัดการผู้ใช้', exact: true }).click();
-  // Promoting to admin was removed from this panel; an admin can still step down.
+  // Giving admin rights lives in ทีมงานและโทเคน; here the owner can take them from another admin, not from itself.
   await expect(page.getByRole('button', { name: 'ถอดสิทธิ์ Admin' })).toHaveCount(1);
   await page.getByRole('button', { name: 'ถอดสิทธิ์ Admin' }).click();
   await confirmDialog(page);
-  await expect(page.getByRole('tab', { name: 'จัดการผู้ใช้', exact: true })).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: 'สิทธิ์ผู้ใช้ทั้งระบบ' })).toHaveCount(0);
-  await expect(page.getByRole('tab', { name: 'ทุกทีม', exact: true })).toHaveCount(0);
+  await expect.poll(() => memberRole).toBe('user');
+  expect(role).toBe('admin');
+  await expect(page.getByRole('button', { name: 'ถอดสิทธิ์ Admin' })).toHaveCount(0);
   expect(pageErrors).toEqual([]);
 });
 

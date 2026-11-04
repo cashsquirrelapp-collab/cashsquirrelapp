@@ -8,15 +8,15 @@ import { getSupabaseAdmin } from '../config/supabase.js';
 import { HttpError, withGuard } from '../http/guard.js';
 import { patchPrivate } from '../repositories/accounts.js';
 import { systemRole } from '../repositories/roles.js';
-import { canViewAdminAnalytics } from '../security/adminAnalyticsAccess.js';
+import { adminLevel } from '../security/adminAnalyticsAccess.js';
 import { rateLimit } from '../security/rateLimit.js';
 import { requireUser } from '../security/session.js';
 import { alertBroadcastAnswer } from '../services/broadcastAlert.js';
 import { ownerDeliveryDeps } from '../services/ownerAlerts.js';
 
 // A message from the team to everyone, and the answers (shared/broadcast.ts). GET: the message this account should see
-// (or, with ?scope=admin, every message sent with its answers, for the owner). POST: seen / dismiss / answer from an
-// account; send / end from the owner.
+// (or, with ?scope=admin, every message sent with its answers, for the owner and team admins). POST: seen / dismiss /
+// answer from an account; send / end from the owner or a team admin (owner, 2026-11-04: "ส่งข้อความถึงผู้ใช้แอดมินก็สามารถส่งได้").
 
 type Db = ReturnType<typeof getSupabaseAdmin>;
 
@@ -37,6 +37,21 @@ async function sentBroadcasts(db: Db, fresh = false): Promise<Broadcast[]> {
   }
   cached = { at: Date.now(), list };
   return list;
+}
+
+/** The admin account that sent a message, with its sent list. */
+async function broadcastSender(db: Db, id: string): Promise<{ userId: string; list: Broadcast[] } | null> {
+  const roles = await db.from('cashflow_user_roles').select('user_id').eq('role', 'admin');
+  if (roles.error) throw roles.error;
+  const ids = ((roles.data ?? []) as { user_id: string }[]).map(row => row.user_id);
+  if (!ids.length) return null;
+  const states = await db.from('cashflow_private_state').select('user_id,broadcasts:data->broadcasts').in('user_id', ids);
+  if (states.error) throw states.error;
+  for (const row of (states.data ?? []) as { user_id: string; broadcasts?: unknown }[]) {
+    const list = readBroadcasts(row.broadcasts);
+    if (list.some(item => item.id === id)) return { userId: row.user_id, list };
+  }
+  return null;
 }
 
 async function privateValue(db: Db, userId: string, key: 'broadcasts' | 'broadcastAnswers'): Promise<unknown> {
@@ -67,7 +82,7 @@ export default withGuard(async (req, res) => {
   if (req.headers['x-account-id'] !== user.id) throw new HttpError(401, 'บัญชีเปลี่ยน กรุณาโหลดหน้าใหม่');
   const db = getSupabaseAdmin();
   const owner = async () => {
-    if (!canViewAdminAnalytics(user, await systemRole(user.id))) throw new HttpError(403, 'หน้านี้เข้าถึงได้เฉพาะเจ้าของระบบเท่านั้น');
+    if (!adminLevel(user, await systemRole(user.id))) throw new HttpError(403, 'หน้านี้เข้าถึงได้เฉพาะแอดมินเท่านั้น');
   };
 
   if (req.method === 'GET') {
@@ -99,8 +114,10 @@ export default withGuard(async (req, res) => {
       return;
     }
     const { id } = admin.data;
-    if (!own.some(item => item.id === id)) throw new HttpError(404, 'ไม่พบข้อความนี้');
-    await patchPrivate(user.id, { broadcasts: withEndedBroadcast(own, id, now) });
+    // Any admin may stop the message on show, whoever on the team sent it: it is kept with its sender.
+    const sender = own.some(item => item.id === id) ? { userId: user.id, list: own } : await broadcastSender(db, id);
+    if (!sender) throw new HttpError(404, 'ไม่พบข้อความนี้');
+    await patchPrivate(sender.userId, { broadcasts: withEndedBroadcast(sender.list, id, now) });
     cached = null;
     res.json({ ok: true });
     return;

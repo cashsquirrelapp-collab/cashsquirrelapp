@@ -166,6 +166,11 @@ beforeEach(() => {
         client: `${tag(owner!)} CLIENT`, file_name: `${tag(owner!)}.pdf`, mime_type: 'application/pdf', size_bytes: 20,
         storage_path: 'PRIVATE_STORAGE_PATH_MUST_NOT_REACH_MODEL', created_at: '2026-01-01T00:00:00Z' }]);
     }
+    // Tokens the owner gave (2026-11-04): the account's own private state, read with the authenticated owner only.
+    if (url.pathname.endsWith('/cashflow_private_state') && url.searchParams.get('select') === 'grants:data->aiTokenGrants') {
+      assert.ok(owners.includes(owner!), 'given tokens must be read with an authenticated owner filter');
+      return json({ grants: null });
+    }
     // The name เลขา calls the user by (2026-10-27): the account's own profile, read with the authenticated owner only.
     if (url.pathname.endsWith('/cashflow_profiles')) {
       assert.ok(owners.includes(owner!), 'the account name must be read with an authenticated owner filter');

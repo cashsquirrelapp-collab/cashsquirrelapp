@@ -4,9 +4,10 @@ import { clearCloud } from './cloud';
 // Compatibility facade for the existing auth UI. Tokens never enter browser JavaScript.
 import { apiJson } from './api';
 import type { SystemRole } from '../../../shared/groups';
+import type { AdminLevel } from '../../../shared/adminLevel';
 import { safeDocumentReturnPath } from '../../../shared/documentReturnPath';
 import { tr } from '../i18n/tr';
-type PublicSession = { user: { id: string; email: string; role: SystemRole; canViewAdminAnalytics?: boolean; accountPaused?: boolean; accountClosureKind?: 'pause' | 'deletion'; accountDeleteAfter?: string | null; created_at: string; user_metadata: Record<string, string> } };
+type PublicSession = { user: { id: string; email: string; role: SystemRole; canViewAdminAnalytics?: boolean; adminLevel?: AdminLevel; accountPaused?: boolean; accountClosureKind?: 'pause' | 'deletion'; accountDeleteAfter?: string | null; created_at: string; user_metadata: Record<string, string> } };
 let current: PublicSession | null = null;
 let revision=0;
 const channel = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel('cashflow-auth');
@@ -66,9 +67,11 @@ async function getSession(): Promise<SessionCheck> {
       const previousRole = current?.user.role;
       const previousPaused = current?.user.accountPaused;
       const previousAnalyticsAccess = current?.user.canViewAdminAnalytics;
+      const previousAdminLevel = current?.user.adminLevel ?? null;
       updateSession(result.session);
       if (previous !== current?.user.id) { revision++; emit(current ? 'SIGNED_IN' : 'SIGNED_OUT', false); }
-      else if (previousRole !== current?.user.role || previousPaused !== current?.user.accountPaused || previousAnalyticsAccess !== current?.user.canViewAdminAnalytics) { revision++; emit('USER_UPDATED', false); }
+      else if (previousRole !== current?.user.role || previousPaused !== current?.user.accountPaused || previousAnalyticsAccess !== current?.user.canViewAdminAnalytics
+        || previousAdminLevel !== (current?.user.adminLevel ?? null)) { revision++; emit('USER_UPDATED', false); }
       return { data: result, error: null };
     } catch (error) {
       return { data: { session: current }, error: error as Error };
@@ -95,6 +98,10 @@ export const deviceAccounts = {
     await apiJson('/api/auth', { method: 'POST', body: JSON.stringify({ action: 'forget-account', accountId }) });
   },
 };
+/** The signed-in account's admin level as the server last said (shared/adminLevel.ts); the server checks every request. */
+export function currentAdminLevel(): AdminLevel {
+  return current?.user.adminLevel ?? (current?.user.canViewAdminAnalytics === true ? 'owner' : null);
+}
 export const authClient = { auth: {
   getSession,
   signInWithPassword: (values: { email: string; password: string })=>action('signin', values),

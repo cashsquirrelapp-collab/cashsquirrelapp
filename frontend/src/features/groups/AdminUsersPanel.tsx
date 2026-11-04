@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { AdminAccounts, SystemRole } from '../../../../shared/groups';
 import { groupApi, type AdminRecoveryLink } from '../../services/groups';
 import { getCurrentAccount } from '../../services/api';
-import { authClient } from '../../services/auth';
+import { authClient, currentAdminLevel } from '../../services/auth';
 import { useLanguage } from '../../i18n/LanguageContext';
 import {
   panel,
@@ -17,11 +17,15 @@ export default function AdminUsersPanel({
   userId,
   triggerConfirm,
   onRoleChanged,
+  isOwner,
 }: {
   userId: string;
   triggerConfirm: Confirm;
   onRoleChanged: () => Promise<void>;
+  /** ผู้ดูแล: Pro access, recovery links and admin rights. A team admin sees the list only (owner, 2026-11-04). */
+  isOwner?: boolean;
 }) {
+  const owner = isOwner ?? currentAdminLevel() === 'owner';
   const { language } = useLanguage();
   const copy = (th: string, en: string) => (language === 'th' ? th : en);
   const [result, setResult] = useState<AdminAccounts | null>(null),
@@ -59,13 +63,15 @@ export default function AdminUsersPanel({
     return () => controller.abort();
   }, [userId, search, page, revision]);
   useEffect(() => {
+    if (!owner) { setDeletionRequests([]); return; }
     const controller = new AbortController();
     groupApi.accountDeletionRequests(userId, controller.signal)
       .then(data => { if (!controller.signal.aborted) setDeletionRequests(data.requests); })
       .catch(e => { if (!controller.signal.aborted) setError((e as Error).message); });
     return () => controller.abort();
-  }, [userId, revision]);
+  }, [userId, revision, owner]);
   useEffect(() => {
+    if (!owner) { setRecoveryLinksLoaded(true); return; }
     const controller = new AbortController();
     let inFlight = false;
     let includeUrls = true;
@@ -103,7 +109,7 @@ export default function AdminUsersPanel({
       window.clearInterval(interval);
       document.removeEventListener('visibilitychange', refreshRecoveryLinks);
     };
-  }, [userId, revision]);
+  }, [userId, revision, owner]);
   useEffect(() => {
     const removeExpiredLinks = () => setRecoveryLinks(current => {
       const active = current.filter(link => new Date(link.expiresAt).getTime() > Date.now());
@@ -208,9 +214,12 @@ export default function AdminUsersPanel({
             {copy('บัญชีผู้ใช้', 'User accounts')}
           </h2>
           <p className="text-xs text-brand-muted mt-1">
-            {copy(
+            {owner ? copy(
               'ปลด Pro: สมัครใหม่ได้ · แบน Pro: ต้องให้แอดมินปลดแบนก่อนสมัครใหม่',
               'Revoke Pro allows repurchase. A Pro ban blocks purchases until an admin lifts it.',
+            ) : copy(
+              'รายชื่อบัญชี แพ็กเกจ และสถานะออนไลน์ · การให้ Pro และสิทธิ์ต่าง ๆ ทำได้เฉพาะผู้ดูแล',
+              'Accounts, plans and who is online. Pro access and rights are changed by the owner only.',
             )}
           </p>
         </div>
@@ -247,7 +256,7 @@ export default function AdminUsersPanel({
           {error}
         </p>
       )}
-      <section className="mb-6 rounded-2xl border border-orange-200/70 bg-orange-50/50 p-4 dark:border-orange-300/15 dark:bg-orange-300/5">
+      {owner && <section className="mb-6 rounded-2xl border border-orange-200/70 bg-orange-50/50 p-4 dark:border-orange-300/15 dark:bg-orange-300/5">
         <div className="mb-3">
           <h3 className="font-bold text-sm">{copy('กู้คืนบัญชี', 'Account recovery')}</h3>
           <p className="mt-1 text-xs leading-relaxed text-brand-muted">
@@ -329,7 +338,7 @@ export default function AdminUsersPanel({
             })}
           </div>
         )}
-      </section>
+      </section>}
       {!result && !error && (
         <p className="text-sm text-brand-muted">
           {copy('กำลังโหลดผู้ใช้…', 'Loading accounts…')}
@@ -375,7 +384,7 @@ export default function AdminUsersPanel({
                         ? copy('ปลด Pro · สมัครใหม่ได้', 'Pro revoked · Can subscribe')
                         : copy('Free', 'Free')}
               </span>
-              {user.proStatus !== 'banned' && <button
+              {owner && user.proStatus !== 'banned' && <button
                 type="button"
                 className={['admin', 'paid', 'trial'].includes(user.proStatus || '') ? secondary : primary}
                 disabled={busy}
@@ -393,7 +402,7 @@ export default function AdminUsersPanel({
                 {['admin', 'paid', 'trial'].includes(user.proStatus || 'none')
                   ? copy('ปลด Pro', 'Revoke Pro') : copy('ให้ Pro', 'Grant Pro')}
               </button>}
-              <button type="button" className={secondary} disabled={busy}
+              {owner && <button type="button" className={secondary} disabled={busy}
                 onClick={() => {
                   const banned = user.proStatus === 'banned';
                   triggerConfirm(
@@ -405,8 +414,8 @@ export default function AdminUsersPanel({
                   );
                 }}>
                 {user.proStatus === 'banned' ? copy('ปลดแบน Pro', 'Unban Pro') : copy('แบน Pro', 'Ban Pro')}
-              </button>
-              {user.role === 'admin' && (
+              </button>}
+              {owner && user.role === 'admin' && user.userId !== userId && (
                 <button
                   type="button"
                   className={secondary}

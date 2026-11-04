@@ -9,6 +9,7 @@ import type {
   AdminAnalyticsSummary,
   AnalyticsRange,
 } from '../../../shared/adminAnalytics.js';
+import { withoutMoney } from '../../../shared/adminAnalytics.js';
 import { USAGE_FEATURE_KEYS, type UsageFeatureKey } from '../../../shared/usageAnalytics.js';
 import { onboardingAnalytics } from '../../../shared/onboarding.js';
 import { getSupabaseAdmin } from '../config/supabase.js';
@@ -17,7 +18,7 @@ import { HttpError, withGuard } from '../http/guard.js';
 import { systemRole } from '../repositories/roles.js';
 import { rateLimit } from '../security/rateLimit.js';
 import { requireUser } from '../security/session.js';
-import { canViewAdminAnalytics } from '../security/adminAnalyticsAccess.js';
+import { adminLevel } from '../security/adminAnalyticsAccess.js';
 import { paymentPulse } from '../services/adminPaymentPulse.js';
 import {
   analyticsPayments, type AnalyticsPaymentRow, type AnalyticsPromptPayRow, type AnalyticsInvoiceEvent,
@@ -84,10 +85,11 @@ export default withGuard(async (req, res) => {
   if (req.method !== 'GET') throw new HttpError(405, 'Method not allowed');
   const user = await requireUser(req, res);
   if (req.headers['x-account-id'] !== user.id) throw new HttpError(401, 'บัญชีเปลี่ยน กรุณาโหลดหน้าใหม่');
-  if (!canViewAdminAnalytics(user, await systemRole(user.id))) {
-    throw new HttpError(403, 'หน้านี้เข้าถึงได้เฉพาะเจ้าของระบบเท่านั้น');
-  }
+  const level = adminLevel(user, await systemRole(user.id));
+  if (!level) throw new HttpError(403, 'หน้านี้เข้าถึงได้เฉพาะแอดมินเท่านั้น');
   if (req.query.pulse === '1') {
+    // The payment pulse is about money: the owner's alone.
+    if (level !== 'owner') throw new HttpError(403, 'หน้านี้เข้าถึงได้เฉพาะเจ้าของระบบเท่านั้น');
     // Live revenue (owner, 2026-10-22): the page asks every 15 seconds while it is open.
     await rateLimit('admin-analytics-pulse', user.id, 20, 60);
     res.json({ signature: await paymentPulse(getSupabaseAdmin()), checkedAt: new Date().toISOString() });
@@ -104,7 +106,7 @@ export default withGuard(async (req, res) => {
   const previousTo = shiftDate(fromDate, -1);
   const db = getSupabaseAdmin();
   // Taken before the data is read, so a payment landing during the read is caught by the next pulse.
-  const liveSignature = await paymentPulse(db).catch(() => undefined);
+  const liveSignature = level === 'owner' ? await paymentPulse(db).catch(() => undefined) : undefined;
 
   const [profiles, subscriptions, legacyPayments, usage, settings, promptPayPayments, invoiceEvents, prepaid, cardCycles] = await Promise.all([
     loadAll<ProfileRow>((from, to) => db.from('cashflow_profiles').select('user_id,public_id,display_name,created_at').order('created_at', { ascending: false }).range(from, to) as never),
@@ -291,5 +293,6 @@ export default withGuard(async (req, res) => {
       },
     }))),
   };
-  res.json(result);
+  // A team admin gets the same statistics with every money figure removed here, before anything leaves the server.
+  res.json(level === 'owner' ? result : withoutMoney(result));
 });

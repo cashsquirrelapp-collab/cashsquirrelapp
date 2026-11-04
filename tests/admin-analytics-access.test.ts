@@ -155,23 +155,38 @@ test('the report fails explicitly rather than silently truncating financial data
   assert.equal(body.totals, undefined);
 });
 
-test('another admin is denied before reading private tables, despite forged identity hints', async () => {
+test('a team admin gets the statistics without one money figure, despite forged identity hints (owner, 2026-11-04)', async () => {
   user.email = 'another-admin@example.com';
   user.user_metadata = { email: ownerEmail, role: 'admin', canViewAdminAnalytics: true };
   const response = await realFetch(`${origin}/api/admin-analytics?range=30&email=${ownerEmail}`, {
     headers: { ...headers, 'x-user-email': ownerEmail },
   });
-  assert.equal(response.status, 403);
-  assert.equal(privateReads, 0);
+  assert.equal(response.status, 200);
   const body = await response.json() as any;
-  for (const field of ['totals', 'payments', 'accounts', 'daily', 'personas']) assert.equal(body[field], undefined);
+  assert.equal(body.moneyHidden, true);
+  assert.equal(body.liveSignature, undefined);
+  assert.deepEqual(body.payments, []);
+  for (const field of ['revenue', 'previousRevenue', 'paymentCount', 'averageRevenuePerPayer']) assert.equal(body.totals[field], 0, field);
+  assert.ok(body.daily.every((day: any) => day.revenue === 0 && day.payments === 0));
+  assert.ok(body.personas.every((persona: any) => persona.revenue === 0));
+  assert.ok(body.accounts.length > 0);
+  assert.ok(body.accounts.every((account: any) => account.totalSpent === 0 && account.paymentCount === 0 && account.lastPaymentAt === null));
+  // The payment id the owner's report carries never reaches a team admin.
+  assert.equal(JSON.stringify(body).includes('pi_owner_only'), false);
+  // The live payment pulse stays the owner's, and is refused before any count is read.
+  pulseReads = 0;
+  assert.equal((await realFetch(`${origin}/api/admin-analytics?pulse=1`, { headers })).status, 403);
+  assert.equal(pulseReads, 0);
 });
 
-test('unverified owner and revoked admin privileges fail closed', async () => {
+test('the owner email unconfirmed counts as a team admin only; revoked admin privileges fail closed', async () => {
   user.email_confirmed_at = undefined;
-  assert.equal((await realFetch(`${origin}/api/admin-analytics`, { headers })).status, 403);
+  const unconfirmed = await realFetch(`${origin}/api/admin-analytics`, { headers });
+  assert.equal(unconfirmed.status, 200);
+  assert.equal((await unconfirmed.json() as any).moneyHidden, true);
   user.email_confirmed_at = confirmedAt;
   role = 'user';
+  privateReads = 0;
   assert.equal((await realFetch(`${origin}/api/admin-analytics`, { headers })).status, 403);
   assert.equal(privateReads, 0);
 });
@@ -186,9 +201,13 @@ test('anonymous and account-mismatched requests cannot read analytics', async ()
 test('session capability comes from server-verified identity, not editable metadata', async () => {
   const session = async () => (await (await realFetch(`${origin}/api/auth`, { headers })).json() as any).session;
   assert.equal((await session()).user.canViewAdminAnalytics, true);
+  assert.equal((await session()).user.adminLevel, 'owner');
   user.email = 'another-admin@example.com';
-  user.user_metadata = { email: ownerEmail, canViewAdminAnalytics: true };
+  user.user_metadata = { email: ownerEmail, canViewAdminAnalytics: true, adminLevel: 'owner' };
   assert.equal((await session()).user.canViewAdminAnalytics, false);
+  assert.equal((await session()).user.adminLevel, 'admin');
+  role = 'user';
+  assert.equal((await session()).user.adminLevel, null);
   assert.equal(privateReads, 0);
 });
 

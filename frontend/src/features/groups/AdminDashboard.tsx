@@ -12,6 +12,7 @@ import {
   Lightbulb,
   ListChecks,
   MessageSquare,
+  ShieldCheck,
   Megaphone,
   UserRoundCheck,
   RefreshCw,
@@ -43,6 +44,7 @@ import { tr } from '../../i18n/tr';
 import { useFeedbackWaiting } from '../feedback/useFeedbackWaiting';
 import AdminOnboarding from './AdminOnboarding';
 import { sendLineSamplesToMe } from './lineSamples';
+import { TEAM_ADMIN_VIEWS } from '../../../../shared/adminLevel';
 const AdminUsersPanel = lazy(() => import('./AdminUsersPanel'));
 const GroupsTab = lazy(() => import('./GroupsTab'));
 const AdminFeedbackInbox = lazy(() => import('../feedback/AdminFeedbackInbox'));
@@ -53,8 +55,13 @@ const AdminDashboardPhone = lazy(() => import('./AdminDashboardPhone'));
 const AdminPaymentReadiness = lazy(() => import('./AdminPaymentReadiness'));
 const AdminActivity = lazy(() => import('./AdminActivity'));
 const AdminBroadcast = lazy(() => import('./AdminBroadcast'));
+const AdminTeamTokens = lazy(() => import('./AdminTeamTokens'));
 
-type View = 'overview' | 'activity' | 'product' | 'revenue' | 'profit' | 'customers' | 'onboarding' | 'feedback' | 'broadcast' | 'operations';
+type View = 'overview' | 'activity' | 'product' | 'revenue' | 'profit' | 'customers' | 'onboarding' | 'feedback' | 'broadcast' | 'operations' | 'team';
+/** What each level opens (owner, 2026-11-04): a team admin never sees revenue, profit and AI cost, or the overview. */
+export const viewsFor = (level: 'owner' | 'admin'): readonly View[] => level === 'owner'
+  ? ['overview', 'activity', 'product', 'revenue', 'profit', 'customers', 'onboarding', 'feedback', 'broadcast', 'team', 'operations']
+  : TEAM_ADMIN_VIEWS;
 /** ?view= opens a section straight away: the LINE alerts link to feedback and broadcast (owner, 2026-10-27 and 2026-11-03). */
 const LINKED_VIEWS: View[] = ['feedback', 'broadcast', 'activity'];
 type OperationsPanel = 'users' | 'groups' | null;
@@ -146,6 +153,7 @@ function AccountDrawer({
   account: AdminAnalyticsAccount; data: AdminAnalyticsSummary; language: 'th' | 'en'; onClose: () => void;
   formatDate: (value: string, compact?: boolean) => string; formatMoney: (value: number) => string;
 }) {
+  const showMoney = !data.moneyHidden;
   const payments = data.payments.filter(payment => payment.userId === account.userId);
   const copy = (th: string, en: string) => language === 'th' ? th : en;
   useEffect(() => {
@@ -169,8 +177,10 @@ function AccountDrawer({
 
         <div className="mt-5 grid grid-cols-2 gap-3">
           {[
-            [copy('ยอดเติมสะสม', 'Lifetime spend'), formatMoney(account.totalSpent)],
-            [copy('จำนวนครั้งที่เติม', 'Payments'), account.paymentCount.toLocaleString(language === 'th' ? 'th-TH' : 'en-US')],
+            ...(showMoney ? [
+              [copy('ยอดเติมสะสม', 'Lifetime spend'), formatMoney(account.totalSpent)],
+              [copy('จำนวนครั้งที่เติม', 'Payments'), account.paymentCount.toLocaleString(language === 'th' ? 'th-TH' : 'en-US')],
+            ] : []),
             [copy('วันที่ใช้งาน', 'Active days'), `${account.activeDays} ${copy('วัน', 'days')}`],
             [copy('เปิดฟีเจอร์', 'Feature views'), account.pageViews.toLocaleString(language === 'th' ? 'th-TH' : 'en-US')],
           ].map(([label, value]) => <div key={label} className={`${surface} p-4`}><p className="text-xs text-brand-muted">{label}</p><p className="mt-1 text-xl font-semibold tabular-nums">{value}</p></div>)}
@@ -195,14 +205,14 @@ function AccountDrawer({
           </div>
         </section>
 
-        <section className={`${surface} mt-4 p-5`}>
+        {showMoney && <section className={`${surface} mt-4 p-5`}>
           <h3 className="font-semibold">{copy('ประวัติการเติม Pro', 'Payment history')}</h3>
           <div className="mt-3 divide-y divide-brand-border/60">
             {payments.length ? payments.map(payment => (
               <div key={payment.id} className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0"><div><p className="text-sm font-semibold">{formatDate(payment.paidAt)}</p><p className="mt-0.5 text-xs font-mono text-brand-muted">{payment.id.slice(0, 18)}</p></div><div className="text-right"><p className={`font-semibold tabular-nums ${payment.refunded ? 'text-brand-pink-acc line-through' : 'text-brand-green-acc'}`}>{formatMoney(payment.amount)}</p>{payment.refunded && <p className="text-[11px] text-brand-pink-acc">Refunded</p>}</div></div>
             )) : <p className="py-4 text-center text-sm text-brand-muted">{copy('ยังไม่มีประวัติการชำระเงิน', 'No payment history')}</p>}
           </div>
-        </section>
+        </section>}
       </aside>
     </div>
   );
@@ -224,8 +234,10 @@ function announceNewPayments(before: AdminAnalyticsSummary | null, next: AdminAn
   });
 }
 
-export default function AdminDashboard({ userId, triggerConfirm, mobile = false, onMobileBack, onPreviewGuide }: {
+export default function AdminDashboard({ userId, level = 'owner', triggerConfirm, mobile = false, onMobileBack, onPreviewGuide }: {
   userId: string; triggerConfirm: Confirm;
+  /** ผู้ดูแล (the owner) or a team admin: the sections, buttons and figures shown follow it; the server checks each one. */
+  level?: 'owner' | 'admin';
   /** Phones (the app's phone layout): the page is drawn in the phone design instead. */
   mobile?: boolean;
   onMobileBack?: () => void;
@@ -242,9 +254,11 @@ export default function AdminDashboard({ userId, triggerConfirm, mobile = false,
   };
   const [range, setRange] = useState<AnalyticsRange>(30);
   // The LINE alert for a new บอกเรา message links here with ?view=feedback (owner, 2026-10-27).
+  const isOwner = level === 'owner';
+  const allowedViews = viewsFor(level);
   const [view, setView] = useState<View>(() => {
     const linked = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('view') as View | null : null;
-    return linked && LINKED_VIEWS.includes(linked) ? linked : 'overview';
+    return linked && LINKED_VIEWS.includes(linked) && allowedViews.includes(linked) ? linked : allowedViews[0];
   });
   const feedbackWaiting = useFeedbackWaiting(userId);
   const [data, setData] = useState<AdminAnalyticsSummary | null>(null);
@@ -279,7 +293,8 @@ export default function AdminDashboard({ userId, triggerConfirm, mobile = false,
   dataRef.current = data;
   const hasData = Boolean(data);
   useEffect(() => {
-    if (!hasData) { setLive(false); return; }
+    // Live revenue is about money: the owner's page only.
+    if (!hasData || !isOwner) { setLive(false); return; }
     let stopped = false;
     let busy = false;
     let baseline = dataRef.current?.liveSignature ?? null;
@@ -314,7 +329,7 @@ export default function AdminDashboard({ userId, triggerConfirm, mobile = false,
     if (baseline === null) void check();
     return () => { stopped = true; controller.abort(); window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasData, userId, range]);
+  }, [hasData, userId, range, isOwner]);
 
   const locale = language === 'th' ? 'th-TH' : 'en-US';
   const formatMoney = (minor: number) => new Intl.NumberFormat(locale, { style: 'currency', currency: 'THB', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(minor / 100);
@@ -327,7 +342,7 @@ export default function AdminDashboard({ userId, triggerConfirm, mobile = false,
     });
   }, [data?.accounts, query, planFilter, personaFilter]);
 
-  const views: { key: View; label: string; icon: LucideIcon }[] = [
+  const allViews: { key: View; label: string; icon: LucideIcon }[] = [
     { key: 'overview', label: copy('ภาพรวม', 'Overview'), icon: BarChart3 },
     { key: 'activity', label: copy('ผู้ใช้งาน', 'User activity'), icon: UserRoundCheck },
     { key: 'product', label: copy('การใช้ฟีเจอร์', 'Product usage'), icon: Activity },
@@ -337,8 +352,10 @@ export default function AdminDashboard({ userId, triggerConfirm, mobile = false,
     { key: 'onboarding', label: copy('ผู้ใช้ใหม่', 'New users'), icon: ClipboardList },
     { key: 'feedback', label: copy('ข้อความจากผู้ใช้', 'User feedback'), icon: MessageSquare },
     { key: 'broadcast', label: copy('ส่งข้อความถึงผู้ใช้', 'Message everyone'), icon: Megaphone },
+    { key: 'team', label: copy('ทีมงานและโทเคน', 'Team and tokens'), icon: ShieldCheck },
     { key: 'operations', label: copy('จัดการระบบ', 'Operations'), icon: BriefcaseBusiness },
   ];
+  const views = allowedViews.map(key => allViews.find(item => item.key === key)!).filter(Boolean);
 
   const bestFeature = data?.features.find(feature => feature.activeUsers > 0);
   const upgradeFeature = data?.features.filter(feature => feature.key !== 'plans' && feature.freeUsers > 0).sort((a, b) => b.freeUsers - a.freeUsers)[0];
@@ -347,7 +364,7 @@ export default function AdminDashboard({ userId, triggerConfirm, mobile = false,
   if (mobile) {
     return (
       <Suspense fallback={null}>
-        <AdminDashboardPhone userId={userId} feedbackWaiting={feedbackWaiting} triggerConfirm={triggerConfirm} data={data} loading={loading} error={error} range={range}
+        <AdminDashboardPhone userId={userId} level={level} feedbackWaiting={feedbackWaiting} triggerConfirm={triggerConfirm} data={data} loading={loading} error={error} range={range}
           onRange={setRange} onRefresh={() => setRevision(value => value + 1)} live={live} onBack={onMobileBack} onPreviewGuide={onPreviewGuide}
           onRoleChanged={async () => setRevision(value => value + 1)} language={language} />
       </Suspense>
@@ -359,10 +376,10 @@ export default function AdminDashboard({ userId, triggerConfirm, mobile = false,
       <PageHeader page="adminDashboard" id="admin-dashboard-title">
         <div className="flex flex-wrap items-center justify-end gap-2">
         {onPreviewGuide && <button type="button" className={secondary} onClick={onPreviewGuide} data-testid="admin-guide-preview"><ListChecks size={16} />{copy('ดูคู่มือเริ่มใช้ Pro', 'Replay the Pro guide')}</button>}
-        <button type="button" className={secondary} onClick={sendSamples} disabled={samplesBusy} data-testid="admin-line-samples"
+        {isOwner && <button type="button" className={secondary} onClick={sendSamples} disabled={samplesBusy} data-testid="admin-line-samples"
           title={copy('การ์ด 7 แบบที่ลูกค้า Pro ได้รับ จากข้อมูลตัวอย่าง ส่งเข้า LINE ที่เชื่อมกับบัญชีนี้', 'The 7 cards a Pro customer receives, from sample data, to the LINE linked to this account')}>
-          <Send size={16} />{samplesBusy ? copy('กำลังส่ง…', 'Sending…') : copy('ส่งการ์ด LINE ตัวอย่าง', 'Send sample LINE cards')}</button>
-        {view !== 'feedback' && view !== 'profit' && view !== 'broadcast' && <div className="flex flex-wrap items-center gap-2">
+          <Send size={16} />{samplesBusy ? copy('กำลังส่ง…', 'Sending…') : copy('ส่งการ์ด LINE ตัวอย่าง', 'Send sample LINE cards')}</button>}
+        {view !== 'feedback' && view !== 'profit' && view !== 'broadcast' && view !== 'team' && <div className="flex flex-wrap items-center gap-2">
           <select className="ui-input !w-auto" aria-label={copy('เลือกช่วงเวลา', 'Select date range')} value={range} onChange={event => setRange(Number(event.target.value) as AnalyticsRange)}>
             {([7, 30, 90] as AnalyticsRange[]).map(days => <option key={days} value={days}>{copy(`${days} วันล่าสุด`, `Last ${days} days`)}</option>)}
           </select>
@@ -372,7 +389,7 @@ export default function AdminDashboard({ userId, triggerConfirm, mobile = false,
         </div>
       </PageHeader>
 
-      <Suspense fallback={null}><AiCreditBanner userId={userId} onOpen={() => setView('profit')} /></Suspense>
+      {isOwner && <Suspense fallback={null}><AiCreditBanner userId={userId} onOpen={() => setView('profit')} /></Suspense>}
 
       <div className="overflow-x-auto border-b border-brand-border">
         <nav className="flex min-w-max gap-1" aria-label={copy('หมวดการวิเคราะห์', 'Analytics sections')}>
@@ -383,14 +400,15 @@ export default function AdminDashboard({ userId, triggerConfirm, mobile = false,
         </nav>
       </div>
 
+      {view === 'team' && isOwner && <Suspense fallback={<div className={`${surface} p-6`}><SkeletonBlock className="h-5 w-48" /><SkeletonBlock className="mt-5 h-44 w-full" /></div>}><AdminTeamTokens userId={userId} triggerConfirm={triggerConfirm} language={language} /></Suspense>}
       {(view === 'overview' || view === 'revenue') && <Suspense fallback={null}><AdminPaymentReadiness userId={userId} triggerConfirm={triggerConfirm} /></Suspense>}
       {(view === 'overview' || view === 'revenue') && <Suspense fallback={null}><AdminStripeFinance userId={userId} range={range} revision={revision} liveTick={liveTick} detailed={view === 'revenue'} onViewDetails={() => setView('revenue')} /></Suspense>}
       {view === 'feedback' && <Suspense fallback={<div className={`${surface} p-6`}><SkeletonBlock className="h-5 w-48" /><SkeletonBlock className="mt-5 h-44 w-full" /></div>}><AdminFeedbackInbox userId={userId} /></Suspense>}
       {view === 'activity' && <Suspense fallback={<div className={`${surface} p-6`}><SkeletonBlock className="h-5 w-48" /><SkeletonBlock className="mt-5 h-44 w-full" /></div>}><AdminActivity userId={userId} range={range} revision={revision} language={language} /></Suspense>}
       {view === 'broadcast' && <Suspense fallback={<div className={`${surface} p-6`}><SkeletonBlock className="h-5 w-48" /><SkeletonBlock className="mt-5 h-44 w-full" /></div>}><AdminBroadcast userId={userId} triggerConfirm={triggerConfirm} language={language} onOpenFeedback={() => setView('feedback')} /></Suspense>}
       {view === 'profit' && <Suspense fallback={null}><AdminProfitLive userId={userId} accounts={data?.accounts} appDays={range} liveTick={liveTick} revision={revision} /></Suspense>}
-      {!['feedback', 'profit', 'activity', 'broadcast'].includes(view) && error && <div role="alert" className="rounded-2xl border border-red-300/60 bg-red-50 p-4 text-sm text-red-700 dark:bg-red-950/20 dark:text-red-300">{error}</div>}
-      {!['feedback', 'profit', 'activity', 'broadcast'].includes(view) && (loading && !data ? <AnalyticsSkeleton /> : data && (
+      {!['feedback', 'profit', 'activity', 'broadcast', 'team'].includes(view) && error && <div role="alert" className="rounded-2xl border border-red-300/60 bg-red-50 p-4 text-sm text-red-700 dark:bg-red-950/20 dark:text-red-300">{error}</div>}
+      {!['feedback', 'profit', 'activity', 'broadcast', 'team'].includes(view) && (loading && !data ? <AnalyticsSkeleton /> : data && (
         <>
           {view === 'overview' && (
             <div className="space-y-4">
@@ -465,8 +483,8 @@ export default function AdminDashboard({ userId, triggerConfirm, mobile = false,
           {view === 'onboarding' && <AdminOnboarding data={data.onboarding} language={language} />}
           {view === 'customers' && (
             <section className={`${surface} overflow-hidden`}>
-              <div className="border-b border-brand-border/60 p-5 sm:p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="mt-1 text-base font-semibold">{copy('พฤติกรรมและมูลค่ารายบัญชี', 'Account behavior and value')}</h2><p className="mt-1 text-sm text-brand-muted">{filteredAccounts.length.toLocaleString(locale)} {copy('บัญชีที่ตรงกับตัวกรอง', 'matching accounts')}</p></div></div><div className="mt-5 grid gap-2 md:grid-cols-[minmax(240px,1fr)_180px_180px]"><label className="relative"><span className="sr-only">{copy('ค้นหาบัญชี', 'Search accounts')}</span><Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted" /><input value={query} onChange={event => setQuery(event.target.value)} placeholder={copy('ค้นหาชื่อ, Public ID, ประเภทงาน', 'Search name, public ID, work type')} className="ui-input pl-9" /></label><select aria-label={copy('กรองตามแพ็กเกจ', 'Filter by plan')} className="ui-input" value={planFilter} onChange={event => setPlanFilter(event.target.value as AccountPlanStatus | 'all')}><option value="all">{copy('ทุกแพ็กเกจ', 'All plans')}</option>{Object.entries(planLabels).map(([key, labels]) => <option key={key} value={key}>{labels[language === 'th' ? 0 : 1]}</option>)}</select><select aria-label={copy('กรองตามกลุ่มผู้ใช้', 'Filter by persona')} className="ui-input" value={personaFilter} onChange={event => setPersonaFilter(event.target.value as AccountPersona | 'all')}><option value="all">{copy('ทุกกลุ่มผู้ใช้', 'All personas')}</option>{Object.entries(personaLabels).map(([key, labels]) => <option key={key} value={key}>{labels[language === 'th' ? 0 : 1]}</option>)}</select></div></div>
-              <div className="overflow-x-auto"><table className="w-full min-w-[920px] text-left text-sm"><thead className="bg-brand-bg/70 text-xs text-brand-muted"><tr><th className="px-5 py-3 font-semibold">{copy('บัญชี', 'Account')}</th><th className="px-4 py-3 font-semibold">{copy('ประเภท', 'Persona')}</th><th className="px-4 py-3 font-semibold">{copy('แพ็กเกจ', 'Plan')}</th><th className="px-4 py-3 text-right font-semibold">{copy('ใช้งาน', 'Usage')}</th><th className="px-4 py-3 text-right font-semibold">{copy('ยอดเติมสะสม', 'Lifetime spend')}</th><th className="px-5 py-3 text-right font-semibold">{copy('ล่าสุด', 'Last active')}</th></tr></thead><tbody className="divide-y divide-brand-border/50">{filteredAccounts.map(account => <tr key={account.userId} className="group cursor-pointer hover:bg-brand-bg/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-blue-acc" onClick={() => setSelectedAccount(account)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedAccount(account); } }} tabIndex={0} aria-label={`${copy('เปิดรายละเอียดบัญชี', 'Open account details')} ${account.displayName}`}><td className="px-5 py-4"><div className="flex items-center gap-3"><span className="grid size-9 shrink-0 place-items-center rounded-full bg-brand-faint font-semibold text-brand-text dark:text-white">{account.displayName.slice(0, 1).toUpperCase()}</span><div className="min-w-0"><p className="truncate font-semibold">{account.displayName}</p><p className="mt-0.5 font-mono text-[11px] text-brand-muted">{account.publicId}</p></div></div></td><td className="px-4 py-4"><p className="font-semibold">{personaLabels[account.persona][language === 'th' ? 0 : 1]}</p><p className="mt-0.5 max-w-40 truncate text-[11px] text-brand-muted">{account.jobTypes.join(', ') || '—'}</p></td><td className="px-4 py-4"><PlanBadge status={account.planStatus} language={language} /></td><td className="px-4 py-4 text-right"><p className="font-semibold tabular-nums">{account.activeDays} {copy('วัน', 'days')}</p><p className="text-[11px] text-brand-muted">{account.pageViews.toLocaleString(locale)} views</p></td><td className="px-4 py-4 text-right font-semibold tabular-nums">{formatMoney(account.totalSpent)}</td><td className="px-5 py-4 text-right"><span className="inline-flex items-center gap-2 text-xs text-brand-muted">{account.lastSeenAt ? formatDate(account.lastSeenAt, true) : '—'}<ChevronRight size={14} className="transition group-hover:translate-x-0.5" /></span></td></tr>)}</tbody></table>{!filteredAccounts.length && <p className="p-10 text-center text-sm text-brand-muted">{copy('ไม่พบบัญชีที่ตรงกับตัวกรอง', 'No accounts match these filters')}</p>}</div>
+              <div className="border-b border-brand-border/60 p-5 sm:p-6"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="mt-1 text-base font-semibold">{data.moneyHidden ? copy('พฤติกรรมรายบัญชี', 'Account behavior') : copy('พฤติกรรมและมูลค่ารายบัญชี', 'Account behavior and value')}</h2><p className="mt-1 text-sm text-brand-muted">{filteredAccounts.length.toLocaleString(locale)} {copy('บัญชีที่ตรงกับตัวกรอง', 'matching accounts')}</p></div></div><div className="mt-5 grid gap-2 md:grid-cols-[minmax(240px,1fr)_180px_180px]"><label className="relative"><span className="sr-only">{copy('ค้นหาบัญชี', 'Search accounts')}</span><Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted" /><input value={query} onChange={event => setQuery(event.target.value)} placeholder={copy('ค้นหาชื่อ, Public ID, ประเภทงาน', 'Search name, public ID, work type')} className="ui-input pl-9" /></label><select aria-label={copy('กรองตามแพ็กเกจ', 'Filter by plan')} className="ui-input" value={planFilter} onChange={event => setPlanFilter(event.target.value as AccountPlanStatus | 'all')}><option value="all">{copy('ทุกแพ็กเกจ', 'All plans')}</option>{Object.entries(planLabels).map(([key, labels]) => <option key={key} value={key}>{labels[language === 'th' ? 0 : 1]}</option>)}</select><select aria-label={copy('กรองตามกลุ่มผู้ใช้', 'Filter by persona')} className="ui-input" value={personaFilter} onChange={event => setPersonaFilter(event.target.value as AccountPersona | 'all')}><option value="all">{copy('ทุกกลุ่มผู้ใช้', 'All personas')}</option>{Object.entries(personaLabels).map(([key, labels]) => <option key={key} value={key}>{labels[language === 'th' ? 0 : 1]}</option>)}</select></div></div>
+              <div className="overflow-x-auto"><table className="w-full min-w-[920px] text-left text-sm"><thead className="bg-brand-bg/70 text-xs text-brand-muted"><tr><th className="px-5 py-3 font-semibold">{copy('บัญชี', 'Account')}</th><th className="px-4 py-3 font-semibold">{copy('ประเภท', 'Persona')}</th><th className="px-4 py-3 font-semibold">{copy('แพ็กเกจ', 'Plan')}</th><th className="px-4 py-3 text-right font-semibold">{copy('ใช้งาน', 'Usage')}</th>{!data.moneyHidden && <th className="px-4 py-3 text-right font-semibold">{copy('ยอดเติมสะสม', 'Lifetime spend')}</th>}<th className="px-5 py-3 text-right font-semibold">{copy('ล่าสุด', 'Last active')}</th></tr></thead><tbody className="divide-y divide-brand-border/50">{filteredAccounts.map(account => <tr key={account.userId} className="group cursor-pointer hover:bg-brand-bg/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-blue-acc" onClick={() => setSelectedAccount(account)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSelectedAccount(account); } }} tabIndex={0} aria-label={`${copy('เปิดรายละเอียดบัญชี', 'Open account details')} ${account.displayName}`}><td className="px-5 py-4"><div className="flex items-center gap-3"><span className="grid size-9 shrink-0 place-items-center rounded-full bg-brand-faint font-semibold text-brand-text dark:text-white">{account.displayName.slice(0, 1).toUpperCase()}</span><div className="min-w-0"><p className="truncate font-semibold">{account.displayName}</p><p className="mt-0.5 font-mono text-[11px] text-brand-muted">{account.publicId}</p></div></div></td><td className="px-4 py-4"><p className="font-semibold">{personaLabels[account.persona][language === 'th' ? 0 : 1]}</p><p className="mt-0.5 max-w-40 truncate text-[11px] text-brand-muted">{account.jobTypes.join(', ') || '—'}</p></td><td className="px-4 py-4"><PlanBadge status={account.planStatus} language={language} /></td><td className="px-4 py-4 text-right"><p className="font-semibold tabular-nums">{account.activeDays} {copy('วัน', 'days')}</p><p className="text-[11px] text-brand-muted">{account.pageViews.toLocaleString(locale)} views</p></td>{!data.moneyHidden && <td className="px-4 py-4 text-right font-semibold tabular-nums">{formatMoney(account.totalSpent)}</td>}<td className="px-5 py-4 text-right"><span className="inline-flex items-center gap-2 text-xs text-brand-muted">{account.lastSeenAt ? formatDate(account.lastSeenAt, true) : '—'}<ChevronRight size={14} className="transition group-hover:translate-x-0.5" /></span></td></tr>)}</tbody></table>{!filteredAccounts.length && <p className="p-10 text-center text-sm text-brand-muted">{copy('ไม่พบบัญชีที่ตรงกับตัวกรอง', 'No accounts match these filters')}</p>}</div>
             </section>
           )}
 
@@ -480,7 +498,7 @@ export default function AdminDashboard({ userId, triggerConfirm, mobile = false,
       ))}
 
       {selectedAccount && data && <AccountDrawer account={selectedAccount} data={data} language={language} onClose={() => setSelectedAccount(null)} formatDate={formatDate} formatMoney={formatMoney} />}
-      {view !== 'feedback' && view !== 'broadcast' && <div className="flex items-start gap-2 rounded-xl border border-brand-border/50 bg-brand-bg/50 px-4 py-3 text-[11px] leading-relaxed text-brand-muted"><Lightbulb size={14} className="mt-0.5 shrink-0 text-brand-muted" /><p>{copy('Analytics นี้แสดงเฉพาะข้อมูลเพื่อบริหารผลิตภัณฑ์และรายได้ ไม่แสดงรายละเอียดกระแสเงินสด งาน ลูกค้า หรือเอกสารทางการเงินส่วนตัวของผู้ใช้', 'This analytics workspace is limited to product and revenue operations. It does not expose users’ private cash flow, jobs, clients, or financial documents.')}</p></div>}
+      {view !== 'feedback' && view !== 'broadcast' && view !== 'team' && <div className="flex items-start gap-2 rounded-xl border border-brand-border/50 bg-brand-bg/50 px-4 py-3 text-[11px] leading-relaxed text-brand-muted"><Lightbulb size={14} className="mt-0.5 shrink-0 text-brand-muted" /><p>{copy('Analytics นี้แสดงเฉพาะข้อมูลเพื่อบริหารผลิตภัณฑ์และรายได้ ไม่แสดงรายละเอียดกระแสเงินสด งาน ลูกค้า หรือเอกสารทางการเงินส่วนตัวของผู้ใช้', 'This analytics workspace is limited to product and revenue operations. It does not expose users’ private cash flow, jobs, clients, or financial documents.')}</p></div>}
     </section>
   );
 }

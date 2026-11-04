@@ -1202,10 +1202,14 @@ export default function App() {
 
   // Persona-adjusted nav grouping -- everything stays reachable, this just decides what
   // shows up in the always-visible row by default (see PERSONA_CORE_KEYS above).
-  const canViewAdminAnalytics = !session?.isGuest
-    && session?.user?.canViewAdminAnalytics === true
+  // The admin page: the owner (ผู้ดูแล) sees all of it, a team admin everything but money (owner, 2026-11-04). The server
+  // decides the level; every section it serves checks again.
+  const adminPageLevel: 'owner' | 'admin' | null = !session?.isGuest
     && routeContext?.userId === session?.user?.id
-    && routeContext?.systemRole === 'admin';
+    && routeContext?.systemRole === 'admin'
+    ? (session?.user?.adminLevel ?? (session?.user?.canViewAdminAnalytics === true ? 'owner' : null))
+    : null;
+  const canViewAdminAnalytics = adminPageLevel !== null;
   const feedbackWaiting = useFeedbackWaiting(canViewAdminAnalytics ? session?.user?.id : null);
   const navItems = React.useMemo(() => {
     const base = NAV_ITEMS.filter(item =>
@@ -3647,12 +3651,13 @@ export default function App() {
                   ? <ContentLoadingSkeleton page="adminDashboard" />
                   : canViewAdminAnalytics
                     ? <AdminDashboardTab
-                        key={session.user.id}
+                        key={`${session.user.id}:${adminPageLevel}`}
                         userId={session.user.id}
+                        level={adminPageLevel ?? 'admin'}
                         triggerConfirm={triggerConfirm}
                         mobile={isPhone}
                         onMobileBack={openPhoneMenu}
-                        onPreviewGuide={fullFeatureAccess && showProGuide ? () => { navigateTab('dashboard'); window.setTimeout(() => setProGuidePractice(value => value + 1), 300); } : undefined}
+                        onPreviewGuide={adminPageLevel === 'owner' && fullFeatureAccess && showProGuide ? () => { navigateTab('dashboard'); window.setTimeout(() => setProGuidePractice(value => value + 1), 300); } : undefined}
                       />
                     : <div role="alert" className="rounded-2xl border border-brand-border bg-brand-white p-6 text-sm text-brand-muted">{t('admin.noAccess')}</div>
               )}

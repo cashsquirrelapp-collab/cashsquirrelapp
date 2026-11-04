@@ -595,6 +595,22 @@ card does not need:
   it is open), asks again when an app left open comes back on screen, and the admin page opens it as a preview
   (ดูหน้าต่างจริง) because an admin account is never shown its own message.
 
+### Admin levels and ทีมงานและโทเคน (owner, 2026-11-04: "ทำระบบเพิ่มให้สิทธิ์แอดมิน ... แจกโทเค็นตาม UID")
+- Two levels, decided by the server (`security/adminAnalyticsAccess.ts` `adminLevel`, sent as `session.user.adminLevel`):
+  ผู้ดูแล = the owner's verified email with the admin role; แอดมิน = any other admin account. The team opens ผู้ใช้งาน,
+  การใช้ฟีเจอร์, รายบัญชี, ผู้ใช้ใหม่, ข้อความจากผู้ใช้ (and answers) and ส่งข้อความถึงผู้ใช้ (`shared/adminLevel.ts`). Never
+  ภาพรวม, รายได้ / Pro, กำไรและต้นทุน AI, จัดการระบบ or ทีมงานและโทเคน; the statistics reach a team admin with every money
+  figure removed on the server (`withoutMoney`), so the ยอดเติมสะสม column, the drawer's payment parts and the phone's
+  revenue header and latest payments are not drawn. A team admin's phone header shows active users instead.
+- ทีมงานและโทเคน (`groups/AdminTeamTokens.tsx`, owner only; computers/iPads a tab, phones a row in เครื่องมือแอดมิน): one
+  search by UID (the User ID people see in Settings) opens the account's card: role chip, เลขา plan, tokens available now,
+  tokens given in all; แจกโทเคน (chips 100 / 200 / 500 / 1,000, amount, a note to self, one primary button, a line that says
+  until when the tokens last); สิทธิ์แอดมิน (secondary button). Below: the admin team and the latest tokens given.
+- Given tokens (`shared/tokenGrants.ts`, kept as `aiTokenGrants` in the account's private state; no SQL): a monthly plan
+  (paid Pro, admins) adds the grants given in the running cycle, so what is left goes at renewal; an allowance that never
+  refills (Pro given by hand, a tester, given tokens alone) adds every grant. An account with no plan and given tokens uses
+  เลขา in a bucket of its own; a Pro ban stops them.
+
 ### เอกสาร on phones (owner, 2026-11-03: "มันแอบเหมือนคอม ... ใช้ยาก"; preview canvas 1AELuDw5eab1Kk1hPNrwUm, "ทำจริงทั้งชุดเลย")
 
 - Phones only (`InvoicePhone.tsx`, `docPhone.css`, the phone branches of `VaultTab` and `Wht50Panel`); computers and iPads

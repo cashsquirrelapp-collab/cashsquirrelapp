@@ -5,6 +5,7 @@ import { getSupabaseAdmin } from '../config/supabase.js';
 import { HttpError } from '../http/guard.js';
 import { accountSnapshot } from '../repositories/accounts.js';
 import { systemRole } from '../repositories/roles.js';
+import { loadTokenGrants } from '../repositories/tokenGrants.js';
 import type { UserRow } from '../services/lineAssistant.js';
 import { listVaultFiles, hasProAccess } from '../services/vault.js';
 import type { AssistantDb, PlanInfo, StoredProposal } from './service.js';
@@ -36,29 +37,45 @@ function dbError(error: { code?: string; message?: string } | null): void {
 
 /** Same rule as hasProAccess (services/vault.ts) with the trial and admins told apart. Fails closed. */
 export async function assistantPlan(user: User, now = Date.now()): Promise<PlanInfo> {
-  const [{ data: sub, error }, role] = await Promise.all([
+  const [{ data: sub, error }, role, given] = await Promise.all([
     getSupabaseAdmin().from('subscriptions').select('status, plan, current_period_end, pro_access_reset_at').eq('user_id', user.id).maybeSingle(),
     systemRole(user.id),
+    // Tokens the owner gave this account (repositories/tokenGrants.ts); unreadable = none.
+    loadTokenGrants(user.id),
   ]);
   if (error) throw error;
-  if (role === 'admin') return { plan: 'admin' };
-  if (sub?.plan === 'admin_revoked' || sub?.plan === 'admin_removed') return { plan: 'none' };
-  if (sub?.status === 'active' && sub.plan === 'admin_grant') return { plan: 'pro' };
+  const grants = given.length ? given.map(grant => ({ tokens: grant.tokens, at: grant.at })) : undefined;
+  if (role === 'admin') return { plan: 'admin', ...(grants ? { grants } : {}) };
+  // A Pro ban stops เลขา too, given tokens included.
+  if (sub?.plan === 'admin_revoked') return { plan: 'none' };
+  if (sub?.plan === 'admin_removed') return grantedOnly(grants);
+  if (sub?.status === 'active' && sub.plan === 'admin_grant') return { plan: 'pro', ...(grants ? { grants } : {}) };
   // Paid Pro: tokens renew monthly on the renewal day of current_period_end.
   if (sub?.status === 'active' && sub.current_period_end && new Date(sub.current_period_end).getTime() > now) {
-    return { plan: 'pro', periodEnd: sub.current_period_end, tokens: sub.plan === 'pro_prepaid' ? await paidPlanTokens(user.id, now, sub.pro_access_reset_at) : undefined };
+    return { plan: 'pro', periodEnd: sub.current_period_end, tokens: sub.plan === 'pro_prepaid' ? await paidPlanTokens(user.id, now, sub.pro_access_reset_at) : undefined, ...(grants ? { grants } : {}) };
   }
   // A friend trying เลขา (testers.ts): 200 tokens once, in a bucket of their own.
-  if (await isTester(user.id)) return { plan: 'trial', tokens: TESTER_TOKENS, bucket: TESTER_BUCKET };
+  if (await isTester(user.id)) return { plan: 'trial', tokens: TESTER_TOKENS, bucket: TESTER_BUCKET, ...(grants ? { grants } : {}) };
   const trial = inFreeTrial(user.created_at, now);
-  if (trial) return { plan: 'trial' };
+  if (trial) return { plan: 'trial', ...(grants ? { grants } : {}) };
   // Pro has ended (owner, 2026-10-28): the tokens left from its last paid month stay usable for เลขา until they run out;
   // every other Pro feature has already stopped (hasProAccess). Only after a paid period (an end date that has passed),
   // never for a removed or revoked admin grant, nor a subscription whose first payment never went through.
   if (sub && proHasEnded(sub, now)) {
-    return { plan: 'lapsed', periodEnd: sub.current_period_end, tokens: sub.plan === 'pro_prepaid' ? await paidPlanTokens(user.id, Date.parse(sub.current_period_end!) - 1, sub.pro_access_reset_at) : undefined };
+    return { plan: 'lapsed', periodEnd: sub.current_period_end, tokens: sub.plan === 'pro_prepaid' ? await paidPlanTokens(user.id, Date.parse(sub.current_period_end!) - 1, sub.pro_access_reset_at) : undefined, ...(grants ? { grants } : {}) };
   }
-  return { plan: 'none' };
+  return grantedOnly(grants);
+}
+
+/**
+ * No plan of its own, but given tokens (owner, 2026-11-04): เลขา for as long as they last, counted in one bucket named after
+ * the Bangkok day of the first grant (the usage table accepts 'YYYY-MM-DD'); later grants add to it, nothing refills.
+ */
+export function grantedOnly(grants: PlanInfo['grants']): PlanInfo {
+  if (!grants?.length) return { plan: 'none' };
+  const first = Math.min(...grants.map(grant => Date.parse(grant.at)));
+  const bucket = new Date(first + 7 * 3600_000).toISOString().slice(0, 10);
+  return { plan: 'trial', tokens: 0, bucket, grants, granted: true };
 }
 
 /** Whether this account is one of the testers, by its public ID; a read error counts as no (never more tokens by mistake). */

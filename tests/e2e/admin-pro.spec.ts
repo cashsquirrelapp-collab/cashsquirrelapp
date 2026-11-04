@@ -1,5 +1,6 @@
 import {expect,test} from '@playwright/test';
-const user={id:'11111111-1111-4111-8111-111111111111',email:'admin@example.test',role:'admin',created_at:'2026-01-01T00:00:00Z',user_metadata:{}};
+// Pro access is changed by the owner (ผู้ดูแล) alone since 2026-11-04; a team admin sees the list only (admin-team.spec.ts).
+const user={id:'11111111-1111-4111-8111-111111111111',email:'heidnsko1234@gmail.com',role:'admin',canViewAdminAnalytics:true,adminLevel:'owner',created_at:'2026-01-01T00:00:00Z',user_metadata:{}};
 const target={userId:'22222222-2222-4222-8222-222222222222',publicId:'SQ-0000000002',displayName:'บัญชีทดสอบ Pro',role:'user',createdAt:'2026-01-01T00:00:00Z',proStatus:'paid'};
 test('admin separates revoke, grant, ban and explicit unban with explanatory confirmations',async({page})=>{
  let status='paid';const writes:any[]=[];
@@ -43,4 +44,27 @@ test('admin separates revoke, grant, ban and explicit unban with explanatory con
  await expect(page.getByRole('button',{name:'ให้ Pro',exact:true})).toBeVisible();
  expect(writes.map(x=>x.operation)).toEqual(['revoke','grant','ban','unban']);
  expect(writes.every(x=>x.userId===target.userId && x.action==='set-pro-access')).toBeTruthy();
+});
+
+test('a team admin sees the accounts but none of the owner\'s buttons, and asks for no recovery links or emails',async({page})=>{
+ const ownerOnly:string[]=[];
+ page.on('request',request=>{if(/action=(recovery-links|deletion-requests)/.test(request.url())||request.method()==='POST'&&request.url().includes('/api/admin-users'))ownerOnly.push(request.url());});
+ await page.emulateMedia({reducedMotion:'reduce'});
+ await page.route('**/api/auth',r=>r.fulfill({json:{session:{user:{...user,email:'team@example.test',canViewAdminAnalytics:false,adminLevel:'admin'}}}}));
+ await page.route('**/api/profile',r=>r.fulfill({json:{userId:user.id,publicId:'SQ-0000000001',displayName:'Team'}}));
+ await page.route('**/api/data*',r=>r.fulfill({json:{snapshot:{jobs:[],expenses:[],goals:[],invoices:[],settings:{profileSetupCompleted:true,userPersona:'freelance'},statuses:[],job_types:[],notif_settings:{enabled:false,pendingQueue:[]}},versions:{cashflow_jobs:{},cashflow_expenses:{},cashflow_goals:{},cashflow_invoices:{},cashflow_documents:{}},subscription:{status:'active',plan:'admin_grant',current_period_end:null}}}));
+ await page.route('**/api/groups?*',r=>r.fulfill({json:{systemRole:'admin',groups:[],invitations:[],total:0,page:0}}));
+ await page.route('**/api/vault',r=>r.fulfill({json:{files:[]}}));
+ await page.route('**/api/account',r=>r.fulfill({json:{backupEmail:null}}));
+ await page.route('**/api/usage-analytics',r=>r.fulfill({json:{ok:true}}));
+ await page.route('**/api/billing',r=>r.fulfill({json:{checkout_ready:true,subscription:{status:'active',plan:'admin_grant'}}}));
+ await page.route('**/api/admin-users**',r=>r.fulfill({json:{users:[{...target,proStatus:'paid'}],total:1,page:0}}));
+ await page.goto('/groups/admin');
+ await page.getByRole('tab',{name:'จัดการผู้ใช้',exact:true}).click();
+ await expect(page.getByText('บัญชีทดสอบ Pro')).toBeVisible();
+ await expect(page.getByText('Pro · ชำระแล้ว',{exact:true})).toBeVisible();
+ await expect(page.getByText(/การให้ Pro และสิทธิ์ต่าง ๆ ทำได้เฉพาะผู้ดูแล/)).toBeVisible();
+ for(const name of ['ปลด Pro','ให้ Pro','แบน Pro','ปลดแบน Pro','สร้างลิงก์กู้คืน','ถอดสิทธิ์ Admin'])await expect(page.getByRole('button',{name,exact:true})).toHaveCount(0);
+ await expect(page.getByRole('heading',{name:'กู้คืนบัญชี'})).toHaveCount(0);
+ expect(ownerOnly).toEqual([]);
 });

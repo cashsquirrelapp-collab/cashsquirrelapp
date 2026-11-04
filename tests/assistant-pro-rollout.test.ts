@@ -49,6 +49,8 @@ let reservations: any[];
 let settlements: any[];
 let unexpectedRequests: string[];
 let reserveFailure: 'tokens' | 'daily_cap' | undefined;
+/** Tokens the owner gave account A (shared/tokenGrants.ts), as kept in its private state. */
+let given: unknown;
 const json = (value: unknown) => new Response(JSON.stringify(value), { headers: { 'content-type': 'application/json' } });
 
 beforeEach(() => {
@@ -61,7 +63,7 @@ beforeEach(() => {
     AI_PRO_TOKENS_PER_CYCLE: '1000', AI_TRIAL_TOKENS: '25', AI_DAILY_COST_CAP_USD: '0.25',
   });
   membership = 'paid'; providerCalls = 0; snapshotOwners = []; reservations = []; settlements = [];
-  unexpectedRequests = []; reserveFailure = undefined;
+  unexpectedRequests = []; reserveFailure = undefined; given = null;
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(input instanceof Request ? input.url : String(input));
     const body = init?.body ? JSON.parse(String(init.body)) : undefined;
@@ -105,6 +107,8 @@ beforeEach(() => {
     if (url.pathname.endsWith('/cashflow_ai_memories')) return json([]);
     // The name เลขา calls the user by (2026-10-27), read for the signed-in account only.
     if (url.pathname.endsWith('/cashflow_profiles') && (owner === A || owner === B)) return json({ display_name: 'ผู้ใช้ทดสอบ' });
+    // Tokens the owner gave (2026-11-04), read for the signed-in account only.
+    if (url.pathname.endsWith('/cashflow_private_state') && (owner === A || owner === B) && url.searchParams.get('select') === 'grants:data->aiTokenGrants') return json({ grants: owner === A ? given : null });
     // Package E: the app chat's latest turns, read for the signed-in account only, to continue a task from LINE.
     if (url.pathname.endsWith('/cashflow_ai_messages') && (init?.method ?? 'GET') === 'GET' && (owner === A || owner === B)) return json([]);
     if (url.pathname.endsWith('/rpc/cashflow_ai_reserve')) {
@@ -209,6 +213,32 @@ test('free and revoked accounts cannot use chat/voice despite editable metadata 
     }
   }
   assert.equal(providerCalls, 0); assert.equal(reservations.length, 0); assert.deepEqual(snapshotOwners, []);
+});
+
+test('tokens the owner gave open เลขา for a free account in a bucket of their own, until they are used (owner, 2026-11-04)', async () => {
+  membership = 'free';
+  given = [{ id: 'grant-0001', tokens: 200, at: '2026-11-04T05:00:00Z' }, { id: 'grant-0002', tokens: 100, at: '2026-11-05T05:00:00Z' }, { id: 'bad', tokens: 9999 }];
+  const status = await request(A);
+  assert.deepEqual([status.status, status.body.enabled, status.body.plan, status.body.tokenLimit, status.body.tokensLeft, status.body.resetsAt], [200, true, 'trial', 300, 290, null]);
+  const reply = await request(A, chat);
+  assert.equal(reply.status, 200);
+  assert.deepEqual([reservations.at(-1).p_user_id, reservations.at(-1).p_cycle, reservations.at(-1).p_token_limit], [A, '2026-11-04', 300]);
+  // Used up: said as given tokens, never as a trial.
+  reserveFailure = 'tokens';
+  const out = await request(A, chat);
+  assert.equal(out.status, 402);
+  assert.equal(out.body.code, 'ai_tokens_used');
+  assert.match(out.body.error, /โทเคนที่ได้รับหมดแล้ว/);
+  reserveFailure = undefined;
+  // Another account gets nothing from A's grants; a Pro ban stops them too.
+  assert.equal((await request(B)).body.plan, 'none');
+  membership = 'revoked';
+  assert.equal((await request(A)).body.plan, 'none');
+  // Paid Pro: this cycle's grants on top of the monthly allowance.
+  membership = 'paid';
+  given = [{ id: 'grant-0003', tokens: 150, at: new Date().toISOString() }];
+  const paid = await request(A);
+  assert.equal(paid.body.tokenLimit, 1000 + 150);
 });
 
 test('Pro that has ended chats on with the tokens left from its last month, and says to renew when they are gone', async () => {

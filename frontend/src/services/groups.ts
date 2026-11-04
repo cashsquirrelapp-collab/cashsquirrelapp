@@ -10,6 +10,7 @@ import type {
   SystemRole,
   PublicProfile,
 } from '../../../shared/groups';
+import type { AdminLookup, AdminTokenGrantLog } from '../../../shared/adminTeam';
 import { apiJson } from './api';
 
 export type AdminRecoveryLink = {
@@ -114,6 +115,26 @@ export const groupApi = {
       method: 'POST',
       headers: { 'X-Account-ID': account },
       body: JSON.stringify({ action: 'set-pro-access', userId, operation }),
+    });
+  },
+  /** The owner's tools (ทีมงานและโทเคน): an account by its UID, with its role and tokens. */
+  lookupAccount(account: string, target: string, signal?: AbortSignal) {
+    return apiJson<AdminLookup>(`/api/admin-users?action=lookup&target=${encodeURIComponent(target)}`, {
+      signal,
+      headers: { 'X-Account-ID': account },
+    });
+  },
+  grantTokens(account: string, userId: string, tokens: number, note: string, requestId: string) {
+    return apiJson<{ ok: true; added: boolean; account: AdminLookup }>('/api/admin-users', {
+      method: 'POST',
+      headers: { 'X-Account-ID': account },
+      body: JSON.stringify({ action: 'grant-tokens', userId, tokens, requestId, ...(note.trim() ? { note: note.trim() } : {}) }),
+    });
+  },
+  tokenGrants(account: string, signal?: AbortSignal) {
+    return apiJson<{ grants: AdminTokenGrantLog[] }>('/api/admin-users?action=token-grants', {
+      signal,
+      headers: { 'X-Account-ID': account },
     });
   },
 };

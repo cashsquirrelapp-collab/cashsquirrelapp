@@ -128,8 +128,26 @@ export interface PlanInfo {
   tokens?: number;
   /** A trial counted in a bucket of its own (testers.ts): the usage table's cycle key. */
   bucket?: string;
+  /** Tokens the owner gave this account (shared/tokenGrants.ts): each is added to the cycle it was given in. */
+  grants?: { tokens: number; at: string }[];
+  /** The account uses เลขา only because of given tokens (no plan of its own). */
+  granted?: true;
 }
 const asPlan = (value: AssistantPlan | PlanInfo): PlanInfo => (typeof value === 'string' ? { plan: value } : value);
+
+/**
+ * Given tokens counted in a cycle (owner, 2026-11-04): an allowance that never refills (the trial, a tester, Pro given by
+ * hand, given tokens alone) takes every grant; a monthly one takes the grants given in the month that is running, so what
+ * is left of them goes when the month renews, as the month's own tokens do.
+ */
+function grantBonus(grants: PlanInfo['grants'], counts: (at: Date) => boolean): number {
+  let total = 0;
+  for (const grant of grants ?? []) {
+    const at = new Date(grant.at);
+    if (Number.isFinite(at.getTime()) && Number.isInteger(grant.tokens) && grant.tokens > 0 && counts(at)) total += grant.tokens;
+  }
+  return total;
+}
 
 /**
  * Limits for a plan: Pro has a monthly token allowance (by the plan paid for, else the default), the trial one small
@@ -137,23 +155,26 @@ const asPlan = (value: AssistantPlan | PlanInfo): PlanInfo => (typeof value === 
  * "จำกัดโทเค็นแอดมิน ... เอาเท่ากับยูเซอร์"), so using เลขา costs them what it costs a member and shows whether it is enough.
  */
 export function allowance(value: AssistantPlan | PlanInfo, config: AiConfig, now = new Date()) {
-  const { plan, periodEnd, tokens, bucket } = asPlan(value);
+  const { plan, periodEnd, tokens, bucket, grants } = asPlan(value);
+  const all = () => grantBonus(grants, () => true);
   // The trial: one allowance that never refills; a tester's in its own bucket with its own amount (testers.ts).
   // A plain trial never takes a plan's tokens; only a tester's own bucket carries its own amount.
-  if (plan === 'trial') return { cycle: bucket ?? 'trial', resetsAt: null, tokenLimit: bucket && tokens !== undefined ? tokens : config.trialTokens, requestLimit: null };
+  if (plan === 'trial') return { cycle: bucket ?? 'trial', resetsAt: null, tokenLimit: (bucket && tokens !== undefined ? tokens : config.trialTokens) + all(), requestLimit: null };
   if (plan === 'lapsed') {
     // Pro has ended (owner, 2026-10-28: "ถ้าหมดโปรไป เขายังเหลือ 500 โทเค็น ให้เขาใช้จนหมดก่อน"): the last paid month's
-    // allowance, with what was used in it; nothing renews until Pro does.
+    // allowance, with what was used in it; nothing renews until Pro does. Tokens given in that month or since are added.
     const ended = periodEnd ? Date.parse(periodEnd) : NaN;
     if (!Number.isFinite(ended)) return { cycle: 'lapsed', resetsAt: null, tokenLimit: 0, requestLimit: null };
-    return { cycle: lastPaidCycle(periodEnd!), resetsAt: null, tokenLimit: tokens ?? config.proTokensPerCycle, requestLimit: null };
+    const cycle = lastPaidCycle(periodEnd!);
+    const bonus = grantBonus(grants, at => at.getTime() >= ended || renewalCycle(periodEnd!, at).cycle === cycle);
+    return { cycle, resetsAt: null, tokenLimit: (tokens ?? config.proTokensPerCycle) + bonus, requestLimit: null };
   }
   const month = () => {
     const local = new Date(now.getTime() + BANGKOK);
     return { cycle: tokenCycle(now), resetsAt: new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth() + 1, 1) - BANGKOK) };
   };
   // Pro given by hand: one allowance that never refills (see GRANT_TOKEN_BUCKET).
-  if (plan === 'pro' && !periodEnd) return { cycle: GRANT_TOKEN_BUCKET, resetsAt: null, tokenLimit: tokens ?? config.proTokensPerCycle, requestLimit: null };
+  if (plan === 'pro' && !periodEnd) return { cycle: GRANT_TOKEN_BUCKET, resetsAt: null, tokenLimit: (tokens ?? config.proTokensPerCycle) + all(), requestLimit: null };
   const period = plan === 'pro' && periodEnd ? renewalCycle(periodEnd, now) : month();
   if (plan === 'admin') {
     // A reset (AI_ADMIN_TOKENS_RESET_AT) counts admins' use from then on in a bucket of its own, named after the reset's
@@ -162,9 +183,12 @@ export function allowance(value: AssistantPlan | PlanInfo, config: AiConfig, now
     const reset = config.adminTokensResetAt;
     const fresh = reset !== undefined && reset <= now.getTime() && tokenCycle(new Date(reset)) === period.cycle;
     const cycle = fresh ? new Date(reset + BANGKOK).toISOString().slice(0, 10) : period.cycle;
-    return { ...period, cycle, tokenLimit: config.proTokensPerCycle, requestLimit: null };
+    // Given tokens count in the calendar month they were given; with a reset, only those given since it.
+    const bonus = grantBonus(grants, at => tokenCycle(at) === period.cycle && (!fresh || at.getTime() >= reset!));
+    return { ...period, cycle, tokenLimit: config.proTokensPerCycle + bonus, requestLimit: null };
   }
-  return { ...period, tokenLimit: tokens ?? config.proTokensPerCycle, requestLimit: null };
+  const bonus = periodEnd ? grantBonus(grants, at => renewalCycle(periodEnd, at).cycle === period.cycle) : 0;
+  return { ...period, tokenLimit: (tokens ?? config.proTokensPerCycle) + bonus, requestLimit: null };
 }
 
 export const thaiDay = (date: Date) => {
@@ -223,7 +247,7 @@ export async function handleMessage(db: AssistantDb, deps: MessageDeps, userId: 
   const requestId = randomUUID();
   const reserved = await db.reserve({ userId, cycle: limits.cycle, requestId, tokens: limits.requestLimit !== null ? 0 : RESERVE_TOKENS,
     tokenLimit: limits.tokenLimit, requestLimit: limits.requestLimit, dailyCapUsd: config.dailyCostCapUsd });
-  if (!reserved.ok) refuse(reserved.reason, limits.resetsAt, plan === 'trial', plan === 'lapsed');
+  if (!reserved.ok) refuse(reserved.reason, limits.resetsAt, plan === 'trial' && !asPlan(value).granted, plan === 'lapsed');
   // Hard stop before the start (cost brief, phase 4/7): a request that could take the app past its daily cap is refused
   // now, instead of being started and cut off. Sonnet requests can reach about $0.12 (a first-of-the-hour cache write).
   if (reserved.spentTodayUsd !== undefined && config.dailyCostCapUsd > 0) {

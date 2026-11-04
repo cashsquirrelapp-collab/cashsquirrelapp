@@ -4,7 +4,8 @@ import type { Server } from 'node:http';
 import { createApp } from '../backend/src/http/app.js';
 import { seal } from '../backend/src/security/cookies.js';
 Object.assign(process.env,{APP_URL:'http://127.0.0.1:3000',SUPABASE_URL:'https://admin-pro.supabase.co',SUPABASE_PUBLISHABLE_KEY:'test',SUPABASE_SERVICE_ROLE_KEY:'test-admin',SESSION_SECRET:'test-secret-'.repeat(5)});
-const user={id:'11111111-1111-4111-8111-111111111111',created_at:'2026-01-01T00:00:00Z'};
+// The owner's account: Pro access is changed by the owner alone (2026-11-04); a team admin is refused below.
+const user:any={id:'11111111-1111-4111-8111-111111111111',created_at:'2026-01-01T00:00:00Z',email:'heidnsko1234@gmail.com',email_confirmed_at:'2026-01-01T00:00:00Z'};
 const target='22222222-2222-4222-8222-222222222222';
 const jwt=`e30.${Buffer.from(JSON.stringify({sub:user.id,session_id:target})).toString('base64url')}.test`;
 const cookie=`cashflow-session=${seal({access_token:jwt,refresh_token:'test',expires_at:Math.floor(Date.now()/1000)+3600,issued_at:Date.now()})}`;
@@ -42,4 +43,15 @@ test('all four actions use the authenticated actor and preserve conflict errors'
  for(const blocked of ['banned','checkout_pending','subscription_open','account_closing']){
   result=blocked;assert.equal((await post({action:'set-pro-access',userId:target,operation:'revoke'})).status,409);
  }
+});
+test('a team admin (not the owner) cannot change Pro access, before any database call',async()=>{
+ const before=calls.length;
+ user.email='team@example.com';
+ try{
+  for(const operation of ['grant','revoke','ban','unban'])assert.equal((await post({action:'set-pro-access',userId:target,operation})).status,403);
+  assert.equal((await post({action:'create-recovery-link'})).status,403);
+  assert.equal((await post({userId:target,role:'admin'})).status,403);
+  assert.equal((await post({action:'grant-tokens',userId:target,tokens:100,requestId:'abcdefgh1234'})).status,403);
+ }finally{user.email='heidnsko1234@gmail.com';}
+ assert.equal(calls.length,before);
 });
