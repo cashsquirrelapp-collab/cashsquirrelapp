@@ -13,7 +13,8 @@ const THAI = /[\u0E01-\u0E3A\u0E40-\u0E5B]/;
 // title keeps the Thai document name that Thai tax documents need beside the English one.
 const ALLOWED = [/^ไทย$/, /^ใบเสนอราคา$|^ใบแจ้งหนี้$|^ใบเสร็จรับเงิน$|^ใบกำกับภาษี$|^ใบเสร็จรับเงิน\/ใบกำกับภาษี$/];
 
-const user = { id: '33333333-3333-4333-8333-333333333333', email: 'english-mode@example.com', role: 'admin', created_at: '2026-01-01T00:00:00Z', user_metadata: {} };
+// Unreleased pages open for the owner's account only (2026-11-04); this account plays the owner when its role is admin.
+const user = { adminLevel: 'owner' as const, id: '33333333-3333-4333-8333-333333333333', email: 'english-mode@example.com', role: 'admin', created_at: '2026-01-01T00:00:00Z', user_metadata: {} };
 const today = new Date();
 const day = (offset: number) => { const d = new Date(today); d.setDate(d.getDate() + offset); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const job = (id: string, name: string, value: number, received: number, extra: Record<string, unknown> = {}) => ({

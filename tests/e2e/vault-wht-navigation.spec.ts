@@ -2,7 +2,8 @@ import { expect, test, type Page, type Route } from '@playwright/test';
 import { noRadar } from './radarVisit';
 import { textOverlapIssues } from './textOverlap';
 
-const user = {
+// Unreleased pages open for the owner's account only (2026-11-04); this account plays the owner when its role is admin.
+const user = { adminLevel: 'owner' as const,
   id: '11111111-1111-4111-8111-111111111111',
   email: 'test@example.com',
   role: 'user',

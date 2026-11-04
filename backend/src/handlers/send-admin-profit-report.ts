@@ -8,6 +8,7 @@ import { claimDelivery } from '../repositories/deliveries.js';
 import { sendLineMessagePayloadOutcome } from '../services/line.js';
 import { bangkokDay, bangkokMonth, shiftMonth } from '../services/adminProfitReport.js';
 import { buildReport, DELIVERY_DAYS, deliverReport, loadStoredReport, saveReport, type ReportDeps } from '../services/adminProfitReportRun.js';
+import { isOwnerUserId } from '../repositories/roles.js';
 
 // The owner's monthly profit report (brief "KRAROK AI PROFIT INTELLIGENCE", 2026-10-25): at 08:00 Bangkok on the 1st
 // it works out last month, saves it, and sends the totals to the system admins who linked LINE. If LINE fails, the
@@ -35,6 +36,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     db, token: process.env.LINE_CHANNEL_ACCESS_TOKEN, now, claim: claimDelivery,
     push: (lineUserId, message, retryKey) => sendLineMessagePayloadOutcome(lineUserId, message, retryKey),
     allowEmails, emailOf: async userId => (await db.auth.admin.getUserById(userId)).data.user?.email ?? null,
+    // Profit and cost: the owner's LINE only, never a team admin's (owner, 2026-11-04).
+    isOwner: isOwnerUserId,
   });
   // The scheduled runner reads these counts: a report not delivered shows as a failed job in the Worker's logs.
   const sent = delivery === 'delivered' || delivery === 'partial' ? 1 : 0;

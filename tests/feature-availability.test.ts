@@ -9,7 +9,17 @@ test('full feature access waits for the trusted role belonging to the current si
   assert.equal(hasFullFeatureAccess({ userId: 'two', roleUserId: 'one', systemRole: 'admin' }), false);
   assert.equal(hasFullFeatureAccess({ userId: 'one', roleUserId: 'one', systemRole: 'user' }), false);
   assert.equal(hasFullFeatureAccess({ userId: 'one', roleUserId: 'one', systemRole: 'admin', isGuest: true }), false);
-  assert.equal(hasFullFeatureAccess({ userId: 'one', roleUserId: 'one', systemRole: 'admin', isGuest: false }), true);
+  // Owner, 2026-11-04: unreleased pages are the owner's alone; a team admin has the admin page and nothing more.
+  assert.equal(hasFullFeatureAccess({ userId: 'one', roleUserId: 'one', systemRole: 'admin', isGuest: false }), false, 'a team admin');
+  assert.equal(hasFullFeatureAccess({ userId: 'one', roleUserId: 'one', systemRole: 'admin', isGuest: false, isOwner: false }), false);
+  assert.equal(hasFullFeatureAccess({ userId: 'one', roleUserId: 'one', systemRole: 'admin', isGuest: false, isOwner: true }), true);
+  assert.equal(hasFullFeatureAccess({ userId: 'one', roleUserId: 'one', systemRole: 'user', isOwner: true }), false, 'the role still counts');
+});
+
+test('a team admin opens the admin page and no other hidden page', () => {
+  assert.equal(isPhaseOneFeatureAvailable('adminDashboard', false, true), true);
+  assert.equal(resolvePhaseOneTab('adminDashboard', false, true), 'adminDashboard');
+  for (const tab of ['split', 'report', 'tax', 'groups', 'insight']) assert.equal(resolvePhaseOneTab(tab, false, true), 'dashboard', tab);
 });
 
 test('phase one keeps core pages, feedback, settings and subscription management reachable', () => {

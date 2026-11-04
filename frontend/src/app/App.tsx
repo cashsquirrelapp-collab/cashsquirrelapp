@@ -508,11 +508,21 @@ export default function App() {
     groupsLoaded: boolean;
     systemRole: SystemRole | null;
   } | null>(null);
+  // The admin page: the owner (ผู้ดูแล) sees all of it, a team admin everything but money (owner, 2026-11-04). The server
+  // decides the level; every section it serves checks again.
+  const adminPageLevel: 'owner' | 'admin' | null = !session?.isGuest
+    && routeContext?.userId === session?.user?.id
+    && routeContext?.systemRole === 'admin'
+    ? (session?.user?.adminLevel ?? (session?.user?.canViewAdminAnalytics === true ? 'owner' : null))
+    : null;
+  const adminPageOpen = adminPageLevel !== null;
+  // Unreleased features are the owner's alone; a team admin has the admin page and nothing more (owner, 2026-11-04).
   const fullFeatureAccess = hasFullFeatureAccess({
     isGuest: session?.isGuest,
     userId: session?.user?.id,
     roleUserId: routeContext?.userId,
     systemRole: routeContext?.systemRole,
+    isOwner: adminPageLevel === 'owner',
   });
   // Features released to everyone are read from the launch policy one by one; fullFeatureAccess still
   // covers what is not released yet (goals, reports, tax, vault, 50 ทวิ, teams).
@@ -524,7 +534,7 @@ export default function App() {
   // placeholders match the requested page instead of flashing the dashboard.
   const [requestedActiveTab, setActiveTab] = useState<TabKey>(() => parseWorkspaceRoute(window.location.pathname).tab);
   // Render the safe tab immediately; async role lookup can never flash a hidden page.
-  const activeTab: TabKey = resolvePhaseOneTab(requestedActiveTab, fullFeatureAccess);
+  const activeTab: TabKey = resolvePhaseOneTab(requestedActiveTab, fullFeatureAccess, adminPageOpen);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [assistantFollowing, setAssistantFollowing] = useState(false);
   // The full chat's conversation, carried to the floating window when the chat opens another page (computers, iPads).
@@ -584,7 +594,7 @@ export default function App() {
   useEffect(() => { if (session && !session.isGuest) notePage(session.user.id, activeTab); }, [activeTab, session?.user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const navigateTab = (requestedTab: TabKey) => {
-    const tab: TabKey = resolvePhaseOneTab(requestedTab, fullFeatureAccess);
+    const tab: TabKey = resolvePhaseOneTab(requestedTab, fullFeatureAccess, adminPageOpen);
     const workspace = parseWorkspaceRoute(window.location.pathname).workspaceSlug;
     // A newer build is out (app/appUpdate.ts): open the next page in it, as a normal page load, so the
     // new features arrive without an error page; the person stays signed in (owner, 2026-10-22).
@@ -600,7 +610,7 @@ export default function App() {
     if (!workspace) return; // wait until the address carries the workspace
     window.history.replaceState(window.history.state, '', window.location.pathname);
     navigateTab('vault');
-  }, [activeTab, pathname, fullFeatureAccess]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeTab, pathname, fullFeatureAccess, adminPageOpen]); // eslint-disable-line react-hooks/exhaustive-deps
   // Old links to the 50 ทวิ tab on the tax page (/tax?view=wht50) open its page under เอกสาร.
   useEffect(() => {
     if (!isPhaseOneFeatureAvailable('wht50', fullFeatureAccess) || activeTab !== 'tax' || new URLSearchParams(window.location.search).get('view') !== 'wht50') return;
@@ -608,7 +618,7 @@ export default function App() {
     if (!workspace) return;
     window.history.replaceState(window.history.state, '', window.location.pathname);
     navigateTab('wht50');
-  }, [activeTab, pathname, fullFeatureAccess]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeTab, pathname, fullFeatureAccess, adminPageOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const profileMenuItem = 'flex w-full items-center gap-2.5 rounded-[14px] px-2.5 py-2.5 text-left text-[13px] font-medium text-brand-text transition-colors hover:bg-black/[0.05] dark:hover:bg-white/[0.07] cursor-pointer';
   // The phone's "เมนู" screen: five numbered sections and, for admins, one group of tools not released to
@@ -755,7 +765,7 @@ export default function App() {
     const Icon = item.icon;
     const firstPathSegment = pathname.split('/').filter(Boolean)[0];
     const routeHasExplicitTab = isTabKey(firstPathSegment) || !!(firstPathSegment && RETIRED_TAB_ALIASES[firstPathSegment]);
-    const navActiveTab = resolvePhaseOneTab(routeHasExplicitTab ? parseWorkspaceRoute(pathname).tab : activeTab, fullFeatureAccess);
+    const navActiveTab = resolvePhaseOneTab(routeHasExplicitTab ? parseWorkspaceRoute(pathname).tab : activeTab, fullFeatureAccess, adminPageOpen);
     const isActive = navActiveTab === item.key;
     return (
       <button
@@ -874,7 +884,7 @@ export default function App() {
       return;
     }
     const isWorkspaceRoot = pathname === '/' || pathname === '/app' || pathname === '/login';
-    const tab = resolvePhaseOneTab(isWorkspaceRoot ? activeTab : parseWorkspaceRoute(pathname).tab, fullFeatureAccess);
+    const tab = resolvePhaseOneTab(isWorkspaceRoot ? activeTab : parseWorkspaceRoute(pathname).tab, fullFeatureAccess, adminPageOpen);
     // The usage counters only know the original pages; the chat preview is not counted.
     if (tab === 'feedback' || tab === 'assistant') return;
     // The vault is counted as part of เอกสาร (the usage counters only know the original pages).
@@ -886,7 +896,7 @@ export default function App() {
     if (usageStatsAllowed()) void usageAnalyticsApi.recordFeatureView(userId, feature).catch(() => {
       // Usage metrics are optional and must never delay or interrupt navigation.
     });
-  }, [activeTab, loadingSession, pathname, session?.isGuest, session?.user?.id, fullFeatureAccess]);
+  }, [activeTab, loadingSession, pathname, session?.isGuest, session?.user?.id, fullFeatureAccess, adminPageOpen]);
   const [financeSelection, setFinanceSelection] = useState<{account:string;groupId?:string;name?:string}>({account:''});
   const [switchingFinance, setSwitchingFinance] = useState(false);
   const financeGroupId = financeSelection.account === session?.user?.id ? financeSelection.groupId : undefined;
@@ -1202,25 +1212,18 @@ export default function App() {
 
   // Persona-adjusted nav grouping -- everything stays reachable, this just decides what
   // shows up in the always-visible row by default (see PERSONA_CORE_KEYS above).
-  // The admin page: the owner (ผู้ดูแล) sees all of it, a team admin everything but money (owner, 2026-11-04). The server
-  // decides the level; every section it serves checks again.
-  const adminPageLevel: 'owner' | 'admin' | null = !session?.isGuest
-    && routeContext?.userId === session?.user?.id
-    && routeContext?.systemRole === 'admin'
-    ? (session?.user?.adminLevel ?? (session?.user?.canViewAdminAnalytics === true ? 'owner' : null))
-    : null;
-  const canViewAdminAnalytics = adminPageLevel !== null;
+  const canViewAdminAnalytics = adminPageOpen;
   const feedbackWaiting = useFeedbackWaiting(canViewAdminAnalytics ? session?.user?.id : null);
   const navItems = React.useMemo(() => {
     const base = NAV_ITEMS.filter(item =>
-      isPhaseOneFeatureAvailable(item.key, fullFeatureAccess) &&
+      isPhaseOneFeatureAvailable(item.key, fullFeatureAccess, canViewAdminAnalytics) &&
       (settings.goalsFeatureEnabled !== false || item.key !== 'split') &&
       (item.key !== 'adminDashboard' || canViewAdminAnalytics)
     );
     if (!fullFeatureAccess) {
       // Same order as the full sidebar (owner, 2026-10-20): ภาพรวม · งาน · ปฏิทิน with เงินค้างรับ under it ·
       // รายจ่าย · เอกสาร · แจ้งปัญหา. Sub-items stay under their parent.
-      const order: TabKey[] = ['dashboard', 'jobs', 'calendar', 'receivables', 'incomeExpense', 'invoice', 'feedback', 'plans', 'settings'];
+      const order: TabKey[] = ['dashboard', 'adminDashboard', 'jobs', 'calendar', 'receivables', 'incomeExpense', 'invoice', 'feedback', 'plans', 'settings'];
       return base.map(item => item.group === 'bottom' || item.group === 'sub' ? item : { ...item, group: 'core' as const })
         .sort((left, right) => order.indexOf(left.key) - order.indexOf(right.key));
     }
@@ -1442,6 +1445,8 @@ export default function App() {
     if (financeGroupId) { if (!quiet) setAssistantNote(tr("กำลังดูบัญชีกลุ่ม เลขากระรอกใช้ได้กับบัญชีส่วนตัวเท่านั้น")); return; }
     const controller = new AbortController();
     let retry = 0;
+    let connected = false;
+    let lastQuiet = Date.now();
     if (!quiet) setAssistantChecking(true);
     // Loaded on demand so the sample data and the chat code stay out of the first page load.
     const check = (attempt: number) => import('../features/assistant/assistantApi').then(async ({ readAssistantStatus, createLiveTransport }) => {
@@ -1449,6 +1454,7 @@ export default function App() {
       if (controller.signal.aborted) return;
       setAssistantChecking(false);
       if (quiet && !(status.enabled && status.plan === 'trial')) return;
+      connected = true;
       if (!status.enabled || status.plan === 'none') {
         setAssistantNote(status.plan === 'none' ? tr("บัญชีนี้ไม่มีสิทธิ์ Pro") : status.plan === 'admin' ? tr("เซิร์ฟเวอร์ยังปิด AI อยู่ (AI_ENABLED)") : tr("ตอนนี้เปิด AI ให้แอดมินระบบเท่านั้น"));
         return;
@@ -1462,7 +1468,20 @@ export default function App() {
       setAssistantNote((error as Error)?.message || tr("เชื่อมต่อเลขากระรอกไม่ได้"));
     });
     void check(0);
-    return () => { controller.abort(); window.clearTimeout(retry); };
+    // Tokens the owner gives while this app is open (owner, 2026-11-04: "ทำไมคนที่กูโอนโทเค็นให้ถึงยังใช้ไม่ได้"): an account
+    // without Pro asks again when it comes back to the app, at most once a minute, until เลขา is on for it.
+    const askAgain = () => {
+      if (!quiet || connected || document.hidden || controller.signal.aborted || Date.now() - lastQuiet < 60_000) return;
+      lastQuiet = Date.now();
+      void check(0);
+    };
+    document.addEventListener('visibilitychange', askAgain);
+    window.addEventListener('focus', askAgain);
+    return () => {
+      controller.abort(); window.clearTimeout(retry);
+      document.removeEventListener('visibilitychange', askAgain);
+      window.removeEventListener('focus', askAgain);
+    };
   }, [assistantCheckId, assistantUserId, financeGroupId]);
   const [birthOpen, setBirthOpen] = useState(false);
   // The arrival opened by a payment shows "ชำระเงินสำเร็จ" with its tick first; the team's preview does not.
@@ -1995,7 +2014,7 @@ export default function App() {
     const requestedRoute = parseWorkspaceRoute(pathname);
     const isWorkspaceRoot = pathname === '/' || pathname === '/app' || pathname === '/login';
     const rawRequestedTab = isWorkspaceRoot ? requestedActiveTab : requestedRoute.tab;
-    const requestedTab = resolvePhaseOneTab(rawRequestedTab, fullFeatureAccess);
+    const requestedTab = resolvePhaseOneTab(rawRequestedTab, fullFeatureAccess, adminPageOpen);
     const requestedSlug = requestedRoute.workspaceSlug;
     if (requestedActiveTab !== requestedTab) setActiveTab(requestedTab);
     const defaultRoute = isWorkspaceRoot || !requestedSlug;
@@ -2029,7 +2048,7 @@ export default function App() {
       if (financeGroupId) void switchFinance(undefined, undefined, false);
       navigatePath(workspaceRoutePath(requestedTab, personalSlug), true, true);
     }
-  }, [pathname, session?.user?.id, session?.isGuest, routeContext, financeGroupId, activeTab, requestedActiveTab, fullFeatureAccess]);
+  }, [pathname, session?.user?.id, session?.isGuest, routeContext, financeGroupId, activeTab, requestedActiveTab, fullFeatureAccess, adminPageOpen]);
 
   // Load user data whenever session changes
   useLayoutEffect(() => {

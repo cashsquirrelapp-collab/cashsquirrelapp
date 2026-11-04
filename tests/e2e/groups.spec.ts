@@ -1,7 +1,8 @@
 import { test, expect, type Page } from '@playwright/test';
 import type { GroupDetail, SystemRole } from '../../shared/groups';
 
-const user = {
+// Unreleased pages open for the owner's account only (2026-11-04); this account plays the owner when its role is admin.
+const user = { adminLevel: 'owner' as const,
   id: '11111111-1111-4111-8111-111111111111',
   email: 'leader@example.com',
   role: 'user' as SystemRole,

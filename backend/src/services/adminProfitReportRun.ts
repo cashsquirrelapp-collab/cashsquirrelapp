@@ -267,6 +267,8 @@ export interface DeliveryDeps {
   claim: (key: string) => Promise<boolean>;
   /** Optional: only these e-mails among the admins (ADMIN_REPORT_EMAILS); the role is always checked. */
   allowEmails?: string[];
+  /** Only the owner's account receives these (owner, 2026-11-04: a team admin never sees money). */
+  isOwner?: (userId: string) => Promise<boolean>;
   emailOf?: (userId: string) => Promise<string | null>;
   now?: Date;
 }
@@ -277,7 +279,7 @@ export function retryKey(...parts: string[]): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-${(8 | (parseInt(hex[16], 16) & 3)).toString(16)}${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
 }
 
-export async function adminRecipients(deps: Pick<DeliveryDeps, 'db' | 'allowEmails' | 'emailOf'>): Promise<{ userId: string; lineUserId: string }[]> {
+export async function adminRecipients(deps: Pick<DeliveryDeps, 'db' | 'allowEmails' | 'emailOf' | 'isOwner'>): Promise<{ userId: string; lineUserId: string }[]> {
   const roles = await deps.db.from('cashflow_user_roles').select('user_id').eq('role', 'admin');
   if (roles.error) throw roles.error;
   const ids = ((roles.data ?? []) as { user_id: string }[]).map(row => row.user_id);
@@ -288,6 +290,7 @@ export async function adminRecipients(deps: Pick<DeliveryDeps, 'db' | 'allowEmai
   const out: { userId: string; lineUserId: string }[] = [];
   for (const link of (links.data ?? []) as { user_id: string; line_user_id: string }[]) {
     if (!ids.includes(link.user_id) || seen.has(link.line_user_id)) continue;
+    if (deps.isOwner && !(await deps.isOwner(link.user_id))) continue;
     if (deps.allowEmails?.length) {
       const email = (await deps.emailOf?.(link.user_id))?.trim().toLowerCase();
       if (!email || !deps.allowEmails.includes(email)) continue;

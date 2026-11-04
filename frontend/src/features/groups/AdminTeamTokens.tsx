@@ -133,8 +133,8 @@ export default function AdminTeamTokens({ userId, triggerConfirm, language, mobi
     triggerConfirm(
       role === 'admin' ? copy('ให้สิทธิ์แอดมิน', 'Make admin') : copy('ถอดสิทธิ์แอดมิน', 'Remove admin'),
       role === 'admin'
-        ? copy(`${label} จะเปิดหน้าแอดมินได้: ผู้ใช้งาน การใช้ฟีเจอร์ รายบัญชี ผู้ใช้ใหม่ ข้อความจากผู้ใช้ (ตอบได้) และส่งข้อความถึงผู้ใช้ จะไม่เห็นรายได้ กำไรและต้นทุน หรือภาพรวมการเงิน และให้สิทธิ์หรือแจกโทเคนไม่ได้`,
-          `${label} will open the admin page: activity, features, accounts, new users, messages (with replies) and messages to everyone; never revenue, profit and cost, or the money overview, and no rights or tokens to give.`)
+        ? copy(`${label} จะเปิดหน้าแอดมินได้: ผู้ใช้งาน การใช้ฟีเจอร์ รายบัญชี ผู้ใช้ใหม่ ข้อความจากผู้ใช้ (ตอบได้) และส่งข้อความถึงผู้ใช้ จะไม่เห็นรายได้ กำไรและต้นทุน หรือภาพรวมการเงิน ไม่ได้ฟีเจอร์ Pro และไม่ได้โทเคน เว้นแต่คุณแจกให้`,
+          `${label} will open the admin page: activity, features, accounts, new users, messages (with replies) and messages to everyone; never revenue, profit and cost, or the money overview. No Pro features and no tokens unless you give them.`)
         : copy(`${label} จะเปิดหน้าแอดมินไม่ได้อีก และกลับเป็นผู้ใช้ทั่วไป`, `${label} will no longer open the admin page and becomes a regular user.`),
       async () => {
         setBusy(true); setNotice(''); setError('');
@@ -225,8 +225,8 @@ export default function AdminTeamTokens({ userId, triggerConfirm, language, mobi
           <div className="atk-grow atk-min">
             <h3 className="atk-subhead"><ShieldCheck size={16} aria-hidden="true" />{copy('สิทธิ์แอดมิน', 'Admin rights')}</h3>
             <p className="atk-hint">{found.role === 'admin'
-              ? copy('บัญชีนี้เป็นแอดมินอยู่ เปิดหน้าแอดมินได้ ยกเว้นรายได้ กำไรและต้นทุน และภาพรวมการเงิน', 'This account is an admin: the admin page without revenue, profit and cost, or the money overview.')
-              : copy('ให้ทีมงานเปิดหน้าแอดมินได้ โดยไม่เห็นรายได้ กำไรและต้นทุน และภาพรวมการเงิน', 'Lets a team member open the admin page without revenue, profit and cost, or the money overview.')}</p>
+              ? copy('บัญชีนี้เป็นแอดมินอยู่ ดูหลังบ้านได้ ยกเว้นรายได้ กำไรและต้นทุน และภาพรวมการเงิน ไม่ได้ฟีเจอร์ Pro ใช้เลขากระรอกได้เมื่อคุณแจกโทเคนให้', 'This account is an admin: the back office without revenue, profit and cost, or the money overview. No Pro features; the assistant works on tokens you give.')
+              : copy('ให้ทีมงานดูหลังบ้านได้ โดยไม่เห็นรายได้ กำไรและต้นทุน และภาพรวมการเงิน ไม่ได้ฟีเจอร์ Pro และไม่ได้โทเคน เว้นแต่คุณแจกให้', 'Lets a team member see the back office without revenue, profit and cost, or the money overview. No Pro features and no tokens unless you give them.')}</p>
           </div>
           <button type="button" className="ui-button ui-button-secondary" disabled={busy} onClick={() => setRole(found, found.role === 'admin' ? 'user' : 'admin')} data-testid="team-role">
             {found.role === 'admin' ? <><ShieldOff size={16} aria-hidden="true" />{copy('ถอดสิทธิ์แอดมิน', 'Remove admin')}</> : <><ShieldCheck size={16} aria-hidden="true" />{copy('ให้สิทธิ์แอดมิน', 'Make admin')}</>}
@@ -284,7 +284,7 @@ export default function AdminTeamTokens({ userId, triggerConfirm, language, mobi
         <>{finder}{lookupError && <p className="atk-error" role="alert">{lookupError}</p>}{status}{card}</>)}
       {listError && <p className="atk-error" role="alert">{listError}</p>}
       {section('team', copy('ทีมแอดมิน', 'Admin team'),
-        copy('แอดมินเห็นผู้ใช้งาน การใช้ฟีเจอร์ รายบัญชี ผู้ใช้ใหม่ ข้อความจากผู้ใช้ และส่งข้อความถึงผู้ใช้ได้ เฉพาะผู้ดูแลเห็นรายได้ กำไรและต้นทุน และภาพรวมการเงิน', 'Admins see activity, features, accounts, new users and messages, and can message everyone. Only the owner sees revenue, profit and cost, and the money overview.'),
+        copy('แอดมินเห็นผู้ใช้งาน การใช้ฟีเจอร์ รายบัญชี ผู้ใช้ใหม่ ข้อความจากผู้ใช้ และส่งข้อความถึงผู้ใช้ได้ ไม่ได้ฟีเจอร์ Pro และไม่ได้โทเคน เว้นแต่คุณแจกให้ เฉพาะผู้ดูแลเห็นรายได้ กำไรและต้นทุน และภาพรวมการเงิน', 'Admins see activity, features, accounts, new users and messages, and can message everyone. No Pro features and no tokens unless you give them. Only the owner sees revenue, profit and cost, and the money overview.'),
         team)}
       {section('log', copy('โทเคนที่แจกล่าสุด', 'Latest tokens given'), null, history)}
     </div>

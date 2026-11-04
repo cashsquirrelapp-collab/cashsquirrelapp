@@ -113,6 +113,9 @@ for (const size of [{ name: 'computer', width: 1440, height: 900 }, { name: 'iPa
     for (const name of ['ภาพรวม', 'รายได้ / Pro', 'กำไรและต้นทุน AI', 'จัดการระบบ', 'ทีมงานและโทเคน']) await expect(nav.getByRole('button', { name, exact: true })).toHaveCount(0);
     // Opens on ผู้ใช้งาน; the owner's buttons are not there.
     await expect(nav.getByRole('button', { name: 'ผู้ใช้งาน', exact: true })).toHaveAttribute('aria-current', 'page');
+    // Back office only (owner, 2026-11-04): the admin page is in the menu, unreleased pages are not.
+    await expect(page.getByRole('button', { name: 'แดชบอร์ดแอดมิน', exact: true })).toBeVisible();
+    for (const name of ['เป้าหมาย', 'รายงาน', 'ภาษี', 'ทีม']) await expect(page.getByRole('button', { name, exact: true })).toHaveCount(0);
     await expect(page.getByTestId('admin-line-samples')).toHaveCount(0);
     await nav.getByRole('button', { name: 'รายบัญชี', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'พฤติกรรมรายบัญชี' })).toBeVisible();
@@ -137,6 +140,8 @@ for (const size of [{ name: 'computer', width: 1440, height: 900 }, { name: 'iPa
     await open(page, owner, posts);
     const nav = page.getByRole('navigation', { name: 'หมวดการวิเคราะห์' });
     for (const name of ['ภาพรวม', 'รายได้ / Pro', 'กำไรและต้นทุน AI', 'จัดการระบบ']) await expect(nav.getByRole('button', { name, exact: true })).toBeVisible();
+    // The owner keeps the unreleased pages.
+    await expect(page.getByRole('button', { name: 'เป้าหมาย', exact: true })).toHaveCount(1);
     await nav.getByRole('button', { name: 'ทีมงานและโทเคน', exact: true }).click();
     await expect(page.getByTestId('team-admins')).toContainText('Krarok team');
     await expect(page.getByText('ยังไม่ได้แจกโทเคนให้บัญชีใด')).toBeVisible();

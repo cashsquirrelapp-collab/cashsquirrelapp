@@ -17,7 +17,8 @@ test.beforeEach(async({page})=>{
 // goals, the admin's first-document view) are tested as a system admin, who sees them all. Ordinary accounts are
 // the default everywhere else, so the rest of this file checks what customers see.
 const asAdmin=(page:import('@playwright/test').Page)=>page.route('**/api/groups?*',route=>route.fulfill({json:{systemRole:'admin',groups:[],invitations:[],total:0,page:0}}));
-const user={id:'11111111-1111-4111-8111-111111111111',email:'test@example.com',role:'user',created_at:'2026-01-01T00:00:00Z',user_metadata:{}};
+// Unreleased pages open for the owner's account only (2026-11-04); this account plays the owner when its role is admin.
+const user={ adminLevel: 'owner' as const,id:'11111111-1111-4111-8111-111111111111',email:'test@example.com',role:'user',created_at:'2026-01-01T00:00:00Z',user_metadata:{}};
 const snapshot={jobs:[],expenses:[],goals:[],invoices:[],settings:{monthlyExpense:0,monthlyRevenueGoal:20000,savingsPercentage:40,profileSetupCompleted:true,userPersona:'freelance'},statuses:[{id:'done',label:'จ่ายเงินครบแล้ว',behavior:'done'},{id:'partial',label:'มัดจำแล้ว',behavior:'partial'},{id:'pending',label:'ยังไม่จ่าย',behavior:'pending'}],job_types:['Sponsored Post'],notif_settings:{enabled:true,alertEmail:user.email,serviceType:'mailto',emailjsServiceId:'',emailjsTemplateId:'',emailjsPublicKey:'',pendingQueue:[],lineUserId:null},avatar_data_url:null,issuer_profile:null};
 // Tests whose sample jobs sit in one month run on a fixed day in it (2026-11-01: the jobs list shows the current month,
 // so October jobs vanished on 1 November, and a job 3 days late fell into the month before on the 1st to the 3rd).

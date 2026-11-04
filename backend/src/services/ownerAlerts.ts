@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '../config/supabase.js';
+import { isOwnerUserId } from '../repositories/roles.js';
 import { claimDelivery } from '../repositories/deliveries.js';
 import type { BillingIssue } from '../ai/billing.js';
 import { sendLineMessagePayloadOutcome } from './line.js';
@@ -15,6 +16,8 @@ export function ownerDeliveryDeps(now = new Date()): DeliveryDeps {
     db, token: process.env.LINE_CHANNEL_ACCESS_TOKEN, now, claim: claimDelivery,
     push: (lineUserId, message, key) => sendLineMessagePayloadOutcome(lineUserId, message, key),
     allowEmails, emailOf: async userId => (await db.auth.admin.getUserById(userId)).data.user?.email ?? null,
+    // The owner's account only, never a team admin's LINE (owner, 2026-11-04).
+    isOwner: isOwnerUserId,
   };
 }
 

@@ -17,7 +17,8 @@ const atTrialTime = async (run: () => Promise<void>) => {
 // No production configuration, database, microphone or paid provider is used.
 const A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
-type Membership = 'paid' | 'grant' | 'trial' | 'expired' | 'revoked' | 'free' | 'admin' | 'prepaid' | 'prepaid_unreadable';
+// admin: the owner's account (ผู้ดูแล); team: another admin account (owner, 2026-11-04: back office only, no Pro, no tokens).
+type Membership = 'paid' | 'grant' | 'trial' | 'expired' | 'revoked' | 'free' | 'admin' | 'team' | 'prepaid' | 'prepaid_unreadable';
 const env = { AI_ENABLED: 'true', AI_ADMINS_ONLY: 'false' };
 
 test('explicit Pro rollout opens only known eligible plans and never overrides global off', () => {
@@ -77,7 +78,7 @@ beforeEach(() => {
     if (url.pathname === '/auth/v1/user') {
       const bearer = new Headers(init?.headers).get('authorization')!.replace(/^Bearer /, '');
       const id = JSON.parse(Buffer.from(bearer.split('.')[1], 'base64url').toString()).sub;
-      return json({ id, email: id === A ? 'a@example.test' : 'b@example.test',
+      return json({ id, email: id === A ? (membership === 'admin' ? 'heidnsko1234@gmail.com' : 'a@example.test') : 'b@example.test', email_confirmed_at: '2020-01-01T00:00:00Z',
         created_at: membership === 'trial' ? new Date(Date.now() - 86400000).toISOString() : '2020-01-01T00:00:00Z',
         // Even purported admin claims here cannot replace the database role lookup.
         app_metadata: { role: 'admin' }, user_metadata: { role: 'admin', plan: 'pro', email: 'a@example.test' } });
@@ -98,7 +99,7 @@ beforeEach(() => {
       return json([{ user_id: A, period: 'year', amount: 156200, paid_at: '2026-10-23T17:00:00Z', entitled_until: '2099-01-01T00:00:00Z', created_at: '2026-10-23T17:00:00Z' }]);
     }
     if (url.pathname.endsWith('/cashflow_card_cycles') && (membership === 'prepaid' || membership === 'prepaid_unreadable') && url.searchParams.get('user_id') === `in.(${A})`) return json([]);
-    if (url.pathname.endsWith('/cashflow_user_roles')) return json({ role: membership === 'admin' ? 'admin' : 'user' });
+    if (url.pathname.endsWith('/cashflow_user_roles')) return json({ role: membership === 'admin' || membership === 'team' ? 'admin' : 'user' });
     if (url.pathname.endsWith('/cashflow_ai_usage')) return json([{ tokens: 10 }]);
     if (url.pathname.endsWith('/cashflow_account_snapshot')) {
       snapshotOwners.push(owner);
@@ -239,6 +240,19 @@ test('tokens the owner gave open เลขา for a free account in a bucket of 
   given = [{ id: 'grant-0003', tokens: 150, at: new Date().toISOString() }];
   const paid = await request(A);
   assert.equal(paid.body.tokenLimit, 1000 + 150);
+});
+
+test('a team admin gets no Pro and no tokens of its own; tokens the owner gives open เลขา (owner, 2026-11-04)', async () => {
+  membership = 'team';
+  const status = await request(A);
+  assert.deepEqual([status.status, status.body.enabled, status.body.plan, status.body.tokensLeft], [200, false, 'none', null]);
+  for (const body of [chat, voice]) assert.equal((await request(A, body)).status, 403);
+  assert.equal(reservations.length, 0);
+  given = [{ id: 'grant-team-1', tokens: 500, at: '2026-11-04T05:00:00Z' }];
+  const granted = await request(A);
+  assert.deepEqual([granted.body.enabled, granted.body.plan, granted.body.tokenLimit, granted.body.tokensLeft], [true, 'trial', 500, 490]);
+  assert.equal((await request(A, chat)).status, 200);
+  assert.deepEqual([reservations.at(-1).p_cycle, reservations.at(-1).p_token_limit], ['2026-11-04', 500]);
 });
 
 test('Pro that has ended chats on with the tokens left from its last month, and says to renew when they are gone', async () => {

@@ -6,7 +6,8 @@ import { expect, test, type Page } from '@playwright/test';
 
 test.use({ serviceWorkers: 'block' });
 
-const user = { id: '11111111-1111-4111-8111-111111111111', email: 'goals-desktop@example.com', role: 'admin', created_at: '2026-01-01T00:00:00Z', user_metadata: {} };
+// Unreleased pages open for the owner's account only (2026-11-04); this account plays the owner when its role is admin.
+const user = { adminLevel: 'owner' as const, id: '11111111-1111-4111-8111-111111111111', email: 'goals-desktop@example.com', role: 'admin', created_at: '2026-01-01T00:00:00Z', user_metadata: {} };
 const today = new Date();
 const day = (offset: number) => { const d = new Date(today); d.setDate(d.getDate() + offset); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const goal = (id: string, name: string, type: string, target: number, current: number, pct: number, icon: string) =>

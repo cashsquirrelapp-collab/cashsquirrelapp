@@ -4,7 +4,8 @@ import type { User } from '@supabase/supabase-js';
 import { getSupabaseAdmin } from '../config/supabase.js';
 import { HttpError } from '../http/guard.js';
 import { accountSnapshot } from '../repositories/accounts.js';
-import { systemRole } from '../repositories/roles.js';
+import { isOwnerUserId, systemRole } from '../repositories/roles.js';
+import { isOwnerAccount } from '../security/adminAnalyticsAccess.js';
 import { loadTokenGrants } from '../repositories/tokenGrants.js';
 import type { UserRow } from '../services/lineAssistant.js';
 import { listVaultFiles, hasProAccess } from '../services/vault.js';
@@ -45,7 +46,9 @@ export async function assistantPlan(user: User, now = Date.now()): Promise<PlanI
   ]);
   if (error) throw error;
   const grants = given.length ? given.map(grant => ({ tokens: grant.tokens, at: grant.at })) : undefined;
-  if (role === 'admin') return { plan: 'admin', ...(grants ? { grants } : {}) };
+  // The owner's account alone has the admin allowance; a team admin is an ordinary account here (owner, 2026-11-04:
+  // "ไม่มีสิทธิ์ได้โทเค็นนอกจากถ้ากูไม่อนุญาต"): its own plan, plus only the tokens the owner gives it.
+  if (role === 'admin' && isOwnerAccount(user)) return { plan: 'admin', ...(grants ? { grants } : {}) };
   // A Pro ban stops เลขา too, given tokens included.
   if (sub?.plan === 'admin_revoked') return { plan: 'none' };
   if (sub?.plan === 'admin_removed') return grantedOnly(grants);
@@ -260,7 +263,7 @@ export const supabaseAssistantDb: AssistantDb = {
       release: releaseDocumentSlots,
       apply: async (owner, validated) => {
         // A pending goal proposal cannot outlive the account's verified admin feature access.
-        if (validated.some(change => change.table === 'cashflow_goals') && await systemRole(owner) !== 'admin') {
+        if (validated.some(change => change.table === 'cashflow_goals') && !(await isOwnerUserId(owner))) {
           throw new HttpError(403, 'ฟีเจอร์เป้าหมายยังไม่เปิดให้บัญชีนี้ใช้งาน', 'ai_feature_unavailable');
         }
         const { data, error } = await getSupabaseAdmin().rpc('cashflow_apply_changes', { p_user_id: owner, p_changes: validated });

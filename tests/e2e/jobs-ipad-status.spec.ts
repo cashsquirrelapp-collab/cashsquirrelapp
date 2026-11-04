@@ -9,7 +9,8 @@ import { textOverlapIssues } from './textOverlap';
 
 test.use({ serviceWorkers: 'block' });
 
-const user = { id: '11111111-1111-4111-8111-111111111111', email: 'jobs@example.com', role: 'admin', created_at: '2026-01-01T00:00:00Z', user_metadata: {} };
+// Unreleased pages open for the owner's account only (2026-11-04); this account plays the owner when its role is admin.
+const user = { adminLevel: 'owner' as const, id: '11111111-1111-4111-8111-111111111111', email: 'jobs@example.com', role: 'admin', created_at: '2026-01-01T00:00:00Z', user_metadata: {} };
 const today = new Date('2026-10-28T05:00:00Z');
 const day = (offset: number) => { const d = new Date(today); d.setDate(d.getDate() - offset); return d.toISOString().slice(0, 10); };
 const base = { client: 'บริษัท ตัวอย่าง จำกัด', type: 'Design', creditTerm: 30, note: '', whtRate: 0, whtAmount: 0 };

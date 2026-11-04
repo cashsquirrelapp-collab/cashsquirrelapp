@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { readFile } from "node:fs/promises";
-const user = {
+// Unreleased pages and the team's preview tools open for the owner's account only (2026-11-04).
+const user = { adminLevel: 'owner' as const,
   id: "11111111-1111-4111-8111-111111111111",
   email: "member@example.com",
   role: "user",

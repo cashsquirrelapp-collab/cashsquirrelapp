@@ -9,7 +9,8 @@ import { textOverlapIssues } from './textOverlap';
 
 test.use({ serviceWorkers: 'block' });
 
-const user = { id: '11111111-1111-4111-8111-111111111111', email: 'flex@example.com', role: 'admin', created_at: '2026-01-01T00:00:00Z', user_metadata: {} };
+// Unreleased pages and the team's preview tools open for the owner's account only (2026-11-04).
+const user = { adminLevel: 'owner' as const, id: '11111111-1111-4111-8111-111111111111', email: 'flex@example.com', role: 'admin', created_at: '2026-01-01T00:00:00Z', user_metadata: {} };
 const job = (id: string, over: Record<string, unknown>) => ({ id, name: id, type: 'Other', client: 'ลูกค้าตัวอย่าง', value: 0, received: 0, pending: 0, status: 'done', creditTerm: 0, payDate: null, note: '', ...over });
 const jobs = [
   job('ออกแบบโลโก้', { value: 12000, pending: 12000, status: 'pending', payDate: '2026-09-22' }),

@@ -1,6 +1,6 @@
 import { isPhaseOneFeatureAvailable } from '../../../shared/featureAvailability.js';
 import { getSupabaseAdmin } from '../config/supabase.js';
-import { systemRole } from '../repositories/roles.js';
+import { isOwnerUserId } from '../repositories/roles.js';
 
 // The menu under the LINE chat (owner, 2026-10-24: "ปุ่มแนบเอกสารใน Line ให้เห็นแค่ของบัญชีแอดมิน นอกนั้นไม่สามารถ
 // เห็นได้"). Everyone gets the 5-tile menu without แนบเอกสาร as LINE's default. A LINE chat linked to a system admin
@@ -180,14 +180,17 @@ const supabaseMenuStore: MenuStore = {
   async adminIds() {
     const result = await getSupabaseAdmin().from('cashflow_user_roles').select('user_id').eq('role', 'admin');
     if (result.error) throw result.error;
-    return new Set((result.data || []).map(row => String(row.user_id)));
+    // The admin menu is the owner's: a team admin gets the menu every account gets (owner, 2026-11-04).
+    const ids = (result.data || []).map(row => String(row.user_id));
+    const owners = await Promise.all(ids.map(id => isOwnerUserId(id)));
+    return new Set(ids.filter((_, index) => owners[index]));
   },
   async userIdForLine(lineUserId) {
     const result = await getSupabaseAdmin().from('cashflow_line_links').select('user_id').eq('line_user_id', lineUserId).maybeSingle();
     if (result.error) throw result.error;
     return result.data?.user_id ? String(result.data.user_id) : null;
   },
-  async isAdmin(userId) { return (await systemRole(userId)) === 'admin'; },
+  async isAdmin(userId) { return isOwnerUserId(userId); },
 };
 
 /** The site's own picture: from the Worker's asset store on Cloudflare (cloudflare/worker.ts), else APP_URL. */

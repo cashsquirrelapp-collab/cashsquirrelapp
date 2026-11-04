@@ -17,22 +17,30 @@ const PHASE_ONE_FEATURES = new Set([
   'vault', 'wht50',
 ]);
 
+/**
+ * Everything not released yet: the owner's account only (owner, 2026-11-04: "แอดมินคนอื่นไม่มีสิทธิ์ได้ฟังก์ชันโปรนะเว้ย
+ * แค่สามารถใช้ดูหลังบ้านได้แค่นั้นเอง"). A team admin sees what every account sees, plus the admin page.
+ */
 export function hasFullFeatureAccess(context: {
   isGuest?: boolean;
   userId?: string | null;
   roleUserId?: string | null;
   systemRole?: SystemRole | null;
+  /** The server says this is the owner's account (session.user.adminLevel === 'owner'). */
+  isOwner?: boolean;
 }): boolean {
   return context.isGuest !== true
     && Boolean(context.userId)
     && context.userId === context.roleUserId
-    && context.systemRole === 'admin';
+    && context.systemRole === 'admin'
+    && context.isOwner === true;
 }
 
-export function isPhaseOneFeatureAvailable(feature: string, fullFeatureAccess: boolean): boolean {
-  return fullFeatureAccess || PHASE_ONE_FEATURES.has(feature);
+/** adminPage: the account may open the admin page (the owner or a team admin); it opens nothing else. */
+export function isPhaseOneFeatureAvailable(feature: string, fullFeatureAccess: boolean, adminPage = false): boolean {
+  return fullFeatureAccess || PHASE_ONE_FEATURES.has(feature) || (adminPage && feature === 'adminDashboard');
 }
 
-export function resolvePhaseOneTab<T extends string>(tab: T, fullFeatureAccess: boolean): T | 'dashboard' {
-  return isPhaseOneFeatureAvailable(tab, fullFeatureAccess) ? tab : 'dashboard';
+export function resolvePhaseOneTab<T extends string>(tab: T, fullFeatureAccess: boolean, adminPage = false): T | 'dashboard' {
+  return isPhaseOneFeatureAvailable(tab, fullFeatureAccess, adminPage) ? tab : 'dashboard';
 }

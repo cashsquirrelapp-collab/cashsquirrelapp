@@ -8,7 +8,8 @@ import { noRadar } from './radarVisit';
 
 test.use({ serviceWorkers: 'block' });
 
-const user = { id: '11111111-1111-4111-8111-111111111111', email: 'jobs@example.com', role: 'admin', created_at: '2026-01-01T00:00:00Z', user_metadata: {} };
+// Unreleased pages open for the owner's account only (2026-11-04); this account plays the owner when its role is admin.
+const user = { adminLevel: 'owner' as const, id: '11111111-1111-4111-8111-111111111111', email: 'jobs@example.com', role: 'admin', created_at: '2026-01-01T00:00:00Z', user_metadata: {} };
 // A fixed day late in a month, for the page and these dates alike (2026-11-01: on the 1st the jobs, dated up to 20 days
 // back, all fell in the month before, which the list does not open on). The clock still runs from it.
 const today = new Date('2026-10-28T05:00:00Z');

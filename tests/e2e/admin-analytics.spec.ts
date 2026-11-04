@@ -113,7 +113,9 @@ test('an account the server gives no admin level cannot see the menu or fetch an
     user_metadata: { email: user.email, canViewAdminAnalytics: true, adminLevel: 'owner' },
   } } } }));
   await page.goto('/adminDashboard/ceo-park');
-  await expect(page.getByRole('alert').filter({ hasText: 'หน้านี้เข้าถึงได้เฉพาะเจ้าของระบบเท่านั้น' })).toBeVisible();
+  // The admin page is not open to it: the address falls back to the overview.
+  await expect(page).not.toHaveURL(/adminDashboard/);
+  await expect(page.getByRole('heading', { name: 'แดชบอร์ดแอดมิน' })).toHaveCount(0);
   await expect(page.getByText('฿6,258.00', { exact: true })).toHaveCount(0);
   await expect(page.locator('a[href*="/adminDashboard"]')).toHaveCount(0);
   expect(analyticsRequests).toBe(0);

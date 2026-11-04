@@ -602,6 +602,10 @@ card does not need:
   ภาพรวม, รายได้ / Pro, กำไรและต้นทุน AI, จัดการระบบ or ทีมงานและโทเคน; the statistics reach a team admin with every money
   figure removed on the server (`withoutMoney`), so the ยอดเติมสะสม column, the drawer's payment parts and the phone's
   revenue header and latest payments are not drawn. A team admin's phone header shows active users instead.
+- A team admin is an ordinary account everywhere else (owner, 2026-11-04: "แอดมินคนอื่นไม่มีสิทธิ์ได้ฟังก์ชันโปร ... แค่ดูหลังบ้าน
+  ... ไม่มีสิทธิ์ได้โทเค็นนอกจากกูส่งให้"): no unreleased pages (`hasFullFeatureAccess` needs the owner), no Pro, no admin
+  token allowance, LINE's ordinary menu, none of the owner's LINE reports or alerts. เลขา opens for it only with tokens the
+  owner gives; an account without Pro asks again when it comes back to the app, so a grant needs no reload.
 - ทีมงานและโทเคน (`groups/AdminTeamTokens.tsx`, owner only; computers/iPads a tab, phones a row in เครื่องมือแอดมิน): one
   search by UID (the User ID people see in Settings) opens the account's card: role chip, เลขา plan, tokens available now,
   tokens given in all; แจกโทเคน (chips 100 / 200 / 500 / 1,000, amount, a note to self, one primary button, a line that says
