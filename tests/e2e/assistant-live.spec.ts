@@ -364,7 +364,7 @@ test('attach: a PDF goes as it is; files that cannot be read are refused on scre
   // agrees; until then nothing is sent. Afterwards a short line reminds it.
   const notice = page.getByTestId('chat-file-notice');
   await expect(notice).toHaveAttribute('data-state', 'ask');
-  await expect(notice).toContainText('ระบบปิดข้อมูลส่วนตัวในรูปให้ไม่ได้');
+  await expect(notice).toContainText('แนะนำให้ครอปหรือปิดส่วนนั้นก่อนส่ง');
   await page.locator('#asx-message').fill('ช่วยเพิ่มงานจากใบนี้');
   await page.locator('.asx-send').click();
   await expect(page.locator('.asx-sent-file')).toHaveCount(0);

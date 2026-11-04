@@ -111,9 +111,9 @@ test('เลขา: the consent card takes the place of the box until agreed; no
   const card = page.getByTestId('ai-consent');
   await expect(card).toBeVisible();
   await expect(page.locator('#asx-message')).toHaveCount(0);
-  await expect(card).toContainText('เลขาอาจตอบผิดพลาด');
+  await expect(card).toContainText('เลขาตอบผิดได้บ้าง');
   await expect(card).toContainText('ไม่ใช่คำปรึกษาทางภาษี บัญชี หรือกฎหมาย');
-  await expect(card).toContainText('ผู้ให้บริการ AI ภายนอก');
+  await expect(card).toContainText('ไม่ถูกนำไปฝึก AI');
   expect(await textOverlapIssues(page)).toEqual([]);
   await page.screenshot({ path: 'test-results/consent-ai-computer.png' });
   expect(mock.otherPosts.filter(post => post.body?.action === 'message')).toEqual([]);

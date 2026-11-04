@@ -37,7 +37,7 @@ export function TermsGate({ account, phone, onSignOut }: { account: string; phon
         </span>
         <h2 id="terms-gate-title" className={`mt-3.5 font-semibold leading-[1.45] ${phone ? 'text-[19px]' : 'text-[21px]'}`}>{tr("ข้อตกลงก่อนใช้งาน")}</h2>
         <p id="terms-gate-lead" className="mt-1.5 text-[14px] leading-[1.65] text-brand-muted">
-          {tr("กระรอกตุนเงินเก็บข้อมูลงาน ลูกค้า และการเงินที่คุณบันทึก เพื่อคุ้มครองข้อมูลของคุณและลูกค้าของคุณ กรุณาอ่านและยืนยันทั้ง 2 ข้อก่อนใช้งานต่อ")}
+          {tr("ข้อมูลงาน ลูกค้า และการเงินที่คุณบันทึก เก็บไว้ในบัญชีของคุณ เราไม่ขายข้อมูลส่วนบุคคล และไม่ใช้ข้อมูลการเงินของคุณเพื่อโฆษณา กรุณาอ่านและยืนยัน 2 ข้อด้านล่างก่อนใช้งานต่อ")}
         </p>
         <div className="mt-4 divide-y divide-brand-border overflow-hidden rounded-[14px] bg-brand-faint">
           <label className={row}>
@@ -51,12 +51,12 @@ export function TermsGate({ account, phone, onSignOut }: { account: string; phon
           <label className={row}>
             <input type="checkbox" className={box} checked={clients} onChange={event => setClients(event.target.checked)} data-testid="terms-gate-clients" />
             <span className="text-[14px] leading-[1.6]">
-              {tr("ข้อมูลลูกค้าที่ฉันบันทึก เช่น ชื่อ ที่อยู่ เลขผู้เสียภาษี เบอร์โทร และอีเมล ฉันได้รับมาโดยชอบ และใช้เพื่อทำงานและออกเอกสารให้ลูกค้ารายนั้นเท่านั้น")}
+              {tr("ข้อมูลลูกค้าที่ฉันบันทึก เช่น ชื่อ ที่อยู่ เลขผู้เสียภาษี เบอร์โทร และอีเมล เป็นข้อมูลที่ลูกค้าให้มา และใช้เพื่อทำงานและออกเอกสารให้ลูกค้ารายนั้นเท่านั้น")}
             </span>
           </label>
         </div>
         <p className="mt-3 text-[12.5px] leading-[1.6] text-brand-muted">
-          {tr("ระบบบันทึกวันและเวลาที่คุณยืนยัน การใช้เลขากระรอกและการเชื่อมต่อ LINE จะขอความยินยอมแยกอีกครั้งเมื่อเริ่มใช้")}
+          {tr("ถามครั้งเดียว ระบบเก็บวันเวลาที่คุณยืนยันไว้เป็นหลักฐาน ส่วนเลขากระรอกและ LINE จะถามแยกเมื่อคุณเริ่มใช้")}
         </p>
         {problem && <p className="mt-2 text-[13px] leading-[1.6] text-[#C43A3A] dark:text-[#F19A9A]" role="alert">{problem}</p>}
         <div className={`mt-5 grid gap-2 ${phone ? '' : 'grid-cols-[auto_1fr]'}`}>

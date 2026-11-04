@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, CheckCircle2, EyeOff, Send, Settings2, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, EyeOff, Info, Lock, Settings2, ShieldCheck } from 'lucide-react';
 import { tr } from '../../i18n/tr';
 import { giveConsent, useConsents } from '../../services/consent';
 import './aiConsent.css';
@@ -15,12 +15,16 @@ export function useAiConsentNeeded(accountId?: string, live = true): boolean {
   return Boolean(live && accountId) && consents.given('ai') === false;
 }
 
-const POINTS: { icon: typeof Send; text: string }[] = [
-  { icon: Send, text: "ข้อความ เสียง และไฟล์ที่คุณส่ง พร้อมข้อมูลในบัญชีที่จำเป็นต่อคำตอบ ส่งให้ผู้ให้บริการ AI ภายนอกประมวลผล ซึ่งอาจอยู่นอกประเทศไทย" },
-  { icon: EyeOff, text: "ไฟล์ตาราง เอกสาร และข้อความ ระบบปิดอีเมล เบอร์โทร เลขบัตร เลขบัญชี ที่อยู่ และชื่อบุคคลก่อนส่ง ส่วนรูปและ PDF ส่งทั้งไฟล์" },
-  { icon: AlertTriangle, text: "เลขาอาจตอบผิดพลาด โปรดตรวจตัวเลขและข้อมูลสำคัญก่อนใช้ คำตอบไม่ใช่คำปรึกษาทางภาษี บัญชี หรือกฎหมาย" },
-  { icon: CheckCircle2, text: "งาน รายจ่าย และเอกสาร เลขาจะแสดงการ์ดให้คุณตรวจและกดยืนยันก่อนบันทึก แก้ไข หรือลบทุกครั้ง" },
-  { icon: Settings2, text: "ใช้ทั้งในแอปและ LINE ถอนความยินยอมได้ทุกเมื่อที่ ตั้งค่า › ความยินยอม" },
+// Owner, 2026-11-05, on the first wording: "อ่านรู้สึกว่ามันอันตราย ... ข้อมูลส่วนตัวคุณอาจจะไปอยู่ที่ต่างประเทศ ... สรุปมัน
+// ปลอดภัยจริงไหม". So each point says first how the data is looked after, in plain words, and stays true: the AI services
+// are paid business plans, which do not train on what is sent; the masking covers file text (privacyMask.ts), and a
+// picture or PDF gets its own notice (ChatUploadViews.tsx). Where the processing happens is in the privacy policy.
+const POINTS: { icon: typeof Lock; text: string }[] = [
+  { icon: Lock, text: "เลขาอ่านข้อความ เสียง ไฟล์ และข้อมูลในบัญชีเท่าที่ต้องใช้ตอบ ผ่านบริการ AI แบบธุรกิจที่เราเลือกใช้ ข้อมูลใช้เพื่อตอบคุณเท่านั้น และไม่ถูกนำไปฝึก AI" },
+  { icon: EyeOff, text: "ไฟล์ Excel, Word และไฟล์ข้อความ ระบบปิดอีเมล เบอร์โทร เลขบัตร เลขบัญชี ที่อยู่ และชื่อบุคคลให้อัตโนมัติก่อนส่ง ส่วนรูปและ PDF แอปจะแจ้งให้ทราบก่อนส่ง" },
+  { icon: CheckCircle2, text: "งาน รายจ่าย และเอกสาร เลขาไม่บันทึกเอง จะแสดงการ์ดให้คุณตรวจและกดยืนยันก่อนบันทึก แก้ไข หรือลบทุกครั้ง" },
+  { icon: Info, text: "เลขาตอบผิดได้บ้าง โปรดตรวจตัวเลขสำคัญก่อนใช้ คำตอบเป็นข้อมูลประกอบ ไม่ใช่คำปรึกษาทางภาษี บัญชี หรือกฎหมาย" },
+  { icon: Settings2, text: "ใช้ได้ทั้งในแอปและ LINE เปลี่ยนใจได้ทุกเมื่อที่ ตั้งค่า › ความยินยอม" },
 ];
 
 export function AiConsentCard({ accountId, compact = false }: { accountId: string; compact?: boolean }) {
@@ -35,9 +39,9 @@ export function AiConsentCard({ accountId, compact = false }: { accountId: strin
   };
   return (
     <section className={`asx-consent${compact ? ' is-compact' : ''}`} role="region" aria-labelledby="asx-consent-title" data-testid="ai-consent">
-      <header className="asx-consent-head"><ShieldCheck size={15} aria-hidden="true" /><span>{tr("ความยินยอม")}</span></header>
+      <header className="asx-consent-head"><ShieldCheck size={15} aria-hidden="true" /><span>{tr("ความเป็นส่วนตัว")}</span></header>
       <h3 id="asx-consent-title">{tr("ก่อนเริ่มใช้เลขากระรอก")}</h3>
-      <p className="asx-consent-lead">{tr("เลขากระรอกตอบคำถาม บันทึก และเตรียมเอกสารด้วยระบบ AI กรุณาอ่านแล้วกดยินยอมก่อนเริ่มใช้ (ครั้งเดียว)")}</p>
+      <p className="asx-consent-lead">{tr("เลขากระรอกใช้ AI ช่วยตอบคำถาม บันทึกรายการ และเตรียมเอกสาร นี่คือวิธีที่เราดูแลข้อมูลของคุณ กดยินยอมครั้งเดียวก็เริ่มใช้ได้เลย")}</p>
       <ul className="asx-consent-group">
         {POINTS.map(({ icon: Icon, text }) => <li key={text}><Icon size={16} aria-hidden="true" /><span>{tr(text)}</span></li>)}
       </ul>
@@ -45,7 +49,7 @@ export function AiConsentCard({ accountId, compact = false }: { accountId: strin
       <button type="button" className="asx-consent-ok" onClick={() => { void agree(); }} disabled={busy} data-testid="ai-consent-ok">
         {busy ? tr("กำลังบันทึก…") : tr("ยินยอมและเริ่มใช้งาน")}
       </button>
-      <p className="asx-consent-note"><a href="/privacy" target="_blank" rel="noopener">{tr("อ่านนโยบายความเป็นส่วนตัว")}</a></p>
+      <p className="asx-consent-note"><a href="/privacy" target="_blank" rel="noopener">{tr("อ่านรายละเอียดในนโยบายความเป็นส่วนตัว")}</a></p>
     </section>
   );
 }

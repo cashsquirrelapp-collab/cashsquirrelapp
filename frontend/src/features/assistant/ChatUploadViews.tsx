@@ -39,14 +39,14 @@ export function useFileNotice(accountId?: string) {
 
 function FileNotice({ acked, onAck }: { acked: boolean; onAck: () => void }) {
   if (acked) {
-    return <p className="asx-file-notice is-quiet" data-testid="chat-file-notice" data-state="acked"><ShieldAlert size={14} aria-hidden="true" />{tr("รูปและ PDF ส่งให้เลขาอ่านทั้งไฟล์ ระบบปิดข้อมูลส่วนตัวในรูปให้ไม่ได้")}</p>;
+    return <p className="asx-file-notice is-quiet" data-testid="chat-file-notice" data-state="acked"><ShieldAlert size={14} aria-hidden="true" />{tr("รูปและ PDF เลขาอ่านทั้งไฟล์ หากมีข้อมูลส่วนตัวของลูกค้า แนะนำให้ครอปหรือปิดก่อนส่ง")}</p>;
   }
   return (
     <div className="asx-file-notice" role="note" data-testid="chat-file-notice" data-state="ask">
       <ShieldAlert size={18} aria-hidden="true" />
       <div className="asx-file-notice-text">
         <b>{tr("ก่อนส่งรูปหรือ PDF")}</b>
-        <p>{tr("รูปและ PDF จะถูกส่งให้ผู้ให้บริการที่ช่วยเลขาอ่านทั้งไฟล์ ระบบปิดข้อมูลส่วนตัวในรูปให้ไม่ได้ ถ้ามีเบอร์โทร ที่อยู่ หรือเลขบัตรของลูกค้า ให้ครอปหรือปิดก่อนส่ง ไฟล์ Excel, Word และข้อความ ระบบปิดข้อมูลส่วนตัวให้ก่อนส่ง")}</p>
+        <p>{tr("เลขาอ่านรูปและ PDF ทั้งไฟล์ เพื่อดูแลข้อมูลของลูกค้า หากในไฟล์มีเบอร์โทร ที่อยู่ หรือเลขบัตร แนะนำให้ครอปหรือปิดส่วนนั้นก่อนส่ง ส่วนไฟล์ Excel, Word และไฟล์ข้อความ ระบบปิดข้อมูลส่วนตัวให้อัตโนมัติ")}</p>
         <button type="button" className="asx-file-notice-ok" onClick={onAck} data-testid="chat-file-notice-ok">{tr("เข้าใจแล้ว")}</button>
       </div>
     </div>

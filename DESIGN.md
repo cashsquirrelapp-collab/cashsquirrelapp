@@ -504,6 +504,12 @@ card does not need:
   withdraws it. Settings › ความยินยอม lists all three with their dates and how to withdraw each.
 - Short privacy lines (one muted line, never a block): the client section of a document (computer and phone), the
   issuer's details (who will see them), the vault upload, the แจ้งปัญหา box and the public report form.
+- Tone (owner, 2026-11-05: "อ่านรู้สึกว่ามันอันตราย ... ข้อมูลส่วนตัวคุณอาจจะไปอยู่ที่ต่างประเทศ ... สรุปมันปลอดภัย
+  จริงไหม"): every consent and privacy line first says how the data is looked after (used only to answer you, never used
+  to train AI, masked automatically, you confirm before anything is saved, change your mind any time), then what the
+  person should do, as advice ("แนะนำให้ครอป…"), not as a failure ("ปิดให้ไม่ได้"). No alarming words in the app
+  (นอกประเทศไทย, ส่งทั้งไฟล์, โดยชอบ, ไม่กระทบการประมวลผล); where processing happens and the legal detail live in the
+  privacy policy, linked from the card. Never claim a protection the code or the providers' terms do not give.
 
 ### Live steps and the file check (owner, 2026-11-04: "แบบของ Claude หรือ GPT ขึ้นสถานะไว้" / "ขึ้นหน้าแบบว่าเหมือนกำลังเช็คงาน")
 - While เลขา works on something heavy (owner, 2026-11-04: "เวลาถามสั้นๆง่าย ไม่ต้องขึ้นสถานะเรียลไทม์ จะขึ้นก็ต่อเมื่อโดนถาม

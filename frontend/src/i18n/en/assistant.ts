@@ -660,7 +660,7 @@ export const assistant: Record<string, string> = {
   'ไฟล์รวมกันใหญ่เกิน 8 MB กรุณาส่งทีละน้อยลง': 'The files are over 8 MB together. Please send fewer at a time.',
   // Before a picture or PDF is sent (2026-11-04).
   "ก่อนส่งรูปหรือ PDF": "Before sending a picture or PDF",
-  "รูปและ PDF จะถูกส่งให้ผู้ให้บริการที่ช่วยเลขาอ่านทั้งไฟล์ ระบบปิดข้อมูลส่วนตัวในรูปให้ไม่ได้ ถ้ามีเบอร์โทร ที่อยู่ หรือเลขบัตรของลูกค้า ให้ครอปหรือปิดก่อนส่ง ไฟล์ Excel, Word และข้อความ ระบบปิดข้อมูลส่วนตัวให้ก่อนส่ง": "Pictures and PDFs go in full to the service that reads them for the assistant; personal data inside a picture cannot be masked. If it shows a client's phone, address or ID number, crop or cover it before sending. Excel, Word and text files are masked before they are sent.",
+  'เลขาอ่านรูปและ PDF ทั้งไฟล์ เพื่อดูแลข้อมูลของลูกค้า หากในไฟล์มีเบอร์โทร ที่อยู่ หรือเลขบัตร แนะนำให้ครอปหรือปิดส่วนนั้นก่อนส่ง ส่วนไฟล์ Excel, Word และไฟล์ข้อความ ระบบปิดข้อมูลส่วนตัวให้อัตโนมัติ': 'The assistant reads pictures and PDFs in full. To look after your clients\' data, crop or cover any phone number, address or ID number before sending. Excel, Word and text files have personal data hidden automatically.',
   "เข้าใจแล้ว": "Understood",
-  "รูปและ PDF ส่งให้เลขาอ่านทั้งไฟล์ ระบบปิดข้อมูลส่วนตัวในรูปให้ไม่ได้": "Pictures and PDFs are read in full; personal data in them cannot be masked",
+  'รูปและ PDF เลขาอ่านทั้งไฟล์ หากมีข้อมูลส่วนตัวของลูกค้า แนะนำให้ครอปหรือปิดก่อนส่ง': 'Pictures and PDFs are read in full. If they show a client\'s personal details, crop or cover them before sending.',
 };

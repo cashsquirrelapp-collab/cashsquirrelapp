@@ -41,7 +41,7 @@ export function ConsentSettings({ account, lineConnected, lineAccess, onOpenLine
   const at = (key: ConsentKey) => when(consents.record(key)?.at);
   const withdrawAi = () => triggerConfirm(
     tr("ถอนความยินยอมการใช้เลขากระรอก"),
-    tr("หลังถอน เลขากระรอกในแอปและใน LINE จะไม่รับข้อความ เสียง หรือไฟล์ จนกว่าคุณจะกดยินยอมอีกครั้ง ประวัติแชตยังอยู่และลบได้ที่หน้าเลขากระรอก การประมวลผลที่ทำไปก่อนหน้าไม่ได้รับผลกระทบ ต้องการถอนความยินยอมหรือไม่?"),
+    tr("เลขากระรอกในแอปและใน LINE จะหยุดรับข้อความ เสียง และไฟล์ จนกว่าคุณจะกดยินยอมอีกครั้ง ประวัติแชตยังอยู่ครบ และลบเองได้ที่หน้าเลขากระรอก ต้องการถอนความยินยอมหรือไม่?"),
     async () => {
       setBusy(true);
       try { await withdrawConsent(account, 'ai'); }
@@ -54,20 +54,20 @@ export function ConsentSettings({ account, lineConnected, lineAccess, onOpenLine
       <Panel>
         <div className="divide-y divide-brand-border">
           <Row title={tr("ข้อกำหนดการใช้งานและนโยบายความเป็นส่วนตัว")}
-            desc={tr("รวมถึงการยืนยันว่าข้อมูลลูกค้าที่คุณบันทึก คุณได้รับมาโดยชอบและใช้เพื่องานของลูกค้ารายนั้น")}
+            desc={tr("รวมถึงการยืนยันว่าข้อมูลลูกค้าที่คุณบันทึกเป็นข้อมูลที่ลูกค้าให้มา และใช้เพื่องานของลูกค้ารายนั้นเท่านั้น")}
             state={agreed('terms') ? (at('terms') ? tr("ยอมรับแล้ว · {0}", at('terms')) : tr("ยอมรับแล้ว")) : tr("ยังไม่ได้ยอมรับ")} on={agreed('terms')}>
             <a href="/terms" target="_blank" rel="noopener" className={button}>{tr("ข้อกำหนดการใช้งาน")}</a>
             <a href="/privacy" target="_blank" rel="noopener" className={button}>{tr("นโยบายความเป็นส่วนตัว")}</a>
           </Row>
           <Row title={tr("เลขากระรอก")}
-            desc={tr("ส่งข้อความ เสียง และไฟล์ที่คุณส่งให้ผู้ให้บริการ AI ภายนอกประมวลผล ทั้งในแอปและ LINE คำตอบอาจผิดพลาด ไม่ใช่คำปรึกษาทางภาษี บัญชี หรือกฎหมาย")}
+            desc={tr("ให้เลขาช่วยตอบ บันทึก และเตรียมเอกสาร ทั้งในแอปและ LINE ข้อมูลใช้เพื่อตอบคุณเท่านั้น ไม่ถูกนำไปฝึก AI และคำตอบไม่ใช่คำปรึกษาทางภาษี บัญชี หรือกฎหมาย")}
             state={agreed('ai') ? (at('ai') ? tr("ยินยอมแล้ว · {0}", at('ai')) : tr("ยินยอมแล้ว")) : tr("ยังไม่ได้ยินยอม")} on={agreed('ai')}>
             {agreed('ai')
               ? <button type="button" className={button} onClick={withdrawAi} disabled={busy} data-testid="consent-withdraw-ai">{tr("ถอนความยินยอม")}</button>
               : onOpenAssistant && <button type="button" className={button} onClick={onOpenAssistant}>{tr("เปิดเลขากระรอกเพื่อยินยอม")}</button>}
           </Row>
           {(lineAccess || lineConnected) && (
-            <Row title="LINE" desc={tr("เก็บรหัสผู้ใช้ LINE และส่งแจ้งเตือนที่มีชื่องาน ชื่อลูกค้า และยอดเงินเข้าแชท LINE ที่เชื่อมไว้")}
+            <Row title="LINE" desc={tr("รับแจ้งเตือนงาน ชื่อลูกค้า และยอดเงินทาง LINE ระบบใช้รหัสผู้ใช้ LINE เพื่อส่งข้อความถึงคุณคนเดียว")}
               state={lineConnected ? (at('line') ? tr("เชื่อมต่ออยู่ · ยินยอมเมื่อ {0}", at('line')) : tr("เชื่อมต่ออยู่")) : tr("ยังไม่ได้เชื่อมต่อ")} on={lineConnected}>
               <button type="button" className={button} onClick={onOpenLine}>{lineConnected ? tr("ยกเลิกการเชื่อมต่อ") : tr("ไปที่หน้า LINE")}</button>
             </Row>
@@ -75,7 +75,7 @@ export function ConsentSettings({ account, lineConnected, lineAccess, onOpenLine
         </div>
       </Panel>
       <p className="px-1 text-[12.5px] leading-[1.6] text-brand-muted">
-        {tr("การถอนความยินยอมไม่กระทบการประมวลผลที่ทำไปก่อนหน้า หากต้องการเลิกใช้บริการทั้งหมด ลบบัญชีได้ที่")}{' '}
+        {tr("ถอนความยินยอมได้ทุกเมื่อ มีผลตั้งแต่ตอนที่ถอน หากต้องการเลิกใช้และลบข้อมูลทั้งหมด ทำได้ที่")}{' '}
         <button type="button" onClick={onOpenSecurity} className="font-medium text-[#C24A16] underline underline-offset-2 dark:text-[#FFA473] cursor-pointer">{tr("บัญชี & ความปลอดภัย")}</button>
       </p>
     </>
