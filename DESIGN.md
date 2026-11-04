@@ -201,7 +201,11 @@ card does not need:
 - Step 1 has as few things as possible: "สวัสดีครับ" in a CI gradient (rust → orange → caramel), the name appearing
   under it as it is typed, the question, one glass field with the next arrow, one note line. No logo, no step count,
   no ข้ามก่อน.
-- Steps 2-4: a four-part bar and ข้ามก่อน (from Settings: a round ปิด) on top; glass tiles with a CI icon (orange on
+- Step 5, first run only (owner, 2026-11-04: "สมัครเลยว่าแบบต้องการย้ายข้อมูลไหม ... ถ้าเขาไม่ต้องการก็โอเค"):
+  "มีข้อมูลเดิมอยากย้ายเข้ามาไหม?" with two tiles, มี ย้ายเข้ามาเลย / ไม่มี เริ่มบันทึกใหม่, and no ข้ามก่อน. มี names the
+  button ย้ายข้อมูลเข้าแอป and opens the import as the screen closes; ไม่มี (or no answer) starts as usual and the overview
+  does not offer the import again. It is not a kept answer: `shared/onboarding.ts` stays four steps.
+- Steps 2-4: a bar (five parts on the first run, four from Settings) and ข้ามก่อน (from Settings: a round ปิด) on top; glass tiles with a CI icon (orange on
   cream) and a tick, orange ring when picked. Phones: two-column tiles for several choices, rows for one, back at the
   top left, ถัดไป full width at the bottom. Computers and iPads: two columns, back and next under the choices.
 - Exceptions for this screen only (owner): gradient text on the greeting, glass content tiles, pill-round buttons.
@@ -463,6 +467,12 @@ card does not need:
   suggestion shows "เลขาแนะนำ · ยืนยัน" and blocks the review until the person confirms or picks another field; a column the
   person already chose is never changed. Confirmed layouts are remembered like any other choice. A guest, the AI off or
   any failure: the import goes on as before.
+
+### Import offered to an empty account (owner, 2026-11-04)
+- A friend did not know the import existed. While an account of one's own has no jobs and no expenses, the overview's
+  first card is "เริ่มจากข้อมูลเดิมของคุณ": a cream icon tile, one muted line, ไม่ต้อง (secondary) and the one primary
+  ย้ายข้อมูลเข้าแอป (`importInvite.ts`; computers and iPads at the top of the overview, phones under the four round
+  shortcuts). ไม่ต้อง, or ไม่มี on onboarding step 5, hides it on that device; the Jobs page and Settings keep the import.
 
 ### Import as a chat with เลขากระรอก (owner, 2026-10-31: "ทำให้มันเป็นแบบแชท ... ตรงไหนที่ไม่สามารถดึงได้มันก็แจ้งเขาเลย")
 - "ย้ายข้อมูลเข้าแอป" replaced the 4-step dialog on every device (`features/import/ImportChat.tsx`, `importChatModel.ts`,

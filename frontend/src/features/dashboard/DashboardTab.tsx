@@ -7,7 +7,7 @@ import { Job, Goal, AppSettings, StatusOption, NotifSettings, Expense } from '..
 import { jobNetReceivable } from '../../../../shared/wht';
 import { installmentLabel, formatCurrency, formatMonthKey, getRelativeDaysText, getMonthKey, safeFormatThaiDate, withMonth, currentMonthKeyNow, dateLocale, toLocalDateKey } from '../../utils';
 import { motion } from 'motion/react';
-import { X } from 'lucide-react';
+import { FileSpreadsheet, X } from 'lucide-react';
 import { IncomeExpenseChart } from './IncomeExpenseChart';
 import { MonthlyWorkValueBanner } from './MonthlyWorkValueBanner';
 import { FinancialDetailsModal } from './FinancialDetailsModal';
@@ -67,6 +67,8 @@ interface DashboardTabProps {
   receivablesAccess?: boolean;
   /** Quotations can be issued (phone overview wording). Defaults to fullFeatureAccess. */
   quotationAccess?: boolean;
+  /** "ย้ายข้อมูลเข้าแอป" while the account is empty (owner, 2026-11-04); null once anything is recorded or after ไม่ต้อง. */
+  importInvite?: { onOpen: () => void; onDismiss: () => void } | null;
 }
 
 const MINI_CALENDAR_EVENT_STYLES: Record<CalendarEventKind, { bg: string; color: string }> = {
@@ -99,6 +101,7 @@ export default function DashboardTab({
   fullFeatureAccess = false,
   receivablesAccess = fullFeatureAccess,
   quotationAccess = fullFeatureAccess,
+  importInvite = null,
 }: DashboardTabProps) {
   const { t, language } = useLanguage();
   // Which hero-card figure's job breakdown is currently open ('contract' | 'received' | 'pending'),
@@ -856,6 +859,7 @@ export default function DashboardTab({
         onFeedback={() => onSwitchTab('feedback')}
         onCalendar={() => (onOpenCalendar ? onOpenCalendar() : onSwitchTab('calendar'))}
         onTools={() => onOpenTools?.()}
+        importInvite={importInvite}
       />
     );
   })() : null;
@@ -866,6 +870,20 @@ export default function DashboardTab({
       {/* 1. Greeting + KPI cards -- share order-1 so this block never collides with the
           pre-existing Alert Zone below, which already owns order-2. */}
       <div className="order-1 flex flex-col gap-5">
+      {/* An empty account is offered its old records first (owner, 2026-11-04); ไม่ต้อง hides it on this device. */}
+      {importInvite && (
+        <section data-testid="import-invite" aria-labelledby="import-invite-title" className={`${uiSurface} import-invite`}>
+          <span className="import-invite-icon" aria-hidden="true"><FileSpreadsheet className="h-5 w-5" strokeWidth={1.9} /></span>
+          <div className="import-invite-text">
+            <h2 id="import-invite-title">{tr("เริ่มจากข้อมูลเดิมของคุณ")}</h2>
+            <p>{tr("ย้ายรายรับรายจ่ายจาก Excel, Google Sheets หรือ CSV เข้าแอปได้ในครั้งเดียว เลขากระรอกช่วยจับคอลัมน์ ตรวจทุกรายการก่อนบันทึก")}</p>
+          </div>
+          <div className="import-invite-actions">
+            <button type="button" className="ui-button ui-button-secondary" onClick={importInvite.onDismiss}>{tr("ไม่ต้อง")}</button>
+            <button type="button" className="ui-button ui-button-primary" onClick={importInvite.onOpen}>{tr("ย้ายข้อมูลเข้าแอป")}</button>
+          </div>
+        </section>
+      )}
       <MonthlyWorkValueBanner receivablesAccess={receivablesAccess} jobs={jobs} monthKey={selectedMonthKey} onOpenDetails={() => setBreakdownFilter('workValue')} />
 
       <div>

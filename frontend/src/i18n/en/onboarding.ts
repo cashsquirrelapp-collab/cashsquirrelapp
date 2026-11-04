@@ -73,4 +73,17 @@ export const onboarding: Record<string, string> = {
   "ตั้งค่าเริ่มต้นตามที่คุณตอบให้แล้ว": "Your answers set up the app to start with",
   "งานที่กำลังทำ": "In progress",
   "ส่งงานอีก {0} วัน": "Due in {0} days",
+  // Step 5, first run only (2026-11-04): old records to bring in.
+  "มีข้อมูลเดิมอยากย้ายเข้ามาไหม?": "Have records you want to bring in?",
+  "จาก Excel, Google Sheets หรือ CSV": "From Excel, Google Sheets or CSV",
+  "มี ย้ายเข้ามาเลย": "Yes, bring them in",
+  "เลขากระรอกช่วยจับคอลัมน์ ตรวจทุกรายการก่อนนำเข้า": "Krarok matches the columns; you check every row before importing",
+  "ไม่มี เริ่มบันทึกใหม่": "No, start fresh",
+  "ย้ายทีหลังได้ที่หน้างาน › นำเข้าจาก Excel": "Later: Jobs › Import from Excel",
+  "ต่อไปเป็นการย้ายข้อมูลเดิมเข้าแอป": "Next, bringing your records in",
+  // The empty overview's card (2026-11-04).
+  "เริ่มจากข้อมูลเดิมของคุณ": "Start with the records you already have",
+  "ย้ายรายรับรายจ่ายจาก Excel, Google Sheets หรือ CSV เข้าแอปได้ในครั้งเดียว เลขากระรอกช่วยจับคอลัมน์ ตรวจทุกรายการก่อนบันทึก": "Bring your income and expenses in from Excel, Google Sheets or CSV at once. Krarok matches the columns; you check every row before it is saved.",
+  "ย้ายรายรับรายจ่ายจาก Excel หรือ Google Sheets เข้าแอปได้ในครั้งเดียว": "Bring your income and expenses in from Excel or Google Sheets at once.",
+  "ไม่ต้อง": "No thanks",
 };

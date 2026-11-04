@@ -2,8 +2,8 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
-  AlertCircle, ArrowLeft, ArrowRight, BookOpen, Briefcase, Building2, Camera, ChartLine, Check, Code, Compass, FileText,
-  GraduationCap, Laptop, ListChecks, Megaphone, Mic, Plus, Scissors, Store, Wallet, X, type LucideIcon,
+  AlertCircle, ArrowLeft, ArrowRight, BookOpen, Briefcase, Building2, Camera, ChartLine, Check, Code, Compass, FileSpreadsheet, FileText,
+  GraduationCap, Laptop, ListChecks, Megaphone, Mic, PenLine, Plus, Scissors, Store, Wallet, X, type LucideIcon,
 } from 'lucide-react';
 import { tr, T } from '../../i18n/tr';
 import {
@@ -24,6 +24,9 @@ import './onboarding.css';
 //   สวัสดีครับ as it is typed.
 // - Steps 2-4: glass tiles with an icon, a tick when picked, a progress bar, ข้ามก่อน (keeps what was picked and never
 //   asks again). From Settings the same steps open with a round ปิด instead, and the last step saves.
+// - Step 5, first run only (owner, 2026-11-04: "สมัครเลยว่าแบบต้องการย้ายข้อมูลไหม ... ถ้าเขาไม่ต้องการก็โอเค"): has the
+//   person old records to bring in? มี opens "ย้ายข้อมูลเข้าแอป" right after; ไม่มี (or no answer) just starts. It is not
+//   one of the kept answers (shared/onboarding.ts stays four steps), and it has no ข้ามก่อน: ไม่มี is the way past it.
 
 // The labels again, marked for the English pass (shared/onboarding.ts keeps the stable IDs and the Thai labels).
 const WORK_LABELS: Record<WorkTypeId, string> = {
@@ -62,6 +65,7 @@ const QUESTIONS = [
   { title: T("ตอนนี้คุณทำงานรูปแบบไหน?"), sub: T("เลือก 1 ข้อ") },
   { title: T("คุณทำงานด้านไหนบ้าง?"), sub: T("เลือกได้มากกว่า 1 ข้อ") },
   { title: T("อยากให้ Krarok ช่วยเรื่องไหนบ้าง?"), sub: T("เลือกได้หลายข้อ") },
+  { title: T("มีข้อมูลเดิมอยากย้ายเข้ามาไหม?"), sub: T("จาก Excel, Google Sheets หรือ CSV") },
 ];
 // The Thai titles in pieces that rise one after another, the coloured piece marked; other languages rise word by word.
 const TITLE_PARTS: Record<string, [string, boolean?][]> = {
@@ -69,6 +73,7 @@ const TITLE_PARTS: Record<string, [string, boolean?][]> = {
   'ตอนนี้คุณทำงานรูปแบบไหน?': [['ตอนนี้คุณ'], ['ทำงาน'], ['รูปแบบไหน?', true]],
   'คุณทำงานด้านไหนบ้าง?': [['คุณทำงาน'], ['ด้านไหน', true], ['บ้าง?']],
   'อยากให้ Krarok ช่วยเรื่องไหนบ้าง?': [['อยากให้ '], ['Krarok', true], [' ช่วยเรื่องไหนบ้าง?']],
+  'มีข้อมูลเดิมอยากย้ายเข้ามาไหม?': [['มีข้อมูลเดิม'], ['อยากย้ายเข้ามา', true], ['ไหม?']],
 };
 function pieces(text: string, flowLast: boolean): [string, boolean?][] {
   const known = TITLE_PARTS[text];
@@ -98,7 +103,8 @@ const COINS = [[-220, -170, 0.2], [230, -150, 0.26], [-260, 60, 0.32], [250, 90,
 const NAME_MIN = 2;
 const NAME_MAX = 60;
 
-export type OnboardingResult = { answers: OnboardingAnswers; name: string | null; skippedAtStep?: number };
+/** importOld: the answer to step 5 (first run only; absent when it was not reached). */
+export type OnboardingResult = { answers: OnboardingAnswers; name: string | null; skippedAtStep?: number; importOld?: boolean };
 
 type Props = {
   /** 'first': after the first sign-in (ข้ามก่อน from step 2); 'edit': from Settings (ปิด, and the last step saves). */
@@ -122,6 +128,7 @@ export default function WelcomeOnboarding({ mode, mobile, accountName = '', prev
   const [busy, setBusy] = React.useState<'finish' | 'skip' | null>(null);
   const [celebrating, setCelebrating] = React.useState(false);
   const [error, setError] = React.useState('');
+  const [importOld, setImportOld] = React.useState<boolean | null>(null);
   const titleId = React.useId();
   const otherRef = React.useRef<HTMLInputElement>(null);
   const nameRef = React.useRef<HTMLInputElement>(null);
@@ -132,13 +139,19 @@ export default function WelcomeOnboarding({ mode, mobile, accountName = '', prev
   const nameError = nameTried && !nameOk
     ? (trimmed ? tr("ชื่อต้องมีอย่างน้อย {0} ตัวอักษร", NAME_MIN) : tr("กรุณาใส่ชื่อที่อยากให้เราเรียก"))
     : '';
-  const last = step === ONBOARDING_STEPS - 1;
+  // The first run adds step 5, the question about old records; from Settings there are the four kept answers only.
+  const totalSteps = mode === 'first' ? ONBOARDING_STEPS + 1 : ONBOARDING_STEPS;
+  const importStep = step === ONBOARDING_STEPS;
+  const last = step === totalSteps - 1;
   // "คุณ" before the name (none in English), with a space before a name in Latin letters: คุณ CEO Park, not คุณCEO Park.
   const honorific = tr("คุณ{0}", '').trim();
   const gap = honorific && /^[A-Za-z0-9]/.test(trimmed) ? ' ' : '';
   const lit = React.useMemo(() => new Set<BackdropCard>(step === ONBOARDING_STEPS - 1 && !mobile
     ? answers.goals.map(goal => GOAL_CARDS[goal]).filter((card): card is BackdropCard => Boolean(card)) : []), [step, mobile, answers.goals]);
-  const result = (skippedAtStep?: number): OnboardingResult => ({ answers, name: nameOk ? trimmed : null, ...(skippedAtStep ? { skippedAtStep } : {}) });
+  const result = (skippedAtStep?: number): OnboardingResult => ({
+    answers, name: nameOk ? trimmed : null, ...(skippedAtStep ? { skippedAtStep } : {}),
+    ...(!skippedAtStep && mode === 'first' ? { importOld: importOld === true } : {}),
+  });
 
   React.useEffect(() => {
     bodyRef.current?.scrollTo({ top: 0 });
@@ -262,18 +275,28 @@ export default function WelcomeOnboarding({ mode, mobile, accountName = '', prev
           goal.id === EXCLUSIVE_GOAL ? { note: tr("เลือกข้อนี้แล้ว ข้ออื่นจะถูกเอาออก"), wide: true } : {}))}
       </ul>
     </div>,
+    <div key="import">
+      <ul className={`wob-grid${mobile ? ' is-rows' : ''}`} role="radiogroup" aria-labelledby={titleId}>
+        {tile('import-yes', FileSpreadsheet, tr("มี ย้ายเข้ามาเลย"), importOld === true, 'radio', () => setImportOld(true),
+          { note: tr("เลขากระรอกช่วยจับคอลัมน์ ตรวจทุกรายการก่อนนำเข้า") })}
+        {tile('import-no', PenLine, tr("ไม่มี เริ่มบันทึกใหม่"), importOld === false, 'radio', () => setImportOld(false),
+          { note: tr("ย้ายทีหลังได้ที่หน้างาน › นำเข้าจาก Excel") })}
+      </ul>
+    </div>,
   ][step];
 
   const progress = (
-    <span className="wob-bar" role="progressbar" aria-valuemin={1} aria-valuemax={ONBOARDING_STEPS} aria-valuenow={step + 1}
-      aria-label={tr("ขั้นตอนที่ {0} จาก {1}", step + 1, ONBOARDING_STEPS)}>
-      {Array.from({ length: ONBOARDING_STEPS }, (_, index) => <i key={index} className={index <= step ? 'is-on' : ''} />)}
+    <span className="wob-bar" role="progressbar" aria-valuemin={1} aria-valuemax={totalSteps} aria-valuenow={step + 1}
+      aria-label={tr("ขั้นตอนที่ {0} จาก {1}", step + 1, totalSteps)} style={{ '--wob-steps': totalSteps } as React.CSSProperties}>
+      {Array.from({ length: totalSteps }, (_, index) => <i key={index} className={index <= step ? 'is-on' : ''} />)}
     </span>
   );
-  const quiet = mode === 'first'
+  // Step 5 has no ข้ามก่อน: ไม่มี is the way past it, and a skip there would not be one of the four kept steps.
+  const quiet = importStep ? <span className="wob-skip-gap" aria-hidden="true" /> : mode === 'first'
     ? <button type="button" className="wob-skip" onClick={() => void skip()} disabled={Boolean(busy)}>{busy === 'skip' ? tr("กำลังบันทึก…") : tr("ข้ามก่อน")}</button>
     : closeButton;
-  const primaryLabel = busy === 'finish' ? tr("กำลังบันทึก…") : !last ? tr("ถัดไป") : mode === 'first' ? tr("เริ่มใช้งาน") : tr("บันทึก");
+  const primaryLabel = busy === 'finish' ? tr("กำลังบันทึก…") : !last ? tr("ถัดไป")
+    : mode === 'first' ? (importOld ? tr("ย้ายข้อมูลเข้าแอป") : tr("เริ่มใช้งาน")) : tr("บันทึก");
   const nextButton = <button type="button" className="wob-next" onClick={() => void next()} disabled={Boolean(busy)}>{primaryLabel}</button>;
   const question = step > 0 ? QUESTIONS[step - 1] : null;
 
@@ -290,11 +313,11 @@ export default function WelcomeOnboarding({ mode, mobile, accountName = '', prev
         <AnimatePresence mode="wait" initial={false}>
           <motion.section key={step} className="wob-q-step" initial={reduce ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
             exit={reduce ? { opacity: 0 } : { opacity: 0, y: -8 }} transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}>
-            <p className="wob-q-num">{last ? tr("ข้อสุดท้าย") : tr("ข้อ {0} จาก {1}", step + 1, ONBOARDING_STEPS)}</p>
+            <p className="wob-q-num">{last ? tr("ข้อสุดท้าย") : tr("ข้อ {0} จาก {1}", step + 1, totalSteps)}</p>
             <h2 id={titleId} className="wob-q-title" aria-label={tr(question.title)}><Rising text={tr(question.title)} /></h2>
             <p className="wob-q-sub">{tr(question.sub)}
               {step === 2 && <span className="wob-count">{tr("เลือกแล้ว {0}", answers.occupations.length)}</span>}
-              {last && !mobile && <span className="wob-sub-more">{tr("เลือกแล้วจะเห็นว่าแอปช่วยตรงไหน")}</span>}</p>
+              {step === ONBOARDING_STEPS - 1 && !mobile && <span className="wob-sub-more">{tr("เลือกแล้วจะเห็นว่าแอปช่วยตรงไหน")}</span>}</p>
             {choices}
           </motion.section>
         </AnimatePresence>
@@ -327,7 +350,7 @@ export default function WelcomeOnboarding({ mode, mobile, accountName = '', prev
           ))}
           <span className="wob-done-mascot" aria-hidden="true"><Mascot mood="celebrate" action="celebrate" gear="headset" animated={!reduce} size={mobile ? 120 : 150} viewBox="10 14 82 82" /></span>
           <p className="wob-done-title">{tr("พร้อมแล้วครับ")}{trimmed && <> <span className="wob-flow">{honorific}{gap}{trimmed}</span></>}</p>
-          <p className="wob-done-sub">{tr("ตั้งค่าเริ่มต้นตามที่คุณตอบให้แล้ว")}</p>
+          <p className="wob-done-sub">{importOld ? tr("ต่อไปเป็นการย้ายข้อมูลเดิมเข้าแอป") : tr("ตั้งค่าเริ่มต้นตามที่คุณตอบให้แล้ว")}</p>
         </motion.div>
       )}
     </motion.div>,

@@ -16,7 +16,7 @@ const versions = { cashflow_jobs: {}, cashflow_expenses: {}, cashflow_goals: {},
 const baseSettings = { monthlyExpense: 0, monthlyRevenueGoal: 0, savingsPercentage: 40, profileSetupCompleted: false };
 
 type Saved = { settings: any[]; names: string[] };
-async function open(page: Page, options: { user?: typeof NEW_USER; settings?: Record<string, unknown>; width?: number; height?: number; path?: string; admin?: boolean; analytics?: unknown; dark?: boolean } = {}) {
+async function open(page: Page, options: { user?: typeof NEW_USER; settings?: Record<string, unknown>; width?: number; height?: number; path?: string; admin?: boolean; analytics?: unknown; dark?: boolean; jobs?: unknown[] } = {}) {
   const user = options.user ?? NEW_USER;
   let settings: Record<string, unknown> = { ...baseSettings, ...(options.settings ?? {}) };
   let displayName = 'new.user';
@@ -42,7 +42,7 @@ async function open(page: Page, options: { user?: typeof NEW_USER; settings?: Re
       }
       return route.fulfill({ json: { ok: true, versions } });
     }
-    return route.fulfill({ json: { snapshot: { jobs: [], expenses: [], goals: [], invoices: [], settings, statuses: [], job_types: ['Sponsored Post', 'Video Production'], notif_settings: { enabled: false, pendingQueue: [] }, avatar_data_url: null, issuer_profile: null }, versions, subscription: null } });
+    return route.fulfill({ json: { snapshot: { jobs: options.jobs ?? [], expenses: [], goals: [], invoices: [], settings, statuses: [], job_types: ['Sponsored Post', 'Video Production'], notif_settings: { enabled: false, pendingQueue: [] }, avatar_data_url: null, issuer_profile: null }, versions, subscription: null } });
   });
   if (options.admin) {
     // The admin page's other parts are not under test: unavailable, as in the feedback inbox tests.
@@ -56,7 +56,8 @@ async function open(page: Page, options: { user?: typeof NEW_USER; settings?: Re
   await loadLayoutFonts(page);
   return { saved, settings: () => settings };
 }
-const dialog = (page: Page) => page.getByRole('dialog', { name: /อยากให้เราเรียกคุณว่าอะไร|ตอนนี้คุณทำงานรูปแบบไหน|คุณทำงานด้านไหนบ้าง|อยากให้ Krarok ช่วยเรื่องไหนบ้าง/ });
+const dialog = (page: Page) => page.getByRole('dialog', { name: /อยากให้เราเรียกคุณว่าอะไร|ตอนนี้คุณทำงานรูปแบบไหน|คุณทำงานด้านไหนบ้าง|อยากให้ Krarok ช่วยเรื่องไหนบ้าง|มีข้อมูลเดิมอยากย้ายเข้ามาไหม/ });
+const importChat = (page: Page) => page.getByRole('dialog', { name: 'ย้ายข้อมูลเข้าแอป' });
 const step = (page: Page) => dialog(page).getByRole('progressbar');
 
 test('a new account: four steps in order, "อื่น ๆ" opens a box, the exclusive goal, and everything is kept', async ({ page }, info) => {
@@ -130,8 +131,25 @@ test('a new account: four steps in order, "อื่น ๆ" opens a box, the ex
   await expect(goals.getByRole('checkbox', { name: /ยังไม่แน่ใจ/ })).not.toBeChecked();
   expect(await textOverlapIssues(page)).toEqual([]);
   await page.screenshot({ path: info.outputPath('onboarding-1280-step4.png') });
+  const barOnStep4 = (await step(page).boundingBox())!.y;
+  await box.getByRole('button', { name: 'ถัดไป' }).click();
+
+  // Step 5, first run only (owner, 2026-11-04): old records? No ข้ามก่อน; no answer is ไม่มี.
+  await expect(step(page)).toHaveAttribute('aria-valuenow', '5');
+  await expect(step(page)).toHaveAttribute('aria-valuemax', '5');
+  await expect(box.getByText('ข้อสุดท้าย')).toBeVisible();
+  // No ข้ามก่อน here, yet the bar stays where it was.
+  expect((await step(page).boundingBox())!.y).toBe(barOnStep4);
+  await expect(box.getByRole('heading', { name: 'มีข้อมูลเดิมอยากย้ายเข้ามาไหม?' })).toBeVisible();
+  await expect(box.getByRole('radiogroup').getByRole('radio')).toHaveCount(2);
+  await expect(box.getByRole('button', { name: 'ข้ามก่อน' })).toHaveCount(0);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await page.screenshot({ path: info.outputPath('onboarding-1280-step5.png') });
   await box.getByRole('button', { name: 'เริ่มใช้งาน' }).click();
   await expect(box).toHaveCount(0);
+  // Not answered is ไม่มี: the import does not open, and the empty overview does not offer it.
+  await expect(importChat(page)).toHaveCount(0);
+  await expect(page.getByTestId('import-invite')).toHaveCount(0);
 
   expect(mock.saved.names).toEqual(['มายด์']);
   await expect.poll(() => mock.saved.settings.at(-1)?.onboarding?.status).toBe('COMPLETED');
@@ -209,6 +227,12 @@ test('390px phone: the whole screen, step 1 as few things as possible, ถัด
   await box.getByRole('group').getByText('ดูภาพรวมรายรับรายจ่ายและกระแสเงินสด').click();
   expect(await textOverlapIssues(page)).toEqual([]);
   await page.screenshot({ path: info.outputPath('onboarding-390-step4.png') });
+  await next.click();
+  await expect(step(page)).toHaveAttribute('aria-valuenow', '5');
+  await box.getByRole('radiogroup').getByText('ไม่มี เริ่มบันทึกใหม่').click();
+  expect((await box.getByRole('button', { name: 'เริ่มใช้งาน' }).boundingBox())!.y).toBeGreaterThan(740);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await page.screenshot({ path: info.outputPath('onboarding-390-step5.png') });
   await box.getByRole('button', { name: 'เริ่มใช้งาน' }).click();
   await expect(box).toHaveCount(0);
   await expect.poll(() => mock.saved.settings.at(-1)?.onboarding?.goals).toEqual(['cashflow_overview']);
@@ -262,13 +286,13 @@ test('look A: floating cards, the name in the LINE card, the goal cards light up
   await box.getByRole('button', { name: 'ถัดไป' }).click();
   // the questions: the cards fade back, the title says which question this is
   await expect(box.locator('.wob-backdrop')).toHaveClass(/is-quiet/);
-  await expect(box.getByText('ข้อ 2 จาก 4')).toBeVisible();
+  await expect(box.getByText('ข้อ 2 จาก 5')).toBeVisible();
   await box.getByRole('button', { name: 'ถัดไป' }).click();
   await box.getByRole('group').getByText('คอนเทนต์ครีเอเตอร์').click();
   await box.getByRole('group').getByText('การตลาด / โฆษณา').click();
   await expect(box.locator('.wob-count')).toHaveText('เลือกแล้ว 2');
   await box.getByRole('button', { name: 'ถัดไป' }).click();
-  await expect(box.getByText('ข้อสุดท้าย')).toBeVisible();
+  await expect(box.getByText('ข้อ 4 จาก 5')).toBeVisible();
   await box.getByRole('group').getByText('ติดตามเงินค้างรับจากลูกค้า').click();
   await box.getByRole('group').getByText('ทำใบเสนอราคาและเอกสาร').click();
   await expect(box.locator('.wob-card.is-lit')).toHaveCount(2);
@@ -277,6 +301,10 @@ test('look A: floating cards, the name in the LINE card, the goal cards light up
   await page.waitForTimeout(900);
   expect(await textOverlapIssues(page)).toEqual([]);
   await page.screenshot({ path: info.outputPath('look-a-1280-step4.png') });
+  await box.getByRole('button', { name: 'ถัดไป' }).click();
+  await expect(box.getByText('ข้อสุดท้าย')).toBeVisible();
+  await expect(box.locator('.wob-card.is-lit')).toHaveCount(0);
+  await box.getByRole('radiogroup').getByText('ไม่มี เริ่มบันทึกใหม่').click();
   await box.getByRole('button', { name: 'เริ่มใช้งาน' }).click();
   await expect(box.getByText('พร้อมแล้วครับ')).toBeVisible();
   await page.screenshot({ path: info.outputPath('look-a-1280-done.png') });
@@ -308,6 +336,78 @@ for (const [width, height] of [[1024, 768], [768, 1024], [375, 667]] as const) {
   });
 }
 
+// Owner, 2026-11-04: "สมัครเลยว่าแบบต้องการย้ายข้อมูลไหม ... ถ้าเขาไม่ต้องการก็โอเค". มี opens ย้ายข้อมูลเข้าแอป as the screen
+// closes; closing it without importing leaves the overview's card, the way back.
+for (const [width, height] of [[1280, 860], [390, 844]] as const) {
+  test(`step 5 at ${width}px: มี opens ย้ายข้อมูลเข้าแอป right after, and the empty overview keeps the way back`, async ({ page }, info) => {
+    const mock = await open(page, { width, height });
+    const box = dialog(page);
+    await box.getByLabel('ชื่อที่ให้เลขากระรอกเรียก').fill('มายด์');
+    for (let i = 0; i < 4; i += 1) await box.getByRole('button', { name: 'ถัดไป' }).last().click();
+    await expect(box.getByRole('heading', { name: 'มีข้อมูลเดิมอยากย้ายเข้ามาไหม?' })).toBeVisible();
+    await box.getByRole('radiogroup').getByText('มี ย้ายเข้ามาเลย').click();
+    await expect(box.getByRole('radio', { checked: true })).toHaveCount(1);
+    // The button names what happens next.
+    await expect(box.getByRole('button', { name: 'เริ่มใช้งาน' })).toHaveCount(0);
+    expect(await textOverlapIssues(page)).toEqual([]);
+    await page.screenshot({ path: info.outputPath(`import-step5-${width}.png`) });
+    await box.getByRole('button', { name: 'ย้ายข้อมูลเข้าแอป' }).click();
+    await expect(box).toHaveCount(0, { timeout: 8000 });
+    await expect(importChat(page).getByRole('heading', { name: 'ย้ายข้อมูลเข้าแอป' })).toBeVisible();
+    await expect.poll(() => mock.saved.settings.at(-1)?.onboarding?.status).toBe('COMPLETED');
+    await page.screenshot({ path: info.outputPath(`import-opened-${width}.png`) });
+    await importChat(page).getByRole('button', { name: 'ปิด', exact: true }).first().click();
+    await expect(importChat(page)).toHaveCount(0);
+    await expect(page.getByTestId('import-invite')).toBeVisible();
+  });
+}
+
+// An empty account is offered the import on the overview (owner, 2026-11-04: a friend did not know it existed).
+for (const [width, height] of [[1280, 860], [1024, 768], [390, 844]] as const) {
+  test(`the empty overview at ${width}px: เริ่มจากข้อมูลเดิมของคุณ opens the import, ไม่ต้อง hides it for good`, async ({ page }, info) => {
+    await open(page, { user: OLD_USER, width, height });
+    const card = page.getByTestId('import-invite');
+    await expect(card).toBeVisible();
+    await expect(card).toContainText('เริ่มจากข้อมูลเดิมของคุณ');
+    await expect(card.getByRole('button')).toHaveText(['ไม่ต้อง', 'ย้ายข้อมูลเข้าแอป']);
+    await page.waitForTimeout(600);
+    expect(await textOverlapIssues(page)).toEqual([]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: info.outputPath(`import-invite-${width}.png`) });
+    await card.getByRole('button', { name: 'ย้ายข้อมูลเข้าแอป' }).click();
+    await expect(importChat(page).getByRole('heading', { name: 'ย้ายข้อมูลเข้าแอป' })).toBeVisible();
+    await importChat(page).getByRole('button', { name: 'ปิด', exact: true }).first().click();
+    await expect(importChat(page)).toHaveCount(0);
+    await card.getByRole('button', { name: 'ไม่ต้อง' }).click();
+    await expect(card).toHaveCount(0);
+    await page.reload();
+    await expect(page.getByRole('main')).toBeVisible();
+    await page.waitForTimeout(1200);
+    await expect(page.getByTestId('import-invite')).toHaveCount(0);
+  });
+}
+
+test('dark mode: the overview card reads clearly on the computer and the phone', async ({ page }, info) => {
+  await open(page, { user: OLD_USER, dark: true });
+  await expect(page.getByTestId('import-invite')).toBeVisible();
+  await page.waitForTimeout(600);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await page.screenshot({ path: info.outputPath('import-invite-1280-dark.png') });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  await expect(page.getByTestId('import-invite')).toBeVisible();
+  await page.waitForTimeout(600);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await page.screenshot({ path: info.outputPath('import-invite-390-dark.png') });
+});
+
+test('an account with a job is not offered the import on the overview', async ({ page }) => {
+  await open(page, { user: OLD_USER, jobs: [{ id: 'job_1', name: 'งานแรก', client: 'ลูกค้า', type: 'Sponsored Post', creditTerm: 0, note: '', value: 1000, whtRate: 0, whtAmount: 0, received: 0, pending: 1000, status: 'todo', paymentStatus: 'unpaid', isPosted: false, postDate: '2026-11-10', payDate: '2026-11-20' }] });
+  await expect(page.getByRole('main')).toBeVisible();
+  await page.waitForTimeout(1200);
+  await expect(page.getByTestId('import-invite')).toHaveCount(0);
+});
+
 test('Settings: the answers open again with what was chosen, and saving changes them', async ({ page }) => {
   const done = { version: 'welcome-v1', status: 'COMPLETED', work_type: 'student', work_type_other: null, occupations: ['teacher_coach'], occupation_other: null, goals: ['exploring'], updated_at: '2026-10-28T01:00:00.000Z', completed_at: '2026-10-28T01:00:00.000Z' };
   const mock = await open(page, { settings: { onboarding: done }, path: '/settings' });
@@ -324,6 +424,9 @@ test('Settings: the answers open again with what was chosen, and saving changes 
   await expect(box.getByRole('checkbox', { name: 'ครู / ติวเตอร์ / โค้ช' })).toBeChecked();
   await box.getByRole('button', { name: 'ถัดไป' }).click();
   await expect(box.getByRole('checkbox', { name: /ยังไม่แน่ใจ/ })).toBeChecked();
+  // From Settings: the four kept answers only, no question about old records.
+  await expect(step(page)).toHaveAttribute('aria-valuemax', '4');
+  await expect(box.getByText('ข้อสุดท้าย')).toBeVisible();
   expect(await textOverlapIssues(page)).toEqual([]);
   await box.getByRole('button', { name: 'บันทึก' }).click();
   await expect(box).toHaveCount(0);

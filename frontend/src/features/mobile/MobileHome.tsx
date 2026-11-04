@@ -84,6 +84,8 @@ export interface MobileHomeProps {
   onFeedback?: () => void;
   onCalendar: () => void;
   onTools: () => void;
+  /** "ย้ายข้อมูลเข้าแอป" while the account is empty (owner, 2026-11-04); null once anything is recorded or after ไม่ต้อง. */
+  importInvite?: { onOpen: () => void; onDismiss: () => void } | null;
 }
 
 export function MobileHome(props: MobileHomeProps) {
@@ -185,6 +187,23 @@ export function MobileHome(props: MobileHomeProps) {
           </button>
         ))}
       </section>
+
+      {/* An empty account is offered its old records first (owner, 2026-11-04); ไม่ต้อง hides it on this device. */}
+      {props.importInvite && (
+        <section className="ksm-import" data-testid="import-invite" aria-labelledby="ksm-import-title">
+          <div className="ksm-import-row">
+            <span className="ksm-notice-icon"><KsIcon name="upload" size={21} /></span>
+            <span className="ksm-grow">
+              <b id="ksm-import-title">{tr("เริ่มจากข้อมูลเดิมของคุณ")}</b>
+              <small>{tr("ย้ายรายรับรายจ่ายจาก Excel หรือ Google Sheets เข้าแอปได้ในครั้งเดียว")}</small>
+            </span>
+          </div>
+          <div className="ksm-import-actions">
+            <button type="button" className="ksm-btn-secondary" onClick={props.importInvite.onDismiss}>{tr("ไม่ต้อง")}</button>
+            <button type="button" className="ksm-btn is-primary" onClick={props.importInvite.onOpen}>{tr("ย้ายข้อมูลเข้าแอป")}</button>
+          </div>
+        </section>
+      )}
 
       {receivablesAccess && <button type="button" className={`ksm-notice ${props.hasPending ? 'has-pending' : 'is-empty'}`} onClick={props.onReceivables}
         aria-label={tr("เงินรอรับ · {0} · เปิดดูยอดและรายละเอียด", pendingStatus)}>
