@@ -1614,3 +1614,19 @@ button.asx-party-tile:hover:not(:disabled) .asx-party-copy strong { color: var(-
 .asx-review-fix:hover { border-color: var(--asx-accent); color: var(--asx-accent-text); }
 .asx-review-fix.is-on { border-color: var(--asx-accent); background: var(--asx-cream); color: var(--asx-accent-text); }
 .asx-card-state.is-muted { color: var(--asx-card-secondary); }
+
+/* Before a picture or PDF is sent (ChatUploadViews.tsx, owner 2026-11-04 "เตือนก่อนส่ง"): what happens to it, once with
+   เข้าใจแล้ว, then as a short line. Caramel for a notice, not red: nothing is wrong. */
+.asx-file-notice { display: flex; align-items: flex-start; gap: 10px; margin: 0 14px 8px; padding: 12px 14px; border-radius: 14px; background: #FDF6EC; color: #6B4A0E; font-size: 13px; line-height: 1.6; }
+.dark .asx-file-notice { background: rgba(242, 183, 107, 0.12); color: #F2D3A6; }
+.asx-file-notice > svg { flex: none; margin-top: 2px; color: #B7791F; }
+.dark .asx-file-notice > svg { color: #F2B76B; }
+.asx-file-notice-text { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
+.asx-file-notice-text b { font-size: 13.5px; font-weight: 600; line-height: 1.5; }
+.asx-file-notice-text p { margin: 0; overflow-wrap: anywhere; }
+.asx-file-notice-ok { margin-top: 4px; min-height: 34px; padding: 0 14px; border: 1px solid rgba(183, 121, 31, 0.4); border-radius: 10px; background: #FFFFFF; color: #6B4A0E; font: inherit; font-size: 13px; font-weight: 600; line-height: 1.45; cursor: pointer; }
+.dark .asx-file-notice-ok { background: transparent; color: #F2D3A6; border-color: rgba(242, 183, 107, 0.4); }
+.asx-file-notice.is-quiet { align-items: center; gap: 6px; padding: 0 2px; background: transparent; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.dark .asx-file-notice.is-quiet { background: transparent; color: var(--muted); }
+.asx-file-notice.is-quiet > svg { margin-top: 0; color: var(--muted); }
+.asx.is-mobile .asx-file-notice { margin: 0 10px 8px; }

@@ -5,6 +5,7 @@
 // from the file (no formulas, no macros). Kept free of the page so tests can call it with the SheetJS module.
 
 import type * as XLSXModule from 'xlsx';
+import { maskPersonalLines, maskTable } from '../../../../shared/privacyMask';
 
 type XLSX = typeof XLSXModule;
 export type TextKind = 'sheet' | 'doc' | 'slides' | 'text';
@@ -218,6 +219,13 @@ export function columnTotals(xlsx: XLSX, sheet: XLSXModule.WorkSheet): string {
   return totals.join(' · ');
 }
 
+/** Rows as CSV, as Excel saves it: quoted where needed, trailing empty cells and empty rows left out. */
+function csvText(rows: string[][]): string {
+  const quote = (cell: string) => (/[",\n\r]/.test(cell) ? `"${cell.replace(/"/g, '""')}"` : cell);
+  return rows.map(row => { const cells = [...row]; while (cells.length && !cells[cells.length - 1]) cells.pop(); return cells.map(quote).join(','); })
+    .filter(line => line.replace(/,/g, '').trim()).join('\n');
+}
+
 function sheetText(xlsx: XLSX, data: ArrayBuffer, name: string): { text: string; sheets: number; rows: number } {
   const csv = /\.(csv|tsv)$/i.test(name);
   const options = { sheetRows: SHEET_MAX_ROWS + 1, cellFormula: false, cellHTML: false, bookVBA: false, cellNF: true, cellText: true, cellDates: false } as const;
@@ -233,7 +241,11 @@ function sheetText(xlsx: XLSX, data: ArrayBuffer, name: string): { text: string;
   for (const sheetName of book.SheetNames) {
     const sheet = book.Sheets[sheetName];
     if (!sheet?.['!ref']) continue;
-    const body = xlsx.utils.sheet_to_csv(sheet, { blankrows: false, strip: true }).replace(/^(,*\n)+/, '').trim();
+    // Every cell masked before it leaves the device (shared/privacyMask.ts): contact columns whole, people's names in a
+    // client column, emails, numbers, links and addresses anywhere.
+    const grid = (xlsx.utils.sheet_to_json(sheet, { header: 1, raw: false, blankrows: false, defval: '' }) as unknown[][])
+      .map(row => row.map(cell => String(cell ?? '').trim()));
+    const body = csvText(maskTable(grid)).replace(/^(,*\n)+/, '').trim();
     if (!body.replace(/[,\s]/g, '')) continue;
     const count = body.split('\n').length;
     const full = sheet['!fullref'] ? xlsx.utils.decode_range(sheet['!fullref']).e.r + 1 : 0;
@@ -288,6 +300,8 @@ export async function readFileText(loadXlsx: () => Promise<XLSX>, name: string, 
     body = type.label === 'RTF' ? rtfText(raw) : type.label === 'HTML' ? htmlText(raw) : tidy(raw);
   }
   if (!body.replace(/[\s|,]/g, '')) throw new Error('empty');
+  // A document, slides or plain text: personal data masked line by line before it leaves the device.
+  if (type.kind !== 'sheet') body = maskPersonalLines(body);
   const chars = body.length;
   const truncated = chars > TEXT_MAX_CHARS;
   if (truncated) body = `${body.slice(0, TEXT_MAX_CHARS)}\n…(ตัดเหลือ ${TEXT_MAX_CHARS.toLocaleString('en-US')} ตัวอักษรแรก จากทั้งหมด ${chars.toLocaleString('en-US')} ตัวอักษร)`;

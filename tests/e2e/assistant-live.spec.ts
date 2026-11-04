@@ -29,10 +29,13 @@ type Mock = {
   routes?: (page: Page) => Promise<void>;
   /** Another page than the chat (the floating panel's tests). */
   path?: string;
+  /** The picture and PDF notice not read yet (2026-11-04); other tests start with it read. */
+  fileNotice?: 'ask';
 };
 async function open(page: Page, mock: Mock = {}) {
   const posts: any[] = [];
   let dataReads = 0;
+  if (mock.fileNotice !== 'ask') await page.addInitScript(id => { localStorage.setItem(`krarok.fileNotice.${id}`, '1'); }, user.id);
   await page.addInitScript(() => {
     localStorage.setItem('cashflow_language', 'th'); localStorage.setItem('cashflow_dark_mode', 'false');
     localStorage.setItem('cashflow_theme_auto_period', String(Math.floor((Date.now() + 7 * 3600e3 - 6 * 3600e3) / (12 * 3600e3))));
@@ -344,7 +347,7 @@ for (const width of [1440, 390]) test(`attach ${width}px: a picture is redrawn a
 });
 
 test('attach: a PDF goes as it is; files that cannot be read are refused on screen before anything is sent', async ({ page }) => {
-  const mock = await open(page);
+  const mock = await open(page, { fileNotice: 'ask' });
   const input = page.locator('.asx-composer input[type=file]');
   await input.setInputFiles({ name: 'setup.exe', mimeType: 'application/octet-stream', buffer: Buffer.from('MZ') });
   await expect(page.locator('.asx-notice')).toContainText('ไฟล์แบบนี้ยังอ่านไม่ได้ แนบได้: รูป, PDF, Excel, CSV, Word, PowerPoint และไฟล์ข้อความ');
@@ -357,7 +360,18 @@ test('attach: a PDF goes as it is; files that cannot be read are refused on scre
   // A PDF is a file card before sending and in the chat (owner, 2026-10-24: as in Claude).
   await expect(page.locator('.asx-attach-file')).toContainText('ใบเสนอราคา.pdf');
   await expect(page.locator('.asx-attach-file')).toContainText('PDF');
+  // Owner, 2026-11-04 ("เตือนก่อนส่ง"): a picture or PDF cannot be masked, so the first time the account is told and
+  // agrees; until then nothing is sent. Afterwards a short line reminds it.
+  const notice = page.getByTestId('chat-file-notice');
+  await expect(notice).toHaveAttribute('data-state', 'ask');
+  await expect(notice).toContainText('ระบบปิดข้อมูลส่วนตัวในรูปให้ไม่ได้');
   await page.locator('#asx-message').fill('ช่วยเพิ่มงานจากใบนี้');
+  await page.locator('.asx-send').click();
+  await expect(page.locator('.asx-sent-file')).toHaveCount(0);
+  expect(mock.posts.filter(post => post.body.action === 'message').length).toBe(0);
+  await page.getByTestId('chat-file-notice-ok').click();
+  await expect(notice).toHaveAttribute('data-state', 'acked');
+  expect(await textOverlapIssues(page)).toEqual([]);
   await page.locator('.asx-send').click();
   await expect(page.locator('.asx-sent-file')).toContainText('ใบเสนอราคา.pdf');
   await expect(page.locator('.asx-attach-file')).toHaveCount(0);

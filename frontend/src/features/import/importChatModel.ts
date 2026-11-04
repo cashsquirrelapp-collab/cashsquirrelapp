@@ -1,5 +1,6 @@
 import { CONFIRM_ISSUES, needsConfirmation, type ColumnGuess, type ColumnTarget, type DataKind, type ImportRow, type IssueCode } from './sheetImport';
 import { QUIET_ISSUES, type RowEdit, type SheetState } from './importShared';
+import { maskSamples } from '../../../../shared/privacyMask';
 
 // The import as a chat with เลขากระรอก (owner, 2026-10-31: "ทำให้มันเป็นแบบแชท ... ดึงข้อมูลให้อัตโนมัติ ตรงไหนที่ไม่สามารถ
 // ดึงได้มันก็ทำการแจ้งเขาเลย เพราะว่ามันอาจจะไม่ถูกคอลัมน์หรือแบบยังไม่มีฟีเจอร์ที่รองรับ"). The file is read by the import's
@@ -195,7 +196,8 @@ export function chatContext(sheets: SheetState[], groups: IssueGroup[]) {
   return {
     sheets: sheets.slice(0, 8).map(sheet => ({
       name: sheet.grid.name.slice(0, 80), kind: sheet.analysis.kind, include: sheet.include, rows: sheet.analysis.dataRows.length,
-      columns: sheet.analysis.columns.slice(0, 40).map(c => ({ index: c.index, header: c.header.slice(0, 80), target: c.target, samples: c.samples.slice(0, 3).map(s => s.slice(0, 60)) })),
+      // Samples masked on the device before they leave (shared/privacyMask.ts), and again on the server.
+      columns: sheet.analysis.columns.slice(0, 40).map(c => ({ index: c.index, header: c.header.slice(0, 80), target: c.target, samples: maskSamples(c.header, c.samples.slice(0, 3)).map(s => s.slice(0, 60)) })),
     })),
     issues: groups.slice(0, 24).map(group => ({ code: group.issue, count: group.rows.length })),
   };

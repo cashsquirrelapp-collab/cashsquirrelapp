@@ -510,3 +510,39 @@ for (const size of [{ name: 'computer', width: 1280, height: 820 }, { name: 'pho
     }
   });
 }
+
+// Owner, 2026-11-04: a friend checked the browser's own requests and saw the file's emails and phone numbers leave the
+// device ("ข้อมูลมันสามารถหลุดได้"). Every request the import makes is read here; no personal value may be in any of them.
+test('nothing personal leaves the device: the column question and the import chat carry no emails, phones, addresses or names', async ({ page }) => {
+  await open(page, 1280, '/jobs');
+  const bodies: string[] = [];
+  await page.route('**/api/assistant', async route => {
+    const raw = route.request().postData() ?? '';
+    bodies.push(raw);
+    const body = raw ? JSON.parse(raw) : null;
+    if (body?.action === 'map-columns') return route.fulfill({ json: { available: true, columns: [] } });
+    if (body?.action === 'import-chat') return route.fulfill({ json: { available: true, reply: 'รับทราบครับ', actions: [] } });
+    return route.fulfill({ status: 501, json: { error: 'Unmocked test endpoint' } });
+  });
+  await page.getByTestId('jobs-import-button').click();
+  const chat = page.getByTestId('import-wizard');
+  const csv = [
+    'วันที่,ชื่องาน,ลูกค้า,อีเมล,เบอร์โทร,ที่อยู่ลูกค้า,ช่องทางติดต่อ,ราคา',
+    '01/10/2567,ออกแบบโลโก้,สมชาย ใจดี,MY_SECRET_EMAIL@test.com,0999888777,99/9 ถนนสุขุมวิท แขวงคลองเตย กรุงเทพฯ,โทร (081) 111 2222 หรือ line @somchai,15000',
+    '02/10/2567,ตัดต่อวิดีโอ,นางสาว มณี รักดี,ANOTHER_LEAK@fake.com,081-111-2222,12/3 หมู่ที่ 4 ต.บางพลี จ.สมุทรปราการ,คุณมณี mani@mail.com,25000',
+    '03/10/2567,ถ่ายภาพ,บริษัท ตัวอย่าง จำกัด,LEAK_CHECK_3@evil.com,0877776666,เชียงใหม่,https://line.me/ti/p/abc,28000',
+  ].join('\n');
+  await chat.locator('#import-sheet-file').setInputFiles({ name: 'pii_test.csv', mimeType: 'text/csv', buffer: Buffer.from(csv, 'utf8') });
+  await expect(chat.getByTestId('import-summary')).toBeVisible();
+  await chat.locator('#import-chat-input').fill('คอลัมน์ช่องทางติดต่อคือหมายเหตุ');
+  await chat.locator('#import-chat-input').press('Enter');
+  await expect(chat.getByTestId('import-chat-reply').last()).toContainText('รับทราบครับ');
+  expect(bodies.some(body => body.includes('"map-columns"'))).toBe(true);
+  expect(bodies.some(body => body.includes('"import-chat"'))).toBe(true);
+  const secrets = ['MY_SECRET_EMAIL', 'ANOTHER_LEAK', 'LEAK_CHECK_3', 'mani@mail.com', '0999888777', '081-111-2222', '0877776666', '111 2222',
+    'สุขุมวิท', 'บางพลี', 'สมชาย', 'มณี', '@somchai', 'line.me'];
+  for (const body of bodies) for (const secret of secrets) expect(body, `a request carried “${secret}”`).not.toContain(secret);
+  // The app still reads the file on the device: the jobs, amounts and clients are all there to import.
+  await expect(chat.getByTestId('import-row')).toHaveCount(3);
+  await expect(chat.getByTestId('import-row').first()).toContainText('สมชาย ใจดี');
+});

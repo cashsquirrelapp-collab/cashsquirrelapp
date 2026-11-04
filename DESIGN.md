@@ -478,6 +478,16 @@ card does not need:
   เลขา reads. The latest spreadsheet or document of a chat goes again with its own earlier message so follow-up questions
   still have every row. Text files are never vault attach cards. LINE does not take these files yet.
 
+### Personal data never leaves for the AI service (owner, 2026-11-04, a customer's PDPA report: "มึงควรปิดให้หมดอย่าให้มี")
+- `shared/privacyMask.ts` masks every file's text before it is sent: on the device (import column samples, the import
+  chat, a spreadsheet, document or text file in the เลขา chat) and again on the server (`columnMapping.ts`,
+  `importChat.ts`, `attachment.ts` for text/plain). Masked: emails, any run of 9+ digits (phone, ID, tax, bank, card),
+  links, @handles, addresses (two address words in one cell or line), names with a title; in a table, a contact
+  column (อีเมล, โทร, ที่อยู่, เลขประจำตัว, ไลน์ ...) whole and people's names in a client column. Amounts, dates, statuses
+  and business names stay. The tokens are Thai (`[อีเมล]`, `[เบอร์/เลขบัญชี]`, `[ที่อยู่]`, `[ชื่อบุคคล]`, `[ข้อมูลส่วนตัว]`).
+- Saving from a file never uses the masked text: the import and the chat's file review read the file on the device.
+- Pictures and PDFs are sent as they are (no reader on the device yet); text typed by the person is theirs to send.
+
 ### Live steps and the file check (owner, 2026-11-04: "แบบของ Claude หรือ GPT ขึ้นสถานะไว้" / "ขึ้นหน้าแบบว่าเหมือนกำลังเช็คงาน")
 - While เลขา works on something heavy (owner, 2026-11-04: "เวลาถามสั้นๆง่าย ไม่ต้องขึ้นสถานะเรียลไทม์ จะขึ้นก็ต่อเมื่อโดนถาม
   อะไรยากๆ": files sent, cards being prepared, a web search, a hand-over to prepare entries), the typing dots become the

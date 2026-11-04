@@ -1,4 +1,5 @@
 import { HttpError } from '../http/guard.js';
+import { maskPersonalLines } from '../../../shared/privacyMask.js';
 
 // A file the user attaches to a เลขากระรอก message: a picture (a transfer slip, a receipt, a photo of a quotation)
 // or a PDF. It goes to the model with that one message and is never stored. Checked by its real first bytes,
@@ -37,7 +38,10 @@ export function checkAttachment(input: { name: string; mimeType: string; data: s
   if (input.mimeType === 'text/plain') {
     if (bytes.length > TEXT_ATTACHMENT_MAX_BYTES) throw new HttpError(413, 'ไฟล์ยาวเกินไป กรุณาส่งเฉพาะส่วนที่ต้องการ', 'ai_file_too_long');
     if (!isText(bytes)) throw new HttpError(400, 'อ่านข้อความในไฟล์นี้ไม่ได้', 'ai_file_type');
-    return { name, mimeType: 'text/plain', data: input.data };
+    // Masked again here, whatever the device did (shared/privacyMask.ts): no email, phone, ID or bank number, link,
+    // address or titled name goes on to the AI service.
+    const masked = maskPersonalLines(new TextDecoder().decode(bytes));
+    return { name, mimeType: 'text/plain', data: Buffer.from(masked, 'utf8').toString('base64') };
   }
   const real = sniff(bytes);
   if (!real || real !== input.mimeType) throw new HttpError(400, 'แนบได้: รูป, PDF, Excel, CSV, Word, PowerPoint และไฟล์ข้อความ', 'ai_file_type');

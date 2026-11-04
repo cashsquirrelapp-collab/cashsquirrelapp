@@ -188,3 +188,28 @@ test('the models get the file as text (Claude and Gemini), and a spreadsheet nev
   assert.equal(turns[0].parts[0].text, sheet);
   assert.ok(!later.tools[0].includes('attach_file'));
 });
+
+// Owner, 2026-11-04 (a customer's report, PDPA): nothing personal in a file leaves for the AI service. The device masks it
+// before sending, and the server masks it again whatever arrives.
+test('personal data in a spreadsheet, a document or a text file is masked before the AI gets it', async () => {
+  const sheet = await readFileText(load, 'ลูกค้า.xlsx', workbook({
+    'งาน': [['วันที่', 'ชื่องาน', 'ลูกค้า', 'อีเมล', 'โทร', 'ที่อยู่', 'ราคา'],
+      ['2026-10-01', 'ออกแบบโลโก้', 'สมชาย ใจดี', 'somchai@gmail.com', '081-234-5678', '99/9 ถนนสุขุมวิท แขวงคลองเตย กรุงเทพฯ', 5000],
+      ['2026-10-02', 'ตัดต่อวิดีโอ', 'บริษัท ตัวอย่าง จำกัด', 'hr@example.co.th', '(02) 123 4567', 'เชียงใหม่', 8000]],
+  }));
+  for (const secret of ['somchai@gmail.com', 'hr@example.co.th', '081-234-5678', '123 4567', 'สมชาย', 'สุขุมวิท', 'เชียงใหม่']) assert.ok(!sheet.text.includes(secret), secret);
+  assert.match(sheet.text, /ออกแบบโลโก้,\[ชื่อบุคคล\],\[ข้อมูลส่วนตัว\],\[ข้อมูลส่วนตัว\],\[ข้อมูลส่วนตัว\],5000/);
+  assert.match(sheet.text, /ตัดต่อวิดีโอ,บริษัท ตัวอย่าง จำกัด,/);
+  assert.match(sheet.text, /ราคา = 13,000 \(2 แถว\)/);
+
+  const doc = await readFileText(load, 'note.txt', buffer(Buffer.from('เรียน คุณสมศรี มีสุข\nโทร 0899998888 อีเมล somsri@mail.com\nค่าออกแบบ 15,000 บาท', 'utf8')));
+  for (const secret of ['สมศรี', '0899998888', 'somsri@mail.com']) assert.ok(!doc.text.includes(secret), secret);
+  assert.match(doc.text, /ค่าออกแบบ 15,000 บาท/);
+
+  // An older app (or anyone) sending plain text straight to the server: masked there.
+  const raw = Buffer.from('ลูกค้า นายมานะ รักงาน โทร 081 111 2222 mana@mail.com ยอด 3,500', 'utf8').toString('base64');
+  const [checked] = checkAttachments([{ name: 'list.txt', mimeType: 'text/plain', data: raw }]);
+  const reaching = Buffer.from(checked.data, 'base64').toString('utf8');
+  for (const secret of ['มานะ', '081 111 2222', 'mana@mail.com']) assert.ok(!reaching.includes(secret), secret);
+  assert.match(reaching, /ยอด 3,500/);
+});

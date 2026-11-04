@@ -86,7 +86,6 @@ export const importChat: Record<string, string> = {
   'คุยเรื่องไฟล์นี้ครบแล้ว แตะปุ่มแก้ด้านบนได้': 'No messages left for this file; use the fixes above',
   'พิมพ์บอกเลขา เช่น คอลัมน์ C คือชื่อลูกค้า': 'Tell me, e.g. column C is the client',
   'พิมพ์บอกเลขา': 'Tell me what to change',
-  'เลขาเห็นเฉพาะชื่อคอลัมน์และตัวอย่างสั้น ๆ (ปิดอีเมลและเบอร์โทรไว้) · ตัวเลขทุกช่องระบบอ่านเองตามกฎ': 'I see only column names and short samples (emails and phone numbers hidden) · every figure is read by the app’s rules',
   'แนบไฟล์': 'Attach a file',
   'เลือกไฟล์อื่น': 'Choose another file',
   'ส่งข้อความ': 'Send',
@@ -201,4 +200,5 @@ export const importChat: Record<string, string> = {
   "นำเข้า {0}": "Import {0}",
   "แท็บ {0}": "Tab {0}",
   "ดูเพิ่มอีก {0} รายการ": "Show {0} more",
+  "ก่อนส่งให้เลขา ระบบปิดอีเมล เบอร์โทร เลขบัตร เลขบัญชี ที่อยู่ และชื่อบุคคลบนเครื่องของคุณ · ตัวเลขทุกช่องระบบอ่านเองตามกฎ": "Before anything goes to the assistant, emails, phone, ID and bank numbers, addresses and people's names are masked on your device · the app reads every number itself",
 };

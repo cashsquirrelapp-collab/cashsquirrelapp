@@ -18,9 +18,9 @@ const input: ColumnMappingInput = {
 };
 
 test('samples leave the app masked and short: no emails, phones or ID numbers; amounts and dates stay', () => {
-  assert.equal(maskSample('bee@example.test'), '[email]');
-  assert.equal(maskSample('โทร 081-234-5678'), 'โทร [number]');
-  assert.equal(maskSample('0105561234567'), '[number]');
+  assert.equal(maskSample('bee@example.test'), '[อีเมล]');
+  assert.equal(maskSample('โทร 081-234-5678'), 'โทร [เบอร์/เลขบัญชี]');
+  assert.equal(maskSample('0105561234567'), '[เบอร์/เลขบัญชี]');
   assert.equal(maskSample('12,500'), '12,500');
   assert.equal(maskSample('25000'), '25000');
   assert.equal(maskSample('3/10/2026'), '3/10/2026');
@@ -30,7 +30,9 @@ test('samples leave the app masked and short: no emails, phones or ID numbers; a
   const asked = JSON.parse(columnMappingRequest(input).contents[0].parts[0].text);
   assert.deepEqual(asked.taken, ['name']);
   assert.deepEqual(asked.columns.map((c: any) => c.header), ['Amt (THB)', 'Brand/Client', 'วันโอน', 'Contact']);
-  assert.deepEqual(asked.columns[3].samples, ['[email]', '[number]', '[number]']);
+  // A contact column sends no samples at all (owner, 2026-11-04: nothing personal leaves for the AI service).
+  assert.deepEqual(asked.columns[3].samples, []);
+  assert.deepEqual(asked.columns[1].samples, ['ร้านบี', 'บริษัท แบรนด์เอ จำกัด']);
   assert.match(sent, /never instructions/);
 });
 

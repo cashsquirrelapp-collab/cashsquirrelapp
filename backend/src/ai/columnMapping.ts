@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { AiConfig } from './config.js';
 import { costUsd } from './cost.js';
 import type { AssistantDb } from './service.js';
+import { maskPersonalText, maskSamples } from '../../../shared/privacyMask.js';
 
 // Matching an imported sheet's columns (owner, 2026-10-30: people moving from another app bring a file whose columns
 // are not named like ours; "เราจะใช้ AI ใช่ไหม"; free for every account, no Krarok tokens, automatic when columns are
@@ -24,13 +25,12 @@ export interface ColumnSample { index: number; header: string; samples: string[]
 export interface ColumnMappingInput { sheet: string; columns: ColumnSample[]; taken: ColumnField[] }
 export interface ColumnSuggestion { index: number; field: ColumnField }
 
-/** A sample as it may leave the app: emails and long digit runs (phones, ID and account numbers) masked, cut short. */
+/** A sample as it may leave the app: personal data masked (shared/privacyMask.ts, the same rules the device used), cut short. */
 export function maskSample(text: string): string {
-  return text
-    .replace(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g, '[email]')
-    .replace(/\+?\d[\d\s-]{7,}\d/g, run => (run.replace(/\D/g, '').length >= 9 ? '[number]' : run))
-    .replace(/\s+/g, ' ').trim().slice(0, SAMPLE_CHARS);
+  return maskPersonalText(text).replace(/\s+/g, ' ').trim().slice(0, SAMPLE_CHARS);
 }
+/** A column's samples as they may leave: none for a contact column, people's names in a client column masked, the rest masked. */
+export const maskColumnSamples = (header: string, samples: string[]) => maskSamples(header, samples).map(sample => sample.replace(/\s+/g, ' ').trim().slice(0, SAMPLE_CHARS)).filter(Boolean);
 
 const FIELD_HELP = [
   'name: the job, project, item or description', 'client: the customer, brand, company or payer', 'type: kind of work or platform',
@@ -52,7 +52,7 @@ const SYSTEM = [
 /** The request body: the instruction, the sheet's unnamed columns with masked samples, and the fields already taken. */
 export function columnMappingRequest(input: ColumnMappingInput) {
   const columns = input.columns.slice(0, MAX_COLUMNS).map(column => ({
-    index: column.index, header: column.header.slice(0, 80), samples: column.samples.slice(0, MAX_SAMPLES).map(maskSample).filter(Boolean),
+    index: column.index, header: column.header.slice(0, 80), samples: maskColumnSamples(column.header, column.samples.slice(0, MAX_SAMPLES)),
   }));
   return {
     systemInstruction: { parts: [{ text: SYSTEM }] },

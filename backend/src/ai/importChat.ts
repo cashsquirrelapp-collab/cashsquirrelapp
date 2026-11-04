@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { AiConfig } from './config.js';
 import { costUsd } from './cost.js';
 import type { AssistantDb } from './service.js';
-import { COLUMN_FIELDS, maskSample } from './columnMapping.js';
+import { COLUMN_FIELDS, maskColumnSamples } from './columnMapping.js';
 
 // Typing to เลขากระรอก in the import chat (owner, 2026-10-31: the import as a chat; typed messages free for every
 // account with caps: 10 a file, 3 files a day; no Krarok tokens, the real cost recorded and counted in the daily cap).
@@ -56,7 +56,7 @@ export function importChatRequest(input: ImportChatInput) {
     tabs: input.sheets.slice(0, 8).map(sheet => ({
       name: sheet.name.slice(0, 80), kind: sheet.kind, imported: sheet.include, rows: sheet.rows,
       columns: sheet.columns.slice(0, 40).map(column => ({ index: column.index, header: column.header.slice(0, 80), field: column.target,
-        samples: column.samples.slice(0, 3).map(maskSample).filter(Boolean) })),
+        samples: maskColumnSamples(column.header, column.samples.slice(0, 3)) })),
     })),
     problems: input.issues.slice(0, 24),
   };

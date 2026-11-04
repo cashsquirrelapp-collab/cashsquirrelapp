@@ -699,7 +699,7 @@ export function ImportChat({ open, initialFile, onClose, jobs, expenses, statuse
                 placeholder={!sheets.length ? tr("วางไฟล์ก่อน แล้วพิมพ์บอกเลขาได้") : !accountId ? tr("เข้าสู่ระบบเพื่อพิมพ์บอกเลขา") : left === 0 ? tr("คุยเรื่องไฟล์นี้ครบแล้ว แตะปุ่มแก้ด้านบนได้") : phone ? tr("พิมพ์บอกเลขา") : tr("พิมพ์บอกเลขา เช่น คอลัมน์ C คือชื่อลูกค้า")} />
               <button type="submit" className="ic-send" aria-label={tr("ส่งข้อความ")} disabled={!draft.trim() || !sheets.length || !accountId || left === 0 || sending}><ArrowUp className="h-[18px] w-[18px]" aria-hidden="true" /></button>
             </form>
-            <p className="ic-foot">{tr("เลขาเห็นเฉพาะชื่อคอลัมน์และตัวอย่างสั้น ๆ (ปิดอีเมลและเบอร์โทรไว้) · ตัวเลขทุกช่องระบบอ่านเองตามกฎ")}</p>
+            <p className="ic-foot">{tr("ก่อนส่งให้เลขา ระบบปิดอีเมล เบอร์โทร เลขบัตร เลขบัญชี ที่อยู่ และชื่อบุคคลบนเครื่องของคุณ · ตัวเลขทุกช่องระบบอ่านเองตามกฎ")}</p>
           </footer>
         )}
       </div>

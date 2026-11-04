@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileSpreadsheet, FileText, Presentation, X } from 'lucide-react';
+import { FileSpreadsheet, FileText, Presentation, ShieldAlert, X } from 'lucide-react';
 import { tr } from '../../i18n/tr';
 import type { PreparedFile } from './voice';
 import { MAX_CHAT_FILES, sizeText } from './chatUploads';
@@ -23,12 +23,45 @@ function kindLabel(name: string, kind: 'image' | 'pdf' | 'text'): string {
 // The files of a message to เลขากระรอก, up to 5 (owner, 2026-10-31): the tray above the box before sending, and what the
 // sent message shows. Shared by the full chat and the floating window; one file looks as it did before.
 
+// Pictures and PDFs go to the service that reads them for เลขา as they are: their contents cannot be masked the way a
+// spreadsheet's or a document's text is (shared/privacyMask.ts). Owner, 2026-11-04 (a customer's PDPA report), choosing
+// "เตือนก่อนส่ง": the first time an account attaches one, it is told and agrees before sending; after that a short line
+// reminds it. The agreement is kept on the device for that account.
+const noticeKey = (accountId?: string) => `krarok.fileNotice.${accountId || 'guest'}`;
+const readNotice = (accountId?: string) => { try { return localStorage.getItem(noticeKey(accountId)) === '1'; } catch { return false; } };
+export const needsFileNotice = (files: Pick<PreparedFile, 'kind'>[]) => files.some(file => file.kind === 'image' || file.kind === 'pdf');
+export function useFileNotice(accountId?: string) {
+  const [acked, setAcked] = React.useState(() => readNotice(accountId));
+  React.useEffect(() => { setAcked(readNotice(accountId)); }, [accountId]);
+  const ack = React.useCallback(() => { setAcked(true); try { localStorage.setItem(noticeKey(accountId), '1'); } catch { /* agreed for now */ } }, [accountId]);
+  return { acked, ack };
+}
+
+function FileNotice({ acked, onAck }: { acked: boolean; onAck: () => void }) {
+  if (acked) {
+    return <p className="asx-file-notice is-quiet" data-testid="chat-file-notice" data-state="acked"><ShieldAlert size={14} aria-hidden="true" />{tr("รูปและ PDF ส่งให้เลขาอ่านทั้งไฟล์ ระบบปิดข้อมูลส่วนตัวในรูปให้ไม่ได้")}</p>;
+  }
+  return (
+    <div className="asx-file-notice" role="note" data-testid="chat-file-notice" data-state="ask">
+      <ShieldAlert size={18} aria-hidden="true" />
+      <div className="asx-file-notice-text">
+        <b>{tr("ก่อนส่งรูปหรือ PDF")}</b>
+        <p>{tr("รูปและ PDF จะถูกส่งให้ผู้ให้บริการที่ช่วยเลขาอ่านทั้งไฟล์ ระบบปิดข้อมูลส่วนตัวในรูปให้ไม่ได้ ถ้ามีเบอร์โทร ที่อยู่ หรือเลขบัตรของลูกค้า ให้ครอปหรือปิดก่อนส่ง ไฟล์ Excel, Word และข้อความ ระบบปิดข้อมูลส่วนตัวให้ก่อนส่ง")}</p>
+        <button type="button" className="asx-file-notice-ok" onClick={onAck} data-testid="chat-file-notice-ok">{tr("เข้าใจแล้ว")}</button>
+      </div>
+    </div>
+  );
+}
+
 /** The files waiting to be sent, each with a way to take it out, and a tap to check it large before sending (owner,
  *  2026-11-04: "กดเข้าไปตรงรูปภาพที่เป็นย่อแล้วให้มันขยายใหญ่ ... เอาไว้เช็คความมั่นใจ"): a picture opens in the viewer, a
  *  PDF in the browser's own viewer. */
-export function UploadTray({ files, onRemove, onView, className = '' }: { files: PreparedFile[]; onRemove: (index: number) => void; onView?: (preview: string) => void; className?: string }) {
+export function UploadTray({ files, onRemove, onView, className = '', notice }: { files: PreparedFile[]; onRemove: (index: number) => void; onView?: (preview: string) => void; className?: string;
+  /** The picture and PDF notice (useFileNotice): shown while one is attached. */
+  notice?: { acked: boolean; ack: () => void } }) {
   if (!files.length) return null;
   return (
+    <>
     <div className={`asx-attach-row ${className}`} role="group" aria-label={files.length > 1 ? tr("ไฟล์ที่จะส่ง {0} จาก {1}", files.length, MAX_CHAT_FILES) : tr("ไฟล์ที่จะส่ง")} data-testid="chat-upload-tray">
       {files.map((file, index) => (file.kind === 'image' ? (
         <div key={`${file.name}-${index}`} className="asx-attach-tile">
@@ -50,6 +83,8 @@ export function UploadTray({ files, onRemove, onView, className = '' }: { files:
       )))}
       {files.length > 1 && <span className="asx-attach-count" aria-hidden="true">{files.length}/{MAX_CHAT_FILES}</span>}
     </div>
+    {notice && needsFileNotice(files) && <FileNotice acked={notice.acked} onAck={notice.ack} />}
+    </>
   );
 }
 

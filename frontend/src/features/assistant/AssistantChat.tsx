@@ -18,7 +18,7 @@ import { WorkDone, WorkLive } from './ChatWorkSteps';
 import { FileChecks } from './ChatFileCheck';
 import { useWork } from './workSteps';
 import { addChatFiles, CHAT_FILE_ACCEPT, FILE_PROBLEM_TEXT, sentFiles, shownFiles, type FileProblem } from './chatUploads';
-import { SentFiles, UploadTray } from './ChatUploadViews';
+import { SentFiles, UploadTray, needsFileNotice, useFileNotice } from './ChatUploadViews';
 import { messageFiles } from './assistantApi';
 import { useDictation } from './useDictation';
 import { VoiceComposer } from './VoiceComposer';
@@ -576,6 +576,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
       .finally(() => setMode('awake'));
     return true;
   };
+  const fileNotice = useFileNotice(accountId);
   const send = (raw: string, preset = false) => {
     if (busy || voice.active || waiting) return;
     const command = !preset && !uploads.length && !inLine ? confirmationCommand(raw, messages, confirmStates) : null;
@@ -595,6 +596,8 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
     if (blocked) return;
     if (lineThreadAnswer(raw.trim())) { voice.clearReview(); return; }
     const files = preset ? [] : uploads;
+    // A picture or PDF waits until the account has read what happens to it (useFileNotice).
+    if (needsFileNotice(files) && !fileNotice.acked) return;
     const text = raw.trim() || (files.length > 1 ? tr("ช่วยดูไฟล์เหล่านี้หน่อย") : files.length ? tr("ช่วยดูไฟล์นี้หน่อย") : '');
     if (!text || text.length > MAX_MESSAGE) return;
     noteAssistantSent();
@@ -1264,7 +1267,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                   <button type="button" className="asx-link-btn" onClick={() => { setFileProblem(null); voice.clearError(); }}>{tr("ปิด")}</button>
                 </p>
               )}
-              <UploadTray files={uploads} onView={setViewer} onRemove={index => setUploads(list => list.filter((_, at) => at !== index))} />
+              <UploadTray files={uploads} onView={setViewer} onRemove={index => setUploads(list => list.filter((_, at) => at !== index))} notice={fileNotice} />
               {draft.length > MAX_MESSAGE && <p className="asx-notice is-low" role="alert">{tr("ข้อความยาวเกิน 6,000 ตัวอักษร กรุณาย่อก่อนส่ง")}</p>}
               {voice.review && !voice.active && (
                 <p className="asx-notice asx-voice-review" role="status"><Check size={14} />{tr("ถอดเสียงแล้ว ตรวจแก้ก่อนกดส่ง")}</p>

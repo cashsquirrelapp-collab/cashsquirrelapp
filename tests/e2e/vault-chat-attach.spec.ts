@@ -22,6 +22,8 @@ async function open(page: Page, { path, pro, settings = {} }: { path: string; pr
     settings: { monthlyExpense: 0, monthlyRevenueGoal: 20000, savingsPercentage: 40, profileSetupCompleted: true, userPersona: 'freelance', ...settings },
     notif_settings: { enabled: true, alertEmail: user.email, serviceType: 'mailto', emailjsServiceId: '', emailjsTemplateId: '', emailjsPublicKey: '', pendingQueue: [], lineUserId: null },
     avatar_data_url: null, issuer_profile: null };
+  // The picture and PDF notice (2026-11-04) is tested in assistant-live.spec.ts; here it has been read.
+  await page.addInitScript(id => { localStorage.setItem(`krarok.fileNotice.${id}`, '1'); }, user.id);
   await page.addInitScript(() => {
     localStorage.setItem('cashflow_language', 'th'); localStorage.setItem('cashflow_dark_mode', 'false');
     localStorage.setItem('cashflow_theme_auto_period', String(Math.floor((Date.now() + 7 * 3600e3 - 6 * 3600e3) / (12 * 3600e3))));

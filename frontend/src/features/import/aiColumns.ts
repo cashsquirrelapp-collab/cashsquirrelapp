@@ -1,10 +1,12 @@
 import { apiJson } from '../../services/api';
 import type { ColumnTarget, Field, SheetAnalysis } from './sheetImport';
+import { maskSamples } from '../../../../shared/privacyMask';
 
 // เลขากระรอก's help with columns the import's rules could not name (owner, 2026-10-30: files from other apps whose
 // columns are not named like ours; free for every account, asked by itself). Only those columns' headers and a few
-// samples are sent (the server masks emails and long numbers); a suggestion is marked for the person to confirm, and
-// the import's own rules still read every amount, date and status.
+// samples are sent, masked here on the device first (shared/privacyMask.ts: no emails, phone/ID/bank numbers, links,
+// addresses or people's names; a contact column sends no samples at all) and again on the server; a suggestion is
+// marked for the person to confirm, and the import's own rules still read every amount, date and status.
 
 export interface AiColumnAnswer { columns: { index: number; field: Field }[]; available: boolean }
 const NOT_FIELDS: ColumnTarget[] = ['keep', 'ignore'];
@@ -15,7 +17,7 @@ export function columnsToAsk(analysis: SheetAnalysis) {
   return analysis.columns
     .filter(column => column.target === 'keep' && (column.reason === 'none' || column.reason === undefined) && column.header.trim() && column.samples.some(Boolean))
     .slice(0, 40)
-    .map(column => ({ index: column.index, header: column.header.slice(0, 120), samples: column.samples.slice(0, 5).map(sample => sample.slice(0, 120)) }));
+    .map(column => ({ index: column.index, header: column.header.slice(0, 120), samples: maskSamples(column.header, column.samples.slice(0, 5)).map(sample => sample.slice(0, 120)) }));
 }
 
 /** The fields other columns already have (never suggested twice). */

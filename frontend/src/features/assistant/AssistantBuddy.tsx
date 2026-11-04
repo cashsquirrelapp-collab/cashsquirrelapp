@@ -20,7 +20,7 @@ import { WorkDone, WorkLive } from './ChatWorkSteps';
 import { FileChecks } from './ChatFileCheck';
 import { useWork } from './workSteps';
 import { addChatFiles, CHAT_FILE_ACCEPT, FILE_PROBLEM_TEXT, sentFiles, shownFiles, type FileProblem } from './chatUploads';
-import { SentFiles, UploadTray } from './ChatUploadViews';
+import { SentFiles, UploadTray, needsFileNotice, useFileNotice } from './ChatUploadViews';
 import { messageFiles } from './assistantApi';
 import { chatTitle, type ChatHandoff } from './chatHandoff';
 import { greetingNow, noteQuestion } from './greeting';
@@ -361,8 +361,11 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
     inputRef.current?.focus();
   };
   /** `withFile`: the composer's own send, which carries the attached picture or PDF; suggested questions never do. */
+  const fileNotice = useFileNotice(accountId);
   const send = async (raw: string, withFile = false) => {
     const files = withFile && live ? uploads : [];
+    // A picture or PDF waits until the account has read what happens to it (useFileNotice).
+    if (needsFileNotice(files) && !fileNotice.acked) return;
     const text = raw.trim() || (files.length > 1 ? tr("ช่วยดูไฟล์เหล่านี้หน่อย") : files.length ? tr("ช่วยดูไฟล์นี้หน่อย") : '');
     if (!text || busy || waiting) return;
     const command = files.length ? null : confirmationCommand(text, messages, confirmStates);
@@ -660,7 +663,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
                 </p>
               )}
               {voice.review && !voice.active && <p className="asx-notice asx-voice-review kfw-voice-note" role="status"><Check size={14} />{tr("ถอดเสียงแล้ว ตรวจแก้ก่อนกดส่ง")}</p>}
-              {!voice.active && <UploadTray className="kfw-attach-row" files={uploads} onView={setViewer} onRemove={index => setUploads(list => list.filter((_, at) => at !== index))} />}
+              {!voice.active && <UploadTray className="kfw-attach-row" files={uploads} onView={setViewer} onRemove={index => setUploads(list => list.filter((_, at) => at !== index))} notice={fileNotice} />}
               <form className={`asx-buddy-composer${voice.active ? ' has-voice' : ''}`} onSubmit={event => { event.preventDefault(); void send(draft, true); }}>
                 {voice.active ? (
                   <VoiceComposer phase={voice.phase} seconds={voice.seconds} levels={voice.levels} levelsAt={voice.levelsAt} reduce={Boolean(reduce)}

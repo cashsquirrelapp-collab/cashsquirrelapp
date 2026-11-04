@@ -162,7 +162,7 @@ const input: ImportChatInput = {
 test('the request carries masked samples, the problems and the message, and asks for checked JSON', () => {
   const body = importChatRequest(input);
   const sent = JSON.parse(body.contents[0].parts[0].text);
-  assert.deepEqual(sent.file.tabs[0].columns[1].samples, ['TikTok', '[email]', '[number]']);
+  assert.deepEqual(sent.file.tabs[0].columns[1].samples, ['TikTok', '[อีเมล]', '[เบอร์/เลขบัญชี]']);
   assert.deepEqual(sent.file.problems, input.issues);
   assert.equal(sent.message, input.text);
   assert.equal(body.generationConfig.responseMimeType, 'application/json');

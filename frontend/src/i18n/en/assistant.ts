@@ -658,4 +658,9 @@ export const assistant: Record<string, string> = {
   'ไฟล์ที่จะส่ง {0} จาก {1}': 'Files to send: {0} of {1}',
   'แนบได้ครั้งละไม่เกิน 5 ไฟล์': 'Up to 5 files at a time',
   'ไฟล์รวมกันใหญ่เกิน 8 MB กรุณาส่งทีละน้อยลง': 'The files are over 8 MB together. Please send fewer at a time.',
+  // Before a picture or PDF is sent (2026-11-04).
+  "ก่อนส่งรูปหรือ PDF": "Before sending a picture or PDF",
+  "รูปและ PDF จะถูกส่งให้ผู้ให้บริการที่ช่วยเลขาอ่านทั้งไฟล์ ระบบปิดข้อมูลส่วนตัวในรูปให้ไม่ได้ ถ้ามีเบอร์โทร ที่อยู่ หรือเลขบัตรของลูกค้า ให้ครอปหรือปิดก่อนส่ง ไฟล์ Excel, Word และข้อความ ระบบปิดข้อมูลส่วนตัวให้ก่อนส่ง": "Pictures and PDFs go in full to the service that reads them for the assistant; personal data inside a picture cannot be masked. If it shows a client's phone, address or ID number, crop or cover it before sending. Excel, Word and text files are masked before they are sent.",
+  "เข้าใจแล้ว": "Understood",
+  "รูปและ PDF ส่งให้เลขาอ่านทั้งไฟล์ ระบบปิดข้อมูลส่วนตัวในรูปให้ไม่ได้": "Pictures and PDFs are read in full; personal data in them cannot be masked",
 };
