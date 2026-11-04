@@ -56,7 +56,7 @@ test('the public route is wired with its own size limit, the same-origin check a
   const router = readFileSync(new URL('../backend/src/http/router.ts', import.meta.url), 'utf8');
   assert.match(router, /routes\['feedback-public'\] = feedbackPublic;/);
   assert.match(router, /route==='feedback-public'\?3\*1024\*1024/);
-  assert.match(router, /'feedback','feedback-public','assistant'\]\.includes\(route\)/);
+  assert.match(router, /'feedback','feedback-public','assistant'(,'[a-z-]+')*\]\.includes\(route\)/);
   const ingress = readFileSync(new URL('../backend/src/security/ingress.ts', import.meta.url), 'utf8');
   assert.match(ingress, /'feedback-public': \{ group: 'feedback-public', limit: 10 \}/);
   const handler = readFileSync(new URL('../backend/src/handlers/feedback-public.ts', import.meta.url), 'utf8');

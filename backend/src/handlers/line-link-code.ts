@@ -6,6 +6,7 @@ import { rateLimit,challengeHash } from '../security/rateLimit.js';
 import { sendLineMessagePayload } from '../services/line.js';
 import { buildLineDisconnected } from '../services/lineLinkCards.js';
 import { resetLineMenu } from '../services/lineRichMenus.js';
+import { hasConsent, saveConsent } from '../repositories/consents.js';
 export default withGuard(async(req,res)=>{
  if(req.method!=='POST')throw new HttpError(405,'Method not allowed');
  const user=await requireUser(req,res);
@@ -24,8 +25,12 @@ export default withGuard(async(req,res)=>{
    // The disconnected chat goes back to LINE's default menu (an admin's menu has แนบเอกสาร).
    await resetLineMenu(lineUserId);
   }
+  // Disconnecting is withdrawing the LINE consent (shared/consents.ts); the link is already gone if this fails.
+  try{await saveConsent(user.id,'line',false);}catch{console.error('line-link-code: consent withdrawal was not recorded');}
   res.json({ok:true,lineNotified});return;
  }
+ // A code only after the account agreed to connecting LINE (owner, 2026-11-05): the app asks just before.
+ if(!(await hasConsent(user.id,'line')))throw new HttpError(428,'กรุณาอ่านและกดยินยอมการเชื่อมต่อ LINE ก่อน','line_consent_required');
  await rateLimit('line-link',user.id,5,900);
  // A link code is a short-lived proof that the signed-in web account controls the
  // LINE chat that sends it back. Creating a new code replaces the previous hash,

@@ -10,6 +10,8 @@ import { assistantPlanForUserId, supabaseAssistantDb } from './supabaseDb.js';
 import type { ChatTurn } from './types.js';
 import { lineHistoryText, type ChannelTurn } from './crossChannel.js';
 import { notifyBillingIssues } from '../services/ownerAlerts.js';
+import { hasConsent } from '../repositories/consents.js';
+import { appOrigin } from '../config/env.js';
 
 // LINE talks to the same เลขากระรอก as the app: the same Gemini, rules, tools and Krarok Tokens (one pool per
 // account), with answers shaped for LINE (lineFormat.ts). The LINE handler has already checked the account
@@ -27,6 +29,8 @@ export interface LineBridgeDeps {
   now?: Date;
   /** How long เลขา may take in LINE before a short "try again" goes out instead (tests shorten it). */
   budgetMs?: number;
+  /** Whether the account agreed to เลขากระรอก (shared/consents.ts); tests stand in for the record. */
+  consented?: (userId: string) => Promise<boolean>;
 }
 
 /**
@@ -64,6 +68,11 @@ export async function lineAssistantAnswer(user: UserRow, text: string, history: 
     if (isTokenQuestion(text)) {
       const balance = tokenBalanceText(await usageStatus(db, config, user.user_id, plan, deps.now));
       return { messages: [{ type: 'text', text: balance }], text: balance };
+    }
+    // Not before the account has agreed to เลขากระรอก (owner, 2026-11-05): the agreement is made in the app, once.
+    if (!(await (deps.consented ?? (id => hasConsent(id, 'ai')))(user.user_id))) {
+      const ask = `ก่อนคุยกับเลขากระรอกใน LINE กรุณาอ่านและกดยินยอมการใช้เลขาในแอปก่อนครับ (ครั้งเดียว) เปิดได้ที่ ${appOrigin()}/assistant`;
+      return { messages: [{ type: 'text', text: ask }], text: ask };
     }
     // The same per-minute limit as the app's chat: one bucket per account, wherever the message comes from.
     await (deps.rateLimit ?? rateLimit)(MESSAGE_RATE.scope, user.user_id, MESSAGE_RATE.limit, MESSAGE_RATE.seconds);

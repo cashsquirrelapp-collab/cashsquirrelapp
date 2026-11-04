@@ -49,6 +49,7 @@ test('release notes: "what is new" lists the open pages\' notes newest first; a 
   assert.ok(news.every(entry => launched(entry.area)));
   assert.match(knowledgeSnippets(lookupKnowledge('ช่วงนี้มีฟีเจอร์ใหม่อะไรบ้าง')), /WHAT IS NEW/);
   const now = Date.parse('2026-11-05T12:00:00+07:00');
-  assert.deepEqual(whatsNew('ตั้งธีมยังไง', ['settings'], now).map(entry => entry.area), ['settings']);
+  const asked = whatsNew('ตั้งธีมยังไง', ['settings'], now);
+  assert.ok(asked.length >= 1 && asked.length <= 2 && asked.every(entry => entry.area === 'settings'), 'the page\'s own recent notes, at most two');
   assert.deepEqual(whatsNew('ตั้งธีมยังไง', ['settings'], Date.parse('2027-01-01T00:00:00+07:00')), [], 'old notes stop riding along');
 });

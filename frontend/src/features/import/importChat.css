@@ -344,3 +344,16 @@ details.ic-steps .ic-steps-list { margin-top: 10px; }
   .ic-more-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .ic-more { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: var(--faint); }
 }
+
+/* เลขา's consent in the import window (2026-11-05): one line with its button in place of the box; the card opens in its place. */
+.ic-consent { display: flex; align-items: center; gap: 10px; max-width: 720px; margin: 0 auto; padding: 10px 12px; border: 1px solid var(--border); border-radius: 18px; background: var(--white); color: var(--muted); }
+.ic-consent > svg { color: #C24A16; }
+.dark .ic-consent > svg { color: #FFA473; }
+.ic-consent p { flex: 1 1 auto; min-width: 0; margin: 0; font-size: 13px; line-height: 1.6; }
+.ic-consent .ic-button { flex: none; }
+.ic-consent-card { max-width: 720px; margin: 0 auto; }
+.ic-consent-card .asx-consent { max-height: min(56vh, 520px); margin: 0; }
+@media (max-width: 743px) {
+  .ic-consent { flex-wrap: wrap; padding: 10px; }
+  .ic-consent .ic-button { width: 100%; }
+}

@@ -1,5 +1,6 @@
 import { tr, trServer } from '../../i18n/tr';
 import { apiFetch, apiJson, getCurrentAccount } from '../../services/api';
+import { consentMissing } from '../../services/consent';
 import { isAssistantProgress, type AssistantProgress } from '../../../../shared/assistantProgress';
 import { chatTextFiles } from './chatFiles';
 import { LINE_THREAD_ID, LOW_TOKENS, PAGE_HELP, SAMPLE_TOKENS, estimateTokens, pageHelpReply, sampleConversations, sampleReply, type ChatCard, type ChatGroup, type ChatMessage, type ConfirmCard, type Conversation, type TokenBalance } from './assistantMock';
@@ -201,6 +202,7 @@ export function createLiveTransport(options: { account: string; status: Assistan
         balance = { ...balance, remaining: reply.tokensLeft ?? reply.trialLeft ?? balance.remaining };
         return reply;
       } catch (error) {
+        if ((error as { code?: string }).code === 'ai_consent_required') { consentMissing(options.account, 'ai'); throw error; }
         // A timeout or unusable transcript may still incur provider cost. Reconcile the held/settled
         // allowance, including after cancellation, rather than presenting the old cached balance.
         if (getCurrentAccount() === options.account) {
@@ -241,6 +243,8 @@ export function createLiveTransport(options: { account: string; status: Assistan
         active(signal);
         const status = (error as { status?: number }).status;
         const code = (error as { code?: string }).code;
+        // Not agreed to เลขากระรอก yet (owner, 2026-11-05): the chat shows its consent card in place of the box.
+        if (code === 'ai_consent_required') { consentMissing(options.account, 'ai'); return { text: (error as Error).message, tokensUsed: 0 }; }
         // Plan, token and pause answers are messages for the person, not connection failures.
         if (status === 402 || status === 403 || (status === 503 && code !== 'ai_provider') || code?.startsWith('ai_file')) {
           const used = code === 'ai_tokens_used' || code === 'ai_trial_used' ? balance.remaining : 0;

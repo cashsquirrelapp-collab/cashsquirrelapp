@@ -498,6 +498,8 @@ function UploadDialog({ request, financeKey, available, freeLeft, jobs, expenses
             <input ref={fileInput} type="file" accept={VAULT_ACCEPT} multiple className="hidden" onChange={e => { add(e.target.files); e.target.value = ''; }} data-testid="vault-file-input" />
             <input ref={cameraInput} type="file" accept="image/*" capture="environment" className="hidden" onChange={e => { add(e.target.files); e.target.value = ''; }} />
             <p className="mt-2 text-xs text-brand-muted">{tr("ขนาดไม่เกิน 10 MB ต่อไฟล์")}</p>
+            {/* Files often carry other people's details (owner, 2026-11-05): one line, never a block. */}
+            <p className="mt-1 text-xs leading-[1.6] text-brand-muted" data-testid="vault-privacy-note">{tr("ไฟล์เก็บในพื้นที่ส่วนตัวของบัญชี สำเนาบัตรหรือเอกสารของผู้อื่น อัปโหลดเฉพาะที่จำเป็นและได้รับอนุญาตจากเจ้าของ")}</p>
             {freeLeft !== null && <p className="mt-1 text-xs leading-[1.5] text-brand-muted" data-testid="vault-free-left">{tr("บัญชีฟรีเพิ่มได้อีก {0} จาก {1} ไฟล์ · Pro เก็บได้ไม่จำกัด", freeLeft, VAULT_FREE_FILES)}</p>}
 
             {converting > 0 && <p role="status" className="mt-3 flex items-center gap-2 text-[13px] text-brand-muted"><Loader2 size={15} className="animate-spin" aria-hidden="true" />{tr("กำลังเตรียมรูปจาก iPhone…")}</p>}

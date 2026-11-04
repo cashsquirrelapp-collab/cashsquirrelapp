@@ -19,6 +19,7 @@ import { FileChecks } from './ChatFileCheck';
 import { useWork } from './workSteps';
 import { addChatFiles, CHAT_FILE_ACCEPT, FILE_PROBLEM_TEXT, sentFiles, shownFiles, type FileProblem } from './chatUploads';
 import { SentFiles, UploadTray, needsFileNotice, useFileNotice } from './ChatUploadViews';
+import { AiConsentCard, useAiConsentNeeded } from './AiConsent';
 import { messageFiles } from './assistantApi';
 import { useDictation } from './useDictation';
 import { VoiceComposer } from './VoiceComposer';
@@ -338,6 +339,8 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
   const pendingConfirmation = !inLine && confirmationCommand('ยืนยัน', messages, confirmStates) !== null;
   // The real เลขากระรอก (live transport): no sample labels. The trial has no refill date.
   const live = Boolean(transport.live);
+  // Before the first message, voice or file: the consent card in place of the box (AiConsent.tsx, 2026-11-05).
+  const consentNeeded = useAiConsentNeeded(accountId, live);
   const waiting = connecting && !live;
   const refillDate = new Date(effective.refillsOn);
   const refill = Number.isNaN(refillDate.getTime()) ? '' : refillDate.toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' });
@@ -1225,7 +1228,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
         </div>
 
         <div ref={dockRef} className="asx-dock">
-          <>
+          {consentNeeded && accountId ? <AiConsentCard accountId={accountId} compact={floating || mobile} /> : <>
               {gate && upsell && (
                 <div className="asx-upsell lg-glass is-menu" role="region" aria-label={tr("พิมพ์ถามเองได้เมื่อเป็นสมาชิก Pro")}>
                   <span className="asx-upsell-figure" aria-hidden="true"><Mascot gear="pro" mood="happy" animated={false} size={48} viewBox="12 8 76 76" /></span>
@@ -1302,9 +1305,9 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                 <button type="submit" className="asx-send" disabled={busy || waiting || (blocked && !confirmationCommand(draft, messages, confirmStates)) || draft.length > MAX_MESSAGE || (!draft.trim() && !uploads.length)} aria-label={tr("ส่งข้อความ")} title={tr("ส่งข้อความ")}><ArrowUp size={18} strokeWidth={2.4} /></button>
                 </>}
               </form>
-              <p className="asx-hint">{voice.active ? (voice.phase === 'transcribing' ? tr("ถอดข้อความเสร็จแล้วตรวจแก้ได้ก่อนส่ง") : tr("หยุดแล้วถอดข้อความ · ใช้โทเค็น · สูงสุด 2 นาที")) : live ? (lapsed ? tr("Pro หมดอายุแล้ว ใช้โทเคนที่เหลือได้จนหมด ต่ออายุ Pro เพื่อรับโทเคนใหม่") : tr("เลขากระรอกตอบผิดได้ ตรวจสอบก่อนกดยืนยันทุกครั้ง")) : waiting ? tr("กำลังเชื่อมต่อเลขากระรอก…") : tr("ตัวอย่างหน้าจอ · คำตอบเป็นข้อมูลตัวอย่าง ยังไม่ได้เชื่อมต่อเลขากระรอก")}</p>
+              <p className="asx-hint">{voice.active ? (voice.phase === 'transcribing' ? tr("ถอดข้อความเสร็จแล้วตรวจแก้ได้ก่อนส่ง") : tr("หยุดแล้วถอดข้อความ · ใช้โทเค็น · สูงสุด 2 นาที")) : live ? (lapsed ? tr("Pro หมดอายุแล้ว ใช้โทเคนที่เหลือได้จนหมด ต่ออายุ Pro เพื่อรับโทเคนใหม่") : tr("เลขากระรอกอาจตอบผิดพลาด ตรวจสอบก่อนกดยืนยันทุกครั้ง · ไม่ใช่คำปรึกษาทางภาษี บัญชี หรือกฎหมาย")) : waiting ? tr("กำลังเชื่อมต่อเลขากระรอก…") : tr("ตัวอย่างหน้าจอ · คำตอบเป็นข้อมูลตัวอย่าง ยังไม่ได้เชื่อมต่อเลขากระรอก")}</p>
               {!live && !waiting && liveNote && <p className="asx-hint is-admin" role="status">{tr("สำหรับแอดมิน: เลขา AI ยังไม่เปิดในบัญชีนี้ · {0}", liveNote)}</p>}
-          </>
+          </>}
         </div>
       </div>
     </section>

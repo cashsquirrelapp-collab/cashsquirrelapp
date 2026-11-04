@@ -488,6 +488,23 @@ card does not need:
 - Saving from a file never uses the masked text: the import and the chat's file review read the file on the device.
 - Pictures and PDFs are sent as they are (no reader on the device yet); text typed by the person is theirs to send.
 
+### Consent before sensitive data (owner, 2026-11-05: "อะไรที่มันเป็นข้อมูลที่เซนซิทีฟทุกจุด ... ให้เขายืนยันหรือยินยอมเราก่อน")
+- Records: `shared/consents.ts` (keys `terms`, `ai`, `line`, each with a version), kept by the server in the private
+  state (`/api/consent`); a new version asks again. The device keeps a copy per account (`services/consent.ts`) so the
+  dialogs never flash; the server's record is what counts.
+- Terms (`app/TermsGate.tsx`): once per account before anything else opens (onboarding, tips, the radar and the team's
+  message wait for it). Two ticks: the terms and privacy policy, and that client details are the person's to use.
+  Centred card on computers and iPads, a sheet on phones; ไม่ยอมรับ ออกจากระบบ, then the one orange button. It never
+  closes by itself.
+- เลขากระรอก (`features/assistant/AiConsent.tsx`): a direction-A card in place of the message box in the full chat, the
+  floating window, the phone sheet and the import window, until agreed. The server refuses chat, voice and the import
+  chat without it (428 `ai_consent_required`) and LINE asks the person to agree in the app. The line under every box:
+  "เลขากระรอกอาจตอบผิดพลาด ... ไม่ใช่คำปรึกษาทางภาษี บัญชี หรือกฎหมาย".
+- LINE: the existing "before connecting" dialog is the consent and is recorded before the code is made; disconnecting
+  withdraws it. Settings › ความยินยอม lists all three with their dates and how to withdraw each.
+- Short privacy lines (one muted line, never a block): the client section of a document (computer and phone), the
+  issuer's details (who will see them), the vault upload, the แจ้งปัญหา box and the public report form.
+
 ### Live steps and the file check (owner, 2026-11-04: "แบบของ Claude หรือ GPT ขึ้นสถานะไว้" / "ขึ้นหน้าแบบว่าเหมือนกำลังเช็คงาน")
 - While เลขา works on something heavy (owner, 2026-11-04: "เวลาถามสั้นๆง่าย ไม่ต้องขึ้นสถานะเรียลไทม์ จะขึ้นก็ต่อเมื่อโดนถาม
   อะไรยากๆ": files sent, cards being prepared, a web search, a hand-over to prepare entries), the typing dots become the

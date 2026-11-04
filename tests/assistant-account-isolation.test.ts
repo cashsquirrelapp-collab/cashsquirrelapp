@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, test } from 'node:test';
+import { CONSENT_VERSIONS } from '../shared/consents';
 import assert from 'node:assert/strict';
 import { Readable } from 'node:stream';
 import { seal } from '../backend/src/security/cookies';
@@ -165,6 +166,11 @@ beforeEach(() => {
       return json([{ id: 'shared-vault-id', user_id: owner, group_id: null, kind: 'other', job_id: 'shared-job-id', job_name: `${tag(owner!)} JOB`,
         client: `${tag(owner!)} CLIENT`, file_name: `${tag(owner!)}.pdf`, mime_type: 'application/pdf', size_bytes: 20,
         storage_path: 'PRIVATE_STORAGE_PATH_MUST_NOT_REACH_MODEL', created_at: '2026-01-01T00:00:00Z' }]);
+    }
+    // The consent to เลขากระรอก (2026-11-05): the account's own private state, read with the authenticated owner only.
+    if (url.pathname.endsWith('/cashflow_private_state') && url.searchParams.get('select') === 'consents:data->consents') {
+      assert.ok(owners.includes(owner!), 'the consent must be read with an authenticated owner filter');
+      return json({ consents: { ai: { version: CONSENT_VERSIONS.ai, at: '2026-11-05T01:00:00.000Z' } } });
     }
     // Tokens the owner gave (2026-11-04): the account's own private state, read with the authenticated owner only.
     if (url.pathname.endsWith('/cashflow_private_state') && url.searchParams.get('select') === 'grants:data->aiTokenGrants') {

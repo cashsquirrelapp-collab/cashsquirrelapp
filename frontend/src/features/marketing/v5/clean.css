@@ -438,6 +438,8 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
 .cl-help-done-icon { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: #18A66A; color: #FFFFFF; }
 .cl-help-done-title { font-size: 18px; font-weight: 600; line-height: 1.55; }
 .cl-help-note { color: var(--muted); font-size: 14.5px; line-height: 1.6; }
+.cl-help-privacy { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.cl-help-privacy a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 
 /* English runs longer than Thai: a smaller headline, and feature headings that may wrap between words. */
 .cl.is-en .cl-hero h1 { font-size: clamp(40px, 3.7vw, 56px); }

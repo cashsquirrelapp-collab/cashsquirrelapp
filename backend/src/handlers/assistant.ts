@@ -15,8 +15,14 @@ import { transcribeVoice, VOICE_MAX_BASE64 } from '../ai/transcription.js';
 import { COLUMN_FIELDS, MAX_COLUMNS, MAX_SAMPLES, suggestColumns } from '../ai/columnMapping.js';
 import { IMPORT_CHAT_ISSUES, IMPORT_CHAT_KINDS, IMPORT_CHAT_TARGETS, importChat } from '../ai/importChat.js';
 import { HttpError, withGuard } from '../http/guard.js';
+import { hasConsent } from '../repositories/consents.js';
 import { rateLimit } from '../security/rateLimit.js';
 import { requireUser } from '../security/session.js';
+
+/** เลขากระรอก sends the person's words, files or voice to the AI service only after they agreed (428 until then). */
+async function requireAiConsent(userId: string) {
+  if (!(await hasConsent(userId, 'ai'))) throw new HttpError(428, 'กรุณาอ่านและกดยินยอมการใช้เลขากระรอกก่อน', 'ai_consent_required');
+}
 
 // /api/assistant — เลขากระรอก. GET: is it on, the plan, tokens left. POST: send a message, confirm or cancel a
 // proposal. Off unless AI_ENABLED=true; the keys stay on the server. The browser never chooses the model, the
@@ -135,6 +141,8 @@ export default withGuard(async (req, res) => {
   if (!parsed.success) throw new HttpError(400, 'ข้อความไม่ถูกต้อง หรือยาวเกิน 6,000 ตัวอักษร');
   const body = parsed.data;
   if (body.action === 'map-columns') {
+    // Not before the account has agreed to เลขากระรอก (owner, 2026-11-05): the import goes on with its own rules.
+    if (!(await hasConsent(user.id, 'ai'))) { res.json({ columns: [], available: false, consent: 'ai' }); return; }
     // For every signed-in account, Pro or not (owner, 2026-10-30): its own small limits, no Krarok tokens.
     await rateLimit('import-columns-minute', user.id, 6, 60);
     await rateLimit('import-columns-day', user.id, 30, 86_400);
@@ -142,6 +150,7 @@ export default withGuard(async (req, res) => {
     return;
   }
   if (body.action === 'import-chat') {
+    await requireAiConsent(user.id);
     // Free for every signed-in account, Pro or not (owner, 2026-10-31): 10 messages a file, 3 files a day, 6 a minute.
     const fileKey = `${user.id}:${body.fingerprint || 'no-fingerprint'}`;
     let firstForFile = true;
@@ -155,6 +164,7 @@ export default withGuard(async (req, res) => {
     return;
   }
   if (body.action === 'transcribe') {
+    await requireAiConsent(user.id);
     await rateLimit('assistant-voice-minute', user.id, 6, 60);
     await rateLimit('assistant-voice-window', user.id, 20, 600);
     const plan = await assistantPlan(user);
@@ -224,6 +234,8 @@ export default withGuard(async (req, res) => {
   const earlierFiles = checkHistoryFiles(body.history ?? [], attachments);
   const history = body.history?.map((turn, index) => (earlierFiles[index].length && turn.role === 'user'
     ? { role: turn.role, text: turn.text, attachments: earlierFiles[index] } : { role: turn.role, text: turn.text }));
+  // Nothing goes to the AI service before the account has agreed to it (owner, 2026-11-05; shared/consents.ts).
+  await requireAiConsent(user.id);
   const plan = await assistantPlan(user);
   // Live steps (owner, 2026-11-04: "อยากให้มีสถานะบอกว่ากำลังทำไรด้วย แบบของ Claude หรือ GPT"): a chat that asks for them
   // (Accept: application/x-ndjson) gets one JSON line per step as the request runs, then the answer as the last line. The

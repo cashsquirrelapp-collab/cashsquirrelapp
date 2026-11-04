@@ -8,6 +8,8 @@ import { AppSettings, FixedExpenseItem, NotifSettings, Invoice, InvoiceProfile }
 import { formatCurrency, sumFixedExpenseItems, dateLocale } from '../../utils';
 import NumberInput from '../../components/ui/NumberInput';
 import { apiFetch, apiJson } from '../../services/api';
+import { giveConsent, lineDisconnected } from '../../services/consent';
+import { ConsentSettings } from './ConsentSettings';
 import { wht50ReminderOn } from '../../../../shared/notifDefaults';
 import { authClient } from '../../services/auth';
 import { saveNotificationPatch, readInvoices, saveCloud } from '../../services/cloud';
@@ -19,7 +21,7 @@ import {
   ArrowLeft, Bell, Building2, FileSpreadsheet, CalendarClock, Clock3, Copy, Database, Download, ExternalLink, FileJson, FileText,
   Globe, Link2, LogOut, Mail, Monitor, Moon, PenLine, PiggyBank, Plus, RefreshCw, ShieldCheck, Sun, Target, Trash2,
   Upload, User, UserRound,
-  BriefcaseBusiness, Sparkles,
+  BriefcaseBusiness, Sparkles, FileCheck2,
 } from 'lucide-react';
 import { Drawer } from '../../components/ui/Drawer';
 import { LineLogo } from '../../components/ui/LineLogo';
@@ -69,7 +71,7 @@ async function prepareAvatarDataUrl(file: File): Promise<string> {
   }
 }
 
-export type SettingsView = 'home' | 'profile' | 'security' | 'business' | 'fixed' | 'notif' | 'line' | 'backup';
+export type SettingsView = 'home' | 'profile' | 'security' | 'business' | 'fixed' | 'notif' | 'line' | 'backup' | 'consent';
 
 interface SettingsTabProps {
   fullFeatureAccess?: boolean;
@@ -456,6 +458,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         try {
           await apiJson('/api/line-link-code', { method: 'POST', headers: { 'X-Account-ID': session.user.id }, body: JSON.stringify({ action: 'disconnect' }) });
           onUpdateNotifSettings({ ...notifSettings, lineUserId: null });
+          lineDisconnected(session.user.id);
           setLineLinkCode(null);
           setLineLinkCodeExpiresAt(null);
           setLineLinkSecondsLeft(0);
@@ -632,10 +635,15 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const startLineConnect = () => {
     if (!lineAccess) return;
     if (!isPro) { onSwitchTab('plans'); return; }
+    // Pressing ยืนยัน is the LINE consent (owner, 2026-11-05; shared/consents.ts): kept with its time before the code is made.
     triggerConfirm(
-      tr("ก่อนเชื่อมต่อ LINE"),
-      tr("เมื่อเชื่อมต่อแล้ว ข้อมูลที่คุณบันทึก (ชื่องาน ชื่อลูกค้า ยอดเงิน) อาจถูกส่งเป็นข้อความแจ้งเตือนเข้าแชท LINE ของคุณ หากใช้ผู้ช่วยสนทนา ข้อความและข้อมูลบัญชีที่เกี่ยวข้องจะถูกส่งให้ผู้ให้บริการ AI ประมวลผลคำตอบด้วย กรุณาตรวจสอบว่าไม่มีคนอื่นเข้าถึงแชท LINE นี้ได้ ต้องการเชื่อมต่อต่อหรือไม่?"),
-      () => handleGenerateLineCode()
+      tr("ยินยอมการเชื่อมต่อ LINE"),
+      tr("เมื่อเชื่อมต่อ ระบบเก็บรหัสผู้ใช้ LINE ของคุณ และส่งแจ้งเตือนที่มีชื่องาน ชื่อลูกค้า และยอดเงินเข้าแชท LINE นี้ หากคุยกับเลขากระรอกใน LINE ข้อความจะส่งให้ผู้ให้บริการ AI ประมวลผลตามความยินยอมการใช้เลขา กรุณาตรวจสอบว่าไม่มีคนอื่นเข้าถึงแชท LINE นี้ได้ ถอนความยินยอมได้ทุกเมื่อด้วยการยกเลิกการเชื่อมต่อ กดยืนยันเพื่อยินยอมและรับรหัสเชื่อมต่อ"),
+      async () => {
+        try { await giveConsent(session.user.id, 'line'); }
+        catch (error) { triggerAlert(tr("บันทึกความยินยอมไม่สำเร็จ"), (error as Error).message || tr("ลองใหม่อีกครั้งครับ")); return; }
+        void handleGenerateLineCode();
+      }
     );
   };
 
@@ -833,7 +841,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               </div>
             </div>
           </Panel>
-          <Panel title={tr("ข้อมูลธุรกิจ")} desc={tr("ชื่อและที่อยู่ผู้ออกเอกสาร")}>
+          <Panel title={tr("ข้อมูลธุรกิจ")} desc={tr("ชื่อ ที่อยู่ และเลขผู้เสียภาษีของผู้ออกเอกสาร พิมพ์บนเอกสารทุกใบ ลูกค้าที่ได้รับเอกสารจะเห็นข้อมูลนี้")}>
             <div className="grid gap-4 sm:grid-cols-2">
               {/* The post-payment guide rings these fields, the name down to the address (owner, 2026-10-31: fill the details in,
                   then save; 2026-11-03: "ขั้นตอนที่ 4 มึงควรคลุม ตั้งแต่ธุรกิจถึง ที่อยู่ใบเสร็จ"). */}
@@ -863,7 +871,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               </div>
             </div>
           </Panel>
-          <Panel title={tr("ช่องทางรับเงิน")} desc={tr("บัญชีที่ลูกค้าใช้โอนเงิน แสดงท้ายเอกสาร")}>
+          <Panel title={tr("ช่องทางรับเงิน")} desc={tr("บัญชีที่ลูกค้าใช้โอนเงิน แสดงท้ายเอกสาร ลูกค้าที่ได้รับเอกสารจะเห็นเลขบัญชีนี้")}>
             <div className="grid gap-4 sm:grid-cols-3">
               <Field label={tr("ชื่อธนาคาร")}>
                 <BankPicker
@@ -997,6 +1005,18 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               {reminderTestSent && <p role="status" className="text-[13px] text-brand-green-acc">{tr("LINE รับคำขอส่งแล้ว ลองเปิดแชทกระรอกตุนเงินเพื่อตรวจการ์ดทดสอบ")}</p>}
             </Panel>}
           </>)}
+        </div>
+      );
+
+      case 'consent': return (
+        <div className="max-w-2xl space-y-6">
+          <DetailHeader onBack={() => openView('home')} title={tr("ความยินยอม")} subtitle={tr("สิ่งที่คุณยอมรับหรือยินยอมไว้ วันที่บันทึก และการถอน")} />
+          {session && !session.isGuest ? (
+            <ConsentSettings account={session.user.id} lineConnected={lineConnected} lineAccess={lineAccess && !isGroupFinance}
+              onOpenLine={() => openView('line')} onOpenSecurity={() => openView('security')}
+              onOpenAssistant={isPhaseOneFeatureAvailable('assistant', fullFeatureAccess) ? () => onSwitchTab('assistant') : undefined}
+              triggerConfirm={triggerConfirm} triggerAlert={triggerAlert} />
+          ) : <Note>{t('plans.guestPreviewSettingsNote')}</Note>}
         </div>
       );
 
@@ -1144,6 +1164,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     <NavRow icon={User} title={tr("ข้อมูลส่วนตัว")} desc={tr("ชื่อที่แสดง อีเมล และ User ID")} onClick={() => openView('profile')} />
                     {onOpenOnboarding && <NavRow icon={BriefcaseBusiness} title={tr("เกี่ยวกับการทำงานของคุณ")} desc={tr("รูปแบบงาน สายงาน และเรื่องที่อยากให้ช่วย")} onClick={onOpenOnboarding} />}
                     <NavRow icon={ShieldCheck} title={tr("บัญชี & ความปลอดภัย")} desc={tr("อีเมลสำรอง การเข้าสู่ระบบ และการจัดการบัญชี")} onClick={() => openView('security')} />
+                    {session && !session.isGuest && <NavRow icon={FileCheck2} title={tr("ความยินยอม")} desc={tr("ข้อกำหนดการใช้งาน เลขากระรอก และ LINE")} onClick={() => openView('consent')} />}
                   </Section>
 
                   <Section icon={Monitor} title={tr("การใช้งาน")} id="settings-usage">

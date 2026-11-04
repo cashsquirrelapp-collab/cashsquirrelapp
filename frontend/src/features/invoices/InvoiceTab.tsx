@@ -15,7 +15,7 @@ import { NewDocumentButton, PreviewCanvas, RowMenu, ShareButton } from './Docume
 import { DocumentFullView } from './DocumentFullView';
 import { downloadBlob, usePdfFile } from './documentPdf';
 import { DOCUMENT_WORKSPACE_TABS, getWorkspaceTab, isWorkspaceTab, isDocumentTypeAvailable, resolveDocumentWorkspaceTab, resolveDocumentSelection, mergeImportedDocuments, type DocumentWorkspaceTab } from './documentAvailability';
-import { Building2, ChevronRight, Eye, Link2, Search } from 'lucide-react';
+import { Building2, ChevronRight, Eye, Link2, Search, ShieldCheck } from 'lucide-react';
 import { useMobileLayout } from '../mobile/useMobileLayout';
 import { noteIssuerSaved } from '../assistant/proGuideEvents';
 import { InvoicePhone, type InvoicePhoneModel } from './InvoicePhone';
@@ -1174,6 +1174,8 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
           {/* 2. Customer */}
           <section className={formSection}>
             <h3 className={formHeading}>{tr("ลูกค้า / ผู้จ่ายเงิน")}</h3>
+            {/* Client details are personal data (owner, 2026-11-05): one line on what they are for, never a block. */}
+            <p className={`${formHint} flex items-start gap-1.5 leading-[1.6]`} data-testid="client-privacy-note"><ShieldCheck className="mt-[3px] h-3.5 w-3.5 shrink-0" aria-hidden="true" />{tr("ข้อมูลลูกค้าเป็นข้อมูลส่วนบุคคล กรอกเฉพาะที่ลูกค้าให้มา และใช้ออกเอกสารให้ลูกค้ารายนี้เท่านั้น")}</p>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2">
                 <label className={formLabel} htmlFor="client-name">{tr("ชื่อลูกค้า หรือ ชื่อบริษัท")}</label>

@@ -14,8 +14,8 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
   // เลขากระรอก takes up to 5 files, 8 MB together, in one message (2026-10-31); everything else stays within 4 MB.
   if(typeof init.body==='string' && new Blob([init.body]).size>(path==='/api/assistant'?12:4)*1024*1024)throw Object.assign(new Error(tr("ข้อมูลมีขนาดใหญ่เกินไป กรุณาลดขนาดรูปหรือไฟล์แนบ")),{status:413});
   const response=await fetch(path, { ...init, headers, credentials: 'same-origin', cache:'no-store' });
-  // An optional background check (the team's message to everyone, 2026-11-03) never ends the session by itself.
-  if(response.status===401 && path!=='/api/auth' && !path.startsWith('/api/broadcast') && requestedAccount===currentAccount)expired?.();
+  // An optional background check (the team's message to everyone, 2026-11-03; the consent record, 2026-11-05) never ends the session by itself.
+  if(response.status===401 && path!=='/api/auth' && !path.startsWith('/api/broadcast') && !path.startsWith('/api/consent') && requestedAccount===currentAccount)expired?.();
   return response;
 }
 export async function apiJson<T>(path: string, init: RequestInit = {}): Promise<T> {

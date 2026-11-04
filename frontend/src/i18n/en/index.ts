@@ -34,9 +34,11 @@ import { settings } from './settings';
 import { tax } from './tax';
 import { vault } from './vault';
 import { documentsPhone } from './documentsPhone';
+import { consent } from './consent';
 
 export const EN: Record<string, string> = {
   ...documentsPhone,
+  ...consent,
   ...admin,
   ...assistant,
   ...briefing,

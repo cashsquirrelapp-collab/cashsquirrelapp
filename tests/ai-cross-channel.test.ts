@@ -249,7 +249,7 @@ test('cross-channel LINE: the short history keeps เลขา\'s questions and 
   const cards = [{ kind: 'questions', questions: [{ id: 'q1', text: 'ราคาเท่าไหร่', options: ['2,000 บาท', '3,000 บาท'], allowText: true }] }];
   const reply = await lineAssistantAnswer({ user_id: A } as UserRow, 'เพิ่มงานตัดคลิป', [], {
     env: { AI_ENABLED: 'true', AI_ADMINS_ONLY: 'false', GEMINI_API_KEY: 'g' }, db: fakeDb().db,
-    plan: async () => ({ plan: 'pro' as const, email: null }), rateLimit: async () => undefined,
+    plan: async () => ({ plan: 'pro' as const, email: null }), rateLimit: async () => undefined, consented: async () => true,
     run: (async () => ({ text: 'รบกวนตอบคำถามด้านล่างเพื่อให้ผมทำต่อได้ครับ', cards, route: 'chat', tokens: 3, tokensLeft: 900, trialLeft: null })) as unknown as typeof handleMessage,
   });
   assert.equal(reply!.text, 'รบกวนตอบคำถามด้านล่างเพื่อให้ผมทำต่อได้ครับ\n- ราคาเท่าไหร่');

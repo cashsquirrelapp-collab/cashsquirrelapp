@@ -287,6 +287,7 @@ async function linePool(over: Record<string, string> = {}) {
     db: state.db,
     plan: async () => ({ plan: 'pro' as const, email: null }),
     rateLimit: async (scope: string, id: string, limit: number, seconds: number) => { limits.push(`${scope}:${id}:${limit}/${seconds}`); },
+    consented: async () => true,
     run: ((db, messageDeps, ...rest) => { modelRuns += 1; return handleMessage(db, { ...messageDeps, fetchImpl: geminiReplies(text('ตอบใน LINE ครับ')) }, ...rest); }) as typeof handleMessage,
   };
   const ask = (question: string) => lineAssistantAnswer({ user_id: USER } as UserRow, question, [], deps);
@@ -330,6 +331,7 @@ test('LINE: too many messages in a minute get the same polite refusal as the app
     env: { AI_ENABLED: 'true', AI_ADMINS_ONLY: 'false', GEMINI_API_KEY: 'test-gemini' }, db: fakeDb().db,
     plan: async () => ({ plan: 'pro' as const, email: null }),
     rateLimit: async () => { throw new HttpError(429, 'ทำรายการบ่อยเกินไป กรุณารอสักครู่'); },
+    consented: async () => true,
     run: (async () => { ran = true; throw new Error('must not run'); }) as unknown as typeof handleMessage,
   });
   assert.equal(reply!.text, 'ทำรายการบ่อยเกินไป กรุณารอสักครู่');

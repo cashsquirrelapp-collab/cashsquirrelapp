@@ -704,6 +704,7 @@ function FormScreen({ m, step, setStep, onBack, onIssuer, onPickJob, onSaved }: 
               </>
             )}
           </div>
+          <p className="dp-note" data-testid="client-privacy-note">{tr("ข้อมูลลูกค้าเป็นข้อมูลส่วนบุคคล กรอกเฉพาะที่ลูกค้าให้มา และใช้ออกเอกสารให้ลูกค้ารายนี้เท่านั้น")}</p>
           <div className="dp-bar-space" aria-hidden="true" />
           <BottomBar><button type="button" className="dp-primary is-wide" onClick={next}>{tr("ถัดไป: รายการ")}<ChevronRight size={18} aria-hidden="true" /></button></BottomBar>
         </>
@@ -894,6 +895,8 @@ function IssuerScreen({ m, backLabel, onBack }: { m: InvoicePhoneModel; backLabe
         <Field label={tr("เลขที่บัญชี")} htmlFor="dp-biz-account"><input id="dp-biz-account" type="text" inputMode="numeric" value={profile.bankAccount} onChange={event => set('bankAccount', event.target.value)} placeholder={tr("เช่น 123-4-56789-0")} /></Field>
         <Field label={tr("ชื่อบัญชี")} htmlFor="dp-biz-account-name"><input id="dp-biz-account-name" type="text" value={profile.bankAccountName} onChange={event => set('bankAccountName', event.target.value)} placeholder={tr("ชื่อบัญชีโอนรับเงิน")} /></Field>
       </div>
+
+      <p className="dp-note">{tr("ชื่อ ที่อยู่ เลขผู้เสียภาษี และบัญชีรับเงินพิมพ์บนเอกสารทุกใบ ลูกค้าที่ได้รับเอกสารจะเห็นข้อมูลนี้")}</p>
 
       <p className="dp-label">{tr("โลโก้และลายเซ็น")}</p>
       <div className="dp-card">

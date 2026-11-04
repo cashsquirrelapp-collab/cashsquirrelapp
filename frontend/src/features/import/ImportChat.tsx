@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, ArrowUp, Check, CheckCircle2, Download, FileSpreadsheet, Info, Loader2, Paperclip, RefreshCw, Undo2, Upload, XCircle } from 'lucide-react';
+import { AlertTriangle, ArrowUp, Check, CheckCircle2, Download, FileSpreadsheet, Info, Loader2, Paperclip, RefreshCw, ShieldCheck, Undo2, Upload, XCircle } from 'lucide-react';
 import type { Expense, Job, StatusOption } from '../../../../shared/types';
 import { roundMoney } from '../../../../shared/wht';
 import { Modal } from '../../components/ui/Modal';
@@ -29,6 +29,8 @@ import { ImportReview, type ReviewFilter } from './ImportReview';
 import { ImportSteps, useStepReveal, type ImportStep } from './ImportSteps';
 import { ImportRowList, listedRow } from './ImportRowList';
 import './importChat.css';
+import { AiConsentCard } from '../assistant/AiConsent';
+import { consentGiven, consentMissing, useConsents } from '../../services/consent';
 
 // "ย้ายข้อมูลเข้าแอป" as a chat with เลขากระรอก (owner, 2026-10-31: "ทำให้มันเป็นแบบแชทที่ทุกคนสามารถเอาข้อมูลมาใส่ตรงนี้ได้
 // แล้วก็เราก็จะทำการดึงข้อมูลให้อัตโนมัติ ตรงไหนที่ไม่สามารถดึงได้มันก็ทำการแจ้งเขาเลย"; the mockup of 2026-10-30). A file
@@ -121,6 +123,11 @@ export function ImportChat({ open, initialFile, onClose, jobs, expenses, statuse
   const [reviewOpen, setReviewOpen] = React.useState(false);
   const [reviewFilter, setReviewFilter] = React.useState<ReviewFilter>('all');
   const [result, setResult] = React.useState<ImportResult | null>(null);
+  // เลขา reads the column names and answers typed messages only after the account agreed to it (AiConsent.tsx,
+  // 2026-11-05); until then the import works by its own rules and the box offers the agreement.
+  const aiConsent = useConsents(accountId).given('ai');
+  const aiAllowed = () => Boolean(accountId) && consentGiven(accountId!, 'ai') === true;
+  const [consentOpen, setConsentOpen] = React.useState(false);
   const [saveState, setSaveState] = React.useState<'saving' | SaveOutcome>('saving');
   const [undone, setUndone] = React.useState(false);
   const [aiAsking, setAiAsking] = React.useState(false);
@@ -149,6 +156,16 @@ export function ImportChat({ open, initialFile, onClose, jobs, expenses, statuse
     }));
     if (run === aiRun.current) setAiAsking(false);
   };
+
+  // Agreed while a file is open: เลขา reads its column names now.
+  const consentBefore = React.useRef(aiConsent);
+  React.useEffect(() => {
+    const was = consentBefore.current; consentBefore.current = aiConsent;
+    if (was === true || aiConsent !== true || !accountId || !sheets.length || result) return;
+    setConsentOpen(false);
+    setAiStep(sheets.some(sheet => sheet.include && columnsToAsk(sheet.analysis).length > 0));
+    void suggestColumns(sheets, accountId);
+  }, [aiConsent]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const reset = () => {
     aiRun.current += 1; setAiAsking(false); setAiStep(false); setCheckRun('');
@@ -185,9 +202,9 @@ export function ImportChat({ open, initialFile, onClose, jobs, expenses, statuse
       });
       setFingerprint(await fileFingerprint(data).catch(() => ''));
       setSheets(next);
-      setAiStep(Boolean(accountId) && next.some(sheet => sheet.include && columnsToAsk(sheet.analysis).length > 0));
+      setAiStep(aiAllowed() && next.some(sheet => sheet.include && columnsToAsk(sheet.analysis).length > 0));
       setCheckRun(`${file.name}:${file.size}:${Date.now()}`);
-      if (accountId) void suggestColumns(next, accountId);
+      if (accountId && aiAllowed()) void suggestColumns(next, accountId);
     } catch {
       setError(tr("เปิดไฟล์นี้ไม่ได้ ไฟล์อาจเสียหายหรือมีรหัสผ่าน ลองบันทึกเป็น .xlsx หรือ .csv แล้วเลือกใหม่"));
       setFileName('');
@@ -280,6 +297,7 @@ export function ImportChat({ open, initialFile, onClose, jobs, expenses, statuse
       const mark = applied ? change(next) : undefined;
       say({ who: 'bot', text: answer.reply || (applied ? tr("แก้ให้แล้วครับ") : tr("เลขายังทำตามข้อความนี้ไม่ได้ ลองแตะปุ่มแก้ด้านบน หรือแก้แถวนั้นในตารางได้ครับ")), applied, mark });
     } catch (failure) {
+      if ((failure as { code?: string } | null)?.code === 'ai_consent_required') { consentMissing(accountId, 'ai'); setTalk(list => list.slice(0, -1)); setDraft(text); return; }
       const limited = (failure as { status?: number } | null)?.status === 429;
       if (limited) setUsed(CHAT_LIMIT_PER_FILE);
       say({ who: 'bot', failed: !limited, text: limited ? tr("คุยเรื่องไฟล์นี้ครบแล้วสำหรับวันนี้ แตะปุ่มแก้ด้านบน หรือแก้ในตารางต่อได้เลยครับ") : tr("ส่งข้อความไม่สำเร็จ ลองใหม่อีกครั้งครับ") });
@@ -689,6 +707,13 @@ export function ImportChat({ open, initialFile, onClose, jobs, expenses, statuse
 
         {!result && (
           <footer className="ic-composer">
+            {accountId && aiConsent === false ? (consentOpen ? <div className="ic-consent-card"><AiConsentCard accountId={accountId} /></div> : (
+              <div className="ic-consent" data-testid="import-ai-consent">
+                <ShieldCheck className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
+                <p>{tr("ให้เลขาช่วยอ่านชื่อคอลัมน์และตอบข้อความได้ หลังกดยินยอมการใช้เลขากระรอก ระหว่างนี้ระบบอ่านไฟล์ตามกฎของแอป")}</p>
+                <button type="button" className="ic-button" onClick={() => setConsentOpen(true)}>{tr("อ่านและยินยอม")}</button>
+              </div>
+            )) : (
             <form className="ic-input" onSubmit={send}>
               <input type="file" id="import-sheet-file-again" accept={`.xlsx,.xlsm,.xls,.csv,.ods,.txt${onRestoreBackup ? ',.json' : ''}`} className="sr-only" tabIndex={-1}
                 onChange={e => { const list = e.target.files; pickFile(list); e.target.value = ''; }} />
@@ -699,6 +724,7 @@ export function ImportChat({ open, initialFile, onClose, jobs, expenses, statuse
                 placeholder={!sheets.length ? tr("วางไฟล์ก่อน แล้วพิมพ์บอกเลขาได้") : !accountId ? tr("เข้าสู่ระบบเพื่อพิมพ์บอกเลขา") : left === 0 ? tr("คุยเรื่องไฟล์นี้ครบแล้ว แตะปุ่มแก้ด้านบนได้") : phone ? tr("พิมพ์บอกเลขา") : tr("พิมพ์บอกเลขา เช่น คอลัมน์ C คือชื่อลูกค้า")} />
               <button type="submit" className="ic-send" aria-label={tr("ส่งข้อความ")} disabled={!draft.trim() || !sheets.length || !accountId || left === 0 || sending}><ArrowUp className="h-[18px] w-[18px]" aria-hidden="true" /></button>
             </form>
+            )}
             <p className="ic-foot">{tr("ก่อนส่งให้เลขา ระบบปิดอีเมล เบอร์โทร เลขบัตร เลขบัญชี ที่อยู่ และชื่อบุคคลบนเครื่องของคุณ · ตัวเลขทุกช่องระบบอ่านเองตามกฎ")}</p>
           </footer>
         )}

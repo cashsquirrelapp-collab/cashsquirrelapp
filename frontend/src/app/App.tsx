@@ -111,6 +111,8 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { nowInBangkok } from '../../../shared/monthlySummary';
 import { DEFAULT_DARK_FROM, DEFAULT_LIGHT_FROM, effectiveThemePreference, readThemePreference, scheduleIsDark, schedulePeriod, shouldOfferThemeTip, type ThemePreference } from '../../../shared/themeSchedule';
 import { ThemeTip, type ThemeTipChoice } from './ThemeTip';
+import { TermsGate } from './TermsGate';
+import { useConsents } from '../services/consent';
 import { usageStatsAllowed, readCookieConsent, COOKIE_CHOICE_EVENT } from '../services/cookieConsent';
 import { buildBriefing } from '../../../shared/briefing';
 import { currentCash } from '../../../shared/cashBalance';
@@ -592,6 +594,13 @@ export default function App() {
   useEffect(() => { if (activeTab !== 'assistant') chatReturnTab.current = activeTab; }, [activeTab]);
   // What the person opens, for เลขา's greeting (greeting.ts): counted on this device, per account, never sent.
   useEffect(() => { if (session && !session.isGuest) notePage(session.user.id, activeTab); }, [activeTab, session?.user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The terms, once per account and version (owner, 2026-11-05; TermsGate.tsx): before the first questions and every
+  // other popup. Until the answer is known, nothing else opens on its own.
+  const consentAccount: string | undefined = session && !session.isGuest && !session.user?.accountPaused ? session.user.id : undefined;
+  const consents = useConsents(consentAccount);
+  const termsGiven = consentAccount ? consents.given('terms') : true;
+  const termsWaiting = termsGiven !== true;
+  const termsOpen = Boolean(consentAccount) && termsGiven === false && pathname !== '/recover';
 
   const navigateTab = (requestedTab: TabKey) => {
     const tab: TabKey = resolvePhaseOneTab(requestedTab, fullFeatureAccess, adminPageOpen);
@@ -2345,7 +2354,7 @@ export default function App() {
   // account, so closing it is respected until the next visit.
   useEffect(() => {
     // Signed-in accounts only: the guest preview's sample jobs never open it.
-    if (isPhone || session?.isGuest || !(session?.user?.email && isLoadedForUser === session.user.email) || !session.user.id) return;
+    if (isPhone || session?.isGuest || !(session?.user?.email && isLoadedForUser === session.user.email) || !session.user.id || termsWaiting) return;
     // The jobs arrive with the load; the visit is decided once they are in.
     if (radarVisitRef.current === session.user.id || jobs.length === 0) return;
     radarVisitRef.current = session.user.id;
@@ -2356,7 +2365,7 @@ export default function App() {
     let overdue = 0;
     try { overdue = buildCreditRadar(jobs, bangkokToday()).overdue.length; } catch { return; }
     if (overdue > 0) openCreditRadar();
-  }, [session, isLoadedForUser, isPhone, jobs, openCreditRadar]);
+  }, [session, isLoadedForUser, isPhone, jobs, openCreditRadar, termsWaiting]);
 
   // Check for overdue credit terms on login/data load
   useEffect(() => {
@@ -2863,14 +2872,14 @@ export default function App() {
     }
   };
 
-  const onboardingFirst = Boolean(session?.user?.id) && cloudSyncStatus === 'synced' && loadedFinanceOwner === financeOwner && !onboardingDone && !birthOpen
+  const onboardingFirst = Boolean(session?.user?.id) && cloudSyncStatus === 'synced' && loadedFinanceOwner === financeOwner && !onboardingDone && !birthOpen && !termsWaiting
     && shouldShowOnboarding({ createdAt: session?.user?.created_at, onboarding: settings.onboarding, guest: session?.isGuest === true, groupWorkspace: Boolean(financeGroupId) });
   // The one-time evening tip for a new account, once its own settings have loaded, never over the first questions.
   // An empty account's "ย้ายข้อมูลเข้าแอป" card comes first; the evening tip waits until it is gone (anything recorded, or
   // ไม่ต้อง), so two prompts never stack on the overview (2026-11-04).
   const importInviteOn = accountLoaded && Boolean(session?.user?.id) && shouldOfferImport({ jobs: jobs.length, expenses: expenses.length, guest: session?.isGuest === true,
     groupWorkspace: Boolean(financeGroupId), dismissed: importInviteHidden[session?.user?.id ?? ''] ?? importInviteDismissed(session?.user?.id ?? '') });
-  const showThemeTip = accountLoaded && !onboardingFirst && !onboardingEdit && !birthOpen && !isImportOpen && !importInviteOn
+  const showThemeTip = accountLoaded && !termsWaiting && !onboardingFirst && !onboardingEdit && !birthOpen && !isImportOpen && !importInviteOn
     && shouldOfferThemeTip({ saved: accountThemePref, createdAt: session?.user?.created_at, guest: session?.isGuest === true, groupWorkspace: Boolean(financeGroupId), now: new Date(themeTipClock) });
   /** Keeps the answers in the account's settings (and the name as the account's name, the one เลขา uses), and lets
    *  them do what the old setup did: the work type sets the menu's default grouping, the occupations add job types. */
@@ -3069,7 +3078,7 @@ export default function App() {
   const kvParamRef = useRef<string | null | undefined>(undefined);
   if (kvParamRef.current === undefined) kvParamRef.current = new URLSearchParams(window.location.search).get('kv');
   const proKvEligible = Boolean(session?.user?.id) && !session?.isGuest && !isPro && !financeGroupId && cloudSyncStatus === 'synced'
-    && loadedFinanceOwner === financeOwner && !onboardingFirst && !onboardingEdit && !birthOpen && !dialog.isOpen && !isProPromoOpen && !isImportOpen && activeTab === 'dashboard';
+    && loadedFinanceOwner === financeOwner && !termsWaiting && !onboardingFirst && !onboardingEdit && !birthOpen && !dialog.isOpen && !isProPromoOpen && !isImportOpen && activeTab === 'dashboard';
   useEffect(() => {
     if (!proKvEligible || proKvOpen || !session?.user?.id) return;
     const param = kvParamRef.current;
@@ -3866,7 +3875,7 @@ export default function App() {
         {session && !session.isGuest && !financeGroupId && (
           <Suspense fallback={null}>
             <BroadcastPrompt key={session.user.id} accountId={session.user.id}
-              ready={accountLoaded && !onboardingFirst && !onboardingEdit && !birthOpen && !dialog.isOpen && !proKvOpen && !creditRadarOpen && !isImportOpen
+              ready={accountLoaded && !termsWaiting && !onboardingFirst && !onboardingEdit && !birthOpen && !dialog.isOpen && !proKvOpen && !creditRadarOpen && !isImportOpen
                 && !showThemeTip && !isProPromoOpen && !accountSwitcherOpen && !isMobileMenuOpen} />
           </Suspense>
         )}
@@ -4062,6 +4071,8 @@ export default function App() {
               onClose={() => setOnboardingEdit(false)} />
           </Suspense>
         )}
+
+        {termsOpen && consentAccount && <TermsGate key={consentAccount} account={consentAccount} phone={isPhone} onSignOut={() => { void handleSignOut(); }} />}
 
         <MascotToast />
       </div>

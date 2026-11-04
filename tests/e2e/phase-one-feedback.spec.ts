@@ -1,4 +1,5 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
+import { CONSENT_VERSIONS } from '../../shared/consents';
 import type { FeedbackAction, FeedbackMessage, FeedbackThread } from '../../shared/feedback';
 import { textOverlapIssues } from './textOverlap';
 
@@ -74,6 +75,8 @@ async function setup(page: Page, options: { admin?: boolean; guest?: boolean; se
   await page.route('**/api/usage-analytics', route => route.fulfill({ json: { ok: true } }));
   // The team's message to everyone (2026-11-03): none is showing in these tests.
   await page.route('**/api/broadcast*', route => route.fulfill({ json: { broadcast: null, results: [] } }));
+  // What the account agreed to (2026-11-05): everything, as the test accounts are seeded (playwright.config.ts).
+  await page.route('**/api/consent', route => route.fulfill({ json: { consents: Object.fromEntries(Object.entries(CONSENT_VERSIONS).map(([key, version]) => [key, { version, at: '2026-11-05T00:00:00.000Z' }])), versions: CONSENT_VERSIONS } }));
   // เลขากระรอก asks once whether it is switched on (accounts that can see it only); here it is off.
   await page.route('**/api/assistant', route => route.fulfill({ json: { enabled: false, plan: 'admin', tokensLeft: null, trialLeft: null, resetsAt: null, tokenLimit: null, requestLimit: null } }));
   await page.route('**/api/admin-analytics?*', route => route.fulfill({ status: 503, json: { error: 'Analytics is temporarily unavailable' } }));

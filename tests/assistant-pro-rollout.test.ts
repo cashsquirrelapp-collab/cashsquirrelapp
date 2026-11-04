@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, mock, test } from 'node:test';
+import { CONSENT_VERSIONS } from '../shared/consents';
 import assert from 'node:assert/strict';
 import { Readable } from 'node:stream';
 import { aiConfig, assistantEnabledForPlan } from '../backend/src/ai/config';
@@ -52,6 +53,9 @@ let unexpectedRequests: string[];
 let reserveFailure: 'tokens' | 'daily_cap' | undefined;
 /** Tokens the owner gave account A (shared/tokenGrants.ts), as kept in its private state. */
 let given: unknown;
+/** Whether the account agreed to เลขากระรอก (shared/consents.ts, 2026-11-05), and whose record was read. */
+let consented: boolean;
+let consentReads: string[];
 const json = (value: unknown) => new Response(JSON.stringify(value), { headers: { 'content-type': 'application/json' } });
 
 beforeEach(() => {
@@ -64,7 +68,7 @@ beforeEach(() => {
     AI_PRO_TOKENS_PER_CYCLE: '1000', AI_TRIAL_TOKENS: '25', AI_DAILY_COST_CAP_USD: '0.25',
   });
   membership = 'paid'; providerCalls = 0; snapshotOwners = []; reservations = []; settlements = [];
-  unexpectedRequests = []; reserveFailure = undefined; given = null;
+  unexpectedRequests = []; reserveFailure = undefined; given = null; consented = true; consentReads = [];
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(input instanceof Request ? input.url : String(input));
     const body = init?.body ? JSON.parse(String(init.body)) : undefined;
@@ -110,6 +114,11 @@ beforeEach(() => {
     if (url.pathname.endsWith('/cashflow_profiles') && (owner === A || owner === B)) return json({ display_name: 'ผู้ใช้ทดสอบ' });
     // Tokens the owner gave (2026-11-04), read for the signed-in account only.
     if (url.pathname.endsWith('/cashflow_private_state') && (owner === A || owner === B) && url.searchParams.get('select') === 'grants:data->aiTokenGrants') return json({ grants: owner === A ? given : null });
+    // The account's consent to เลขากระรอก (2026-11-05), read for the signed-in account only.
+    if (url.pathname.endsWith('/cashflow_private_state') && (owner === A || owner === B) && url.searchParams.get('select') === 'consents:data->consents') {
+      consentReads.push(owner);
+      return json({ consents: consented ? { ai: { version: CONSENT_VERSIONS.ai, at: '2026-11-05T01:00:00.000Z' } } : null });
+    }
     // Package E: the app chat's latest turns, read for the signed-in account only, to continue a task from LINE.
     if (url.pathname.endsWith('/cashflow_ai_messages') && (init?.method ?? 'GET') === 'GET' && (owner === A || owner === B)) return json([]);
     if (url.pathname.endsWith('/rpc/cashflow_ai_reserve')) {
@@ -323,4 +332,17 @@ test('a member on a paid plan gets that plan\'s 1,650 tokens, also one paid earl
   membership = 'prepaid_unreadable';
   const fallback = await request(A);
   assert.deepEqual([fallback.status, fallback.body.tokenLimit], [200, 1000], 'a read error never refuses the member');
+});
+
+test('without the account\'s consent to เลขากระรอก, chat and voice are refused before any reservation or model call (owner, 2026-11-05)', async () => {
+  consented = false;
+  const message = await request(A, chat);
+  const transcript = await request(A, voice);
+  for (const reply of [message, transcript]) {
+    assert.equal(reply.status, 428);
+    assert.equal(reply.body.code, 'ai_consent_required');
+  }
+  assert.equal(providerCalls, 0, 'nothing reaches the AI service');
+  assert.deepEqual(reservations, [], 'no tokens are held');
+  assert.ok(consentReads.length >= 2 && consentReads.every(owner => owner === A), 'the record read is the signed-in account\'s own');
 });

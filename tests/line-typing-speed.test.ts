@@ -24,6 +24,7 @@ const base = {
   db: {} as never,
   plan: async () => ({ plan: 'pro' as const, email: null }),
   rateLimit: async () => undefined,
+  consented: async () => true,
 };
 
 test('LINE answers get a deadline inside the Worker\'s background time; too slow says so plainly, at no cost', async () => {
@@ -44,4 +45,18 @@ test('LINE answers get a deadline inside the Worker\'s background time; too slow
     ...base, run: (async () => { throw new HttpError(402, 'โทเคนของรอบนี้หมดแล้ว', 'ai_tokens_used'); }) as unknown as typeof handleMessage,
   });
   assert.equal(tokens!.text, 'โทเคนของรอบนี้หมดแล้ว');
+});
+
+test('LINE asks the person to agree in the app first, before any limit or model run (owner, 2026-11-05)', async () => {
+  process.env.APP_URL ??= 'https://krarok.com';
+  let ran = false;
+  let limited = false;
+  const reply = await lineAssistantAnswer({ user_id: 'u1' } as UserRow, 'สรุปเดือนนี้', [], {
+    ...base, consented: async () => false, rateLimit: async () => { limited = true; },
+    run: (async () => { ran = true; throw new Error('must not run'); }) as unknown as typeof handleMessage,
+  });
+  assert.equal(ran, false, 'nothing goes to the AI service without the agreement');
+  assert.equal(limited, false, 'and the per-minute limit is not spent on it');
+  assert.match(reply!.text, /^ก่อนคุยกับเลขากระรอกใน LINE กรุณาอ่านและกดยินยอมการใช้เลขาในแอปก่อนครับ/);
+  assert.match(reply!.text, /\/assistant$/);
 });

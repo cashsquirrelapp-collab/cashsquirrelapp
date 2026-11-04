@@ -1,0 +1,37 @@
+/* เลขากระรอก's consent (owner, 2026-11-05; AiConsent.tsx): a chat card in place of the message box until the person
+   agrees, in the full chat, the floating window, the phone sheet and the import window. Direction A: the kind in orange,
+   a title, the points as a grey group like iOS Settings, one full-width orange button, a muted link. Its own colours, so it
+   reads the same wherever it is placed; it scrolls inside itself when the space is short and nothing sits over its text. */
+.asx-consent {
+  --consent-surface: #FFFFFF; --consent-well: #F4F3F1; --consent-divider: #E7E4E0;
+  --consent-accent: #E65F2B; --consent-accent-hover: #D35221; --consent-accent-text: #C24A16; --consent-problem: #C43A3A;
+  display: flex; flex-direction: column; min-width: 0; max-height: min(64vh, 560px); overflow-y: auto; overscroll-behavior: contain;
+  margin: 0 0 8px; padding: 16px; border-radius: 20px; background: var(--consent-surface); color: var(--text);
+  box-shadow: 0 1px 2px rgba(28, 25, 23, 0.05), 0 6px 20px rgba(28, 25, 23, 0.06);
+}
+.dark .asx-consent {
+  --consent-surface: #1F2023; --consent-well: #26272B; --consent-divider: #33353A;
+  --consent-accent: #F07440; --consent-accent-hover: #E36633; --consent-accent-text: #FFA473; --consent-problem: #F19A9A;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 20px rgba(0, 0, 0, 0.3), 0 0 0 0.5px rgba(255, 255, 255, 0.06);
+}
+.asx-consent-head { display: flex; align-items: center; gap: 6px; color: var(--consent-accent-text); font-size: 13px; font-weight: 600; line-height: 1.55; }
+.asx-consent h3 { margin: 6px 0 0; font-size: 16px; font-weight: 600; line-height: 1.5; }
+.asx-consent-lead { margin: 4px 0 0; color: var(--muted); font-size: 13.5px; line-height: 1.6; }
+.asx-consent-group { display: grid; margin: 12px 0 0; padding: 0; list-style: none; border-radius: 14px; background: var(--consent-well); overflow: hidden; }
+.asx-consent-group li { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; font-size: 13.5px; line-height: 1.6; }
+.asx-consent-group li + li { border-top: 1px solid var(--consent-divider); }
+.asx-consent-group svg { flex: none; margin-top: 3px; color: var(--consent-accent-text); }
+.asx-consent-group span { min-width: 0; overflow-wrap: anywhere; }
+.asx-consent-problem { margin: 10px 0 0; color: var(--consent-problem); font-size: 13px; line-height: 1.6; }
+.asx-consent-ok { flex: none; width: 100%; min-height: 46px; margin-top: 14px; padding: 0 16px; border: 0; border-radius: 14px; background: var(--consent-accent); color: #FFFFFF; font: inherit; font-size: 15px; font-weight: 600; line-height: 1.45; cursor: pointer; transition: background-color 0.15s; }
+.asx-consent-ok:hover:not(:disabled) { background: var(--consent-accent-hover); }
+.asx-consent-ok:disabled { opacity: 0.6; cursor: progress; }
+.asx-consent-note { margin: 8px 0 0; text-align: center; font-size: 12.5px; line-height: 1.6; }
+.asx-consent-note a { color: var(--muted); text-decoration: underline; text-underline-offset: 2px; }
+.asx-consent.is-compact { max-height: none; margin: 0 10px 8px; padding: 14px; }
+.asx-consent.is-compact .asx-consent-group li { padding: 9px 11px; font-size: 13px; }
+/* When space is short only the points scroll, so the button always shows and no point is cut off. In the floating
+   window and the phone sheet the card takes most of the height; the greeting above shrinks and scrolls. */
+.asx-consent > * { flex-shrink: 0; }
+.asx-consent > .asx-consent-group { flex-shrink: 1; min-height: 96px; overflow-y: auto; overscroll-behavior: contain; }
+:is(.kfw-shell, .asx-buddy-panel) > .asx-consent { flex: 0 0 auto; min-height: 0; max-height: calc(100% - 150px); }

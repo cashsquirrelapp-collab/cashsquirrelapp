@@ -21,6 +21,7 @@ import { FileChecks } from './ChatFileCheck';
 import { useWork } from './workSteps';
 import { addChatFiles, CHAT_FILE_ACCEPT, FILE_PROBLEM_TEXT, sentFiles, shownFiles, type FileProblem } from './chatUploads';
 import { SentFiles, UploadTray, needsFileNotice, useFileNotice } from './ChatUploadViews';
+import { AiConsentCard, useAiConsentNeeded } from './AiConsent';
 import { messageFiles } from './assistantApi';
 import { chatTitle, type ChatHandoff } from './chatHandoff';
 import { greetingNow, noteQuestion } from './greeting';
@@ -182,6 +183,8 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
   const reduce = useReducedMotion();
   const transport = React.useMemo(() => given ?? createSampleTransport({ failSends: () => false, failActions: () => false, tokens: () => SAMPLE_TOKENS, instant: Boolean(reduce) }), [given, reduce]);
   const live = Boolean(transport.live);
+  // Before the first message, voice or file: the consent card in place of the box (AiConsent.tsx, 2026-11-05).
+  const consentNeeded = useAiConsentNeeded(accountId, live);
   const waiting = connecting && !live;
   const navigationContext: NavigationContext = { accountId, workspaceSlug, fullFeatureAccess };
   // Pages open only when the user taps เลขา's button (owner, 2026-10-26: the "เปิดหน้าที่เกี่ยวข้อง" choice is removed, so
@@ -656,6 +659,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
                   </ol>
                 )}
               </div>
+              {consentNeeded && accountId ? <AiConsentCard accountId={accountId} compact /> : <>
               {(voice.error || fileProblem) && !voice.active && (
                 <p className="asx-notice is-low kfw-voice-note" role="alert"><AlertCircle size={15} />
                   {fileProblem ? tr(FILE_PROBLEM_TEXT[fileProblem]) : voice.error}
@@ -695,7 +699,8 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
                 <button type="submit" className="asx-send" disabled={busy || waiting || (!draft.trim() && !(live && uploads.length))} aria-label={tr("ส่งข้อความ")} title={tr("ส่งข้อความ")}><ArrowUp size={18} strokeWidth={2.4} /></button>
                 </>}
               </form>
-              <p className="asx-hint">{voice.active ? (voice.phase === 'transcribing' ? tr("ถอดข้อความเสร็จแล้วตรวจแก้ได้ก่อนส่ง") : tr("หยุดแล้วถอดข้อความ · ใช้โทเค็น · สูงสุด 2 นาที")) : live ? tr("เลขากระรอกตอบผิดได้ ตรวจสอบก่อนกดยืนยันทุกครั้ง") : waiting ? tr("กำลังเชื่อมต่อเลขากระรอก…") : tr("ตัวอย่างหน้าจอ · คำตอบเป็นข้อมูลตัวอย่าง ยังไม่ได้เชื่อมต่อเลขากระรอก")}</p>
+              <p className="asx-hint">{voice.active ? (voice.phase === 'transcribing' ? tr("ถอดข้อความเสร็จแล้วตรวจแก้ได้ก่อนส่ง") : tr("หยุดแล้วถอดข้อความ · ใช้โทเค็น · สูงสุด 2 นาที")) : live ? tr("เลขากระรอกอาจตอบผิดพลาด ตรวจสอบก่อนกดยืนยันทุกครั้ง · ไม่ใช่คำปรึกษาทางภาษี บัญชี หรือกฎหมาย") : waiting ? tr("กำลังเชื่อมต่อเลขากระรอก…") : tr("ตัวอย่างหน้าจอ · คำตอบเป็นข้อมูลตัวอย่าง ยังไม่ได้เชื่อมต่อเลขากระรอก")}</p>
+              </>}
     </>
   );
 

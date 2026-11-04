@@ -169,6 +169,8 @@ export function HelpForm({ kind, onClose }: { kind: PublicFeedbackKind; onClose:
                 {tr('หรืออีเมลหาเราที่')} <a href={`mailto:${BRAND_LINKS.email}`}>{BRAND_LINKS.email}</a>
               </p>
             )}
+            {/* What sending means for what is in it (owner, 2026-11-05). */}
+            <p className="cl-help-privacy">{tr('ทีมงานใช้ข้อความ ภาพ และอีเมลนี้เพื่อตอบและแก้ปัญหาเท่านั้น ตาม')}{' '}<a href="/privacy" target="_blank" rel="noopener">{tr('นโยบายความเป็นส่วนตัว')}</a>{' '}{tr('อย่าใส่รหัสผ่าน เลขบัตร หรือข้อมูลส่วนตัวของผู้อื่นในข้อความ')}</p>
             <div className="cl-help-actions">
               <button type="button" className="cl-help-cancel" onClick={onClose}>{tr('ยกเลิก')}</button>
               <button type="submit" className="cl-help-send" disabled={state === 'sending'}>{state === 'sending' ? tr('กำลังส่ง…') : tr('ส่งเรื่อง')}</button>

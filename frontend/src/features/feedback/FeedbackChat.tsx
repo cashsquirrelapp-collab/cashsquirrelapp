@@ -385,9 +385,11 @@ export default function FeedbackChat({ userId, mobile = false, onBack }: { userI
             {busy ? <LoaderCircle size={18} className="animate-spin" /> : <ArrowUp size={19} strokeWidth={2.4} />}
           </button>
         </div>
-        <p id="fbc-hint" className={`fbc-hint${tooLong ? ' is-error' : ''}`} aria-live="polite">
+        <p id="fbc-hint" className={`fbc-hint${tooLong ? ' is-error' : draft.length < COUNTER_FROM ? ' is-note' : ''}`} aria-live="polite">
           {tooLong ? copy(`ข้อความยาวเกิน ${FEEDBACK_MAX_BODY_LENGTH.toLocaleString()} ตัวอักษร`, `Longer than ${FEEDBACK_MAX_BODY_LENGTH.toLocaleString()} characters`)
-            : draft.length >= COUNTER_FROM ? `${draft.trim().length.toLocaleString()} / ${FEEDBACK_MAX_BODY_LENGTH.toLocaleString()}` : ''}
+            : draft.length >= COUNTER_FROM ? `${draft.trim().length.toLocaleString()} / ${FEEDBACK_MAX_BODY_LENGTH.toLocaleString()}`
+              // The team reads every message (owner, 2026-11-05): no passwords or other people's details in it.
+              : copy('ทีมงานจะอ่านข้อความนี้ อย่าใส่รหัสผ่าน เลขบัตร หรือข้อมูลส่วนตัวของลูกค้า', 'The team reads this message. Please do not include passwords, card numbers or your clients’ personal details.')}
         </p>
       </form>
       <p className="fbc-sr" role="status" aria-live="polite">{announce}</p>
