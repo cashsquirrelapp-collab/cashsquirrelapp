@@ -499,7 +499,7 @@ card does not need:
 - เลขากระรอก (`features/assistant/AiConsent.tsx`): a direction-A card in place of the message box in the full chat, the
   floating window, the phone sheet and the import window, until agreed. The server refuses chat, voice and the import
   chat without it (428 `ai_consent_required`) and LINE asks the person to agree in the app. The line under every box:
-  "เลขากระรอกอาจตอบผิดพลาด ... ไม่ใช่คำปรึกษาทางภาษี บัญชี หรือกฎหมาย".
+  "เลขาตอบผิดได้บ้าง โปรดตรวจก่อนกดยืนยัน · คำตอบเป็นข้อมูลประกอบ ไม่ใช่คำปรึกษาทางภาษี บัญชี หรือกฎหมาย".
 - LINE: the existing "before connecting" dialog is the consent and is recorded before the code is made; disconnecting
   withdraws it. Settings › ความยินยอม lists all three with their dates and how to withdraw each.
 - Short privacy lines (one muted line, never a block): the client section of a document (computer and phone), the

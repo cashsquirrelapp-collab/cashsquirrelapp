@@ -699,7 +699,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
                 <button type="submit" className="asx-send" disabled={busy || waiting || (!draft.trim() && !(live && uploads.length))} aria-label={tr("ส่งข้อความ")} title={tr("ส่งข้อความ")}><ArrowUp size={18} strokeWidth={2.4} /></button>
                 </>}
               </form>
-              <p className="asx-hint">{voice.active ? (voice.phase === 'transcribing' ? tr("ถอดข้อความเสร็จแล้วตรวจแก้ได้ก่อนส่ง") : tr("หยุดแล้วถอดข้อความ · ใช้โทเค็น · สูงสุด 2 นาที")) : live ? tr("เลขากระรอกอาจตอบผิดพลาด ตรวจสอบก่อนกดยืนยันทุกครั้ง · ไม่ใช่คำปรึกษาทางภาษี บัญชี หรือกฎหมาย") : waiting ? tr("กำลังเชื่อมต่อเลขากระรอก…") : tr("ตัวอย่างหน้าจอ · คำตอบเป็นข้อมูลตัวอย่าง ยังไม่ได้เชื่อมต่อเลขากระรอก")}</p>
+              <p className="asx-hint">{voice.active ? (voice.phase === 'transcribing' ? tr("ถอดข้อความเสร็จแล้วตรวจแก้ได้ก่อนส่ง") : tr("หยุดแล้วถอดข้อความ · ใช้โทเค็น · สูงสุด 2 นาที")) : live ? tr("เลขาตอบผิดได้บ้าง โปรดตรวจก่อนกดยืนยัน · คำตอบเป็นข้อมูลประกอบ ไม่ใช่คำปรึกษาทางภาษี บัญชี หรือกฎหมาย") : waiting ? tr("กำลังเชื่อมต่อเลขากระรอก…") : tr("ตัวอย่างหน้าจอ · คำตอบเป็นข้อมูลตัวอย่าง ยังไม่ได้เชื่อมต่อเลขากระรอก")}</p>
               </>}
     </>
   );

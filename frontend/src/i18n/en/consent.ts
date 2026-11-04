@@ -22,7 +22,7 @@ export const consent: Record<string, string> = {
   'ใช้ได้ทั้งในแอปและ LINE เปลี่ยนใจได้ทุกเมื่อที่ ตั้งค่า › ความยินยอม': 'Works in the app and in LINE. You can change your mind at any time in Settings › Consent.',
   'ยินยอมและเริ่มใช้งาน': 'I consent, start',
   'อ่านรายละเอียดในนโยบายความเป็นส่วนตัว': 'Read the details in the privacy policy',
-  'เลขากระรอกอาจตอบผิดพลาด ตรวจสอบก่อนกดยืนยันทุกครั้ง · ไม่ใช่คำปรึกษาทางภาษี บัญชี หรือกฎหมาย': 'Krarok Assistant can make mistakes. Check before you confirm · Not tax, accounting or legal advice',
+  'เลขาตอบผิดได้บ้าง โปรดตรวจก่อนกดยืนยัน · คำตอบเป็นข้อมูลประกอบ ไม่ใช่คำปรึกษาทางภาษี บัญชี หรือกฎหมาย': 'The assistant can sometimes be wrong. Please check before you confirm · Answers are for reference, not tax, accounting or legal advice',
   // The import window
   'ให้เลขาช่วยอ่านชื่อคอลัมน์และตอบข้อความได้ หลังกดยินยอมการใช้เลขากระรอก ระหว่างนี้ระบบอ่านไฟล์ตามกฎของแอป': 'The assistant can read column names and answer your messages once you consent to Krarok Assistant. Until then the file is read by the app’s own rules.',
   'อ่านและยินยอม': 'Read and consent',

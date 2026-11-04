@@ -121,7 +121,7 @@ test('เลขา: the consent card takes the place of the box until agreed; no
   await expect(card).toBeHidden();
   expect(mock.consentPosts).toEqual([{ key: 'ai', accepted: true, version: CONSENT_VERSIONS.ai }]);
   await expect(page.locator('#asx-message')).toBeVisible();
-  await expect(page.locator('.asx-hint')).toHaveText('เลขากระรอกอาจตอบผิดพลาด ตรวจสอบก่อนกดยืนยันทุกครั้ง · ไม่ใช่คำปรึกษาทางภาษี บัญชี หรือกฎหมาย');
+  await expect(page.locator('.asx-hint')).toHaveText('เลขาตอบผิดได้บ้าง โปรดตรวจก่อนกดยืนยัน · คำตอบเป็นข้อมูลประกอบ ไม่ใช่คำปรึกษาทางภาษี บัญชี หรือกฎหมาย');
 });
 
 test('เลขา on a phone: the same card, drawn for the phone', async ({ page }) => {

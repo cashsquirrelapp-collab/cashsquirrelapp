@@ -133,7 +133,7 @@ const microphoneStopped = (page: Page) => page.evaluate(() => {
 test('live: real answer and card without sample labels, real token count, saved only on ยืนยัน, data reloads', async ({ page }) => {
   const mock = await open(page);
   // The live screen says what it is: no "sample" wording in the hint or the token indicator.
-  await expect(page.locator('.asx-hint')).toHaveText('เลขากระรอกอาจตอบผิดพลาด ตรวจสอบก่อนกดยืนยันทุกครั้ง · ไม่ใช่คำปรึกษาทางภาษี บัญชี หรือกฎหมาย');
+  await expect(page.locator('.asx-hint')).toHaveText('เลขาตอบผิดได้บ้าง โปรดตรวจก่อนกดยืนยัน · คำตอบเป็นข้อมูลประกอบ ไม่ใช่คำปรึกษาทางภาษี บัญชี หรือกฎหมาย');
   await expect(page.locator('.asx-hint.is-admin')).toHaveCount(0);
   await expect(page.locator('.asx-token')).toContainText('994');
   await expect(page.locator('.asx-token')).toHaveAttribute('aria-label', 'Krarok Tokens คงเหลือ 994 จาก 1000');
