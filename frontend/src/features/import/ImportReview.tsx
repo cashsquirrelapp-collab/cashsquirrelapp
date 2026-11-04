@@ -31,7 +31,7 @@ const amber = 'bg-[#FAEEDA] text-[#8A5A0B]';
 const green = 'bg-[#E9F7F0] text-[#12804F] dark:bg-[#6FD3A3]/10 dark:text-[#6FD3A3]';
 
 /** Where a row came from and what it becomes: the file's cells, the fields they went to, and why. */
-function RowDetail({ row }: { row: ImportRow }) {
+export function RowDetail({ row }: { row: ImportRow }) {
   const job = row.job, expense = row.expense;
   const saved: [string, string][] = job ? [
     [T("ชื่อ"), job.name], [T("ลูกค้า"), job.client || '—'], [T("ประเภทงาน"), tr(job.type)], [T("มูลค่างาน"), formatCurrency(job.value)],

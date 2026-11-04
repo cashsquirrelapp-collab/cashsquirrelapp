@@ -521,11 +521,16 @@ card does not need:
   ดูง่ายๆหลายอันได้เลย แล้วก็รายงานว่ามันผ่านไม่ผ่าน", replacing the one report card of the same morning). The window's bar
   shows where the person is: เลือกไฟล์ → ตรวจไฟล์ → ตอบคำถาม → นำเข้า. After the file, เลขา's steps tick one by one
   (`import/ImportSteps.tsx`: อ่านไฟล์, จับคู่คอลัมน์, เลขาดูคอลัมน์ที่ไม่รู้จัก when asked, ตรวจยอดกับแถวรวม, เทียบกับรายการ
-  ในแอป, สรุปผล, each with its finding; reduced motion shows them done) and fold to "ตรวจไฟล์ครบ N ขั้นตอน". Then:
-  the verdict card with its word (ผ่าน green / ต้องตอบ N ข้อ or ผ่าน · มีจุดที่ควรดู caramel / ยังนำเข้าไม่ได้ rust), "บันทึกได้
-  N รายการ", งาน / รายจ่าย, and a list of what was checked with ✓ / ⚠ / ✗; "ต้องตอบก่อนนำเข้า" with its own count; "ข้อควรรู้"
-  (tabs left out, rows held, personal spending, missing dates, issue groups); and ขั้นต่อไป, the one sentence on what to do
-  and the full-width นำเข้า N รายการ (cream when it can be pressed), with ดูทุกแถวก่อน · ตั้งค่าคอลัมน์ · เปลี่ยนกลับ under it.
+  ในแอป, สรุปผล, each with its finding once it ticks; reduced motion shows them done) and fold to "ตรวจไฟล์ครบ N
+  ขั้นตอน". Then "ต้องตอบก่อนนำเข้า" with its own count when there are questions, and the report as one card (owner's
+  picture, 2026-11-04: "อยากให้มันเป็นการ์ดแบบนี้ดูง่ายดี", `ImportRowList.tsx`): the file with its word (ผ่าน green / ต้องตอบ
+  N ข้อ or ผ่าน · มีจุดที่ควรดู caramel / ยังนำเข้าไม่ได้ rust); "ตรวจสอบก่อนนำเข้า" with "N/M รายการ"; four tiles (มูลค่างาน
+  ทั้งหมด, เงินค้างรับ หลังหัก ณ ที่จ่าย, รับเงินแล้ว in green, รายจ่ายทั้งหมด); one box, "มีข้อมูลที่ควรตรวจสอบ" with one line
+  and its items, or "ตรวจแล้ว ไม่พบจุดผิดปกติ" with the totals check; งาน / รายจ่าย tabs; each row a card with a round tick,
+  the name, client or category, a chip (รับเงินครบแล้ว / รับมัดจำแล้ว / เกินกำหนด / รอรับเงิน), the date, the amount and
+  ดูรายละเอียด (a chevron on phones); rows that leave themselves out (folded into a job, transfers, totals, already in the
+  app) are not listed. At the foot: one sentence on what to do, the full-width นำเข้า N รายการ, and แก้ไขแบบตาราง ·
+  ตั้งค่าคอลัมน์ · เปลี่ยนกลับ.
 - Every fix is kept so เปลี่ยนกลับ restores what was there. White grouped cards, the user's bubble in cream, เลขา's looped
   type, chips are pills (quick replies), one orange primary.
 - Typing to เลขา (owner's answer, 2026-10-31): free for every account, 10 messages a file, 3 files a day, 6 a minute, no

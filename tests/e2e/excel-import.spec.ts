@@ -94,6 +94,22 @@ test('computer: the chat reads the file, says what matched and what has no field
   await expect(chat.getByTestId('import-verdict')).toHaveText('ผ่าน');
   await expect(chat.getByTestId('import-stages').locator('[aria-current="step"]')).toContainText('นำเข้า');
   await expect(chat.getByTestId('import-next-text')).toHaveText('ตรวจเสร็จแล้ว กดนำเข้าเพื่อบันทึก 3 รายการ');
+  // The rows sit in the card by tab (owner's picture, 2026-11-04): a tick takes one out and puts it back.
+  const rowCards = chat.getByTestId('import-row');
+  await expect(rowCards).toHaveCount(2);
+  await expect(rowCards.first()).toContainText('รีวิวสินค้า');
+  await expect(rowCards.first()).toContainText('รับเงินครบแล้ว');
+  await rowCards.first().getByRole('checkbox').click();
+  await expect(chat.getByTestId('import-commit')).toContainText('นำเข้า 2 รายการ');
+  await expect(chat.getByTestId('import-job-count')).toHaveText('1 งานที่เลือก');
+  await rowCards.first().getByRole('checkbox').click();
+  await expect(chat.getByTestId('import-commit')).toContainText('นำเข้า 3 รายการ');
+  await chat.getByTestId('import-tab-expenses').click();
+  await expect(rowCards).toHaveCount(1);
+  await expect(rowCards.first()).toContainText('ค่าโปรแกรมตัดต่อ');
+  await rowCards.first().getByRole('button', { name: 'ดูรายละเอียด' }).click();
+  await expect(rowCards.first().getByTestId('import-row-detail')).toContainText('ในไฟล์ · แท็บ');
+  await chat.getByTestId('import-tab-jobs').click();
   // Every column is still one tap away under ตั้งค่าคอลัมน์; the one the app has no field for goes in the note.
   await chat.getByRole('button', { name: 'ตั้งค่าคอลัมน์' }).click();
   const columns = chat.getByTestId('import-columns-all').first();
@@ -104,10 +120,10 @@ test('computer: the chat reads the file, says what matched and what has no field
   await expect(chat.getByTestId('import-columns-all')).toHaveCount(0);
 
   // The summary: two jobs and one expense; the file's own total matches.
-  await expect(chat.getByTestId('import-job-count')).toHaveText('2 งาน');
+  await expect(chat.getByTestId('import-job-count')).toHaveText('2 งานที่เลือก');
   await expect(chat.getByTestId('import-expense-count')).toHaveText('1 รายการ');
   await expect(chat.getByTestId('import-total-check')).toHaveText('ตรงกับยอดในไฟล์ ฿20,000');
-  await chat.getByRole('button', { name: 'ดูทุกแถวก่อน' }).click();
+  await chat.getByRole('button', { name: 'แก้ไขแบบตาราง' }).click();
   await chat.getByRole('textbox', { name: 'ชื่อแถว 5' }).fill('ถ่ายภาพแคมเปญ ปีใหม่');
   await chat.getByTestId('import-commit').click();
 
@@ -147,7 +163,7 @@ test('phone: the jobs page tools and settings open the chat as a sheet; it impor
   const chat = page.getByTestId('import-wizard');
   await expect(chat.getByText('แตะเพื่อเลือกไฟล์')).toBeVisible();
   await chat.locator('#import-sheet-file').setInputFiles({ name: 'jobs.xlsx', mimeType: XLSX_TYPE, buffer: sheetFile() });
-  await expect(chat.getByTestId('import-job-count')).toHaveText('2 งาน');
+  await expect(chat.getByTestId('import-job-count')).toHaveText('2 งานที่เลือก');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   const box = (await chat.boundingBox())!;
   expect(box.width).toBeLessThanOrEqual(390);
@@ -156,7 +172,7 @@ test('phone: the jobs page tools and settings open the chat as a sheet; it impor
     await page.waitForTimeout(150);
     expect(await textOverlapIssues(page), `at ${at}`).toEqual([]);
   }
-  await chat.getByRole('button', { name: 'ดูทุกแถวก่อน' }).click();
+  await chat.getByRole('button', { name: 'แก้ไขแบบตาราง' }).click();
   await expect(chat.getByTestId('import-review').locator('li')).not.toHaveCount(0);
   await chat.getByTestId('import-commit').click();
   await expect(chat.getByTestId('import-save-state')).toHaveAttribute('data-state', 'saved');
@@ -181,7 +197,7 @@ test('English: the chat reads in English from start to finish', async ({ page })
   })).split('\n').filter(line => thai.test(line));
   expect(await appText()).toEqual([]);
   await chat.locator('#import-sheet-file').setInputFiles({ name: 'jobs.xlsx', mimeType: XLSX_TYPE, buffer: sheetFile() });
-  await expect(chat.getByTestId('import-job-count')).toHaveText('2 jobs');
+  await expect(chat.getByTestId('import-job-count')).toHaveText('2 jobs selected');
   await expect(chat.getByText('I have read the file.')).toBeVisible();
 });
 
@@ -199,18 +215,19 @@ test('computer: the owner\'s code-linked workbook matches its Dashboard, saves w
   await expect(chat.getByRole('button', { name: 'นำเข้าแท็บ Dashboard ด้วย' })).toBeVisible();
   await expect(chat.getByTestId('import-problems')).toHaveCount(0);
   await expect(chat.getByTestId('import-read')).toContainText('อ่านไฟล์แล้วครับ ทุกอย่างถูกต้อง บันทึกได้เลย');
-  await expect(chat.getByTestId('import-summary')).toContainText('บันทึกได้ 38 รายการ');
-  await expect(chat.getByTestId('import-job-count')).toHaveText('8 งาน');
+  await expect(chat.getByTestId('import-commit')).toContainText('นำเข้า 38 รายการ');
+  await expect(chat.getByTestId('import-picked')).toHaveText('38/38 รายการ');
+  await expect(chat.getByTestId('import-job-count')).toHaveText('8 งานที่เลือก');
   await expect(chat.getByTestId('import-expense-count')).toHaveText('30 รายการ');
   await expect(chat.getByTestId('import-total-check')).toHaveText('ตรงกับยอดในไฟล์ทุกตัว (7 ยอด)');
   // The report in short cards (owner, 2026-11-04): the import is one button in the next-step card; the table and the column
   // settings are quiet links.
-  await expect(chat.getByTestId('import-summary').locator('.ic-button')).toHaveCount(0);
+  await expect(chat.getByTestId('import-summary').locator('.ic-button.is-primary')).toHaveCount(1);
   await expect(chat.getByTestId('import-next').locator('.ic-button')).toHaveCount(1);
   await expect(chat.getByTestId('import-verdict')).toHaveText('ผ่าน');
   expect(await textOverlapIssues(page)).toEqual([]);
   if (process.env.SHOT_DIR) await chat.screenshot({ path: `${process.env.SHOT_DIR}/import-report-1280.png` });
-  await chat.getByRole('button', { name: 'ดูทุกแถวก่อน' }).click();
+  await chat.getByRole('button', { name: 'แก้ไขแบบตาราง' }).click();
   await chat.getByRole('button', { name: 'ดูที่มาของแถว 2' }).first().click();
   await expect(chat.getByTestId('import-row-detail')).toContainText('ในไฟล์ · แท็บ');
   await chat.getByTestId('import-commit').click();
@@ -227,7 +244,7 @@ test('computer: the owner\'s code-linked workbook matches its Dashboard, saves w
   await page.getByTestId('jobs-import-button').click();
   await chat.locator('#import-sheet-file').setInputFiles(soloFile());
   await expect(chat.getByTestId('import-seen-before')).toBeVisible();
-  await expect(chat.getByTestId('import-job-count')).toHaveText('0 งาน');
+  await expect(chat.getByTestId('import-job-count')).toHaveText('0 งานที่เลือก');
   await expect(chat.getByTestId('import-expense-count')).toHaveText('0 รายการ');
   await expect(chat.getByTestId('import-commit')).toBeDisabled();
 });
@@ -242,20 +259,20 @@ test('computer: rows that need a decision are grouped with fixes; tapping one de
     ['ถ่ายสินค้า', 'ลูกค้าตัวอย่าง', 3000, 'ยังไม่ได้นัด', 'ยังไม่จ่าย'],
     ['ตัดต่อคลิป', 'ลูกค้าตัวอย่าง', 4000, '08/10/2569', 'จ่ายแล้ว'],
   ]));
-  await expect(chat.getByTestId('import-job-count')).toHaveText('1 งาน');
+  await expect(chat.getByTestId('import-job-count')).toHaveText('1 งานที่เลือก');
   // An unreadable date, and a paid date taken from the job's own date: two groups waiting for the person.
   const unreadable = chat.locator('[data-issue="dateUnreadable"]');
   await expect(unreadable).toContainText('แถว 3');
   await unreadable.getByRole('button', { name: 'ใช้วันนี้' }).click();
-  await expect(chat.getByTestId('import-job-count')).toHaveText('2 งาน');
+  await expect(chat.getByTestId('import-job-count')).toHaveText('2 งานที่เลือก');
   await expect(chat.locator('[data-issue="dateUnreadable"]')).toHaveCount(0);
   await chat.locator('[data-issue="paidDateFromDate"]').getByRole('button', { name: 'นำเข้าตามที่อ่านได้' }).click();
-  await expect(chat.getByTestId('import-job-count')).toHaveText('3 งาน');
+  await expect(chat.getByTestId('import-job-count')).toHaveText('3 งานที่เลือก');
   // เปลี่ยนกลับ takes the last fix back.
   await chat.getByRole('button', { name: 'เปลี่ยนกลับการแก้ล่าสุด' }).click();
-  await expect(chat.getByTestId('import-job-count')).toHaveText('2 งาน');
+  await expect(chat.getByTestId('import-job-count')).toHaveText('2 งานที่เลือก');
   await chat.locator('[data-issue="paidDateFromDate"]').getByRole('button', { name: 'นำเข้าตามที่อ่านได้' }).click();
-  await expect(chat.getByTestId('import-job-count')).toHaveText('3 งาน');
+  await expect(chat.getByTestId('import-job-count')).toHaveText('3 งานที่เลือก');
 
   // The server refuses the first save: the chat says so and offers to try again.
   let fail = true;
@@ -295,12 +312,12 @@ test('computer: unknown columns get เลขากระรอก suggestions t
   await expect(chat.getByTestId('import-column-ask').first()).toContainText('เลขาแนะนำ');
   // Not importable until both are confirmed.
   await expect(chat.getByTestId('import-commit')).toBeDisabled();
-  await expect(chat.getByTestId('import-summary')).toContainText('ตอบคำถามด้านล่างก่อน แล้วจึงบันทึกได้');
+  await expect(chat.getByTestId('import-summary')).toContainText('ตอบคำถามด้านบนก่อน แล้วจึงบันทึกได้');
   await expect(chat.getByTestId('import-read')).toContainText('ขอถามก่อน 2 ข้อ');
   await chat.getByRole('button', { name: 'ยืนยันว่าคอลัมน์ Bill to คือ ลูกค้า' }).click();
   await chat.getByRole('button', { name: 'ยืนยันว่าคอลัมน์ ช่องทาง คือ ประเภทงาน' }).click();
   await expect(chat.getByTestId('import-column-ask')).toHaveCount(0);
-  await expect(chat.getByTestId('import-job-count')).toHaveText('2 งาน');
+  await expect(chat.getByTestId('import-job-count')).toHaveText('2 งานที่เลือก');
   await chat.getByTestId('import-commit').click();
   await expect(chat.getByTestId('import-save-state')).toHaveAttribute('data-state', 'saved');
   await expect.poll(() => savedRows(saved, 'cashflow_jobs').length).toBe(2);
@@ -359,7 +376,7 @@ test('computer and iPad: the chat fits, nothing overlaps while it scrolls', asyn
     await page.getByTestId('jobs-import-button').click();
     const chat = page.getByTestId('import-wizard');
     await chat.locator('#import-sheet-file').setInputFiles(soloFile());
-    await expect(chat.getByTestId('import-job-count')).toHaveText('8 งาน');
+    await expect(chat.getByTestId('import-job-count')).toHaveText('8 งานที่เลือก');
     for (const at of [0, 0.5, 1]) {
       await chat.locator('.ic-scroll').evaluate((el, share) => { el.scrollTop = (el.scrollHeight - el.clientHeight) * share; }, at);
       await page.waitForTimeout(150);

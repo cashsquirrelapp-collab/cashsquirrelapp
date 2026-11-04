@@ -236,19 +236,6 @@ details.ic-steps .ic-steps-list { margin-top: 10px; }
 .ic-badge.is-wait, .ic-badge.is-note { background: var(--ic-warn-bg); color: var(--ic-warn); }
 .ic-badge.is-fail { background: var(--ic-fail-bg); color: var(--ic-fail); }
 
-/* the verdict */
-.ic-verdict { padding: 16px; gap: 14px; }
-.ic-verdict-head { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
-.ic-verdict-head .ic-card-title { padding: 0; font-size: 17px; line-height: 1.45; }
-.ic-verdict .ic-tiles { padding: 0; }
-.ic-checks { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 12px 0 0; border-top: 1px solid var(--border); list-style: none; }
-.ic-checks li { display: flex; align-items: flex-start; gap: 10px; min-width: 0; font-size: 13.5px; line-height: 1.6; color: var(--text); overflow-wrap: anywhere; }
-.ic-checks li > svg { flex: none; margin-top: 3px; color: var(--muted); }
-.ic-checks li.is-ok > svg { color: var(--ic-green); }
-.ic-checks li.is-wait > svg { color: var(--ic-warn); }
-.ic-checks li.is-fail > svg { color: var(--ic-fail); }
-.ic-checks li.is-fail { color: var(--ic-fail); }
-
 /* questions and what to know */
 .ic-part-head { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; padding: 12px 16px; border-bottom: 1px solid var(--border); }
 .ic-part-head .ic-card-title { font-size: 15px; }
@@ -256,20 +243,106 @@ details.ic-steps .ic-steps-list { margin-top: 10px; }
 .ic-part > .ic-ask + .ic-ask, .ic-part > .ic-issue + .ic-issue, .ic-part > .ic-ask + .ic-issue, .ic-part > .ic-issue + .ic-ask { border-top: 1px solid var(--border); }
 .ic-part > .ic-report-notes { padding-top: 12px; }
 
-/* what to do next */
-.ic-next { padding: 16px; gap: 10px; border-color: #F3B08C; background: linear-gradient(var(--ic-cream), var(--ic-cream)), var(--white); }
-.dark .ic-next { border-color: rgba(255, 164, 115, 0.3); }
-.ic-next:not(.is-ready) { border-color: var(--border); background: var(--white); }
-.ic-next-title { margin: 0; color: var(--ic-orange-text); font-size: 12.5px; font-weight: 600; line-height: 1.5; }
-.ic-next:not(.is-ready) .ic-next-title { color: var(--muted); }
+/* what to do next: the sentence above the import button */
 .ic-next-text { margin: 0; font-size: 15px; font-weight: 500; line-height: 1.6; color: var(--text); overflow-wrap: anywhere; }
-.ic-next > .ic-button.is-primary { width: 100%; min-height: 46px; justify-content: center; font-size: 15px; }
-.ic-next > .ic-meta { text-align: center; }
 
 @media (max-width: 743px) {
   .ic-stages { gap: 4px; }
   .ic-stages li + li::before { width: 8px; margin-right: 0; }
   .ic-stages li:not(.is-now) .ic-stage-label { display: none; }
-  .ic-verdict-head .ic-card-title { font-size: 16px; }
 }
 @media (prefers-reduced-motion: reduce) { .ic-steps-list li { animation: none; } }
+
+/* The report as one card (owner, 2026-11-04, from a picture: "อยากให้มันเป็นการ์ดแบบนี้ดูง่ายดี"): the file with its word, a
+   large title with how many go in, four money tiles, one box of what to check, the rows by tab, the import at the foot. */
+.ic-sheet { gap: 0; }
+.ic-sheet-file { display: flex; align-items: center; gap: 12px; padding: 16px 18px; border-bottom: 1px solid var(--border); }
+.ic-sheet-icon { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: 12px; background: var(--ic-ok-bg); color: var(--ic-green); }
+.ic-sheet-name { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 600; line-height: 1.5; }
+.ic-sheet-meta { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.ic-sheet-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px 18px 4px; }
+.ic-sheet-title h3 { margin: 0; font-size: 22px; font-weight: 600; line-height: 1.45; }
+.ic-sheet-title p { margin: 2px 0 0; color: var(--muted); font-size: 13.5px; line-height: 1.55; }
+.ic-count-pill { flex: none; margin-top: 4px; padding: 3px 12px; border-radius: 999px; background: var(--faint); color: var(--text); font-size: 13px; font-weight: 600; line-height: 1.5; font-variant-numeric: tabular-nums; }
+.ic-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 14px 18px 0; }
+.ic-metrics div { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 14px 16px; border-radius: 14px; background: var(--ic-group); }
+.ic-metrics span { color: var(--muted); font-size: 13px; line-height: 1.5; }
+.ic-metrics b { font-size: 24px; font-weight: 600; line-height: 1.4; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.ic-metrics b.is-in { color: var(--ic-green); }
+.ic-metrics em { font-style: normal; color: var(--muted); font-size: 13px; line-height: 1.5; }
+
+.ic-notice { margin: 14px 18px 0; padding: 14px 16px; border-radius: 14px; background: var(--ic-group); }
+.ic-notice.is-warn { background: var(--ic-warn-bg); }
+.ic-notice-head { display: flex; align-items: flex-start; gap: 10px; }
+.ic-notice-head > svg { flex: none; margin-top: 2px; color: var(--ic-green); }
+.ic-notice.is-warn .ic-notice-head > svg { color: var(--ic-warn); }
+.ic-notice-title { margin: 0; font-size: 14.5px; font-weight: 600; line-height: 1.5; }
+.ic-notice-text { margin: 2px 0 0; font-size: 14px; line-height: 1.6; color: var(--text); overflow-wrap: anywhere; }
+.ic-notice .ic-report-notes { padding: 10px 0 0 30px; }
+.ic-notice .ic-report-notes:empty { display: none; }
+.ic-report-notes li.is-ok > svg { color: var(--ic-green); }
+.ic-report-notes li.is-fail { color: var(--ic-fail); }
+.ic-report-notes li.is-fail > svg { color: var(--ic-fail); }
+.ic-notice .ic-report-issues { margin-top: 10px; border-top: 0; border-radius: 12px; background: var(--white); }
+
+.ic-rows { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px 0; }
+.ic-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 3px; border-radius: 14px; background: var(--faint); }
+.ic-tabs button { min-height: 40px; border: 0; border-radius: 11px; background: transparent; color: var(--muted); font: inherit; font-size: 14.5px; font-weight: 500; line-height: 1.45; cursor: pointer; }
+.ic-tabs button[aria-selected='true'] { background: var(--white); color: var(--text); font-weight: 600; box-shadow: 0 1px 3px rgba(28, 25, 23, 0.12); }
+.ic-rows-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 4px 2px 0; }
+.ic-rows-head p { margin: 0; font-size: 14.5px; font-weight: 600; line-height: 1.5; }
+.ic-rows-head p span { margin-left: 8px; color: var(--muted); font-size: 12.5px; font-weight: 400; }
+.ic-rows-empty { margin: 0; padding: 14px; border-radius: 14px; background: var(--ic-group); color: var(--muted); font-size: 13.5px; line-height: 1.6; text-align: center; }
+.ic-rowlist { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.ic-rowcard { overflow: hidden; border: 1px solid var(--border); border-radius: 16px; background: var(--white); }
+.ic-rowcard:not(.is-on) { background: var(--bg); }
+.ic-rowcard:not(.is-on) .ic-rowcard-name, .ic-rowcard:not(.is-on) .ic-amount { color: var(--muted); }
+.ic-rowcard-main { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; }
+.ic-tickbox { display: grid; place-items: center; flex: none; width: 26px; height: 26px; margin-top: 1px; padding: 0; border: 1.5px solid var(--border); border-radius: 50%; background: var(--white); color: #FFFFFF; cursor: pointer; }
+.ic-tickbox[aria-checked='true'] { border-color: var(--ic-orange); background: var(--ic-orange); }
+.ic-tickbox:focus-visible { outline: 2px solid var(--ic-orange); outline-offset: 2px; }
+.ic-rowcard-text { display: flex; flex: 1 1 auto; flex-direction: column; gap: 2px; min-width: 0; }
+.ic-rowcard-name { margin: 0; font-size: 15px; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
+.ic-rowcard-sub { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.ic-rowcard-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 4px 0 0; }
+.ic-rowcard-date { color: var(--muted); font-size: 12.5px; line-height: 1.5; font-variant-numeric: tabular-nums; }
+.ic-rowcard-issue { margin: 4px 0 0; color: var(--ic-warn); font-size: 12.5px; line-height: 1.5; }
+.ic-tag2 { display: inline-flex; align-items: center; padding: 1px 10px; border-radius: 999px; background: var(--faint); color: var(--muted); font-size: 12px; font-weight: 600; line-height: 1.6; }
+.ic-tag2.is-ok { background: var(--ic-ok-bg); color: var(--ic-green); }
+.ic-tag2.is-part { background: var(--ic-cream); color: var(--ic-orange-text); }
+.ic-tag2.is-late { background: var(--ic-fail-bg); color: var(--ic-fail); }
+.ic-tag2.is-wait { background: var(--ic-warn-bg); color: var(--ic-warn); }
+.ic-tag2.is-info { background: var(--faint); color: var(--text); }
+.ic-rowcard-side { display: flex; flex: none; flex-direction: column; align-items: flex-end; gap: 6px; }
+.ic-amount { font-size: 16px; font-weight: 600; line-height: 1.5; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ic-more { display: inline-flex; align-items: center; gap: 4px; padding: 0; border: 0; background: none; color: var(--muted); font: inherit; font-size: 13px; line-height: 1.5; cursor: pointer; white-space: nowrap; }
+.ic-more:hover { color: var(--text); }
+.ic-rowcard-detail { border-top: 1px solid var(--border); }
+.ic-rows-more { align-self: center; }
+
+.ic-sheet-foot { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; padding: 16px 18px 18px; border-top: 1px solid var(--border); }
+.ic-sheet-foot > .ic-button.is-primary { width: 100%; min-height: 48px; justify-content: center; font-size: 15.5px; }
+.ic-sheet-foot > .ic-meta { text-align: center; }
+
+@media (max-width: 743px) {
+  .ic-sheet-file { padding: 14px; }
+  .ic-sheet-file { flex-wrap: wrap; }
+  .ic-sheet-title { padding: 16px 14px 2px; }
+  .ic-sheet-title h3 { font-size: 19px; }
+  .ic-metrics { gap: 8px; padding: 12px 14px 0; }
+  .ic-metrics div { padding: 12px; }
+  .ic-metrics b { font-size: 19px; }
+  .ic-notice { margin: 12px 14px 0; }
+  .ic-notice .ic-report-notes { padding-left: 0; }
+  .ic-rows { padding: 14px 14px 0; }
+  .ic-rowcard-main { padding: 12px; gap: 10px; }
+  .ic-rowcard-side { gap: 4px; }
+  .ic-amount { font-size: 15px; }
+  .ic-sheet-foot { padding: 14px 14px 16px; }
+  .ic-rows-head { flex-wrap: wrap; align-items: center; }
+  .ic-rows-head p span { display: block; margin: 0; }
+  .ic-rows-head .ic-link { white-space: nowrap; }
+  /* a phone keeps the amount and a chevron at the side, so a row's chips and date stay on one line */
+  .ic-more-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .ic-more { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: var(--faint); }
+}
