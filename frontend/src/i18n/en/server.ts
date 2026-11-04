@@ -176,6 +176,9 @@ export const server: Record<string, string> = {
   "ไฟล์ใหญ่เกิน 4 MB กรุณาเลือกไฟล์ที่เล็กลง": "The file is larger than 4 MB. Please choose a smaller file.",
   "ไฟล์แนบไม่ถูกต้อง": "The attached file is invalid",
   "แนบได้เฉพาะรูป (JPG, PNG, WEBP) หรือไฟล์ PDF": "You can attach pictures (JPG, PNG, WEBP) or PDF files only",
+  "แนบได้: รูป, PDF, Excel, CSV, Word, PowerPoint และไฟล์ข้อความ": "You can attach pictures, PDF, Excel, CSV, Word, PowerPoint and text files",
+  "ไฟล์ยาวเกินไป กรุณาส่งเฉพาะส่วนที่ต้องการ": "The file is too long. Please send only the part you need",
+  "อ่านข้อความในไฟล์นี้ไม่ได้": "The text in this file cannot be read",
   "มีการแก้ไขงานระหว่างลบ กรุณากดลบอีกครั้ง": "A job changed while deleting. Please press delete again.",
   "โทเคนที่เหลือจาก Pro หมดแล้ว ต่ออายุ Pro เพื่อรับโทเคนใหม่ทุกเดือน": "The tokens left from Pro have run out. Renew Pro to get new tokens every month.",
 };

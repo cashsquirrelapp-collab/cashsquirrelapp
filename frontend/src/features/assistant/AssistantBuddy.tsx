@@ -16,7 +16,7 @@ import { MascotPeek } from '../../components/mascot/MascotPeek';
 import { useDictation } from './useDictation';
 import type { PreparedFile } from './voice';
 import { rememberChatFile } from './chatFiles';
-import { addChatFiles, FILE_PROBLEM_TEXT, sentFiles, shownFiles, type FileProblem } from './chatUploads';
+import { addChatFiles, CHAT_FILE_ACCEPT, FILE_PROBLEM_TEXT, sentFiles, shownFiles, type FileProblem } from './chatUploads';
 import { SentFiles, UploadTray } from './ChatUploadViews';
 import { messageFiles } from './assistantApi';
 import { chatTitle, type ChatHandoff } from './chatHandoff';
@@ -649,10 +649,10 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
                 {/* Attach a picture or PDF (2026-10-27, phones and computers alike), as in the full chat. */}
                 {live ? (
                   <>
-                    <input ref={fileRef} type="file" multiple accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf" className="asx-sr" tabIndex={-1} aria-hidden="true"
+                    <input ref={fileRef} type="file" multiple accept={CHAT_FILE_ACCEPT} className="asx-sr" tabIndex={-1} aria-hidden="true"
                       onChange={event => { void pickFiles(event.target.files); event.target.value = ''; }} />
                     <button type="button" className="asx-icon-btn asx-attach" onClick={() => fileRef.current?.click()} disabled={busy}
-                      aria-label={tr("แนบรูปหรือไฟล์ PDF")} title={tr("แนบรูปหรือไฟล์ PDF")}><Paperclip size={18} /></button>
+                      aria-label={tr("แนบไฟล์")} title={tr("แนบรูป, PDF, Excel, Word หรือไฟล์ข้อความ")}><Paperclip size={18} /></button>
                   </>
                 ) : (
                   <button type="button" className="asx-icon-btn asx-attach is-soon" aria-disabled="true" aria-label={tr("แนบไฟล์ · เร็ว ๆ นี้")} title={tr("แนบไฟล์ · เร็ว ๆ นี้")}><Paperclip size={18} /></button>

@@ -2,22 +2,47 @@
 // server's normal token accounting. Reading answers aloud was removed (owner, 2026-10-27).
 
 import { readableFile } from '../../utils/heic';
+import { tr } from '../../i18n/tr';
+import { readFileText, textFileType, type FileText } from './fileText';
 
-export type PreparedFile = { name: string; mimeType: 'image/jpeg' | 'image/png' | 'image/webp' | 'application/pdf'; data: string; kind: 'image' | 'pdf'; bytes: number };
+/** kind 'text': a spreadsheet, Word, PowerPoint or text file read into text on this device (fileText.ts); `data` is that
+ *  text (UTF-8, base64) and `summary` says what it held, e.g. "Excel · 2 แท็บ · 120 แถว". */
+export type PreparedFile = {
+  name: string; mimeType: 'image/jpeg' | 'image/png' | 'image/webp' | 'application/pdf' | 'text/plain'; data: string;
+  kind: 'image' | 'pdf' | 'text'; bytes: number; summary?: string;
+};
 export const FILE_MAX_BYTES = 4 * 1024 * 1024;
 
-const toBase64 = (buffer: ArrayBuffer) => {
-  const bytes = new Uint8Array(buffer);
+const toBase64 = (buffer: ArrayBuffer | Uint8Array) => {
+  const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
   let binary = '';
   for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
   return btoa(binary);
 };
 
+function textSummary(read: FileText): string {
+  const parts = [read.label];
+  if (read.sheets && read.sheets > 1) parts.push(tr("{0} แท็บ", read.sheets));
+  if (read.rows !== undefined) parts.push(tr("{0} แถว", read.rows.toLocaleString('en-US')));
+  else if (read.slides !== undefined) parts.push(tr("{0} สไลด์", read.slides));
+  else parts.push(tr("{0} ตัวอักษร", read.chars.toLocaleString('en-US')));
+  if (read.truncated) parts.push(tr("ส่งเฉพาะส่วนแรก"));
+  return parts.join(' · ');
+}
+
 /**
  * Ready a picked file for เลขา: pictures are redrawn at most 1600px wide as JPEG (smaller to send, and the
- * photo's hidden location data is dropped); a PDF goes as it is. Throws 'type' or 'size' for the screen to explain.
+ * photo's hidden location data is dropped); a PDF goes as it is; a spreadsheet, Word, PowerPoint or text file goes as
+ * its text (owner, 2026-11-04). Throws 'type', 'size', 'old', 'big' or 'empty' for the screen to explain.
  */
 export async function prepareFile(picked: File): Promise<PreparedFile> {
+  const asText = textFileType(picked.name, picked.type);
+  if (asText === 'old') throw new Error('old');
+  if (asText) {
+    const read = await readFileText(() => import('xlsx'), picked.name || 'file', await picked.arrayBuffer(), picked.type);
+    const bytes = new TextEncoder().encode(read.text);
+    return { name: picked.name.slice(0, 120) || 'file', mimeType: 'text/plain', data: toBase64(bytes), kind: 'text', bytes: bytes.byteLength, summary: textSummary(read) };
+  }
   // An iPhone photo (HEIC) becomes a JPEG first: Chrome cannot read HEIC (frontend/src/utils/heic.ts).
   const file = await readableFile(picked).catch(() => { throw new Error('type'); });
   const name = file.name.slice(0, 120) || 'file';

@@ -1,5 +1,6 @@
 import { tr } from '../../i18n/tr';
 import { apiJson, getCurrentAccount } from '../../services/api';
+import { chatTextFiles } from './chatFiles';
 import { LINE_THREAD_ID, LOW_TOKENS, PAGE_HELP, SAMPLE_TOKENS, estimateTokens, pageHelpReply, sampleConversations, sampleReply, type ChatCard, type ChatGroup, type ChatMessage, type ConfirmCard, type Conversation, type TokenBalance } from './assistantMock';
 
 // WHERE THE AI CONNECTS (next phase, done separately by the owner's team). The chat screen talks only to
@@ -55,7 +56,7 @@ export function groupOf(at: number, now = Date.now()): ChatGroup {
   return gap <= 0 ? 'today' : gap === 1 ? 'yesterday' : gap < 7 ? 'week' : 'earlier';
 }
 type MemoCard = { kind: 'memo'; text: string };
-type StoredMessage = { id: string; role: 'user' | 'assistant'; text: string; at: string; cards?: (ChatCard | MemoCard)[]; attachment?: { name: string; kind: 'image' | 'pdf'; files?: { name: string; kind: 'image' | 'pdf' }[] } };
+type StoredMessage = { id: string; role: 'user' | 'assistant'; text: string; at: string; cards?: (ChatCard | MemoCard)[]; attachment?: { name: string; kind: 'image' | 'pdf' | 'text'; files?: { name: string; kind: 'image' | 'pdf' | 'text' }[] } };
 /** A stored answer's cards, with the hidden note of a file (kept as a `memo` card) taken out. */
 export function splitMemo(cards: unknown[] | undefined): { cards?: ChatCard[]; memo?: string } {
   const list = (cards ?? []) as (ChatCard | MemoCard)[];
@@ -172,11 +173,19 @@ export function createLiveTransport(options: { account: string; status: Assistan
     },
     async send(input, onDelta, signal, onCards) {
       active(signal);
-      // A questions card is part of what เลขา said, so the next answer is read against it; a file sent earlier comes
-      // back as what was read from it (the file itself is never sent again).
-      const earlier = input.history.slice(0, -1).filter(message => !message.failed && (message.text.trim() || message.memo || messageFiles(message).length))
-        .slice(-12).map(message => ({ role: message.from === 'me' ? 'user' as const : 'assistant' as const, text: historyText(message) }))
-        .filter(turn => turn.text.trim());
+      // A questions card is part of what เลขา said, so the next answer is read against it; a picture or PDF sent earlier
+      // comes back as what was read from it (the file itself is never sent again).
+      const kept = input.history.slice(0, -1).filter(message => !message.failed && (message.text.trim() || message.memo || messageFiles(message).length)).slice(-12);
+      // The latest spreadsheet or document of the chat goes again with its own message while this tab holds its text
+      // (owner, 2026-11-04: "คำนวณได้"), so เลขา keeps working from every row, not only from its note. Not when this
+      // message brings files of its own.
+      const textAt = input.attachments?.length ? -1
+        : kept.map((message, index) => (message.from === 'me' && messageFiles(message).some(file => file.kind === 'text') ? index : -1)).filter(index => index >= 0).at(-1) ?? -1;
+      const earlier = kept.map((message, index) => {
+        const turn = { role: message.from === 'me' ? 'user' as const : 'assistant' as const, text: historyText(message) };
+        const texts = index === textAt ? chatTextFiles(messageFiles(message).filter(file => file.kind === 'text').map(file => file.name)) : [];
+        return texts.length ? { ...turn, attachments: texts.map(file => ({ name: file.name, mimeType: file.mimeType, data: file.data })) } : turn;
+      }).filter(turn => turn.text.trim());
       let reply: LiveReply;
       try {
         reply = await post<LiveReply>({ action: 'message', text: input.text.slice(0, 6000), history: earlier, ...(input.conversationId === LINE_THREAD_ID ? { thread: 'line' } : /^c_[0-9a-f-]{36}$/.test(input.conversationId) ? { conversationId: input.conversationId } : {}), ...(input.context ? { pageName: input.context.pageName.slice(0, 40) } : {}), ...(input.attachments?.length === 1 ? { attachment: input.attachments[0] } : input.attachments?.length ? { attachments: input.attachments } : {}) }, signal);

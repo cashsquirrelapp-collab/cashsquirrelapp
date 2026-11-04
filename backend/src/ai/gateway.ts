@@ -19,7 +19,7 @@ import { featureNavigation } from './navigation.js';
 import { clearMemoryCommand, decideRoute, routingRecord, wherePage, type Direct, type RoutingOutcome, type RoutingRecord } from './routingPolicy.js';
 import { renameReply, renameRequest } from './rename.js';
 import { accountContext, createToolbox, toolsFor, type MemoryStore, type ProposalStore } from './tools.js';
-import { emptyUsage, partialUsageOf, ProviderError, subtractUsage, turnFiles, withPartialUsage, type AssistantCard, type ChatFile, type ChatTurn, type Effort, type Provider, type ProviderName, type ProviderResult, type Route, type ToolCall, type ToolOutcome, type ToolSpec, type Usage, type WebSource } from './types.js';
+import { emptyUsage, isTextFile, isVaultFileName, partialUsageOf, ProviderError, subtractUsage, turnFiles, withPartialUsage, type AssistantCard, type ChatFile, type ChatTurn, type Effort, type Provider, type ProviderName, type ProviderResult, type Route, type ToolCall, type ToolOutcome, type ToolSpec, type Usage, type WebSource } from './types.js';
 import type { VaultLoader } from './vaultQueries.js';
 import { offerLine, offerState } from './bridge.js';
 import { styleReply } from './replyStyle.js';
@@ -216,7 +216,11 @@ export function issuerContext(user: UserRow): string {
 }
 
 function trimHistory(history: ChatTurn[] = []): ChatTurn[] {
-  return history.slice(-MAX_HISTORY_TURNS).map(turn => ({ role: turn.role, text: turn.text.slice(0, MAX_TURN_CHARS) }));
+  // An earlier message keeps the text of its spreadsheet or document (2026-11-04), never a picture or PDF.
+  return history.slice(-MAX_HISTORY_TURNS).map(turn => {
+    const texts = turn.role === 'user' ? turnFiles(turn).filter(isTextFile) : [];
+    return { role: turn.role, text: turn.text.slice(0, MAX_TURN_CHARS), ...(texts.length ? { attachments: texts } : {}) };
+  });
 }
 
 /** A file was sent earlier in the chat (routingPolicy.ts keeps the rule; exported here for earlier importers). */
@@ -279,7 +283,8 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
   // The file in the chat: this message's, else the latest one named in the recent history (" [แนบไฟล์: name]").
   // Several files in one message (2026-10-31): every name of this message's, else of the latest message that had files.
   const recentFiles = [...(request.history ?? []).slice(-6)].reverse().map(turn => [...turn.text.matchAll(/ \[แนบไฟล์: ([^\]\n]{1,160})\]/g)].map(match => match[1])).find(names => names.length) ?? [];
-  const attachmentNames = sentFiles.length ? sentFiles.map(file => file.name) : recentFiles;
+  // Only pictures and PDFs can go to the vault: the text of a spreadsheet or document never becomes an attach card.
+  const attachmentNames = (sentFiles.length ? sentFiles.map(file => file.name) : recentFiles).filter(isVaultFileName);
   const attachmentName = attachmentNames[0] || '';
   const toolbox = createToolbox({ user: request.user, proposals: deps.proposals, memory: deps.memory, loadVaultFiles: deps.loadVaultFiles, now: deps.now,
     isAdmin: request.plan === 'admin', requestText: request.text, hasAttachment: sentFiles.length > 0, accountName: request.accountName, channel: request.channel,

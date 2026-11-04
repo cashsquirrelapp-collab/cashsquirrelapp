@@ -14,7 +14,7 @@ import { MascotSlot } from './MascotSlot';
 import { Markdown } from './Markdown';
 import type { PreparedFile } from './voice';
 import { rememberChatFile } from './chatFiles';
-import { addChatFiles, FILE_PROBLEM_TEXT, sentFiles, shownFiles, type FileProblem } from './chatUploads';
+import { addChatFiles, CHAT_FILE_ACCEPT, FILE_PROBLEM_TEXT, sentFiles, shownFiles, type FileProblem } from './chatUploads';
 import { SentFiles, UploadTray } from './ChatUploadViews';
 import { messageFiles } from './assistantApi';
 import { useDictation } from './useDictation';
@@ -1000,7 +1000,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
         onDragOver={event => { if (!hasFiles(event)) return; event.preventDefault(); event.dataTransfer.dropEffect = canDrop(event) ? 'copy' : 'none'; }}
         onDragLeave={event => { if (!canDrop(event)) return; dragDepth.current = Math.max(0, dragDepth.current - 1); if (!dragDepth.current) setDropping(false); }}
         onDrop={event => { if (!hasFiles(event)) return; event.preventDefault(); dragDepth.current = 0; setDropping(false); if (canDrop(event)) void pickFiles(event.dataTransfer.files); }}>
-        {dropping && <div className="asx-drop" aria-hidden="true"><span><ImageIcon size={18} />{tr("วางรูปหรือ PDF ที่นี่")}</span></div>}
+        {dropping && <div className="asx-drop" aria-hidden="true"><span><ImageIcon size={18} />{tr("วางไฟล์ที่นี่")}</span></div>}
         <Modal open={Boolean(viewer)} onClose={() => setViewer(null)} label={tr("รูปที่แนบ")} width={760}>
           {viewer && <img className="asx-viewer-img" src={viewer} alt={tr("รูปที่แนบ")} />}
         </Modal>
@@ -1255,10 +1255,10 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                 ) : <>
                 {live ? (
                   <>
-                    <input ref={fileRef} type="file" multiple accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf" className="asx-sr" tabIndex={-1} aria-hidden="true"
+                    <input ref={fileRef} type="file" multiple accept={CHAT_FILE_ACCEPT} className="asx-sr" tabIndex={-1} aria-hidden="true"
                       onChange={event => { void pickFiles(event.target.files); event.target.value = ''; }} />
                     <button type="button" className="asx-icon-btn" onClick={() => fileRef.current?.click()} disabled={busy || blocked}
-                      aria-label={tr("แนบรูปหรือไฟล์ PDF")} title={tr("แนบรูปหรือไฟล์ PDF")}><Paperclip size={18} /></button>
+                      aria-label={tr("แนบไฟล์")} title={tr("แนบรูป, PDF, Excel, Word หรือไฟล์ข้อความ")}><Paperclip size={18} /></button>
                   </>
                 ) : (
                   <button type="button" className="asx-icon-btn is-soon" aria-disabled="true" aria-label={tr("แนบไฟล์ · เร็ว ๆ นี้")} title={tr("แนบไฟล์ · เร็ว ๆ นี้")}><Paperclip size={18} /></button>

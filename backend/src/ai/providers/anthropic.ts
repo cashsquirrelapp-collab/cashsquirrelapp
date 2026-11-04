@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { addUsage, emptyUsage, fileLabel, ProviderError, turnFiles, type AssistantCard, type Provider, type ProviderRequest, type ProviderResult, type WebSource } from '../types.js';
+import { addUsage, emptyUsage, fileLabel, isTextFile, ProviderError, textOfFile, turnFiles, type AssistantCard, type Provider, type ProviderRequest, type ProviderResult, type WebSource } from '../types.js';
 
 // Claude through Anthropic's official SDK, for the model comparison the owner asked for (2026-10-24: "ลองเทียบให้ดู").
 // Production stays on Gemini until the owner chooses a model (AI_CHAT_MODEL / AI_ACTION_MODEL).
@@ -44,7 +44,9 @@ function userContent(turn: ProviderRequest['turns'][number]): string | Block[] {
   if (!files.length) return turn.text;
   const blocks = files.flatMap((file, index): Block[] => [
     ...(files.length > 1 ? [{ type: 'text', text: fileLabel(index, file.name) } as Block] : []),
-    file.mimeType === 'application/pdf'
+    isTextFile(file)
+      ? { type: 'text', text: textOfFile(file) }
+      : file.mimeType === 'application/pdf'
       ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: file.data } }
       : { type: 'image', source: { type: 'base64', media_type: file.mimeType as 'image/jpeg' | 'image/png' | 'image/webp', data: file.data } },
   ]);

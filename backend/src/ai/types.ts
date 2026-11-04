@@ -14,6 +14,11 @@ export interface ChatTurn { role: 'user' | 'assistant'; text: string; attachment
 export const turnFiles = (turn: Pick<ChatTurn, 'attachment' | 'attachments'>): ChatFile[] => (turn.attachments?.length ? turn.attachments : turn.attachment ? [turn.attachment] : []);
 /** When a turn has several files, each is named before it, so an answer and an attach card can say which one. */
 export const fileLabel = (index: number, name: string) => `ไฟล์ที่ ${index + 1}: ${name}`;
+/** A spreadsheet or document read into text on the person's device (attachment.ts): the models get it as text. */
+export const isTextFile = (file: ChatFile) => file.mimeType === 'text/plain';
+export const textOfFile = (file: ChatFile) => Buffer.from(file.data, 'base64').toString('utf8');
+/** Pictures and PDFs only: the files the vault can keep (a spreadsheet's text is never attached to a job). */
+export const isVaultFileName = (name: string) => /\.(jpe?g|png|webp|pdf)$/i.test(name);
 
 /** A tool as the models see it: a name, what it is for, and a JSON-Schema object for its arguments. */
 export interface ToolSpec {

@@ -468,6 +468,16 @@ card does not need:
   person already chose is never changed. Confirmed layouts are remembered like any other choice. A guest, the AI off or
   any failure: the import goes on as before.
 
+### Files in the เลขากระรอก chat (owner, 2026-11-04: "user ที่ชอบจดใน Word ใน Excel ... โยนลงในแชทเลย ... รองรับไฟล์แทบจะทุกไฟล์")
+- Besides pictures and PDFs, the chat takes Excel (.xlsx .xlsm .xlsb .xls), CSV/TSV, OpenDocument (.ods .odt .odp), Numbers,
+  Word (.docx), PowerPoint (.pptx), RTF, HTML, Markdown, JSON, XML and plain text (`features/assistant/fileText.ts`). They
+  are read into text on the device (the file never leaves it) and sent as `text/plain`; each spreadsheet tab gets the totals
+  of its money columns worked out on the device (rows saying รวม and ID columns left out). 30,000 characters a file,
+  192 KB of text a message (server: 128 KB / 256 KB). Old .doc/.ppt, Pages and Keynote ask to be saved again.
+- The tray and the sent message show the file with its icon and what it held ("Excel · 3 แถว"); tapping opens the text
+  เลขา reads. The latest spreadsheet or document of a chat goes again with its own earlier message so follow-up questions
+  still have every row. Text files are never vault attach cards. LINE does not take these files yet.
+
 ### Import offered to an empty account (owner, 2026-11-04)
 - A friend did not know the import existed. While an account of one's own has no jobs and no expenses, the overview's
   first card is "เริ่มจากข้อมูลเดิมของคุณ": a cream icon tile, one muted line, ไม่ต้อง (secondary) and the one primary

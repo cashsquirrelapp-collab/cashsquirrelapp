@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
+import * as XLSX from 'xlsx';
 import { textOverlapIssues } from './textOverlap';
 import { loadLayoutFonts } from './testFonts';
 
@@ -306,7 +307,7 @@ for (const width of [1440, 390]) test(`attach ${width}px: a picture is redrawn a
     const data = new DataTransfer(); data.items.add(new File([bytes], 'ลากมา.png', { type: 'image/png' })); return data;
   }, PNG.toString('base64'));
   await page.dispatchEvent('.asx-chat', 'dragenter', { dataTransfer: drop });
-  await expect(page.locator('.asx-drop')).toContainText('วางรูปหรือ PDF ที่นี่');
+  await expect(page.locator('.asx-drop')).toContainText('วางไฟล์ที่นี่');
   await page.dispatchEvent('.asx-chat', 'dragover', { dataTransfer: drop });
   await page.dispatchEvent('.asx-chat', 'drop', { dataTransfer: drop });
   await expect(page.locator('.asx-drop')).toHaveCount(0);
@@ -339,11 +340,14 @@ for (const width of [1440, 390]) test(`attach ${width}px: a picture is redrawn a
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
-test('attach: a PDF goes as it is; other files are refused on screen before anything is sent', async ({ page }) => {
+test('attach: a PDF goes as it is; files that cannot be read are refused on screen before anything is sent', async ({ page }) => {
   const mock = await open(page);
   const input = page.locator('.asx-composer input[type=file]');
-  await input.setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('hello') });
-  await expect(page.locator('.asx-notice')).toContainText('แนบได้เฉพาะรูป (JPG, PNG, WEBP, HEIC) หรือไฟล์ PDF');
+  await input.setInputFiles({ name: 'setup.exe', mimeType: 'application/octet-stream', buffer: Buffer.from('MZ') });
+  await expect(page.locator('.asx-notice')).toContainText('ไฟล์แบบนี้ยังอ่านไม่ได้ แนบได้: รูป, PDF, Excel, CSV, Word, PowerPoint และไฟล์ข้อความ');
+  // An old Word file says how to make it readable.
+  await input.setInputFiles({ name: 'สัญญา.doc', mimeType: 'application/msword', buffer: Buffer.from([0xd0, 0xcf, 0x11, 0xe0]) });
+  await expect(page.locator('.asx-notice')).toContainText('กรุณาบันทึกเป็น .docx, .pptx หรือ PDF ก่อน');
   const pdf = Buffer.from('%PDF-1.4\n% ใบเสนอราคา ตัวอย่าง\n');
   await input.setInputFiles({ name: 'ใบเสนอราคา.pdf', mimeType: 'application/pdf', buffer: pdf });
   await expect(page.locator('.asx-notice')).toHaveCount(0);
@@ -357,6 +361,84 @@ test('attach: a PDF goes as it is; other files are refused on screen before anyt
   await expect.poll(() => mock.posts.filter(post => post.body.action === 'message').length).toBe(1);
   const body = mock.posts.find(post => post.body.action === 'message').body;
   expect([body.text, body.attachment.name, body.attachment.mimeType, body.attachment.data]).toEqual(['ช่วยเพิ่มงานจากใบนี้', 'ใบเสนอราคา.pdf', 'application/pdf', pdf.toString('base64')]);
+});
+
+// Owner, 2026-11-04: "user ที่ชอบจดใน Word ใน Excel ... โยนลงในแชทเลย ... รองรับไฟล์แทบจะทุกไฟล์". A spreadsheet or document is read
+// into text on the device (the file itself never leaves it), with the totals of its money columns; it can be checked before
+// sending, and the latest one goes again with the next message so เลขา keeps working from every row.
+const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+function sheetFile(): Buffer {
+  const book = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([['วันที่', 'ลูกค้า', 'ยอดเงิน'], ['2026-10-01', 'ร้านกาแฟ', 10000], ['2026-10-15', 'บริษัท ก', 25000]]), 'รายรับ');
+  return XLSX.write(book, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
+}
+function wordFile(): Buffer {
+  const zip = XLSX.CFB.utils.cfb_new();
+  XLSX.CFB.utils.cfb_add(zip, '/word/document.xml', Buffer.from('<w:document><w:body><w:p><w:r><w:t>บันทึกงานเดือนตุลา</w:t></w:r></w:p><w:p><w:r><w:t>ออกแบบโลโก้ 5,000 บาท</w:t></w:r></w:p></w:body></w:document>'));
+  return XLSX.CFB.write(zip, { type: 'buffer', fileType: 'zip' }) as Buffer;
+}
+const sentText = (file: { data: string }) => Buffer.from(file.data, 'base64').toString('utf8');
+
+test('attach: an Excel file goes as its text with its totals, can be checked first, and stays with the next message', async ({ page, context }, info) => {
+  const mock = await open(page);
+  const input = page.locator('.asx-composer input[type=file]');
+  await input.setInputFiles({ name: 'ไฟล์ตัวอย่างนำเข้า_กระรอก.xlsx', mimeType: XLSX_TYPE, buffer: sheetFile() });
+  const tray = page.locator('.asx-attach-file');
+  await expect(tray).toContainText('ไฟล์ตัวอย่างนำเข้า_กระรอก.xlsx');
+  await expect(tray).toContainText('Excel · 3 แถว');
+  await expect(page.locator('.asx-notice')).toHaveCount(0);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await page.screenshot({ path: info.outputPath('chat-excel-tray.png') });
+  // Tapping it shows the text เลขา will read.
+  const opened = context.waitForEvent('page');
+  await tray.locator('.asx-attach-open').click();
+  const view = await opened;
+  await view.waitForLoadState();
+  await expect(view.locator('body')).toContainText('ยอดเงิน = 35,000 (2 แถว)');
+  await view.close();
+
+  await page.locator('#asx-message').fill('เดือนนี้รับเงินรวมเท่าไร');
+  await page.locator('.asx-send').click();
+  await expect(page.locator('.asx-sent-file')).toContainText('ไฟล์ตัวอย่างนำเข้า_กระรอก.xlsx');
+  await expect(page.locator('.asx-sent-file')).toContainText('Excel · 3 แถว · แตะเพื่อดูข้อความที่ส่ง');
+  await expect.poll(() => mock.posts.filter(post => post.body.action === 'message').length).toBe(1);
+  const first = mock.posts.find(post => post.body.action === 'message').body;
+  expect([first.attachment.name, first.attachment.mimeType]).toEqual(['ไฟล์ตัวอย่างนำเข้า_กระรอก.xlsx', 'text/plain']);
+  expect(sentText(first.attachment)).toContain('แท็บ "รายรับ" · 3 แถว\nวันที่,ลูกค้า,ยอดเงิน\n2026-10-01,ร้านกาแฟ,10000');
+  expect(sentText(first.attachment)).toContain('ยอดเงิน = 35,000 (2 แถว)');
+  await expect(page.locator('.asx-msg.is-bot').last()).toContainText('แปลเอกสาร');
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await page.screenshot({ path: info.outputPath('chat-excel-sent.png') });
+
+  // The next message brings the sheet back with the message it came with, not as a new file.
+  await page.locator('#asx-message').fill('เฉพาะร้านกาแฟเท่าไร');
+  await page.locator('.asx-send').click();
+  await expect.poll(() => mock.posts.filter(post => post.body.action === 'message').length).toBe(2);
+  const second = mock.posts.filter(post => post.body.action === 'message')[1].body;
+  expect(second.attachment).toBeUndefined();
+  const back = second.history.find((turn: any) => turn.attachments?.length);
+  expect(back.role).toBe('user');
+  expect(back.text).toContain('[แนบไฟล์: ไฟล์ตัวอย่างนำเข้า_กระรอก.xlsx]');
+  expect(sentText(back.attachments[0])).toContain('ยอดเงิน = 35,000 (2 แถว)');
+});
+
+for (const width of [1440, 390]) test(`buddy ${width}px: a Word file goes as its text from the floating chat`, async ({ page }, info) => {
+  const mock = await open(page, { path: '/jobs', width, height: width < 744 ? 844 : 900 });
+  await page.getByRole('button', { name: 'ถามเลขากระรอกเรื่องหน้างาน' }).click();
+  const chat = page.getByRole('dialog', { name: /^เลขากระรอก · หน้า/ });
+  const composer = chat.locator('.asx-buddy-composer');
+  await composer.locator('input[type=file]').setInputFiles({ name: 'บันทึกงาน.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: wordFile() });
+  await expect(chat.locator('.asx-attach-file')).toContainText('บันทึกงาน.docx');
+  await expect(chat.locator('.asx-attach-file')).toContainText(/Word · \d+ ตัวอักษร/);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await page.screenshot({ path: info.outputPath(`buddy-word-${width}.png`) });
+  await composer.locator('textarea').fill('สรุปให้หน่อย');
+  await composer.locator('.asx-send').click();
+  await expect.poll(() => mock.posts.filter(post => post.body.action === 'message').length).toBe(1);
+  const body = mock.posts.find(post => post.body.action === 'message').body;
+  expect(body.attachment.mimeType).toBe('text/plain');
+  expect(sentText(body.attachment)).toContain('บันทึกงานเดือนตุลา\nออกแบบโลโก้ 5,000 บาท');
+  await expect(chat.locator('.asx-sent-file')).toContainText('บันทึกงาน.docx');
 });
 
 // Owner, 2026-10-31: "เอาเลยไม่เกิน 5 ภาพ ละไฟล์ล่ะ": up to 5 pictures and PDFs in one message, each shown before sending and
@@ -1040,15 +1122,15 @@ for (const width of [1440, 390]) test(`buddy ${width}px: the paperclip sends a p
   const chat = page.getByRole('dialog', { name: /^เลขากระรอก · หน้า/ });
   await expect(chat).toBeVisible();
   const composer = chat.locator('.asx-buddy-composer');
-  await expect(composer.getByRole('button', { name: 'แนบรูปหรือไฟล์ PDF' })).toBeEnabled();
+  await expect(composer.getByRole('button', { name: 'แนบไฟล์' })).toBeEnabled();
   await expect(composer.getByRole('button', { name: 'พูดแทนการพิมพ์', exact: true })).toBeVisible();
   await expect(composer.locator('.asx-send')).toBeDisabled();
 
-  // Anything but a picture or a PDF is refused on screen.
-  await composer.locator('input[type=file]').setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('hello') });
-  await expect(chat.getByText('แนบได้เฉพาะรูป (JPG, PNG, WEBP, HEIC) หรือไฟล์ PDF')).toBeVisible();
+  // A file that cannot be read is refused on screen.
+  await composer.locator('input[type=file]').setInputFiles({ name: 'setup.exe', mimeType: 'application/octet-stream', buffer: Buffer.from('MZ') });
+  await expect(chat.getByText('ไฟล์แบบนี้ยังอ่านไม่ได้ แนบได้: รูป, PDF, Excel, CSV, Word, PowerPoint และไฟล์ข้อความ')).toBeVisible();
   await composer.locator('input[type=file]').setInputFiles({ name: 'สลิปโอน.png', mimeType: 'image/png', buffer: PNG });
-  await expect(chat.getByText('แนบได้เฉพาะรูป (JPG, PNG, WEBP, HEIC) หรือไฟล์ PDF')).toHaveCount(0);
+  await expect(chat.getByText('ไฟล์แบบนี้ยังอ่านไม่ได้ แนบได้: รูป, PDF, Excel, CSV, Word, PowerPoint และไฟล์ข้อความ')).toHaveCount(0);
   const tile = chat.locator('.asx-attach-tile');
   await expect(tile.locator('img')).toHaveAttribute('src', /^data:image\/jpeg;base64,\/9j\//);
   await expect(composer.locator('.asx-send')).toBeEnabled();
