@@ -41,6 +41,8 @@ export type { ImportCommit, ImportResult, SaveOutcome } from './importShared';
 
 interface Props {
   open: boolean;
+  /** A file to read as the window opens: "บันทึกทั้งหมด" on a checked file in the เลขากระรอก chat (2026-11-04). */
+  initialFile?: File | null;
   onClose: () => void;
   jobs: Job[];
   expenses: Expense[];
@@ -89,7 +91,7 @@ function Bot({ children, face = true, mood = 'happy', testId }: { children: Reac
 }
 const Me = ({ children }: { children: React.ReactNode }) => <div className="ic-row is-me"><div className="ic-bubble">{children}</div></div>;
 
-export function ImportChat({ open, onClose, jobs, expenses, statuses, jobTypes, onImport, onRetrySave, onRestoreBackup, onUndo, onViewJobs, accountId }: Props) {
+export function ImportChat({ open, initialFile, onClose, jobs, expenses, statuses, jobTypes, onImport, onRetrySave, onRestoreBackup, onUndo, onViewJobs, accountId }: Props) {
   const phone = useMobileLayout();
   const [fileName, setFileName] = React.useState('');
   const [fileSize, setFileSize] = React.useState(0);
@@ -183,6 +185,13 @@ export function ImportChat({ open, onClose, jobs, expenses, statuses, jobTypes, 
     }
   };
   const pickFile = (list: FileList | null | undefined) => { const file = list?.[0]; if (file) void readFile(file); };
+  // The chat's file, read once as the window opens, exactly as if it had been dropped here.
+  const readInitial = React.useRef<File | null>(null);
+  React.useEffect(() => {
+    if (!open || !initialFile || readInitial.current === initialFile) return;
+    readInitial.current = initialFile;
+    void readFile(initialFile);
+  }, [open, initialFile]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── what the rules found ──────────────────────────────────────────────────────────────────────────────────────────
   const earlier = React.useMemo(() => {

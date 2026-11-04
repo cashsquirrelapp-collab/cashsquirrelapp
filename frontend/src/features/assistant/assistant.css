@@ -1525,3 +1525,59 @@ button.asx-party-tile:hover:not(:disabled) .asx-party-copy strong { color: var(-
 .asx-buddy.is-stand.is-flip .asx-say-tail { right: auto; left: -18px; transform: scaleX(-1); }
 .asx-buddy.is-pill.is-stand.is-moving .asx-buddy-btn.is-stand, .asx-buddy.is-pill.is-stand.is-moving .asx-buddy-btn.is-stand:hover { transform: none; cursor: grabbing; transition: none; }
 .asx-buddy.is-pill.is-stand.is-moving .asx-hello-say { animation-play-state: paused; }
+
+/* Live steps (owner, 2026-11-04: "อยากให้มีสถานะบอกว่ากำลังทำไรด้วย แบบของ Claude หรือ GPT"): while เลขา works, each step with a
+   tick when done and a small turning mark on the current one, the seconds on the right; folded above the answer after. */
+.asx-work { display: grid; gap: 6px; width: min(420px, 100%); min-width: 0; padding: 10px 14px 12px; border-radius: 18px; background: rgba(118, 118, 128, 0.1); color: var(--text); }
+.asx-work-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 0; color: var(--muted); font-size: 12.5px; font-weight: 500; line-height: 1.5; }
+.asx-work-time { flex: none; font-variant-numeric: tabular-nums; }
+.asx-work-list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.asx-work-list li { display: flex; align-items: flex-start; gap: 8px; min-width: 0; font-size: 13.5px; line-height: 1.55; overflow-wrap: anywhere; }
+.asx-work-list li > svg { flex: none; margin-top: 3px; }
+.asx-work-list li.is-done { color: var(--muted); }
+.asx-work-list li.is-done > svg { color: var(--asx-income); }
+.asx-work-list li.is-doing { color: var(--text); font-weight: 500; }
+.asx-work-list li.is-doing > svg { color: var(--asx-accent-text); }
+.asx-work-spin { animation: asx-work-turn 0.9s linear infinite; }
+@keyframes asx-work-turn { to { transform: rotate(360deg); } }
+.asx-work-done { width: min(420px, 100%); margin: 0 0 6px; }
+.asx-work-done > summary { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; color: var(--muted); font-size: 12.5px; font-weight: 500; line-height: 1.5; list-style: none; cursor: pointer; }
+.asx-work-done > summary::-webkit-details-marker { display: none; }
+.asx-work-done > summary::after { content: ''; flex: none; width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg) translateY(-2px); }
+.asx-work-done[open] > summary::after { transform: rotate(225deg) translate(-1px, -1px); }
+.asx-work-done > summary:hover { color: var(--text); }
+.asx-work-done > .asx-work-list { padding: 4px 0 6px 2px; }
+/* Folded means gone from the layout too (a closed details still lays its content out in Chrome). */
+.asx-work-done:not([open]) > :not(summary) { display: none; }
+
+/* The file check under a spreadsheet sent to เลขา (owner, 2026-11-04: "ขึ้นหน้าแบบว่าเหมือนกำลังเช็คงาน"): steps that tick, then
+   the import's own figures. Card anatomy A; text left-aligned even in the person's right-hand column. */
+.asx-rcard.is-file-check { margin-top: 8px; text-align: left; }
+.asx-check-steps { display: flex; flex-direction: column; margin: 12px 0 0; padding: 2px 12px; border-radius: 14px; background: var(--asx-card-well); list-style: none; }
+.asx-check-steps li { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 8px 0; color: var(--text); font-size: 13.5px; line-height: 1.5; overflow-wrap: anywhere; }
+.asx-check-steps li + li { border-top: 1px solid var(--asx-card-divider); }
+.asx-check-steps li.is-waiting { color: var(--asx-card-secondary); }
+.asx-check-mark { display: grid; place-items: center; flex: none; width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--asx-card-field-border); color: #FFFFFF; }
+.asx-check-steps li.is-done .asx-check-mark { border-color: var(--asx-income); background: var(--asx-income); }
+.dark .asx-check-steps li.is-done .asx-check-mark { color: #10301F; }
+.asx-check-steps li.is-done .asx-check-mark.is-warn { border-color: var(--asx-amber); background: var(--asx-amber); }
+.asx-card-state.is-busy > i { animation: asx-check-pulse 1s ease-in-out infinite; }
+@keyframes asx-check-pulse { 50% { opacity: 0.2; } }
+.asx-check-result { animation: asx-check-in 0.28s ease-out both; }
+@keyframes asx-check-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.asx-check-bar { display: grid; gap: 6px; margin: 12px 0 0; }
+.asx-check-track { display: block; height: 8px; overflow: hidden; border-radius: 999px; background: #E3A857; }
+.dark .asx-check-track { background: #B98445; }
+.asx-check-track > i { display: block; height: 100%; border-radius: 999px 0 0 999px; background: var(--asx-income); }
+.asx-check-legend { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 12px; font-size: 12.5px; line-height: 1.5; font-variant-numeric: tabular-nums; }
+.asx-check-legend b { font-weight: 500; color: var(--asx-card-secondary); }
+.asx-check-legend b.is-in { color: var(--asx-income); }
+.asx-check-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 12px 0 0; }
+.asx-check-tiles > div { display: flex; flex-direction: column-reverse; align-items: center; gap: 2px; min-width: 0; padding: 10px 6px; border-radius: 12px; background: var(--asx-card-well); text-align: center; }
+.asx-check-tiles dt { color: var(--asx-card-secondary); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+.asx-check-tiles dd { margin: 0; color: var(--text); font-family: var(--asx-card-num); font-size: 22px; font-weight: 600; line-height: 1.3; font-variant-numeric: tabular-nums; }
+.asx-check-tiles dd.is-in { color: var(--asx-income); }
+.asx-check-tiles dd.is-out { color: var(--asx-expense); }
+@media (prefers-reduced-motion: reduce) {
+  .asx-work-spin, .asx-card-state.is-busy > i, .asx-check-result { animation: none; }
+}

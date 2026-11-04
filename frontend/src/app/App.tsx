@@ -77,6 +77,7 @@ import { useFeedbackWaiting } from '../features/feedback/useFeedbackWaiting';
 import { applyFields, carriesBatch, recentImports, undoUpdate } from '../features/import/importBatches';
 import type { ImportCommit, ImportResult, SaveOutcome } from '../features/import/importShared';
 import { dismissImportInvite, importInviteDismissed, shouldOfferImport } from '../features/import/importInvite';
+import { IMPORT_FILE_EVENT } from '../features/assistant/importFileEvent';
 import type { SettingsView } from '../features/settings/SettingsTab';
 import { KsIcon, type KsIconName } from '../features/mobile/icons';
 import { useMobileLayout } from '../features/mobile/useMobileLayout';
@@ -2108,6 +2109,18 @@ export default function App() {
   // Modal Control States
   const [isAddJobOpen, setIsAddJobOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
+  // A file the เลขากระรอก chat checked, opened in the import window by its "บันทึกทั้งหมด" (2026-11-04).
+  const [importFile, setImportFile] = useState<File | null>(null);
+  useEffect(() => {
+    const onFile = (event: Event) => {
+      const file = (event as CustomEvent<{ file?: unknown }>).detail?.file;
+      if (!(file instanceof File)) return;
+      setImportFile(file);
+      setIsImportOpen(true);
+    };
+    window.addEventListener(IMPORT_FILE_EVENT, onFile);
+    return () => window.removeEventListener(IMPORT_FILE_EVENT, onFile);
+  }, []);
   // "ย้ายข้อมูลเข้าแอป" on an empty overview, until ไม่ต้อง (owner, 2026-11-04); per account, on this device.
   const [importInviteHidden, setImportInviteHidden] = useState<Record<string, boolean>>({});
   const [isAddGoalOpen, setIsAddGoalOpen] = useState(false);
@@ -3895,7 +3908,8 @@ export default function App() {
             <ImportChat
               accountId={session && !session.isGuest ? session.user.id : undefined}
               open={isImportOpen}
-              onClose={() => setIsImportOpen(false)}
+              initialFile={importFile}
+              onClose={() => { setIsImportOpen(false); setImportFile(null); }}
               jobs={jobs}
               expenses={expenses}
               statuses={statuses}

@@ -16,6 +16,9 @@ import { MascotPeek } from '../../components/mascot/MascotPeek';
 import { useDictation } from './useDictation';
 import type { PreparedFile } from './voice';
 import { rememberChatFile } from './chatFiles';
+import { WorkDone, WorkLive } from './ChatWorkSteps';
+import { FileChecks } from './ChatFileCheck';
+import { useWork } from './workSteps';
 import { addChatFiles, CHAT_FILE_ACCEPT, FILE_PROBLEM_TEXT, sentFiles, shownFiles, type FileProblem } from './chatUploads';
 import { SentFiles, UploadTray } from './ChatUploadViews';
 import { messageFiles } from './assistantApi';
@@ -255,6 +258,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
   const nextId = React.useRef(0);
   const sheetBox = useSheetBox(open && mobile);
   const busy = mode === 'thinking' || mode === 'working';
+  const work = useWork();
   const prompts = Array.from(new Set([...buddyPrompts(page), ...EXTRA_PROMPTS])).slice(0, 6);
   const shortcut = isMac() ? '⌘K' : 'Ctrl K';
 
@@ -390,12 +394,16 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
     const botId = id('bot');
     let started = false;
     let responseCards: ChatMessage['cards'];
+    let steps: ChatMessage['work'];
     const isCurrent = () => !controller.signal.aborted && scopeRef.current.accountId === accountId && scopeRef.current.transport === transport;
+    // The live steps (2026-11-04), as in the full chat.
+    work.begin(files);
     try {
       files.forEach(rememberChatFile);
-      const result = await transport.send({ conversationId, text, history, context: { page, pageName }, ...(files.length ? { attachments: sentFiles(files) } : {}) }, textSoFar => {
+      const result = await transport.send({ conversationId, text, history, context: { page, pageName }, ...(files.length ? { attachments: sentFiles(files) } : {}),
+        onProgress: event => { if (isCurrent()) work.progress(event); } }, textSoFar => {
         if (!isCurrent()) return;
-        if (!started) { started = true; setMode('working'); setMessages(list => [...list, { id: botId, from: 'bot' as const, text: textSoFar, cards: responseCards, at: Date.now() }]); }
+        if (!started) { started = true; setMode('working'); steps = work.finish(); setMessages(list => [...list, { id: botId, from: 'bot' as const, text: textSoFar, cards: responseCards, at: Date.now(), ...(steps ? { work: steps } : {}) }]); }
         else setMessages(list => list.map(message => (message.id === botId ? { ...message, text: textSoFar } : message)));
       }, controller.signal, cards => {
         if (!isCurrent()) return;
@@ -405,7 +413,8 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
         if (path && openRef.current) onNavigate(path);
       });
       if (!isCurrent()) return;
-      setMessages(list => (started ? list : [...list, { id: botId, from: 'bot' as const, text: '', at: Date.now() }]).map(message => (message.id === botId ? { ...message, text: result.text, cards: result.cards, ...(result.memo ? { memo: result.memo } : {}) } : message)));
+      if (!started) steps = work.finish();
+      setMessages(list => (started ? list : [...list, { id: botId, from: 'bot' as const, text: '', at: Date.now(), ...(steps ? { work: steps } : {}) }]).map(message => (message.id === botId ? { ...message, text: result.text, cards: result.cards, ...(result.memo ? { memo: result.memo } : {}) } : message)));
       // Cards the app saved at once (the user said to save): shown as saved, each opening its record.
       const saved = savedCards(result.cards, scopeRef.current.navigationContext);
       if (saved.ids.length) {
@@ -418,6 +427,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
       if (next === 'answered' || next === 'done') window.setTimeout(() => setMode(m => (m === next ? 'awake' : m)), 1600);
       if (!openRef.current) setNews(next === 'done' ? 'done' : 'answered');
     } catch {
+      work.clear();
       if (controller.signal.aborted) return;
       setMessages(list => [...list.filter(message => message.id !== botId), { id: botId, from: 'bot' as const, text: tr("ส่งไม่สำเร็จ ตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง"), at: Date.now() }]);
       setMode('awake');
@@ -606,11 +616,13 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
                       <li key={message.id} className="asx-msg is-me"><div className="asx-me-row"><div className="asx-me-stack">
                         <SentFiles files={messageFiles(message)} onView={setViewer} />
                         {!message.textAuto && <p className="asx-bubble">{message.text}</p>}
+                        <FileChecks files={messageFiles(message)} />
                       </div></div></li>
                     ) : (
                       <li key={message.id} className="asx-msg is-bot">
                         <span className="asx-avatar" aria-hidden="true"><Mascot gear={mobile ? 'pro' : 'none'} mood="happy" animated={false} size={26} viewBox="12 8 76 76" /></span>
                         <div className="asx-msg-body">
+                          {message.work && <WorkDone work={message.work} />}
                           {message.text && <Markdown text={message.text} onNavigate={go} navigationContext={navigationContext} cards={message.cards} />}
                           {message.cards?.map((card, n) => (
                             <ChatCardView key={n} live={live} card={card} confirmState={card.kind === 'confirm' ? confirmStates[card.id] : undefined} confirmedPath={card.kind === 'confirm' ? confirmedPaths[card.id] : undefined}
@@ -627,7 +639,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
                     {mode === 'thinking' && (
                       <li className="asx-msg is-bot">
                         <span className="asx-avatar" aria-hidden="true"><Mascot gear={mobile ? 'pro' : 'none'} thoughtDots={mobile} mood="thinking" animated={false} size={26} viewBox="12 8 76 76" /></span>
-                        <div className="asx-typing" role="img" aria-label={tr("เลขากระรอกกำลังคิด")}><i /><i /><i /></div>
+                        {work.work && work.work.steps.length > 1 ? <WorkLive work={work.work} /> : <div className="asx-typing" role="img" aria-label={tr("เลขากระรอกกำลังคิด")}><i /><i /><i /></div>}
                       </li>
                     )}
                   </ol>

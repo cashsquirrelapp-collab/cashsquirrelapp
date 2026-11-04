@@ -14,6 +14,9 @@ import { MascotSlot } from './MascotSlot';
 import { Markdown } from './Markdown';
 import type { PreparedFile } from './voice';
 import { rememberChatFile } from './chatFiles';
+import { WorkDone, WorkLive } from './ChatWorkSteps';
+import { FileChecks } from './ChatFileCheck';
+import { useWork } from './workSteps';
 import { addChatFiles, CHAT_FILE_ACCEPT, FILE_PROBLEM_TEXT, sentFiles, shownFiles, type FileProblem } from './chatUploads';
 import { SentFiles, UploadTray } from './ChatUploadViews';
 import { messageFiles } from './assistantApi';
@@ -309,6 +312,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
   const id = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${++nextId.current}`;
 
   const busy = mode === 'thinking' || mode === 'working';
+  const work = useWork();
   // The start's greeting: the time of day and the person's habit, worked out again for each new chat.
   const hello = React.useMemo(() => greetingNow(accountId), [accountId, currentId === null]); // eslint-disable-line react-hooks/exhaustive-deps
   const displayMode: AssistantMode = voice.phase === 'transcribing' ? 'thinking' : voice.active ? 'listening' : mode;
@@ -493,17 +497,22 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
     abortRef.current?.abort();
     abortRef.current = controller;
     setMode('thinking');
+    // The live steps (2026-11-04): what the device did with the files, then each step the server reports.
+    work.begin(files);
     let started = false;
     let responseCards: ChatMessage['cards'];
+    let steps: ChatMessage['work'];
     const isCurrent = () => !controller.signal.aborted && navigationRef.current.transport === transport && navigationRef.current.navigationContext.accountId === accountId;
     try {
-      const result = await transport.send({ conversationId, text, history, ...(files.length ? { attachments: sentFiles(files) } : {}) }, textSoFar => {
+      const result = await transport.send({ conversationId, text, history, ...(files.length ? { attachments: sentFiles(files) } : {}),
+        onProgress: event => { if (isCurrent()) work.progress(event); } }, textSoFar => {
         if (!isCurrent()) return;
         if (!started) {
           started = true;
           setStreamingId(botId);
           setMode('working');
-          patch(conversationId, list => [...list, { id: botId, from: 'bot' as const, text: textSoFar, cards: responseCards, at: Date.now() }]);
+          steps = work.finish();
+          patch(conversationId, list => [...list, { id: botId, from: 'bot' as const, text: textSoFar, cards: responseCards, at: Date.now(), ...(steps ? { work: steps } : {}) }]);
         } else patch(conversationId, list => list.map(message => (message.id === botId ? { ...message, text: textSoFar } : message)));
       }, controller.signal, cards => {
         if (!isCurrent()) return;
@@ -513,7 +522,8 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
         if (path) onAutoNavigate?.(path);
       });
       if (!isCurrent()) return;
-      patch(conversationId, list => (started ? list : [...list, { id: botId, from: 'bot' as const, text: '', at: Date.now() }])
+      if (!started) steps = work.finish();
+      patch(conversationId, list => (started ? list : [...list, { id: botId, from: 'bot' as const, text: '', at: Date.now(), ...(steps ? { work: steps } : {}) }])
         .map(message => (message.id === botId ? { ...message, text: result.text, cards: result.cards, ...(result.memo ? { memo: result.memo } : {}) } : message)));
       setBalance(value => ({ ...value, remaining: Math.max(0, value.remaining - result.tokensUsed) }));
       setStreamingId(null);
@@ -529,6 +539,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
       if (next === 'done') window.setTimeout(() => setMode(m => (m === 'done' ? 'awake' : m)), 1600);
       if (next === 'answered') window.setTimeout(() => setMode(m => (m === 'answered' ? 'awake' : m)), 1600);
     } catch (error) {
+      work.clear();
       if (controller.signal.aborted && !(error instanceof AssistantRequestError)) return;
       setStreamingId(null);
       patch(conversationId, list => [...list.filter(message => message.id !== botId), { id: botId, from: 'bot' as const, text: '', at: Date.now(), failed: true, question: text }]);
@@ -1128,6 +1139,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                     <div className="asx-me-stack">
                       <SentFiles files={messageFiles(message)} onView={setViewer} />
                       {!message.textAuto && <p className="asx-bubble">{message.text}</p>}
+                      <FileChecks files={messageFiles(message)} />
                     </div>
                   </div>
                 </li>
@@ -1161,6 +1173,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                 <li key={message.id} className="asx-msg is-bot">
                   <span className="asx-avatar" aria-hidden="true"><Mascot gear={mobile ? 'pro' : 'none'} mood="happy" animated={false} size={30} viewBox="12 8 76 76" /></span>
                   <div className="asx-msg-body">
+                    {message.work && <WorkDone work={message.work} />}
                     {(message.text || message.id === streamingId) && <Markdown text={message.text} onNavigate={go} navigationContext={navigationContext} cards={message.cards} />}
                     {message.id === streamingId && <i className="asx-caret" aria-hidden="true" />}
                     {message.cards?.map((card, c) => (
@@ -1181,7 +1194,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
               {mode === 'thinking' && (
                 <li className="asx-msg is-bot">
                   <span className="asx-avatar" aria-hidden="true"><Mascot gear="pro" mood="thinking" animated={false} size={30} viewBox="12 8 76 76" /></span>
-                  <div className="asx-typing" role="img" aria-label={tr("เลขากระรอกกำลังคิด")}><i /><i /><i /></div>
+                  {work.work && work.work.steps.length > 1 ? <WorkLive work={work.work} /> : <div className="asx-typing" role="img" aria-label={tr("เลขากระรอกกำลังคิด")}><i /><i /><i /></div>}
                 </li>
               )}
             </ol>

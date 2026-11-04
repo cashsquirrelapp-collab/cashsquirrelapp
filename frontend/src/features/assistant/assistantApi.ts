@@ -1,5 +1,6 @@
-import { tr } from '../../i18n/tr';
-import { apiJson, getCurrentAccount } from '../../services/api';
+import { tr, trServer } from '../../i18n/tr';
+import { apiFetch, apiJson, getCurrentAccount } from '../../services/api';
+import { isAssistantProgress, type AssistantProgress } from '../../../../shared/assistantProgress';
 import { chatTextFiles } from './chatFiles';
 import { LINE_THREAD_ID, LOW_TOKENS, PAGE_HELP, SAMPLE_TOKENS, estimateTokens, pageHelpReply, sampleConversations, sampleReply, type ChatCard, type ChatGroup, type ChatMessage, type ConfirmCard, type Conversation, type TokenBalance } from './assistantMock';
 
@@ -18,7 +19,8 @@ import { LINE_THREAD_ID, LOW_TOKENS, PAGE_HELP, SAMPLE_TOKENS, estimateTokens, p
 
 /** `context`: where the person is in the app (the floating squirrel sends the page it was opened on). */
 /** `attachment`: a picture or PDF prepared by voice.ts prepareFile (live transport only). */
-export type SendInput = { conversationId: string; text: string; history: ChatMessage[]; context?: { page: string; pageName: string }; attachments?: { name: string; mimeType: string; data: string }[] };
+/** `onProgress`: what เลขา is doing while it works (2026-11-04), as the server sends it. */
+export type SendInput = { conversationId: string; text: string; history: ChatMessage[]; context?: { page: string; pageName: string }; attachments?: { name: string; mimeType: string; data: string }[]; onProgress?: (event: AssistantProgress) => void };
 
 /** A message's files, one or several (2026-10-31), whichever way the message has them. */
 export const messageFiles = (message: Pick<ChatMessage, 'attachment' | 'attachments'>) => (message.attachments?.length ? message.attachments : message.attachment ? [message.attachment] : []);
@@ -126,6 +128,51 @@ export const readAssistantStatus = (account: string, signal?: AbortSignal) =>
 
 type LiveReply = { text: string; cards?: ChatCard[]; tokens: number; tokensLeft: number | null; trialLeft: number | null; memo?: string };
 
+const requestError = (status: number, error: unknown, code: unknown) => Object.assign(
+  new Error(typeof error === 'string' && error ? trServer(error) : 'Request failed'), { status, code: typeof code === 'string' ? code : undefined });
+
+/**
+ * A message with live steps (2026-11-04): the server answers with one JSON object per line ({progress}, then {result}
+ * or {error}) once the model starts; a refusal before that is the usual JSON error. An older server, or anything in
+ * between that holds the stream back, still ends with the answer, only without the steps on the way.
+ */
+async function postWithSteps<T>(body: unknown, headers: Record<string, string>, signal: AbortSignal | undefined, onProgress: (event: AssistantProgress) => void): Promise<T> {
+  const response = await apiFetch('/api/assistant', { method: 'POST', headers: { ...headers, Accept: 'application/x-ndjson, application/json' }, body: JSON.stringify(body), signal });
+  if (!(response.headers.get('content-type') ?? '').includes('application/x-ndjson') || !response.body) {
+    let result: any;
+    try { result = await response.json(); } catch { throw Object.assign(new Error(response.status === 413 ? tr("ข้อมูลมีขนาดใหญ่เกินไป กรุณาลดรูปหรือไฟล์แนบ") : tr("บริการไม่พร้อมใช้งาน กรุณาลองใหม่")), { status: response.status }); }
+    if (!response.ok) throw Object.assign(requestError(response.status, result?.error, result?.code), { retryAfter: Number(response.headers.get('Retry-After')) || undefined });
+    return result as T;
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffered = '';
+  const read = (text: string): { done: true; value: T } | null => {
+    if (!text.trim()) return null;
+    let item: any;
+    try { item = JSON.parse(text); } catch { return null; }
+    if (item && 'result' in item) return { done: true, value: item.result as T };
+    if (item && 'error' in item) throw requestError(Number(item.status) || 500, item.error, item.code);
+    if (isAssistantProgress(item?.progress)) onProgress(item.progress);
+    return null;
+  };
+  for (;;) {
+    const { value, done } = await reader.read();
+    buffered += decoder.decode(value ?? new Uint8Array(), { stream: !done });
+    let at: number;
+    while ((at = buffered.indexOf('\n')) >= 0) {
+      const found = read(buffered.slice(0, at));
+      buffered = buffered.slice(at + 1);
+      if (found) { void reader.cancel().catch(() => undefined); return found.value; }
+    }
+    if (done) {
+      const found = read(buffered);
+      if (found) return found.value;
+      throw Object.assign(new Error(tr("บริการไม่พร้อมใช้งาน กรุณาลองใหม่")), { status: 502 });
+    }
+  }
+}
+
 /** What the token indicator shows: Pro's or the trial's tokens (the trial never refills), or (admins, no cap) a full ring. */
 function balanceOf(status: AssistantStatus): TokenBalance {
   if (status.requestLimit !== null && status.tokenLimit === null) return { remaining: status.trialLeft ?? 0, total: status.requestLimit, refillsOn: '' };
@@ -188,7 +235,8 @@ export function createLiveTransport(options: { account: string; status: Assistan
       }).filter(turn => turn.text.trim());
       let reply: LiveReply;
       try {
-        reply = await post<LiveReply>({ action: 'message', text: input.text.slice(0, 6000), history: earlier, ...(input.conversationId === LINE_THREAD_ID ? { thread: 'line' } : /^c_[0-9a-f-]{36}$/.test(input.conversationId) ? { conversationId: input.conversationId } : {}), ...(input.context ? { pageName: input.context.pageName.slice(0, 40) } : {}), ...(input.attachments?.length === 1 ? { attachment: input.attachments[0] } : input.attachments?.length ? { attachments: input.attachments } : {}) }, signal);
+        const message = { action: 'message', text: input.text.slice(0, 6000), history: earlier, ...(input.conversationId === LINE_THREAD_ID ? { thread: 'line' } : /^c_[0-9a-f-]{36}$/.test(input.conversationId) ? { conversationId: input.conversationId } : {}), ...(input.context ? { pageName: input.context.pageName.slice(0, 40) } : {}), ...(input.attachments?.length === 1 ? { attachment: input.attachments[0] } : input.attachments?.length ? { attachments: input.attachments } : {}) };
+        reply = input.onProgress ? await postWithSteps<LiveReply>(message, headers, signal, input.onProgress) : await post<LiveReply>(message, signal);
       } catch (error) {
         active(signal);
         const status = (error as { status?: number }).status;

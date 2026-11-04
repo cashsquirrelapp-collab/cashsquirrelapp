@@ -1,4 +1,6 @@
 import type { MascotAction, MascotMood } from '../../components/mascot/Mascot';
+import type { FileCheck } from './fileCheck';
+import type { FinishedWork } from './workSteps';
 import { sampleRename } from './accountName';
 import { tr, T } from '../../i18n/tr';
 import { lineReplyFor, sampleLineNotices, type LineCardData } from './lineMock';
@@ -48,7 +50,7 @@ export type ChatCard = ProjectCard | DocumentCard | SummaryCard | MoneyChartCard
 
 /** `failed` + `question`: a send that did not go through, kept so it can be retried. */
 /** `attachment`: the name and kind of a file sent with the message (the file itself is not kept). */
-export type ChatMessage = { id: string; from: 'me' | 'bot'; text: string; cards?: ChatCard[]; at: number; failed?: boolean; question?: string; note?: string; attachment?: { name: string; kind: 'image' | 'pdf' | 'text'; preview?: string; summary?: string }; attachments?: { name: string; kind: 'image' | 'pdf' | 'text'; preview?: string; summary?: string }[]; textAuto?: boolean;
+export type ChatMessage = { id: string; from: 'me' | 'bot'; text: string; cards?: ChatCard[]; at: number; failed?: boolean; question?: string; note?: string; attachment?: { name: string; kind: 'image' | 'pdf' | 'text'; preview?: string; summary?: string; check?: FileCheck }; attachments?: { name: string; kind: 'image' | 'pdf' | 'text'; preview?: string; summary?: string; check?: FileCheck }[]; work?: FinishedWork; textAuto?: boolean;
   /** เลขา's note of what an attached file showed: never drawn, sent with the chat's later messages (2026-10-24). */
   memo?: string };
 export type ChatGroup = 'today' | 'yesterday' | 'week' | 'earlier';

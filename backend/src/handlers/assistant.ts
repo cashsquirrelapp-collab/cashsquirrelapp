@@ -6,6 +6,7 @@ import { buildLineInbox, inboxReply } from '../ai/lineInbox.js';
 import { accountSnapshot } from '../repositories/accounts.js';
 import type { UserRow } from '../services/lineAssistant.js';
 import type { LineCardData } from '../../../shared/lineInbox.js';
+import type { AssistantProgress } from '../../../shared/assistantProgress.js';
 import { dueActionOutcome, duePartialOutcome, dueRefFromDigestId } from '../services/lineDuePayments.js';
 import { confirmProposal, handleMessage, MESSAGE_RATE, reviseProposal, usageStatus } from '../ai/service.js';
 import { appendTurns, BROWSER_CONVERSATION_ID, CONVERSATION_ID, deleteConversations, INBOX_MESSAGES, inboxConversationId, listConversations, loadConversation, replaceStoredCard, updateConversation, type StoredTurn } from '../ai/conversations.js';
@@ -224,15 +225,40 @@ export default withGuard(async (req, res) => {
   const history = body.history?.map((turn, index) => (earlierFiles[index].length && turn.role === 'user'
     ? { role: turn.role, text: turn.text, attachments: earlierFiles[index] } : { role: turn.role, text: turn.text }));
   const plan = await assistantPlan(user);
-  const result = await handleMessage(db, { config: requestConfigFor(plan), onBillingIssue: issues => notifyBillingIssues(issues) }, user.id, plan, { text: body.text, history, pageName: body.pageName, ...(attachments.length ? { attachments } : {}) });
-  // Kept in the account's history: the message (a file only by its name and kind) and the answer with its cards.
-  // A history failure never costs the answer; before the migration runs the chat simply is not kept.
-  const keepIn = body.thread === 'line' ? await inboxConversationId(user.id) : body.conversationId;
-  if (keepIn) {
-    await appendTurns(user.id, keepIn, [
-      { role: 'user', text: body.text, ...(attachments.length ? { attachment: storedAttachment(attachments) } : {}) },
-      { role: 'assistant', text: result.text, ...(result.cards?.length || result.memo ? { cards: [...(result.cards ?? []), ...(result.memo ? [{ kind: 'memo' as const, text: result.memo }] : [])] } : {}) },
-    ], body.thread === 'line' ? { title: 'แจ้งเตือนอัตโนมัติ', keep: INBOX_MESSAGES } : {}).catch(() => console.warn('assistant: chat history not kept'));
+  // Live steps (owner, 2026-11-04: "อยากให้มีสถานะบอกว่ากำลังทำไรด้วย แบบของ Claude หรือ GPT"): a chat that asks for them
+  // (Accept: application/x-ndjson) gets one JSON line per step as the request runs, then the answer as the last line. The
+  // stream starts only at the first step, after every check and the token reservation have passed, so a refusal is still
+  // an ordinary JSON error; anything that fails after that ends the stream with an error line.
+  const wantsSteps = String(req.headers.accept ?? '').includes('application/x-ndjson');
+  let streaming = false;
+  const line = (value: unknown) => { res.write(`${JSON.stringify(value)}\n`); };
+  const onProgress = wantsSteps ? (event: AssistantProgress) => {
+    if (!streaming && !res.headersSent) {
+      streaming = true;
+      res.status(200);
+      res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
+      res.setHeader('X-Accel-Buffering', 'no');
+      res.flushHeaders?.();
+    }
+    if (streaming) line({ progress: event });
+  } : undefined;
+  try {
+    const result = await handleMessage(db, { config: requestConfigFor(plan), onBillingIssue: issues => notifyBillingIssues(issues), onProgress }, user.id, plan, { text: body.text, history, pageName: body.pageName, ...(attachments.length ? { attachments } : {}) });
+    // Kept in the account's history: the message (a file only by its name and kind) and the answer with its cards.
+    // A history failure never costs the answer; before the migration runs the chat simply is not kept.
+    const keepIn = body.thread === 'line' ? await inboxConversationId(user.id) : body.conversationId;
+    if (keepIn) {
+      await appendTurns(user.id, keepIn, [
+        { role: 'user', text: body.text, ...(attachments.length ? { attachment: storedAttachment(attachments) } : {}) },
+        { role: 'assistant', text: result.text, ...(result.cards?.length || result.memo ? { cards: [...(result.cards ?? []), ...(result.memo ? [{ kind: 'memo' as const, text: result.memo }] : [])] } : {}) },
+      ], body.thread === 'line' ? { title: 'แจ้งเตือนอัตโนมัติ', keep: INBOX_MESSAGES } : {}).catch(() => console.warn('assistant: chat history not kept'));
+    }
+    if (streaming) { line({ result }); res.end(); } else res.json(result);
+  } catch (error) {
+    if (!streaming) throw error;
+    const status = error instanceof HttpError ? error.status : 500;
+    console.error('API request failed', { path: '/api/assistant', status, type: error instanceof Error ? error.name : 'UnknownError', streamed: true });
+    line({ error: status === 500 ? 'บริการไม่พร้อมใช้งาน กรุณาลองใหม่' : (error as Error).message, status, ...(error instanceof HttpError && error.code ? { code: error.code } : {}) });
+    res.end();
   }
-  res.json(result);
 }, { csrf: true });

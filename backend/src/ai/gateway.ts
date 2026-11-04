@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { AssistantProgress } from '../../../shared/assistantProgress.js';
 import type { UserRow } from '../services/lineAssistant.js';
 import type { AiConfig } from './config.js';
 import { costSplit, costUsd, krarokTokens } from './cost.js';
@@ -94,6 +95,8 @@ export interface AssistantDependencies {
   observe?: (call: ToolCall, outcome: ToolOutcome) => void;
   /** Claude prompt cache mode, for the cost comparison only (production: request.cacheHint, else '1h'). */
   claudeCache?: '1h' | '5m' | 'auto' | 'off';
+  /** What it is doing, as it happens, for the chat's live steps (2026-11-04); never blocks or fails the request. */
+  onProgress?: (event: AssistantProgress) => void;
 }
 
 export interface ModelCall {
@@ -505,6 +508,9 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
     if (partial && (partial.usage.inputTokens || partial.usage.outputTokens)) record(route, partial.provider, partial.model, partial.usage, 0, { failed: true });
   };
 
+  // The chat's live steps: a listener that throws or is slow never touches the answer.
+  let modelRounds = 0;
+  const progress = (event: AssistantProgress) => { try { deps.onProgress?.(event); } catch { /* the steps are only a display */ } };
   const run = async (route: Route, handoff?: string): Promise<ProviderResult> => {
     lastEditError = undefined;
     const short = route === 'chat' && shortTools;
@@ -528,6 +534,7 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
         call = { ...asked, args };
       }
       const permitted = allowed.has(call.name);
+      if (permitted) progress({ kind: 'tool', name: call.name });
       const outcome = permitted ? await toolbox(call) : { result: { ok: false, error: 'เครื่องมือนี้ไม่เปิดให้ใช้ในคำขอนี้' } };
       toolNames.push(call.name);
       const succeeded = permitted && (outcome.result as { ok?: unknown } | null)?.ok !== false;
@@ -581,6 +588,7 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
       const now = costSplit(name, model, usage);
       return billableBefore() + now.billable + next > ceilingUsd || actualBefore() + now.actual + next > (config.requestCostLimitUsd ?? 0.3);
     };
+    progress({ kind: 'model', route, round: modelRounds++, files: sentFiles.length, web });
     let result: ProviderResult;
     try {
       result = await providers[name].run({

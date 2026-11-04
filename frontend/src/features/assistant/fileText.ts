@@ -53,7 +53,8 @@ export function textFileType(name: string, mimeType = ''): { kind: TextKind; lab
   return found ? { kind: found.kind, label: found.label } : null;
 }
 
-export interface FileText { kind: TextKind; label: string; text: string; chars: number; truncated: boolean; sheets?: number; rows?: number; slides?: number }
+/** `tables`: a Word file's tables as rows of cell text, for the chat's file check (fileCheck.ts). */
+export interface FileText { kind: TextKind; label: string; text: string; chars: number; truncated: boolean; sheets?: number; rows?: number; slides?: number; tables?: string[][][] }
 
 /** Text of a text-like file: UTF-8 (or UTF-16 with its mark), else the Thai Windows encoding older programs save. */
 export function decodeText(data: ArrayBuffer | Uint8Array): string {
@@ -103,6 +104,12 @@ export function wordXmlText(xml: string): string {
   const flat = cellsFlat(body, /<w:tc(?:\s[^>]*)?>[\s\S]*?<\/w:tc>/g, /<\/w:p>/g)
     .replace(/<\/w:tr>/g, '\n').replace(/<w:tab\/>/g, '\t').replace(/<w:(br|cr)\b[^>]*\/>/g, '\n').replace(/<\/w:p>/g, '\n');
   return tidy(stripTags(flat));
+}
+/** The tables of a Word document, each as rows of cell text (nested tables are read as text inside their cell). */
+export function wordTables(xml: string): string[][][] {
+  return [...xml.matchAll(/<w:tbl>[\s\S]*?<\/w:tbl>/g)].map(table => [...table[0].matchAll(/<w:tr(?:\s[^>]*)?>[\s\S]*?<\/w:tr>/g)]
+    .map(row => [...row[0].matchAll(/<w:tc(?:\s[^>]*)?>[\s\S]*?<\/w:tc>/g)].map(cell => stripTags(cell[0].replace(/<\/w:p>/g, ' ')).replace(/\s+/g, ' ').trim()))
+    .filter(row => row.some(Boolean)));
 }
 export function openDocumentXmlText(xml: string): string {
   const body = xml.replace(/<office:annotation\b[\s\S]*?<\/office:annotation>/g, '');
@@ -249,14 +256,17 @@ export async function readFileText(loadXlsx: () => Promise<XLSX>, name: string, 
   if (!type) throw new Error('type');
   if (data.byteLength > TEXT_SOURCE_MAX_BYTES) throw new Error('big');
   let body = '';
-  let extra: Pick<FileText, 'sheets' | 'rows' | 'slides'> = {};
+  let extra: Pick<FileText, 'sheets' | 'rows' | 'slides' | 'tables'> = {};
   if (type.kind === 'sheet') {
     const read = sheetText(await loadXlsx(), data, name);
     body = read.text;
     extra = { sheets: read.sheets, rows: read.rows };
   } else if (type.label === 'Word') {
     const zip = openZip(await loadXlsx(), data);
-    body = zipText(zip, /^word\/document\.xml$/).map(entry => wordXmlText(entry.text)).join('\n');
+    const xml = zipText(zip, /^word\/document\.xml$/).map(entry => entry.text).join('');
+    body = wordXmlText(xml);
+    const tables = wordTables(xml);
+    if (tables.length) extra = { tables };
   } else if (type.kind === 'slides' && type.label === 'PowerPoint') {
     const zip = openZip(await loadXlsx(), data);
     const slides = zipText(zip, /^ppt\/slides\/slide\d+\.xml$/)

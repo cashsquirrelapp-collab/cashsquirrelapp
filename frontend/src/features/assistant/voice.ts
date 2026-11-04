@@ -4,12 +4,15 @@
 import { readableFile } from '../../utils/heic';
 import { tr } from '../../i18n/tr';
 import { readFileText, textFileType, type FileText } from './fileText';
+import { checkForAssistant, checkSpreadsheet, checkTables, type FileCheck } from './fileCheck';
 
 /** kind 'text': a spreadsheet, Word, PowerPoint or text file read into text on this device (fileText.ts); `data` is that
  *  text (UTF-8, base64) and `summary` says what it held, e.g. "Excel · 2 แท็บ · 120 แถว". */
 export type PreparedFile = {
   name: string; mimeType: 'image/jpeg' | 'image/png' | 'image/webp' | 'application/pdf' | 'text/plain'; data: string;
   kind: 'image' | 'pdf' | 'text'; bytes: number; summary?: string;
+  /** A spreadsheet (or a Word table) read as the import reads it: the chat's "ตรวจไฟล์" card (fileCheck.ts). */
+  check?: FileCheck;
 };
 export const FILE_MAX_BYTES = 4 * 1024 * 1024;
 
@@ -39,9 +42,18 @@ export async function prepareFile(picked: File): Promise<PreparedFile> {
   const asText = textFileType(picked.name, picked.type);
   if (asText === 'old') throw new Error('old');
   if (asText) {
-    const read = await readFileText(() => import('xlsx'), picked.name || 'file', await picked.arrayBuffer(), picked.type);
-    const bytes = new TextEncoder().encode(read.text);
-    return { name: picked.name.slice(0, 120) || 'file', mimeType: 'text/plain', data: toBase64(bytes), kind: 'text', bytes: bytes.byteLength, summary: textSummary(read) };
+    const data = await picked.arrayBuffer();
+    const read = await readFileText(() => import('xlsx'), picked.name || 'file', data, picked.type);
+    // A list of jobs or expenses is also read by the import's rules (owner, 2026-11-04: "ตรวจเช็คว่ามันถูกต้องไหม"); its
+    // figures go to เลขา first, so its answer uses the same numbers the import would save.
+    const check = asText.kind === 'sheet' ? checkSpreadsheet(await import('xlsx'), data, picked)
+      : read.tables?.length ? checkTables(read.tables, picked.name) : undefined;
+    // With the check, its own line about "บันทึกทั้งหมด" takes the place of the general one about the import page.
+    const text = check ? read.text.replace(/\nไฟล์นี้มี \d+ แถว ถ้าผู้ใช้อยากบันทึกทุกแถว[^\n]*/, '').replace(/\n/, `\n${checkForAssistant(check)}\n`) : read.text;
+    const bytes = new TextEncoder().encode(text);
+    return { name: picked.name.slice(0, 120) || 'file', mimeType: 'text/plain', data: toBase64(bytes), kind: 'text', bytes: bytes.byteLength,
+      // With the check, the rows counted are its rows of data (headings and blank rows left out), as its card says.
+      summary: textSummary(check && read.rows !== undefined ? { ...read, rows: check.rows } : read), ...(check ? { check } : {}) };
   }
   // An iPhone photo (HEIC) becomes a JPEG first: Chrome cannot read HEIC (frontend/src/utils/heic.ts).
   const file = await readableFile(picked).catch(() => { throw new Error('type'); });

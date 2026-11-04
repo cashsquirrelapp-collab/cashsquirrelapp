@@ -478,6 +478,18 @@ card does not need:
   เลขา reads. The latest spreadsheet or document of a chat goes again with its own earlier message so follow-up questions
   still have every row. Text files are never vault attach cards. LINE does not take these files yet.
 
+### Live steps and the file check (owner, 2026-11-04: "แบบของ Claude หรือ GPT ขึ้นสถานะไว้" / "ขึ้นหน้าแบบว่าเหมือนกำลังเช็คงาน")
+- While เลขา works, the typing dots become a grey bubble: "เลขากระรอกกำลังทำงาน" with the seconds, then each step with a green
+  tick when done and a small turning mark on the current one (`ChatWorkSteps.tsx`, `workSteps.ts`). The device's own steps
+  (reading each file, checking its figures) come first; then the server's (`shared/assistantProgress.ts`: model steps and
+  tool names only, never model or vendor names or account data), streamed as JSON lines when the chat sends
+  `Accept: application/x-ndjson`. After the answer the list folds above it: "ขั้นตอนที่ทำ N ขั้น · S วิ".
+- A spreadsheet (or a Word table) that reads as jobs or expenses gets a "ตรวจไฟล์" card under the message (`fileCheck.ts`,
+  `ChatFileCheck.tsx`): the import's own rules, so its figures are the ones the import saves. Steps that tick (tabs and
+  rows, columns matched, ready to import, the file's รวม rows compared), then: jobs and total value, a green/caramel bar
+  received against owed, three tiles รับครบ / ยังไม่ถึงกำหนด / เกินกำหนด, expenses, and the one primary
+  "บันทึกทั้งหมด N รายการ", which opens ย้ายข้อมูลเข้าแอป with that file already read. เลขา gets the same figures first.
+
 ### Import offered to an empty account (owner, 2026-11-04)
 - A friend did not know the import existed. While an account of one's own has no jobs and no expenses, the overview's
   first card is "เริ่มจากข้อมูลเดิมของคุณ": a cream icon tile, one muted line, ไม่ต้อง (secondary) and the one primary

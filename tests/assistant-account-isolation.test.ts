@@ -185,9 +185,12 @@ async function request(options: { session?: string | null; header?: string | nul
   if (options.session !== null) headers.cookie = cookie(options.session ?? A);
   if (options.header !== null) headers['x-account-id'] = options.header ?? A;
   const req = Object.assign(Readable.from([raw]), { method: options.method ?? 'POST', headers, query: options.query ?? {}, url: '/api/assistant', socket: { remoteAddress: '127.0.0.1' } });
-  const out = { status: 200, body: undefined as any, headers: new Map<string, unknown>() };
+  const out = { status: 200, body: undefined as any, headers: new Map<string, unknown>(), stream: '', ended: false };
   const res = {
     headersSent: false,
+    flushHeaders() { this.headersSent = true; },
+    write(chunk: string) { out.stream += chunk; this.headersSent = true; return true; },
+    end() { out.ended = true; },
     setHeader(name: string, value: unknown) { out.headers.set(name.toLowerCase(), value); return this; },
     getHeader(name: string) { return out.headers.get(name.toLowerCase()); },
     hasHeader(name: string) { return out.headers.has(name.toLowerCase()); },
@@ -537,4 +540,34 @@ test('package E: the other channel\'s turns and waiting cards are read only for 
   assert.deepEqual(await supabaseAssistantDb.pendingProposals!(B, since), []);
   const reads = events.filter(event => /cashflow_ai_(messages|proposals)$/.test(event.path));
   assert.deepEqual(reads.map(event => event.owner), [B, A, B], 'every read carries the signed-in account filter');
+});
+
+// Live steps (owner, 2026-11-04: "อยากให้มีสถานะบอกว่ากำลังทำไรด้วย แบบของ Claude หรือ GPT").
+test('live steps: a chat that asks gets one line per step, then the answer; a refusal before the model is still plain JSON', async () => {
+  callsFor = () => [{ name: 'search_jobs', args: {} }];
+  const reply = await request({ headers: { accept: 'application/x-ndjson, application/json' } });
+  assert.equal(reply.status, 200);
+  assert.match(String(reply.headers.get('content-type')), /application\/x-ndjson/);
+  assert.equal(reply.ended, true);
+  assert.equal(reply.body, undefined);
+  const lines = reply.stream.trim().split('\n').map(line => JSON.parse(line));
+  const steps = lines.filter(line => line.progress).map(line => line.progress);
+  assert.deepEqual(steps[0], { kind: 'model', route: steps[0].route, round: 0, files: 0, web: false });
+  assert.ok(steps.some(step => step.kind === 'tool' && step.name === 'search_jobs'));
+  assert.ok(lines.at(-1).result && typeof lines.at(-1).result.text === 'string');
+  // Only what happened: no account data, no model names in a step.
+  assert.equal(/gemini|claude|anthropic|openai|ACCOUNT_/i.test(JSON.stringify(steps)), false);
+
+  // Without the header: one JSON answer as before.
+  const plain = await request();
+  assert.equal(plain.status, 200);
+  assert.equal(plain.stream, '');
+  assert.equal(typeof plain.body.text, 'string');
+
+  // Refused before the model starts: the usual JSON error, no stream.
+  snapshotOwner = B;
+  const refused = await request({ headers: { accept: 'application/x-ndjson' } });
+  assert.equal(refused.status, 403);
+  assert.equal(refused.body.code, 'ai_account_mismatch');
+  assert.equal(refused.stream, '');
 });

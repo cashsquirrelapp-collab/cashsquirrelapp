@@ -59,6 +59,6 @@ export const CHAT_FILE_ACCEPT = [
 ].join(',');
 
 /** What a sent message shows of its files: names and kinds, and a small picture of each image. */
-export const shownFiles = (files: PreparedFile[]) => files.map(file => ({ name: file.name, kind: file.kind, ...(file.kind === 'image' ? { preview: `data:${file.mimeType};base64,${file.data}` } : {}), ...(file.summary ? { summary: file.summary } : {}) }));
+export const shownFiles = (files: PreparedFile[]) => files.map(file => ({ name: file.name, kind: file.kind, ...(file.kind === 'image' ? { preview: `data:${file.mimeType};base64,${file.data}` } : {}), ...(file.summary ? { summary: file.summary } : {}), ...(file.check ? { check: file.check } : {}) }));
 export const sentFiles = (files: PreparedFile[]) => files.map(file => ({ name: file.name, mimeType: file.mimeType, data: file.data }));
 export const sizeText = (bytes: number) => (bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);

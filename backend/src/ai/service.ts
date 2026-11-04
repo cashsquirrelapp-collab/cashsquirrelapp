@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { AssistantProgress } from '../../../shared/assistantProgress.js';
 import { HttpError } from '../http/guard.js';
 import type { UserRow } from '../services/lineAssistant.js';
 import type { AiConfig } from './config.js';
@@ -204,6 +205,8 @@ export interface MessageDeps {
   config: AiConfig; providers?: Partial<Record<ProviderName, Provider>>; fetchImpl?: typeof fetch; now?: Date; signal?: AbortSignal;
   /** A provider answered with a billing problem (out of credit, billing, over quota): tell the owner at once. Best effort. */
   onBillingIssue?: (issues: NonNullable<RoutingRecord['billing']>) => Promise<unknown>;
+  /** The chat's live steps (2026-11-04): what the model is doing, as it happens. */
+  onProgress?: (event: AssistantProgress) => void;
 }
 export interface MessageResult extends Pick<AssistantReply, 'text' | 'cards' | 'route' | 'tokens' | 'memo'> { tokensLeft: number | null; trialLeft: number | null }
 
@@ -344,7 +347,7 @@ export async function handleMessage(db: AssistantDb, deps: MessageDeps, userId: 
       // 2026-10-25): the last hour's count picks it; while Sonnet is quiet, the 5-minute cache costs less.
       ...(reserved.smartLastHour !== undefined ? { cacheHint: reserved.smartLastHour >= 2 ? '1h' as const : '5m' as const } : {}),
     }, { config, proposals, memory, providers: deps.providers, fetchImpl: deps.fetchImpl, now: deps.now, signal: deps.signal,
-      loadVaultFiles: db.listVaultFiles ? () => db.listVaultFiles!(userId) : undefined });
+      loadVaultFiles: db.listVaultFiles ? () => db.listVaultFiles!(userId) : undefined, onProgress: deps.onProgress });
     if (carried && reply.routing) reply.routing = { ...reply.routing, continued_from: carried.from };
     }
   } catch (error) {
