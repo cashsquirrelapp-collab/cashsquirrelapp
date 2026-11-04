@@ -478,11 +478,21 @@ for (const size of [{ name: 'computer', width: 1280, height: 820 }, { name: 'pho
     await expect(steps).toHaveAttribute('data-state', 'done', { timeout: 15_000 });
     await pause(1200);
     await shot('3-result');
-    // Read down through the cards slowly.
-    for (let i = 0; i < 6; i++) { await scroller.evaluate(el => el.scrollBy({ top: 170, behavior: 'smooth' })); await pause(650); }
+    // Answer the question, then read down through the card slowly: tiles, the box, the rows; open one row's details.
+    await chat.getByTestId('import-questions').scrollIntoViewIfNeeded();
+    await pause(900);
     await shot('4-questions');
     await chat.getByRole('radio', { name: 'ยอดเต็มก่อนหัก' }).click();
+    await pause(1000);
+    for (let i = 0; i < 5; i++) { await scroller.evaluate(el => el.scrollBy({ top: 170, behavior: 'smooth' })); await pause(650); }
+    await chat.getByTestId('import-row').first().getByRole('button', { name: 'ดูรายละเอียด' }).click();
+    await pause(1400);
+    await chat.getByTestId('import-row').first().getByRole('button', { name: 'ดูรายละเอียด' }).click();
+    await pause(600);
+    await chat.getByTestId('import-tab-expenses').click();
     await pause(1200);
+    await chat.getByTestId('import-tab-jobs').click();
+    await pause(700);
     await chat.getByTestId('import-next').scrollIntoViewIfNeeded();
     await pause(1200);
     await shot('5-next');
