@@ -15,8 +15,6 @@ export const TEXT_SOURCE_MAX_BYTES = 15 * 1024 * 1024;
 export const TEXT_MAX_CHARS = 30_000;
 const SHEET_MAX_ROWS = 3000;
 const TOTAL_COLUMNS_MAX = 12;
-/** More rows than this: the note tells เลขา that the import page brings in every row at once. */
-const IMPORT_HINT_ROWS = 40;
 
 const EXTENSIONS: { kind: TextKind; label: string; test: RegExp }[] = [
   { kind: 'sheet', label: 'Excel', test: /\.(xlsx|xlsm|xlsb|xls|xltx|xltm)$/i },
@@ -293,9 +291,6 @@ export async function readFileText(loadXlsx: () => Promise<XLSX>, name: string, 
   const chars = body.length;
   const truncated = chars > TEXT_MAX_CHARS;
   if (truncated) body = `${body.slice(0, TEXT_MAX_CHARS)}\n…(ตัดเหลือ ${TEXT_MAX_CHARS.toLocaleString('en-US')} ตัวอักษรแรก จากทั้งหมด ${chars.toLocaleString('en-US')} ตัวอักษร)`;
-  const hint = type.kind === 'sheet' && (extra.rows ?? 0) > IMPORT_HINT_ROWS
-    ? `\nไฟล์นี้มี ${extra.rows} แถว ถ้าผู้ใช้อยากบันทึกทุกแถวเข้าแอป แนะนำ "ย้ายข้อมูลเข้าแอป" ที่หน้างาน (ปุ่ม นำเข้าจาก Excel) ซึ่งตรวจและนำเข้าได้ครบทุกแถวในครั้งเดียว และย้อนกลับได้`
-    : '';
-  const text = `ไฟล์ "${name}" (${type.label} อ่านออกมาเป็นข้อความบนเครื่องของผู้ใช้)${hint}\n${body}`;
+  const text = `ไฟล์ "${name}" (${type.label} อ่านออกมาเป็นข้อความบนเครื่องของผู้ใช้)\n${body}`;
   return { kind: type.kind, label: type.label, text, chars, truncated, ...extra };
 }

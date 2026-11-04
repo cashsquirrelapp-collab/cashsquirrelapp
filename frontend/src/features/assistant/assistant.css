@@ -1581,3 +1581,35 @@ button.asx-party-tile:hover:not(:disabled) .asx-party-copy strong { color: var(-
 @media (prefers-reduced-motion: reduce) {
   .asx-work-spin, .asx-card-state.is-busy > i, .asx-check-result { animation: none; }
 }
+
+/* The review in the file check (owner, 2026-11-04: "ทวนให้เขาดูก่อนแล้วก็ค่อยกดบันทึก ... พบจุดบกพร่องอันไหน ... แจ้งเขา"): every row
+   to be saved in grey groups, a few shown and the rest behind ดูทั้งหมด; then what to know before saving, each with its fix. */
+.asx-review-list, .asx-review-findings { margin: 14px 0 0; }
+.asx-review-title { margin: 0 2px 6px; color: var(--asx-card-secondary); font-size: 12.5px; font-weight: 600; line-height: 1.5; }
+.asx-review-list > ul, .asx-review-findings > ul { display: flex; flex-direction: column; margin: 0; padding: 2px 12px; border-radius: 14px; background: var(--asx-card-well); list-style: none; }
+.asx-review-list > ul.is-scroll { max-height: 340px; overflow-y: auto; overscroll-behavior: contain; }
+.asx-review-list li { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; min-width: 0; padding: 9px 0; }
+.asx-review-list li + li, .asx-review-findings li + li { border-top: 1px solid var(--asx-card-divider); }
+.asx-review-main { display: grid; gap: 1px; min-width: 0; }
+.asx-review-main b { color: var(--text); font-size: 14px; font-weight: 500; line-height: 1.5; overflow-wrap: anywhere; }
+.asx-review-main small { color: var(--asx-card-secondary); font-size: 12.5px; line-height: 1.5; overflow-wrap: anywhere; }
+.asx-review-side { display: grid; justify-items: end; gap: 3px; flex: none; color: var(--text); font-size: 14px; font-weight: 500; line-height: 1.5; font-variant-numeric: tabular-nums; text-align: right; }
+.asx-review-side.is-out { color: var(--asx-expense); }
+.asx-review-amount { white-space: nowrap; }
+.asx-rcard.is-file-check .asx-rcard-rows dt { max-width: none; }
+.asx-review-chip { padding: 0 8px; border-radius: 999px; background: var(--asx-card-gray); color: var(--asx-card-secondary); font-size: 11.5px; font-weight: 500; line-height: 1.6; white-space: nowrap; }
+.asx-review-chip.is-in { background: rgba(18, 128, 79, 0.1); color: var(--asx-income); }
+.asx-review-chip.is-out { background: var(--asx-red-bg); color: var(--asx-expense); }
+.asx-review-more { display: block; width: 100%; min-height: 36px; margin-top: 4px; border: 0; background: none; color: var(--asx-accent-text); font: inherit; font-size: 13px; font-weight: 500; line-height: 1.5; cursor: pointer; }
+.asx-review-more:hover { text-decoration: underline; text-underline-offset: 3px; }
+.asx-review-findings li { display: flex; align-items: flex-start; gap: 10px; min-width: 0; padding: 9px 0; color: var(--text); font-size: 13.5px; line-height: 1.55; }
+.asx-review-icon { display: grid; place-items: center; flex: none; width: 20px; height: 20px; margin-top: 1px; border-radius: 50%; }
+.asx-review-findings li.is-ok .asx-review-icon { background: rgba(18, 128, 79, 0.12); color: var(--asx-income); }
+.asx-review-findings li.is-warn .asx-review-icon { background: var(--asx-amber-bg); color: var(--asx-amber); }
+.asx-review-findings li.is-info .asx-review-icon { background: var(--asx-card-gray); color: var(--asx-card-secondary); }
+.asx-review-text { display: grid; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
+.asx-review-fixes { display: flex; flex-wrap: wrap; gap: 6px; }
+.asx-review-fix { min-height: 32px; padding: 4px 12px; border: 1px solid var(--asx-card-field-border); border-radius: 999px; background: var(--asx-card-surface); color: var(--text); font: inherit; font-size: 12.5px; font-weight: 500; line-height: 1.45; cursor: pointer; }
+.asx-review-fix:hover { border-color: var(--asx-accent); color: var(--asx-accent-text); }
+.asx-review-fix.is-on { border-color: var(--asx-accent); background: var(--asx-cream); color: var(--asx-accent-text); }
+.asx-card-state.is-muted { color: var(--asx-card-secondary); }

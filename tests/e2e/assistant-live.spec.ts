@@ -422,26 +422,33 @@ test('attach: an Excel file goes as its text with its totals, can be checked fir
   expect(sentText(back.attachments[0])).toContain('ยอดเงิน = 35,000 (2 แถว)');
 });
 
-// Owner, 2026-11-04: "ตรวจเช็คว่ามันถูกต้องไหม ... ขึ้นหน้าแบบว่าเหมือนกำลังเช็คงาน" and "อยากให้มีสถานะบอกว่ากำลังทำไรด้วย แบบของ
-// Claude หรือ GPT". A ledger is checked by the import's own rules (a card under the message), the steps show while เลขา
-// works and stay folded on the answer, and บันทึกทั้งหมด opens ย้ายข้อมูลเข้าแอป with the file already read.
+// Owner, 2026-11-04: "ตรวจเช็คว่ามันถูกต้องไหม ... ขึ้นหน้าแบบว่าเหมือนกำลังเช็คงาน", "อยากให้มีสถานะบอกว่ากำลังทำไรด้วย แบบของ
+// Claude หรือ GPT" and then "ถ้าเขาอยากทำในนี้ก็ให้เขาทำในนี้ ... ทวนให้เขาดูก่อนแล้วก็ค่อยกดบันทึก ... พบจุดบกพร่อง ... ก็แจ้งเขา".
+// A ledger is reviewed in the chat by the import's own rules: every row, what cannot be saved and why, and บันทึก saves it
+// right there (undoable); the steps show while เลขา works and stay folded on the answer.
 function ledgerFile(): Buffer {
   const book = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([
-    ['วันส่งงาน', 'ชื่องาน', 'ลูกค้า', 'มูลค่างาน (บาท)', 'สถานะ', 'วันที่รับเงิน', 'ยอดที่รับแล้ว (บาท)'],
-    ['01/09/2026', 'ออกแบบโลโก้', 'ร้านกาแฟ', 10000, 'จ่ายแล้ว', '15/09/2026', 10000],
-    ['10/10/2020', 'ตัดต่อวิดีโอ', 'บริษัท ก', 20000, 'มัดจำ', '20/10/2020', 5000],
-    ['20/11/2098', 'ถ่ายภาพสินค้า', 'ร้านดอกไม้', 8000, 'ยังไม่จ่าย', '30/12/2098', ''],
+    ['วันส่งงาน', 'ชื่องาน', 'ลูกค้า', 'มูลค่างาน (บาท)', 'สถานะ', 'วันที่รับเงิน', 'ยอดที่รับแล้ว (บาท)', 'ช่องทางติดต่อ'],
+    ['01/09/2026', 'ออกแบบโลโก้', 'ร้านกาแฟ', 10000, 'จ่ายแล้ว', '15/09/2026', 10000, 'LINE'],
+    ['10/10/2020', 'ตัดต่อวิดีโอ', 'บริษัท ก', 20000, 'มัดจำ', '20/10/2020', 5000, 'อีเมล'],
+    ['20/11/2098', 'ถ่ายภาพสินค้า', 'ร้านดอกไม้', 8000, 'ยังไม่จ่าย', '30/12/2098', '', 'โทร'],
   ]), 'งาน');
   XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([['วันที่', 'รายการ', 'จำนวนเงิน (บาท)'], ['05/10/2026', 'ค่าโปรแกรมตัดต่อ', 790], ['12/10/2026', 'ค่าจ้างผู้ช่วย', 1500]]), 'รายจ่าย');
+  XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([['สรุปภาพรวมปี 2569'], ['รายรับรวม', 38000], ['รายจ่ายรวม', 2290], ['คงเหลือ', 35710]]), 'สรุป');
   return XLSX.write(book, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
 }
 
-for (const width of [1440, 390]) test(`file check ${width}px: a ledger is checked, the steps show while เลขา works, and บันทึกทั้งหมด opens the import with it`, async ({ page }, info) => {
+for (const width of [1440, 390]) test(`file review ${width}px: a ledger is reviewed and saved in the chat, with what cannot be saved; the steps show while เลขา works`, async ({ page }, info) => {
   let accept = '';
   let release!: () => void;
   const held = new Promise<void>(resolve => { release = resolve; });
+  const saves: any[] = [];
   const mock = await open(page, { width, height: width < 744 ? 844 : 900, routes: async p => {
+    await p.route('**/api/data*', route => {
+      if (route.request().method() === 'POST') { saves.push(route.request().postDataJSON()); return route.fulfill({ json: { ok: true, versions: {} } }); }
+      return route.fallback();
+    });
     await p.route('**/api/assistant', async route => {
       const request = route.request();
       if (request.method() !== 'POST' || request.postDataJSON().action !== 'message') return route.fallback();
@@ -453,59 +460,101 @@ for (const width of [1440, 390]) test(`file check ${width}px: a ledger is checke
         { progress: { kind: 'tool', name: 'note_from_file' } },
         { progress: { kind: 'tool', name: 'search_jobs' } },
         { progress: { kind: 'model', route: 'action', round: 1, files: 1, web: false } },
-        { result: { text: 'ตรวจแล้วครับ งาน 3 รายการ มูลค่ารวม ฿38,000 กด **บันทึกทั้งหมด** ใต้ไฟล์เพื่อนำเข้าได้เลย', route: 'chat', tokens: 6, tokensLeft: 988, trialLeft: null } },
+        { result: { text: 'ไฟล์มีงาน 3 รายการ มูลค่ารวม ฿38,000 และรายจ่าย 2 รายการ ตรวจรายการในการ์ดด้านบนแล้วกด **บันทึก** ได้เลยครับ', route: 'chat', tokens: 6, tokensLeft: 988, trialLeft: null } },
       ];
       await route.fulfill({ status: 200, headers: { 'content-type': 'application/x-ndjson; charset=utf-8' }, body: lines.map(line => JSON.stringify(line)).join('\n') + '\n' });
     });
   } });
   await page.locator('.asx-composer input[type=file]').setInputFiles({ name: 'บัญชีจำลอง_ฟรีแลนซ์.xlsx', mimeType: XLSX_TYPE, buffer: ledgerFile() });
-  await expect(page.locator('.asx-attach-file')).toContainText('Excel · 2 แท็บ · 5 แถว');
-  await page.locator('#asx-message').fill('ช่วยตรวจบัญชีนี้ให้หน่อย');
+  await expect(page.locator('.asx-attach-file')).toContainText('Excel · 3 แท็บ · 5 แถว');
+  await page.locator('#asx-message').fill('ช่วยบันทึกงานตามนี้ให้หน่อย');
   await page.locator('.asx-send').click();
 
-  // The check card: its steps tick, then the import's figures.
+  // The checks tick, then the import's figures for this account.
   const card = page.getByTestId('chat-file-check');
   await expect(card).toContainText('ตรวจไฟล์ บัญชีจำลอง_ฟรีแลนซ์.xlsx');
   await expect(card).toContainText('ตรวจแล้ว');
   await expect(card).toContainText('อ่าน 2 แท็บ · 5 แถว');
-  await expect(card).toContainText('พร้อมนำเข้า 5 รายการ');
+  await expect(card).toContainText('เทียบกับรายการที่มีในแอปแล้ว');
+  await expect(card).toContainText('พร้อมบันทึก 5 รายการ');
   await expect(card.locator('.asx-card-amount')).toHaveText('฿38,000');
   await expect(card.locator('.asx-check-tiles dd')).toHaveText(['1', '1', '1']);
-  await expect(card).toContainText('รายจ่าย 2 รายการ');
-  // The steps while เลขา works: what the device did, then the request in progress.
+  // Every row to be saved, here in the chat.
+  await expect(card.getByTestId('chat-file-jobs').locator('li')).toHaveCount(3);
+  await expect(card.getByTestId('chat-file-jobs')).toContainText('ออกแบบโลโก้');
+  await expect(card.getByTestId('chat-file-jobs')).toContainText('เกินกำหนด');
+  await expect(card.getByTestId('chat-file-expenses').locator('li')).toHaveCount(2);
+  await expect(card.getByTestId('chat-file-expenses')).toContainText('ค่าจ้างผู้ช่วย');
+  // What cannot be saved, and why: a column with no field in the app, a summary tab.
+  const findings = card.getByTestId('chat-file-findings');
+  await expect(findings).toContainText('คอลัมน์ “ช่องทางติดต่อ” ไม่มีช่องในแอป จะเก็บไว้ในหมายเหตุของแต่ละรายการ');
+  await expect(findings).toContainText('แท็บ “สรุป” ดูเป็นหน้าสรุปหรือคำอธิบาย จึงยังไม่ได้นำเข้า');
+  // The steps while เลขา works.
   const live = page.getByTestId('chat-work-live');
   await expect(live).toContainText('อ่านไฟล์ บัญชีจำลอง_ฟรีแลนซ์.xlsx');
   await expect(live).toContainText('ตรวจตัวเลขและเทียบยอดกับไฟล์');
-  await expect(live).toContainText('ส่งให้เลขากระรอกวิเคราะห์');
   await page.waitForTimeout(400);
   expect(await textOverlapIssues(page)).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await page.screenshot({ path: info.outputPath(`file-check-working-${width}.png`) });
+  await card.screenshot({ path: info.outputPath(`file-review-card-${width}.png`) });
+  if (process.env.SHOT_DIR) { // the whole card for review, in a window tall enough to hold it
+    await page.setViewportSize({ width, height: 3200 });
+    await page.waitForTimeout(300);
+    await card.screenshot({ path: `${process.env.SHOT_DIR}/file-review-full-${width}.png` });
+    await page.setViewportSize({ width, height: width < 744 ? 844 : 900 });
+  }
+  await page.screenshot({ path: info.outputPath(`file-review-working-${width}.png`) });
   expect(accept).toContain('application/x-ndjson');
-  const sent = mock.posts.find(post => post.body.action === 'message').body;
-  expect(sentText(sent.attachment)).toContain('แอปตรวจไฟล์นี้ด้วยระบบนำเข้าแล้ว: งาน 3 รายการ มูลค่ารวม 38,000 บาท');
+  // เลขา is told everything happens in this chat.
+  const sent = sentText(mock.posts.find(post => post.body.action === 'message').body.attachment);
+  expect(sent).toContain('แอปตรวจไฟล์นี้ด้วยระบบนำเข้าแล้ว: งาน 3 รายการ มูลค่ารวม 38,000 บาท');
+  expect(sent).toContain('ห้ามแนะนำให้ไปหน้าอื่น');
 
-  // The answer arrives: the steps fold above it, the server's steps among them.
+  // The answer: the steps fold above it.
   release();
-  await expect(page.locator('.asx-msg.is-bot').last()).toContainText('ตรวจแล้วครับ');
+  await expect(page.locator('.asx-msg.is-bot').last()).toContainText('ไฟล์มีงาน 3 รายการ');
   await expect(live).toHaveCount(0);
   const done = page.getByTestId('chat-work-done').last();
   await expect(done).toContainText('ขั้นตอนที่ทำ 7 ขั้น');
-  await expect(done).toContainText('อ่านไฟล์ บัญชีจำลอง_ฟรีแลนซ์.xlsx · Excel · 2 แท็บ · 5 แถว');
   await done.locator('summary').click();
-  await expect(done).toContainText('จดข้อมูลสำคัญจากไฟล์');
   await expect(done).toContainText('ค้นงานในบัญชี');
   await expect(done).toContainText('เตรียมรายการที่จะบันทึก');
-  expect(await textOverlapIssues(page)).toEqual([]);
-  await page.screenshot({ path: info.outputPath(`file-check-answered-${width}.png`) });
 
-  // บันทึกทั้งหมด: the import window opens with this file already read.
-  await card.getByRole('button', { name: 'บันทึกทั้งหมด 5 รายการ' }).click();
+  // บันทึก saves here: 3 jobs and 2 expenses, one batch, then it can be undone.
+  await card.getByRole('button', { name: 'บันทึก 5 รายการ' }).click();
+  const savedCard = card.getByTestId('chat-file-saved');
+  await expect(savedCard).toContainText('งานที่บันทึก');
+  await expect(savedCard).toContainText('3 งาน');
+  await expect(savedCard).toContainText('2 รายการ');
+  await expect(card).toContainText('บันทึกแล้ว');
+  const added = () => saves.flatMap(body => body?.changes || []).filter((change: any) => change.op === 'set' && change.data?.importBatchId);
+  await expect.poll(() => added().filter((change: any) => change.table === 'cashflow_jobs').length).toBe(3);
+  await expect.poll(() => added().filter((change: any) => change.table === 'cashflow_expenses').length).toBe(2);
+  expect(new Set(added().map((change: any) => change.data.importBatchId)).size).toBe(1);
+  expect(added().find((change: any) => change.data.name === 'ออกแบบโลโก้').data.note).toContain('LINE');
+  // The chat's own "ข้อความใหม่" pill floats over the thread until it is at the bottom.
+  if (await page.locator('.asx-newbelow').isVisible()) await page.locator('.asx-newbelow').click();
+  await expect(page.locator('.asx-newbelow')).toHaveCount(0);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await card.screenshot({ path: info.outputPath(`file-review-saved-${width}.png`) });
+  // Jobs that just came in from the person's own file do not open the overdue radar over the chat.
+  await expect(page.getByTestId('credit-radar')).toHaveCount(0);
+  await card.getByRole('button', { name: 'ยกเลิกการบันทึกนี้' }).click();
+  await expect(card).toContainText('ยกเลิกแล้ว');
+  await expect.poll(() => saves.flatMap(body => body?.changes || []).filter((change: any) => change.op === 'delete').length).toBe(5);
+});
+
+test('file review: ตรวจทีละแถว still opens the import window with the file already read', async ({ page }) => {
+  await open(page);
+  await page.locator('.asx-composer input[type=file]').setInputFiles({ name: 'บัญชีจำลอง_ฟรีแลนซ์.xlsx', mimeType: XLSX_TYPE, buffer: ledgerFile() });
+  await page.locator('#asx-message').fill('ดูให้หน่อย');
+  await page.locator('.asx-send').click();
+  const card = page.getByTestId('chat-file-check');
+  await expect(card).toContainText('ตรวจแล้ว');
+  await card.getByRole('button', { name: 'ตรวจทีละแถว' }).click();
   const importing = page.getByRole('dialog', { name: 'ย้ายข้อมูลเข้าแอป' });
-  await expect(importing).toBeVisible();
   await expect(importing).toContainText('บัญชีจำลอง_ฟรีแลนซ์.xlsx');
   await expect(importing.getByTestId('import-read')).toBeVisible({ timeout: 10_000 });
-  await page.screenshot({ path: info.outputPath(`file-check-import-${width}.png`) });
 });
 
 for (const width of [1440, 390]) test(`buddy ${width}px: a Word file goes as its text from the floating chat`, async ({ page }, info) => {

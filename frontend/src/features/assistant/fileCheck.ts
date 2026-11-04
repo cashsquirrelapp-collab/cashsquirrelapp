@@ -1,6 +1,7 @@
 import type * as XLSXModule from 'xlsx';
 import { readWorkbook } from '../import/readWorkbook';
-import { analyzeSheet, buildImportPlan, defaultIncluded, planTotals, splitSideBySide, type ImportRow, type SheetGrid } from '../import/sheetImport';
+import { analyzeSheet, buildImportPlan, defaultIncluded, planTotals, splitSideBySide, type SheetGrid } from '../import/sheetImport';
+import { startsIncluded } from '../import/importCommit';
 
 // The check a spreadsheet gets in the เลขากระรอก chat (owner, 2026-11-04: "ถ้าเขาส่งมาแบบเป็นคอลัมน์เยอะๆ ... ตรวจเช็คว่ามันถูกต้อง
 // ไหม ... ขึ้นหน้าแบบว่าเหมือนกำลังเช็คงาน ... แม่นยำ 100%"). It runs the import's own rules (sheetImport.ts) on the device:
@@ -18,22 +19,24 @@ export interface FileCheck {
   toLook: number;
   /** Each tab's own total row compared with the rows read: how many were compared, how many agree. */
   totals: { compared: number; agree: number };
-  /** What "บันทึกทั้งหมด" gives the import window: the file itself, or a CSV of a Word file's table. */
+  /** What "ตรวจทีละแถว" gives the import window: the file itself, or a CSV of a Word file's table. */
   importFile?: File;
+  /** The file as read, for the review in the chat to plan against the account's own rows (ChatFileCheck.tsx). */
+  source?: { grids: SheetGrid[]; fileName: string; fingerprint: string };
 }
 
 /** Files the import window opens as they are. */
 const IMPORT_OPENS = /\.(xlsx|xlsm|xls|csv|ods|numbers|txt)$/i;
 
 /** The import's reading of these grids: what would be saved, as figures. Null when no row reads as a job or expense. */
-export function checkGrids(grids: SheetGrid[], today: string): Omit<FileCheck, 'importFile'> | null {
+export function checkGrids(grids: SheetGrid[], today: string): Omit<FileCheck, 'importFile' | 'source'> | null {
   const prepared = grids.filter(grid => grid.rows.some(row => row.some(cell => cell.text))).flatMap(splitSideBySide);
   const sheets = prepared.map(grid => { const analysis = analyzeSheet(grid); return { grid, analysis, include: defaultIncluded(analysis) }; });
   const included = sheets.filter(sheet => sheet.include);
   if (!included.length) return null;
   const plan = buildImportPlan(included, { amountsAreNet: false, today }, { statuses: [], jobTypes: [], existingJobs: [], existingExpenses: [] }, prepared);
-  // As the import window starts: ready and to-check rows go in; guesses and personal spending wait for a tick.
-  const isIn = (row: ImportRow) => row.kind !== 'skip' && (row.state === 'ready' || row.state === 'check') && row.use !== 'personal';
+  // As the import window starts: ready and to-check rows go in; guesses wait for a tick.
+  const isIn = startsIncluded;
   const totals = planTotals(plan.rows, isIn);
   if (!totals.jobs && !totals.expenses) return null;
   let paid = 0, notDue = 0, overdue = 0;
@@ -72,7 +75,7 @@ export function checkSpreadsheet(xlsx: XLSX, data: ArrayBuffer, file: File, now 
     const single = grids.filter(grid => grid.rows.some(row => row.some(cell => cell.text)));
     const importFile = IMPORT_OPENS.test(file.name) ? file
       : single.length === 1 ? tableCsv(single[0].rows.map(row => row.map(cell => cell.text)), `${file.name.replace(/\.[^.]+$/, '')}.csv`) : undefined;
-    return { ...found, ...(importFile ? { importFile } : {}) };
+    return { ...found, ...(importFile ? { importFile } : {}), source: { grids, fileName: file.name, fingerprint: '' } };
   } catch { return undefined; }
 }
 
@@ -82,7 +85,7 @@ export function checkTables(tables: string[][][], fileName: string, now = today(
   for (const table of ranked) {
     const grid: SheetGrid = { name: 'ตาราง', rows: table.map(row => row.map(text => ({ raw: text, text }))) };
     const found = checkGrids([grid], now);
-    if (found) return { ...found, importFile: tableCsv(table, `${fileName.replace(/\.[^.]+$/, '')} (ตาราง).csv`) };
+    if (found) return { ...found, importFile: tableCsv(table, `${fileName.replace(/\.[^.]+$/, '')} (ตาราง).csv`), source: { grids: [grid], fileName, fingerprint: '' } };
   }
   return undefined;
 }
@@ -96,8 +99,7 @@ export function checkForAssistant(check: FileCheck): string {
   const expenses = check.expenses ? `รายจ่าย ${check.expenses} รายการ รวม ${baht(check.expenseTotal)} บาท` : '';
   const look = check.toLook ? ` · มี ${check.toLook} แถวที่ต้องให้ผู้ใช้เลือกก่อนนำเข้า` : '';
   const totals = check.totals.compared ? ` · ยอดตรงกับแถวรวมในไฟล์ ${check.totals.agree}/${check.totals.compared}` : '';
-  const button = check.importFile
-    ? ' ใต้ไฟล์ในแชตมีปุ่ม "บันทึกทั้งหมด" ที่เปิดหน้าย้ายข้อมูลเข้าแอปพร้อมไฟล์นี้ ตรวจทีละแถวแล้วนำเข้าได้ครบในครั้งเดียว ย้อนกลับได้ ให้ใช้ตัวเลขชุดนี้ และแนะนำปุ่มนั้นแทนการเตรียมการ์ดทีละแถว เว้นแต่ผู้ใช้ขอเฉพาะบางรายการ'
-    : '';
+  // Owner, 2026-11-04: "ถ้าเขาอยากทำในนี้ก็ให้เขาทำในนี้ ... ทวนให้เขาดูก่อนแล้วค่อยกดบันทึก": everything happens in this chat.
+  const button = ' ใต้ไฟล์ในแชตนี้มีการ์ด "ตรวจไฟล์" ที่แสดงทุกรายการ สิ่งที่บันทึกไม่ได้และเพราะอะไร แล้วให้ผู้ใช้กด "บันทึก" ในแชตได้เลย การ์ดเทียบกับรายการที่มีในแอปแล้ว รายการที่ซ้ำจะไม่ถูกบันทึกซ้ำ ให้ใช้ตัวเลขชุดนี้ ทวนสั้น ๆ ว่าไฟล์มีอะไร และชี้ให้ตรวจการ์ดนั้นแล้วกดบันทึก ห้ามแนะนำให้ไปหน้าอื่น ห้ามบอกให้ส่งออกหรือนำเข้าเอง และไม่ต้องเตรียมการ์ดทีละแถว เว้นแต่ผู้ใช้ขอเฉพาะบางรายการ';
   return `แอปตรวจไฟล์นี้ด้วยระบบนำเข้าแล้ว: ${[jobs, expenses].filter(Boolean).join(' · ')}${look}${totals}.${button}`;
 }

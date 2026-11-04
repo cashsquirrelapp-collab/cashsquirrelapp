@@ -5,6 +5,7 @@ import { readableFile } from '../../utils/heic';
 import { tr } from '../../i18n/tr';
 import { readFileText, textFileType, type FileText } from './fileText';
 import { checkForAssistant, checkSpreadsheet, checkTables, type FileCheck } from './fileCheck';
+import { fileFingerprint } from '../import/readWorkbook';
 
 /** kind 'text': a spreadsheet, Word, PowerPoint or text file read into text on this device (fileText.ts); `data` is that
  *  text (UTF-8, base64) and `summary` says what it held, e.g. "Excel · 2 แท็บ · 120 แถว". */
@@ -46,10 +47,15 @@ export async function prepareFile(picked: File): Promise<PreparedFile> {
     const read = await readFileText(() => import('xlsx'), picked.name || 'file', data, picked.type);
     // A list of jobs or expenses is also read by the import's rules (owner, 2026-11-04: "ตรวจเช็คว่ามันถูกต้องไหม"); its
     // figures go to เลขา first, so its answer uses the same numbers the import would save.
-    const check = asText.kind === 'sheet' ? checkSpreadsheet(await import('xlsx'), data, picked)
+    const found = asText.kind === 'sheet' ? checkSpreadsheet(await import('xlsx'), data, picked)
       : read.tables?.length ? checkTables(read.tables, picked.name) : undefined;
-    // With the check, its own line about "บันทึกทั้งหมด" takes the place of the general one about the import page.
-    const text = check ? read.text.replace(/\nไฟล์นี้มี \d+ แถว ถ้าผู้ใช้อยากบันทึกทุกแถว[^\n]*/, '').replace(/\n/, `\n${checkForAssistant(check)}\n`) : read.text;
+    // The same fingerprint the import window keeps, so this file is recognised if it is brought in again.
+    const check = found?.source ? { ...found, source: { ...found.source, fingerprint: await fileFingerprint(data).catch(() => '') } } : found;
+    // A list of jobs or expenses: the check's figures and its card. A table the import cannot read as one: เลขา asks
+    // which columns hold what, here in the chat, never sending the person elsewhere.
+    const note = check ? checkForAssistant(check)
+      : asText.kind === 'sheet' && (read.rows ?? 0) > 1 ? 'แอปยังอ่านตารางนี้เป็นรายการงานหรือรายจ่ายไม่ได้ ถ้าผู้ใช้อยากบันทึก ให้ถามในแชตนี้ว่าคอลัมน์ไหนคือชื่องาน ยอดเงิน และวันที่ ห้ามแนะนำให้ไปหน้าอื่นหรือส่งออกไฟล์' : '';
+    const text = note ? read.text.replace(/\n/, `\n${note}\n`) : read.text;
     const bytes = new TextEncoder().encode(text);
     return { name: picked.name.slice(0, 120) || 'file', mimeType: 'text/plain', data: toBase64(bytes), kind: 'text', bytes: bytes.byteLength,
       // With the check, the rows counted are its rows of data (headings and blank rows left out), as its card says.

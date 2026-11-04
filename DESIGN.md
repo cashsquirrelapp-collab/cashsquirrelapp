@@ -485,10 +485,15 @@ card does not need:
   tool names only, never model or vendor names or account data), streamed as JSON lines when the chat sends
   `Accept: application/x-ndjson`. After the answer the list folds above it: "ขั้นตอนที่ทำ N ขั้น · S วิ".
 - A spreadsheet (or a Word table) that reads as jobs or expenses gets a "ตรวจไฟล์" card under the message (`fileCheck.ts`,
-  `ChatFileCheck.tsx`): the import's own rules, so its figures are the ones the import saves. Steps that tick (tabs and
-  rows, columns matched, ready to import, the file's รวม rows compared), then: jobs and total value, a green/caramel bar
-  received against owed, three tiles รับครบ / ยังไม่ถึงกำหนด / เกินกำหนด, expenses, and the one primary
-  "บันทึกทั้งหมด N รายการ", which opens ย้ายข้อมูลเข้าแอป with that file already read. เลขา gets the same figures first.
+  `ChatFileCheck.tsx`): the import's own rules, planned against the account's own rows (`import/importActions.ts`), so its
+  figures are what is saved and nothing is saved twice. Steps that tick (tabs and rows, columns matched, compared with the
+  app, ready to save), then: jobs and total value, a green/caramel bar received against owed, three tiles รับครบ /
+  ยังไม่ถึงกำหนด / เกินกำหนด, expenses, every row to be saved (jobs, then expenses; four shown, ดูทั้งหมด for the rest), and
+  "ตรวจความครบถ้วน": columns the app has no field for (kept in the note), tabs left out and why, rows missing something
+  with their fixes as chips, the file's รวม rows compared, before/after withholding. The one primary "บันทึก N รายการ"
+  saves in the chat (owner, 2026-11-04: "ถ้าเขาอยากทำในนี้ก็ให้เขาทำในนี้"), then ดูงานที่บันทึก / ยกเลิกการบันทึกนี้;
+  ตรวจทีละแถว (grey) opens ย้ายข้อมูลเข้าแอป with the file for finer fixes. เลขา gets the figures first and is told never to
+  send the person to another page or to export. An import of the person's own file does not open the overdue radar.
 
 ### Import offered to an empty account (owner, 2026-11-04)
 - A friend did not know the import existed. While an account of one's own has no jobs and no expenses, the overview's

@@ -24,6 +24,7 @@ import {
   type ChatState, type ColumnLine, type GroupFix, type IssueGroup, type SheetReport,
 } from './importChatModel';
 import { askImportChat } from './importChatApi';
+import { buildCommit } from './importCommit';
 import { ImportReview, type ReviewFilter } from './ImportReview';
 import './importChat.css';
 
@@ -280,20 +281,7 @@ export function ImportChat({ open, initialFile, onClose, jobs, expenses, statuse
   // ── importing ─────────────────────────────────────────────────────────────────────────────────────────────────────
   const commit = () => {
     for (const sheet of sheets) if (sheet.include) rememberMapping(sheet.analysis);
-    const chosen = rows.filter(isIncluded);
-    const fresh = chosen.filter(r => !r.update);
-    const importJobs = fresh.filter(r => r.job).map(r => ({ ...r.job!, ...(sourceLink(r) ? { importSource: sourceLink(r) } : {}) }));
-    const importExpenses = fresh.filter(r => r.expense && r.expense.date).map(r => ({ ...r.expense!, ...(sourceLink(r) ? { importSource: sourceLink(r) } : {}) }));
-    const updates = chosen.filter(r => r.update).map(r => {
-      const existing = [...jobs, ...expenses].find(item => item.id === r.update!.id) as { importSource?: ImportSource } | undefined;
-      return {
-        table: r.job ? 'jobs' as const : 'expenses' as const, id: r.update!.id,
-        before: { ...r.update!.before, importSource: existing?.importSource ?? null },
-        after: { ...r.update!.after, ...(sourceLink(r) ? { importSource: sourceLink(r) } : {}) },
-      };
-    });
-    const usedTypes = new Set(importJobs.map(j => j.type));
-    const next = onImport({ jobs: importJobs, expenses: importExpenses, newJobTypes: (plan?.newJobTypes || []).filter(type => usedTypes.has(type)), updates });
+    const next = onImport(buildCommit(rows.filter(isIncluded), plan?.newJobTypes || [], [...jobs, ...expenses]));
     setResult(next);
     setSaveState('saving');
     void next.saved.then(setSaveState);

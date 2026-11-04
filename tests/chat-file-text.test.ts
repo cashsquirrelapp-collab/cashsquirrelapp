@@ -58,11 +58,12 @@ test('Excel: every tab as rows, dates as shown, and the totals of the money colu
   assert.doesNotMatch(read.text, /ย้ายข้อมูลเข้าแอป/);
 });
 
-test('a long sheet tells เลขา that the import page brings every row in; very long text is cut and says so', async () => {
+test('a long sheet is cut with a note saying so, and never points to another page', async () => {
   const rows: unknown[][] = [['รายการ', 'ยอดเงิน', 'หมายเหตุ']];
   for (let i = 1; i <= 2500; i += 1) rows.push([`งานที่ ${i}`, i * 10, 'รายละเอียดงานยาวพอสมควรเพื่อให้ข้อความยาวเกินกำหนด']);
   const read = await readFileText(load, 'ทั้งปี.xlsx', workbook({ 'Sheet1': rows }));
-  assert.match(read.text, /ไฟล์นี้มี 2501 แถว ถ้าผู้ใช้อยากบันทึกทุกแถวเข้าแอป แนะนำ "ย้ายข้อมูลเข้าแอป"/);
+  // The chat never sends the person to another page (owner, 2026-11-04): no note about the import page any more.
+  assert.doesNotMatch(read.text, /หน้างาน|นำเข้าจาก Excel/);
   assert.equal(read.truncated, true);
   assert.ok(read.text.length < TEXT_MAX_CHARS + 600);
   assert.match(read.text, /…\(ตัดเหลือ 30,000 ตัวอักษรแรก จากทั้งหมด [\d,]+ ตัวอักษร\)$/);

@@ -10,7 +10,7 @@ const OLD = '2026-01-01T00:00:00Z';
 const NEW = '2026-10-30T09:00:00+07:00';
 const bangkok = (time: string) => new Date(`2026-10-30T${time}:00+07:00`);
 
-async function open(page: Page, options: { createdAt: string; at: Date; width?: number; height?: number; theme?: Record<string, unknown>; device?: Record<string, string> }) {
+async function open(page: Page, options: { createdAt: string; at: Date; width?: number; height?: number; theme?: Record<string, unknown>; device?: Record<string, string>; importCard?: boolean }) {
   const user = { id: '11111111-1111-4111-8111-111111111111', email: 'theme@example.test', role: 'user', created_at: options.createdAt, user_metadata: {} };
   const settings: Record<string, unknown> = { monthlyExpense: 0, monthlyRevenueGoal: 20_000, savingsPercentage: 40, profileSetupCompleted: true, userPersona: 'freelance',
     // the welcome questions are answered, so they do not cover the tip
@@ -21,7 +21,11 @@ async function open(page: Page, options: { createdAt: string; at: Date; width?: 
   await page.addInitScript(device => {
     localStorage.setItem('cashflow_language', 'th');
     for (const [key, value] of Object.entries(device)) localStorage.setItem(key, value);
-  }, options.device ?? {});
+  }, {
+    // An empty account first gets the "ย้ายข้อมูลเข้าแอป" card and the tip waits for it (2026-11-04); these accounts said ไม่ต้อง.
+    ...(options.importCard ? {} : { [`krarok.importInvite.${user.id}`]: 'no' }),
+    ...(options.device ?? {}),
+  });
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.route('**/*', route => (['127.0.0.1', 'localhost'].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort()));
   await page.route('**/api/**', route => route.fulfill({ status: 501, json: { error: 'Unmocked test endpoint' } }));
@@ -66,6 +70,18 @@ test('a new account stays light at night, and from 18:00 gets the tip once: dark
   await page.waitForTimeout(800);
   await expect(tip(page)).toHaveCount(0);
   expect(await isDark(page)).toBe(true);
+});
+
+test('an empty new account at night sees the import card first; the tip comes only once that card is gone', async ({ page }) => {
+  await open(page, { createdAt: NEW, at: bangkok('19:30'), importCard: true });
+  const card = page.getByTestId('import-invite');
+  await expect(card).toBeVisible();
+  await page.waitForTimeout(800);
+  await expect(tip(page)).toHaveCount(0);
+  await card.getByRole('button', { name: 'ไม่ต้อง' }).click();
+  await expect(card).toHaveCount(0);
+  await expect(tip(page)).toBeVisible();
+  expect(await textOverlapIssues(page)).toEqual([]);
 });
 
 test('before 18:00 there is no tip; an account from before gets none and keeps the 18:00 / 06:00 clock', async ({ page }) => {

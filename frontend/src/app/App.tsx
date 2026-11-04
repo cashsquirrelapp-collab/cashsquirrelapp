@@ -78,6 +78,7 @@ import { applyFields, carriesBatch, recentImports, undoUpdate } from '../feature
 import type { ImportCommit, ImportResult, SaveOutcome } from '../features/import/importShared';
 import { dismissImportInvite, importInviteDismissed, shouldOfferImport } from '../features/import/importInvite';
 import { IMPORT_FILE_EVENT } from '../features/assistant/importFileEvent';
+import { importActionsChanged, registerImportActions, type ImportActions } from '../features/import/importActions';
 import type { SettingsView } from '../features/settings/SettingsTab';
 import { KsIcon, type KsIconName } from '../features/mobile/icons';
 import { useMobileLayout } from '../features/mobile/useMobileLayout';
@@ -2834,7 +2835,11 @@ export default function App() {
   const onboardingFirst = Boolean(session?.user?.id) && cloudSyncStatus === 'synced' && loadedFinanceOwner === financeOwner && !onboardingDone && !birthOpen
     && shouldShowOnboarding({ createdAt: session?.user?.created_at, onboarding: settings.onboarding, guest: session?.isGuest === true, groupWorkspace: Boolean(financeGroupId) });
   // The one-time evening tip for a new account, once its own settings have loaded, never over the first questions.
-  const showThemeTip = accountLoaded && !onboardingFirst && !onboardingEdit && !birthOpen && !isImportOpen
+  // An empty account's "ย้ายข้อมูลเข้าแอป" card comes first; the evening tip waits until it is gone (anything recorded, or
+  // ไม่ต้อง), so two prompts never stack on the overview (2026-11-04).
+  const importInviteOn = accountLoaded && Boolean(session?.user?.id) && shouldOfferImport({ jobs: jobs.length, expenses: expenses.length, guest: session?.isGuest === true,
+    groupWorkspace: Boolean(financeGroupId), dismissed: importInviteHidden[session?.user?.id ?? ''] ?? importInviteDismissed(session?.user?.id ?? '') });
+  const showThemeTip = accountLoaded && !onboardingFirst && !onboardingEdit && !birthOpen && !isImportOpen && !importInviteOn
     && shouldOfferThemeTip({ saved: accountThemePref, createdAt: session?.user?.created_at, guest: session?.isGuest === true, groupWorkspace: Boolean(financeGroupId), now: new Date(themeTipClock) });
   /** Keeps the answers in the account's settings (and the name as the account's name, the one เลขา uses), and lets
    *  them do what the old setup did: the work type sets the menu's default grouping, the occupations add job types. */
@@ -2905,6 +2910,9 @@ export default function App() {
   // came in with and where in the file it came from; a row the import updated keeps what it was before.
   // So the whole import can be undone for 7 days (Settings > สำรอง & นำเข้าข้อมูล).
   const handleImportRows = (commit: ImportCommit): ImportResult => {
+    // The person's own file coming in is not a visit: the overdue radar does not open over the chat or the import window
+    // for jobs that arrived just now (an account that opened with no jobs decided its visit only when jobs came in).
+    if (sessionRef.current?.user?.id) radarVisitRef.current = sessionRef.current.user.id;
     const batchId = crypto.randomUUID();
     const importedAt = new Date().toISOString();
     const jobRows = commit.jobs.map(job => ({ ...job, id: crypto.randomUUID(), lastActivityAt: importedAt, importBatchId: batchId, importedAt }) as Job);
@@ -2947,6 +2955,12 @@ export default function App() {
     });
     fireMascot({ mood: 'happy', tone: 'info', title: tr("ยกเลิกการนำเข้าแล้ว"), message: tr("รายการจากไฟล์นี้ถูกนำออกจากแอปแล้ว") });
   };
+
+  // The file review in the เลขากระรอก chat saves through these, as the import window does (2026-11-04).
+  const importActionsRef = useRef<ImportActions | null>(null);
+  importActionsRef.current = { jobs, expenses, statuses, jobTypes, onImport: handleImportRows, onRetrySave: retryImportSave, onUndo: handleUndoImport, onViewJobs: () => navigateTab('jobs') };
+  useEffect(() => { registerImportActions(() => importActionsRef.current); return () => registerImportActions(null); }, []);
+  useEffect(() => { importActionsChanged(); }, [jobs, expenses, statuses, jobTypes]);
 
   const handleImportData = async (jsonData: string) => {
     try {
@@ -3489,8 +3503,7 @@ export default function App() {
                   mobile={isPhone}
                   monthPicker={<DashboardPeriodPicker monthKey={dashboardMonthKey} onChange={setDashboardMonthKey} compact labelOnly />}
                   onOpenTools={() => setIsMobileMenuOpen(true)}
-                  importInvite={accountLoaded && shouldOfferImport({ jobs: jobs.length, expenses: expenses.length, guest: session.isGuest === true,
-                    groupWorkspace: Boolean(financeGroupId), dismissed: importInviteHidden[session.user.id] ?? importInviteDismissed(session.user.id) })
+                  importInvite={importInviteOn
                     ? {
                       onOpen: () => setIsImportOpen(true),
                       onDismiss: () => { dismissImportInvite(session.user.id); setImportInviteHidden(prev => ({ ...prev, [session.user.id]: true })); },

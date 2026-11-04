@@ -49,12 +49,14 @@ function template(): { file: File; data: ArrayBuffer } {
 test('the app\'s own sample file: the import\'s figures, paid / not due / overdue, and the file itself to import', () => {
   const { file, data } = template();
   const check = checkSpreadsheet(XLSX, data, file, '2026-11-04')!;
-  assert.deepEqual({ ...check, importFile: check.importFile?.name }, {
+  // The file as read goes with the check, for the review in the chat to plan against the account's own rows.
+  assert.deepEqual([check.source!.fileName, check.source!.grids.map(grid => grid.name)], ['ไฟล์ตัวอย่างนำเข้า_กระรอก.xlsx', ['งาน', 'รายจ่าย', 'วิธีกรอก']]);
+  assert.deepEqual({ ...check, importFile: check.importFile?.name, source: undefined }, { source: undefined,
     tabs: 2, rows: 5, columns: 16, jobs: 3, value: 25_000, received: 7_850, pending: 16_760, paid: 1, notDue: 0, overdue: 2,
     expenses: 2, expenseTotal: 2_290, toLook: 0, totals: { compared: 0, agree: 0 }, importFile: 'ไฟล์ตัวอย่างนำเข้า_กระรอก.xlsx' });
   const words = checkForAssistant(check);
   assert.match(words, /^แอปตรวจไฟล์นี้ด้วยระบบนำเข้าแล้ว: งาน 3 รายการ มูลค่ารวม 25,000 บาท รับแล้ว 7,850 ค้างรับ 16,760 \(รับครบ 1 · ยังไม่ถึงกำหนด 0 · เกินกำหนด 2\) · รายจ่าย 2 รายการ รวม 2,290 บาท/);
-  assert.match(words, /ปุ่ม "บันทึกทั้งหมด"/);
+  assert.match(words, /การ์ด "ตรวจไฟล์"[^]*กด "บันทึก" ในแชตได้เลย[^]*ห้ามแนะนำให้ไปหน้าอื่น/);
 });
 
 test('a tab\'s own total row is compared with the rows read', () => {
