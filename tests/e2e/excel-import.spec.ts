@@ -83,8 +83,17 @@ test('computer: the chat reads the file, says what matched and what has no field
   await expect(chat.getByTestId('import-columns-all')).toHaveCount(0);
   await expect(chat.getByText(/ตรงแล้ว|ข้ามให้อัตโนมัติ|ยังไม่มีช่องในแอป/)).toHaveCount(0);
   await expect(chat.getByTestId('import-problems')).toHaveCount(0);
+  // The check step by step, then the verdict with its word, and where the person is (owner, 2026-11-04).
+  await expect(chat.getByTestId('import-steps')).toHaveAttribute('data-state', 'done');
+  // Reading, columns, เลขา on the one column the rules do not know (ช่องทาง), totals, the account's records, the sum.
+  await expect(chat.getByTestId('import-steps')).toContainText('ตรวจไฟล์ครบ 6 ขั้นตอน');
+  await expect(chat.getByTestId('import-verdict')).toHaveText('ต้องตอบ 1 ข้อ');
+  await expect(chat.getByTestId('import-stages').locator('[aria-current="step"]')).toContainText('ตอบคำถาม');
   await chat.getByRole('radio', { name: 'ยอดเต็มก่อนหัก' }).click();
   await expect(read).toContainText('อ่านไฟล์แล้วครับ ทุกอย่างถูกต้อง บันทึกได้เลย');
+  await expect(chat.getByTestId('import-verdict')).toHaveText('ผ่าน');
+  await expect(chat.getByTestId('import-stages').locator('[aria-current="step"]')).toContainText('นำเข้า');
+  await expect(chat.getByTestId('import-next-text')).toHaveText('ตรวจเสร็จแล้ว กดนำเข้าเพื่อบันทึก 3 รายการ');
   // Every column is still one tap away under ตั้งค่าคอลัมน์; the one the app has no field for goes in the note.
   await chat.getByRole('button', { name: 'ตั้งค่าคอลัมน์' }).click();
   const columns = chat.getByTestId('import-columns-all').first();
@@ -194,8 +203,11 @@ test('computer: the owner\'s code-linked workbook matches its Dashboard, saves w
   await expect(chat.getByTestId('import-job-count')).toHaveText('8 งาน');
   await expect(chat.getByTestId('import-expense-count')).toHaveText('30 รายการ');
   await expect(chat.getByTestId('import-total-check')).toHaveText('ตรงกับยอดในไฟล์ทุกตัว (7 ยอด)');
-  // One report card (owner, 2026-11-04): the import is one button; the table and the column settings are quiet links.
-  await expect(chat.getByTestId('import-summary').locator('.ic-button')).toHaveCount(1);
+  // The report in short cards (owner, 2026-11-04): the import is one button in the next-step card; the table and the column
+  // settings are quiet links.
+  await expect(chat.getByTestId('import-summary').locator('.ic-button')).toHaveCount(0);
+  await expect(chat.getByTestId('import-next').locator('.ic-button')).toHaveCount(1);
+  await expect(chat.getByTestId('import-verdict')).toHaveText('ผ่าน');
   expect(await textOverlapIssues(page)).toEqual([]);
   if (process.env.SHOT_DIR) await chat.screenshot({ path: `${process.env.SHOT_DIR}/import-report-1280.png` });
   await chat.getByRole('button', { name: 'ดูทุกแถวก่อน' }).click();
@@ -357,3 +369,40 @@ test('computer and iPad: the chat fits, nothing overlaps while it scrolls', asyn
     await expect(chat).toHaveCount(0);
   }
 });
+
+// Owner, 2026-11-04: "เวลาโยนไปก็ให้แบบมันคุยกับ AI ประมวลผล ... ขึ้นสถานะแล้วก็แจ้งมาว่าอะไรเป็นยังไงบ้าง แจ้งการ์ดแบบเป็นสวยๆ
+// ดูง่ายๆหลายอันได้เลย แล้วก็รายงานว่ามันผ่านไม่ผ่าน": the steps tick live, then the cards come, on a computer and a phone.
+for (const width of [1280, 390]) {
+  test(`the check ticks step by step, then the verdict, questions and next-step cards (${width})`, async ({ page }) => {
+    await open(page, width, '/jobs');
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    if (width < 744) await page.getByRole('button', { name: 'ตัวกรองและเครื่องมืองาน' }).click();
+    await page.getByTestId(width < 744 ? 'jobs-import-button-phone' : 'jobs-import-button').click();
+    const chat = page.getByTestId('import-wizard');
+    await expect(chat.getByTestId('import-stages').locator('[aria-current="step"]')).toContainText('เลือกไฟล์');
+    await chat.locator('#import-sheet-file').setInputFiles({ name: 'งานของฉัน.xlsx', mimeType: XLSX_TYPE, buffer: sheetFile() });
+    const steps = chat.getByTestId('import-steps');
+    await expect(steps).toHaveAttribute('data-state', 'live');
+    await expect(steps).toContainText('กำลังตรวจไฟล์…');
+    await expect(chat.getByTestId('import-summary')).toHaveCount(0);
+    await expect(steps).toHaveAttribute('data-state', 'done', { timeout: 10_000 });
+    await expect(chat.getByTestId('import-summary')).toBeVisible();
+    await expect(chat.getByTestId('import-questions')).toBeVisible();
+    await expect(chat.getByTestId('import-next')).toBeVisible();
+    await steps.locator('summary').click();
+    await expect(steps.getByTestId('import-step')).toHaveCount(6);
+    await expect(steps).toContainText('ให้เลขาช่วยดูคอลัมน์ที่ระบบไม่รู้จัก');
+    await expect(steps).toContainText('ตรวจยอดกับแถวรวมในไฟล์');
+    const widths = await page.evaluate(() => ({ page: document.documentElement.scrollWidth, viewport: innerWidth }));
+    expect(widths.page).toBeLessThanOrEqual(widths.viewport);
+    expect(await textOverlapIssues(page)).toEqual([]);
+    if (process.env.SHOT_DIR) {
+      await chat.screenshot({ path: `${process.env.SHOT_DIR}/import-cards-${width}.png` });
+      await steps.locator('summary').click();
+      for (const id of ['import-summary', 'import-questions', 'import-next']) {
+        await chat.getByTestId(id).scrollIntoViewIfNeeded();
+        await chat.screenshot({ path: `${process.env.SHOT_DIR}/import-${id}-${width}.png` });
+      }
+    }
+  });
+}

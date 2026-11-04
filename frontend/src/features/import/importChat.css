@@ -192,3 +192,84 @@
 .ic-report-actions { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px 16px; border-top: 1px solid var(--border); }
 .ic-report-actions > .ic-button.is-primary { width: 100%; min-height: 46px; justify-content: center; font-size: 15px; }
 .ic-report-actions > .ic-meta { text-align: center; }
+
+/* The check step by step, then a few short cards (owner, 2026-11-04: "ขึ้นสถานะแล้วก็แจ้งมาว่าอะไรเป็นยังไงบ้าง แจ้งการ์ดแบบเป็น
+   สวยๆดูง่ายๆหลายอันได้เลย แล้วก็รายงานว่ามันผ่านไม่ผ่าน"): where the person is in the bar, the steps that tick, the verdict
+   with its word (ผ่าน / ต้องตอบ / ยังนำเข้าไม่ได้), the questions, what to know, and one card that says what to do next. */
+.ic { --ic-fail: #B83434; --ic-fail-bg: #FDEEEE; --ic-ok-bg: rgba(18, 128, 79, 0.1); }
+.dark .ic { --ic-fail: #F19A9A; --ic-fail-bg: rgba(241, 154, 154, 0.12); --ic-ok-bg: rgba(74, 222, 128, 0.12); }
+
+/* where the person is */
+.ic-stages { display: flex; flex: 1 1 100%; align-items: center; gap: 6px; margin: 4px 0 0; padding: 0; list-style: none; }
+.ic-stages li { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+.ic-stages li + li::before { content: ''; flex: none; width: 18px; height: 1px; margin-right: 2px; background: var(--border); }
+.ic-stage-dot { display: grid; place-items: center; flex: none; width: 20px; height: 20px; border-radius: 50%; background: var(--faint); color: var(--muted); font-size: 11px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
+.ic-stages li.is-done { color: var(--text); }
+.ic-stages li.is-done .ic-stage-dot { background: var(--ic-ok-bg); color: var(--ic-green); }
+.ic-stages li.is-now { color: var(--ic-orange-text); font-weight: 600; }
+.ic-stages li.is-now .ic-stage-dot { background: var(--ic-orange); color: #FFFFFF; }
+.ic-stage-label { white-space: nowrap; }
+
+/* the steps */
+.ic-steps { padding: 14px 16px; gap: 10px; }
+.ic-steps-head { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; font-weight: 600; line-height: 1.5; color: var(--text); }
+.ic-steps-head > svg { color: var(--ic-orange); }
+details.ic-steps > summary { cursor: pointer; list-style: none; }
+details.ic-steps > summary::-webkit-details-marker { display: none; }
+details.ic-steps:not([open]) > :not(summary) { display: none; }
+.ic-steps-more { margin-left: auto; color: var(--ic-orange-text); font-size: 13px; font-weight: 500; }
+details.ic-steps[open] .ic-steps-more { display: none; }
+.ic-steps-list { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+details.ic-steps .ic-steps-list { margin-top: 10px; }
+.ic-steps-list li { display: flex; align-items: flex-start; gap: 10px; min-width: 0; font-size: 14px; line-height: 1.55; animation: ic-step-in 0.24s ease-out; }
+.ic-step-mark { display: grid; place-items: center; flex: none; width: 22px; height: 22px; margin-top: 0; border-radius: 50%; background: var(--ic-ok-bg); color: var(--ic-green); }
+.ic-steps-list li.is-live .ic-step-mark { background: var(--ic-cream); color: var(--ic-orange); }
+.ic-step-mark.is-ok { background: var(--ic-ok-bg); color: var(--ic-green); }
+.ic-step-label { display: block; color: var(--text); }
+.ic-steps-list li.is-live .ic-step-label { font-weight: 600; }
+.ic-step-detail { display: block; margin-top: 4px; color: var(--muted); font-size: 12.5px; line-height: 1.5; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+@keyframes ic-step-in { from { opacity: 0; transform: translateY(4px); } }
+
+/* the words on a card's corner */
+.ic-badge { display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 3px 10px; border-radius: 999px; background: var(--faint); color: var(--muted); font-size: 12.5px; font-weight: 600; line-height: 1.5; }
+.ic-badge.is-ok { background: var(--ic-ok-bg); color: var(--ic-green); }
+.ic-badge.is-wait, .ic-badge.is-note { background: var(--ic-warn-bg); color: var(--ic-warn); }
+.ic-badge.is-fail { background: var(--ic-fail-bg); color: var(--ic-fail); }
+
+/* the verdict */
+.ic-verdict { padding: 16px; gap: 14px; }
+.ic-verdict-head { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.ic-verdict-head .ic-card-title { padding: 0; font-size: 17px; line-height: 1.45; }
+.ic-verdict .ic-tiles { padding: 0; }
+.ic-checks { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 12px 0 0; border-top: 1px solid var(--border); list-style: none; }
+.ic-checks li { display: flex; align-items: flex-start; gap: 10px; min-width: 0; font-size: 13.5px; line-height: 1.6; color: var(--text); overflow-wrap: anywhere; }
+.ic-checks li > svg { flex: none; margin-top: 3px; color: var(--muted); }
+.ic-checks li.is-ok > svg { color: var(--ic-green); }
+.ic-checks li.is-wait > svg { color: var(--ic-warn); }
+.ic-checks li.is-fail > svg { color: var(--ic-fail); }
+.ic-checks li.is-fail { color: var(--ic-fail); }
+
+/* questions and what to know */
+.ic-part-head { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.ic-part-head .ic-card-title { font-size: 15px; }
+.ic-part > .ic-ask, .ic-part > .ic-issue { border-top: 0; }
+.ic-part > .ic-ask + .ic-ask, .ic-part > .ic-issue + .ic-issue, .ic-part > .ic-ask + .ic-issue, .ic-part > .ic-issue + .ic-ask { border-top: 1px solid var(--border); }
+.ic-part > .ic-report-notes { padding-top: 12px; }
+
+/* what to do next */
+.ic-next { padding: 16px; gap: 10px; border-color: #F3B08C; background: linear-gradient(var(--ic-cream), var(--ic-cream)), var(--white); }
+.dark .ic-next { border-color: rgba(255, 164, 115, 0.3); }
+.ic-next:not(.is-ready) { border-color: var(--border); background: var(--white); }
+.ic-next-title { margin: 0; color: var(--ic-orange-text); font-size: 12.5px; font-weight: 600; line-height: 1.5; }
+.ic-next:not(.is-ready) .ic-next-title { color: var(--muted); }
+.ic-next-text { margin: 0; font-size: 15px; font-weight: 500; line-height: 1.6; color: var(--text); overflow-wrap: anywhere; }
+.ic-next > .ic-button.is-primary { width: 100%; min-height: 46px; justify-content: center; font-size: 15px; }
+.ic-next > .ic-meta { text-align: center; }
+
+@media (max-width: 743px) {
+  .ic-stages { gap: 4px; }
+  .ic-stages li + li::before { width: 8px; margin-right: 0; }
+  .ic-stages li:not(.is-now) .ic-stage-label { display: none; }
+  .ic-verdict-head .ic-card-title { font-size: 16px; }
+}
+@media (prefers-reduced-motion: reduce) { .ic-steps-list li { animation: none; } }
