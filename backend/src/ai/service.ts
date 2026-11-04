@@ -126,6 +126,8 @@ export interface PlanInfo {
   plan: AssistantPlan; periodEnd?: string | null;
   /** Tokens a month for the plan this account paid for (shared/proTokens.ts); none = the default allowance. */
   tokens?: number;
+  /** A trial counted in a bucket of its own (testers.ts): the usage table's cycle key. */
+  bucket?: string;
 }
 const asPlan = (value: AssistantPlan | PlanInfo): PlanInfo => (typeof value === 'string' ? { plan: value } : value);
 
@@ -135,8 +137,10 @@ const asPlan = (value: AssistantPlan | PlanInfo): PlanInfo => (typeof value === 
  * "จำกัดโทเค็นแอดมิน ... เอาเท่ากับยูเซอร์"), so using เลขา costs them what it costs a member and shows whether it is enough.
  */
 export function allowance(value: AssistantPlan | PlanInfo, config: AiConfig, now = new Date()) {
-  const { plan, periodEnd, tokens } = asPlan(value);
-  if (plan === 'trial') return { cycle: 'trial', resetsAt: null, tokenLimit: config.trialTokens, requestLimit: null };
+  const { plan, periodEnd, tokens, bucket } = asPlan(value);
+  // The trial: one allowance that never refills; a tester's in its own bucket with its own amount (testers.ts).
+  // A plain trial never takes a plan's tokens; only a tester's own bucket carries its own amount.
+  if (plan === 'trial') return { cycle: bucket ?? 'trial', resetsAt: null, tokenLimit: bucket && tokens !== undefined ? tokens : config.trialTokens, requestLimit: null };
   if (plan === 'lapsed') {
     // Pro has ended (owner, 2026-10-28: "ถ้าหมดโปรไป เขายังเหลือ 500 โทเค็น ให้เขาใช้จนหมดก่อน"): the last paid month's
     // allowance, with what was used in it; nothing renews until Pro does.

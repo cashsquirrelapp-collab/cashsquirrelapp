@@ -1,4 +1,5 @@
 import { inFreeTrial } from '../../../shared/trial.js';
+import { isTesterPublicId, TESTER_BUCKET, TESTER_TOKENS } from './testers.js';
 import type { User } from '@supabase/supabase-js';
 import { getSupabaseAdmin } from '../config/supabase.js';
 import { HttpError } from '../http/guard.js';
@@ -47,6 +48,8 @@ export async function assistantPlan(user: User, now = Date.now()): Promise<PlanI
   if (sub?.status === 'active' && sub.current_period_end && new Date(sub.current_period_end).getTime() > now) {
     return { plan: 'pro', periodEnd: sub.current_period_end, tokens: sub.plan === 'pro_prepaid' ? await paidPlanTokens(user.id, now, sub.pro_access_reset_at) : undefined };
   }
+  // A friend trying เลขา (testers.ts): 200 tokens once, in a bucket of their own.
+  if (await isTester(user.id)) return { plan: 'trial', tokens: TESTER_TOKENS, bucket: TESTER_BUCKET };
   const trial = inFreeTrial(user.created_at, now);
   if (trial) return { plan: 'trial' };
   // Pro has ended (owner, 2026-10-28): the tokens left from its last paid month stay usable for เลขา until they run out;
@@ -56,6 +59,14 @@ export async function assistantPlan(user: User, now = Date.now()): Promise<PlanI
     return { plan: 'lapsed', periodEnd: sub.current_period_end, tokens: sub.plan === 'pro_prepaid' ? await paidPlanTokens(user.id, Date.parse(sub.current_period_end!) - 1, sub.pro_access_reset_at) : undefined };
   }
   return { plan: 'none' };
+}
+
+/** Whether this account is one of the testers, by its public ID; a read error counts as no (never more tokens by mistake). */
+async function isTester(userId: string): Promise<boolean> {
+  try {
+    const { data } = await getSupabaseAdmin().from('cashflow_profiles').select('public_id').eq('user_id', userId).maybeSingle();
+    return isTesterPublicId((data as { public_id?: string | null } | null)?.public_id);
+  } catch { return false; }
 }
 
 /** A paid Pro period that has passed: not an admin grant (given or taken away), not a first payment that never went through. */

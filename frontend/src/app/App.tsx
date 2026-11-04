@@ -1378,7 +1378,8 @@ export default function App() {
   // (plan 'lapsed'); every other Pro feature stays off.
   const proEnded = !isPro && !isAdminProRevoked && Boolean(subscription?.currentPeriodEnd) && subscription?.plan !== 'admin_grant'
     && new Date(subscription!.currentPeriodEnd!).getTime() <= Date.now();
-  const assistantLapsed = assistantTransport?.plan === 'lapsed';
+  // Friends the owner gave trial tokens (2026-11-04) chat too, without Pro: the server says so (plan 'trial').
+  const assistantLapsed = assistantTransport?.plan === 'lapsed' || assistantTransport?.plan === 'trial';
   const showBuddy = (isPro || assistantLapsed) && !assistantFollowing && activeTab !== 'assistant' && isPhaseOneFeatureAvailable('assistant', fullFeatureAccess) && !(isPhone && isMobileMenuOpen);
   // The post-payment guide: every screen (phones since 2026-10-29), a paying (or trial) account of its own, not a team's
   // books or the guest view; it steps aside while the phone menu is open.
@@ -1405,6 +1406,9 @@ export default function App() {
   // the chat and the floating squirrel keep their labelled sample answers. Personal workspace only for now, and only
   // accounts that can see เลขา at all ask (no extra request for everyone else).
   const assistantUserId = session && !session.isGuest && (isPro || proEnded) && isPhaseOneFeatureAvailable('assistant', fullFeatureAccess) ? session.user.id : null;
+  // Every personal account asks once whether เลขา is on for it: the owner can give an account trial tokens without Pro
+  // (backend/src/ai/testers.ts, 2026-11-04); everyone else gets plan 'none' and keeps the chat's try mode.
+  const assistantCheckId = session && !session.isGuest && isPhaseOneFeatureAvailable('assistant', fullFeatureAccess) ? session.user.id : null;
   // Why the real เลขา is not on for this account, shown to system admins under the chat (never to members).
   const [assistantNote, setAssistantNote] = useState<string | null>(null);
   // The real notifications thread, for every account that sees the chat (it does not need the AI).
@@ -1427,23 +1431,27 @@ export default function App() {
     setAssistantTransport(undefined);
     setAssistantNote(null);
     setAssistantChecking(false);
-    if (!assistantUserId) return;
-    if (financeGroupId) { setAssistantNote(tr("กำลังดูบัญชีกลุ่ม เลขากระรอกใช้ได้กับบัญชีส่วนตัวเท่านั้น")); return; }
+    if (!assistantCheckId) return;
+    // An account without Pro asks quietly, once: no waiting state, no retries, no note; only trial tokens the owner gave
+    // (plan 'trial') turn its chat on. Pro accounts keep the full check below.
+    const quiet = !assistantUserId;
+    if (financeGroupId) { if (!quiet) setAssistantNote(tr("กำลังดูบัญชีกลุ่ม เลขากระรอกใช้ได้กับบัญชีส่วนตัวเท่านั้น")); return; }
     const controller = new AbortController();
     let retry = 0;
-    setAssistantChecking(true);
+    if (!quiet) setAssistantChecking(true);
     // Loaded on demand so the sample data and the chat code stay out of the first page load.
     const check = (attempt: number) => import('../features/assistant/assistantApi').then(async ({ readAssistantStatus, createLiveTransport }) => {
-      const status = await readAssistantStatus(assistantUserId, controller.signal);
+      const status = await readAssistantStatus(assistantCheckId, controller.signal);
       if (controller.signal.aborted) return;
       setAssistantChecking(false);
+      if (quiet && !(status.enabled && status.plan === 'trial')) return;
       if (!status.enabled || status.plan === 'none') {
         setAssistantNote(status.plan === 'none' ? tr("บัญชีนี้ไม่มีสิทธิ์ Pro") : status.plan === 'admin' ? tr("เซิร์ฟเวอร์ยังปิด AI อยู่ (AI_ENABLED)") : tr("ตอนนี้เปิด AI ให้แอดมินระบบเท่านั้น"));
         return;
       }
-      setAssistantTransport(createLiveTransport({ account: assistantUserId, status, instant: false, onApplied: () => assistantAppliedRef.current() }));
+      setAssistantTransport(createLiveTransport({ account: assistantCheckId, status, instant: false, onApplied: () => assistantAppliedRef.current() }));
     }).catch(error => {
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted || quiet) return;
       // A slow or failed check is tried again a few times; after that the sample chat stays, and admins see why.
       if (attempt < 3) { retry = window.setTimeout(() => { void check(attempt + 1); }, [3000, 10000, 30000][attempt]); return; }
       setAssistantChecking(false);
@@ -1451,7 +1459,7 @@ export default function App() {
     });
     void check(0);
     return () => { controller.abort(); window.clearTimeout(retry); };
-  }, [assistantUserId, financeGroupId]);
+  }, [assistantCheckId, assistantUserId, financeGroupId]);
   const [birthOpen, setBirthOpen] = useState(false);
   // The arrival opened by a payment shows "ชำระเงินสำเร็จ" with its tick first; the team's preview does not.
   const [birthPaid, setBirthPaid] = useState(false);

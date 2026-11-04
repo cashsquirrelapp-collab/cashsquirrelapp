@@ -613,11 +613,19 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
                 ) : (
                   <ol className="asx-thread is-buddy">
                     {messages.map((message, index) => message.from === 'me' ? (
-                      <li key={message.id} className="asx-msg is-me"><div className="asx-me-row"><div className="asx-me-stack">
-                        <SentFiles files={messageFiles(message)} onView={setViewer} />
-                        {!message.textAuto && <p className="asx-bubble">{message.text}</p>}
-                        <FileChecks files={messageFiles(message)} />
-                      </div></div></li>
+                      <React.Fragment key={message.id}>
+                        <li className="asx-msg is-me"><div className="asx-me-row"><div className="asx-me-stack">
+                          <SentFiles files={messageFiles(message)} onView={setViewer} />
+                          {!message.textAuto && <p className="asx-bubble">{message.text}</p>}
+                        </div></div></li>
+                        {/* A spreadsheet's check is เลขา's report, on its side (owner, 2026-11-04). */}
+                        {messageFiles(message).some(file => file.check) && (
+                          <li className="asx-msg is-bot is-check">
+                            <span className="asx-avatar" aria-hidden="true"><Mascot gear={mobile ? 'pro' : 'none'} thoughtDots={false} mood="happy" animated={false} size={26} viewBox="12 8 76 76" /></span>
+                            <div className="asx-msg-body"><FileChecks files={messageFiles(message)} /></div>
+                          </li>
+                        )}
+                      </React.Fragment>
                     ) : (
                       <li key={message.id} className="asx-msg is-bot">
                         <span className="asx-avatar" aria-hidden="true"><Mascot gear={mobile ? 'pro' : 'none'} mood="happy" animated={false} size={26} viewBox="12 8 76 76" /></span>
@@ -639,7 +647,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
                     {mode === 'thinking' && (
                       <li className="asx-msg is-bot">
                         <span className="asx-avatar" aria-hidden="true"><Mascot gear={mobile ? 'pro' : 'none'} thoughtDots={mobile} mood="thinking" animated={false} size={26} viewBox="12 8 76 76" /></span>
-                        {work.work && work.work.steps.length > 1 ? <WorkLive work={work.work} /> : <div className="asx-typing" role="img" aria-label={tr("เลขากระรอกกำลังคิด")}><i /><i /><i /></div>}
+                        {work.work?.heavy ? <WorkLive work={work.work} /> : <div className="asx-typing" role="img" aria-label={tr("เลขากระรอกกำลังคิด")}><i /><i /><i /></div>}
                       </li>
                     )}
                   </ol>

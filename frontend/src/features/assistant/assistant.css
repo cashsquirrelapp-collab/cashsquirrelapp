@@ -1528,7 +1528,8 @@ button.asx-party-tile:hover:not(:disabled) .asx-party-copy strong { color: var(-
 
 /* Live steps (owner, 2026-11-04: "อยากให้มีสถานะบอกว่ากำลังทำไรด้วย แบบของ Claude หรือ GPT"): while เลขา works, each step with a
    tick when done and a small turning mark on the current one, the seconds on the right; folded above the answer after. */
-.asx-work { display: grid; gap: 6px; width: min(420px, 100%); min-width: 0; padding: 10px 14px 12px; border-radius: 18px; background: rgba(118, 118, 128, 0.1); color: var(--text); }
+/* No box around it (owner, 2026-11-04: "เอากรอบเทาออก"): the steps sit beside the avatar like the answer will. */
+.asx-work { display: grid; gap: 6px; width: min(420px, 100%); min-width: 0; padding: 4px 0 2px; color: var(--text); }
 .asx-work-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 0; color: var(--muted); font-size: 12.5px; font-weight: 500; line-height: 1.5; }
 .asx-work-time { flex: none; font-variant-numeric: tabular-nums; }
 .asx-work-list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }

@@ -17,6 +17,8 @@ const PROPOSAL = 'p_0b9d3c1e-4f5a-4b6c-8d7e-9f0a1b2c3d4e';
 
 type Mock = {
   status?: Record<string, unknown>;
+  /** A free account (no subscription, not an admin). */
+  free?: boolean;
   reply?: (body: any) => { status: number; json: unknown };
   transcribe?: () => Promise<{ text: string; tokens: number; tokensLeft: number; trialLeft: null }>;
   width?: number;
@@ -36,13 +38,13 @@ async function open(page: Page, mock: Mock = {}) {
   });
   await page.route('**/*', route => (['127.0.0.1', 'localhost'].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort()));
   await page.route('**/api/**', route => route.fulfill({ json: {} }));
-  await page.route('**/api/auth*', route => route.fulfill({ json: { session: { user } } }));
+  await page.route('**/api/auth*', route => route.fulfill({ json: { session: { user: mock.free ? { ...user, role: 'user' } : user } } }));
   await page.route('**/api/profile', route => route.fulfill({ json: { userId: user.id, publicId: 'SQ-1111111111', displayName: 'ผู้ใช้ตัวอย่าง' } }));
-  await page.route('**/api/groups?*', route => route.fulfill({ json: { systemRole: 'admin', groups: [], invitations: [], total: 0, page: 0 } }));
+  await page.route('**/api/groups?*', route => route.fulfill({ json: { systemRole: mock.free ? 'user' : 'admin', groups: [], invitations: [], total: 0, page: 0 } }));
   await page.route('**/api/vault', route => route.fulfill({ json: { files: [] } }));
   await page.route('**/api/data*', route => {
     if (route.request().method() === 'GET') dataReads += 1;
-    return route.fulfill({ json: route.request().method() === 'POST' ? { ok: true, versions } : { snapshot, versions, subscription: { status: 'active', plan: 'pro_monthly', current_period_end: '2099-01-01T00:00:00Z' } } });
+    return route.fulfill({ json: route.request().method() === 'POST' ? { ok: true, versions } : { snapshot, versions, subscription: mock.free ? null : { status: 'active', plan: 'pro_monthly', current_period_end: '2099-01-01T00:00:00Z' } } });
   });
   if (mock.inbox) await page.route('**/api/assistant?view=line', route => route.fulfill({ json: mock.inbox }));
   await page.route('**/api/assistant', async route => {
@@ -544,19 +546,71 @@ for (const width of [1440, 390]) test(`file review ${width}px: a ledger is revie
   await expect.poll(() => saves.flatMap(body => body?.changes || []).filter((change: any) => change.op === 'delete').length).toBe(5);
 });
 
-test('file review: ตรวจทีละแถว still opens the import window with the file already read', async ({ page }) => {
+test('file review: the card is เลขา\'s report on its side, and nothing sends the person to the import window', async ({ page }) => {
   await open(page);
   await page.locator('.asx-composer input[type=file]').setInputFiles({ name: 'บัญชีจำลอง_ฟรีแลนซ์.xlsx', mimeType: XLSX_TYPE, buffer: ledgerFile() });
   await page.locator('#asx-message').fill('ดูให้หน่อย');
   await page.locator('.asx-send').click();
   const card = page.getByTestId('chat-file-check');
   await expect(card).toContainText('ตรวจแล้ว');
-  await card.getByRole('button', { name: 'ตรวจทีละแถว' }).click();
-  const importing = page.getByRole('dialog', { name: 'ย้ายข้อมูลเข้าแอป' });
-  await expect(importing).toContainText('บัญชีจำลอง_ฟรีแลนซ์.xlsx');
-  await expect(importing.getByTestId('import-read')).toBeVisible({ timeout: 10_000 });
+  // On เลขา's side (owner, 2026-11-04: "ตรงนี้มันควรจะอยู่ฝั่งของมึงที่เป็นรายงานมึง"), not in the person's bubble column.
+  await expect(page.locator('.asx-msg.is-bot.is-check').getByTestId('chat-file-check')).toBeVisible();
+  await expect(page.locator('.asx-msg.is-me').getByTestId('chat-file-check')).toHaveCount(0);
+  const cardBox = (await card.boundingBox())!;
+  const fileBox = (await page.locator('.asx-msg.is-me .asx-sent-file').boundingBox())!;
+  expect(cardBox.x).toBeLessThan(fileBox.x);
+  // "ไม่ต้องไปโยงเข้าไปในไฟล์ export ไอ้นั้นไม่เอา": no way to the import window from the card.
+  await expect(card.getByRole('button', { name: 'ตรวจทีละแถว' })).toHaveCount(0);
+  await expect(card.getByRole('button', { name: /^บันทึก \d+ รายการ$/ })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'ย้ายข้อมูลเข้าแอป' })).toHaveCount(0);
 });
 
+// Owner, 2026-11-04: "เวลาถามสั้นๆง่าย ไม่ต้องขึ้นสถานะเรียลไทม์ จะขึ้นก็ต่อเมื่อโดนถามอะไรยากๆ เช่น บันทึกงาน อ่านข้อมูลไฟล์เยอะๆ".
+for (const heavy of [false, true]) test(`live steps: ${heavy ? 'a request that prepares a card keeps its steps' : 'a quick question keeps the typing dots and no steps'}`, async ({ page }) => {
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  const mock = await open(page, { routes: async p => {
+    await p.route('**/api/assistant', async route => {
+      const request = route.request();
+      if (request.method() !== 'POST' || request.postDataJSON().action !== 'message') return route.fallback();
+      mock.posts.push({ body: request.postDataJSON(), headers: request.headers() });
+      await held;
+      const lines = [
+        { progress: { kind: 'model', route: 'chat', round: 0, files: 0, web: false } },
+        { progress: { kind: 'tool', name: 'search_jobs' } },
+        ...(heavy ? [{ progress: { kind: 'tool', name: 'propose_add_job' } }] : []),
+        { result: { text: heavy ? 'เตรียมการ์ดเพิ่มงานไว้แล้วครับ' : 'มีงานค้างรับ 2 งานครับ', route: 'chat', tokens: 2, tokensLeft: 990, trialLeft: null } },
+      ];
+      await route.fulfill({ status: 200, headers: { 'content-type': 'application/x-ndjson; charset=utf-8' }, body: lines.map(line => JSON.stringify(line)).join('\n') + '\n' });
+    });
+  } });
+  await page.locator('#asx-message').fill(heavy ? 'เพิ่มงานออกแบบโลโก้ 5,000' : 'ตรวจงานที่ยังไม่ได้รับเงิน');
+  await page.locator('.asx-send').click();
+  // While it works: the dots, no list of steps (nothing heavy has happened yet).
+  await expect(page.getByRole('img', { name: 'เลขากระรอกกำลังคิด' })).toBeVisible();
+  await expect(page.getByTestId('chat-work-live')).toHaveCount(0);
+  release();
+  await expect(page.locator('.asx-msg.is-bot').last()).toContainText(heavy ? 'เตรียมการ์ดเพิ่มงาน' : 'มีงานค้างรับ 2 งาน');
+  if (heavy) {
+    const done = page.getByTestId('chat-work-done');
+    await expect(done).toContainText('ขั้นตอนที่ทำ');
+    await done.locator('summary').click();
+    await expect(done).toContainText('เตรียมการ์ดเพิ่มงาน');
+  } else {
+    await expect(page.getByTestId('chat-work-done')).toHaveCount(0);
+  }
+});
+
+// The owner gives friends trial tokens (2026-11-04: "บัญชีละ 200 โทเคนเพื่อทดลองใช้เลขากระรอก"): a free account the server
+// reports as 'trial' chats like Pro, with its 200 tokens on the ring and no upgrade wall.
+test('a free account given trial tokens chats with เลขา, 200 on the ring, no Pro wall', async ({ page }) => {
+  const mock = await open(page, { free: true, status: { plan: 'trial', tokensLeft: 200, tokenLimit: 200, resetsAt: null } });
+  await expect(page.locator('.asx-token')).toContainText('200');
+  await expect(page.getByRole('region', { name: 'พิมพ์ถามเองได้เมื่อเป็นสมาชิก Pro' })).toHaveCount(0);
+  await page.locator('#asx-message').fill('สรุปงานเดือนนี้ให้หน่อย');
+  await page.locator('.asx-send').click();
+  await expect.poll(() => mock.posts.filter(post => post.body.action === 'message').length).toBe(1);
+});
 for (const width of [1440, 390]) test(`buddy ${width}px: a Word file goes as its text from the floating chat`, async ({ page }, info) => {
   const mock = await open(page, { path: '/jobs', width, height: width < 744 ? 844 : 900 });
   await page.getByRole('button', { name: 'ถามเลขากระรอกเรื่องหน้างาน' }).click();

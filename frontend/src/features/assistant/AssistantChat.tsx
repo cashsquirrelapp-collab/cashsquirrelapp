@@ -328,8 +328,9 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
   const effective: TokenBalance = preview === 'tokensLow' ? { ...balance, remaining: 64 } : preview === 'tokensEmpty' ? { ...balance, remaining: 0 } : balance;
   const level = tokenLevel(effective);
   // Pro that has ended still chats with the tokens left from its last month (owner, 2026-10-28); only its other Pro
-  // features stop. The server decides (plan 'lapsed'); an empty pool still stops sending below.
-  const lapsed = transport.plan === 'lapsed';
+  // features stop. The server decides (plan 'lapsed'); an empty pool still stops sending below. A friend given trial
+  // tokens by the owner (plan 'trial', 2026-11-04) chats the same way until they run out.
+  const lapsed = transport.plan === 'lapsed' || transport.plan === 'trial';
   const gate = preview === 'trialExpired' ? 'trial' : preview === 'proRequired' || (!isPro && !lapsed) ? 'pro' : null;
   // Without Pro the chat is a try mode: preset questions answer, typed questions ask for Pro. With Pro, an
   // empty token cycle stops sending.
@@ -1139,7 +1140,6 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                     <div className="asx-me-stack">
                       <SentFiles files={messageFiles(message)} onView={setViewer} />
                       {!message.textAuto && <p className="asx-bubble">{message.text}</p>}
-                      <FileChecks files={messageFiles(message)} />
                     </div>
                   </div>
                 </li>
@@ -1190,11 +1190,18 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                     )}
                   </div>
                 </li>
+              ),
+              // A spreadsheet's check is เลขา's report, on its side of the chat (owner, 2026-11-04), right under the file.
+              message.from === 'me' && messageFiles(message).some(file => file.check) && (
+                <li key={`check-${message.id}`} className="asx-msg is-bot is-check">
+                  <span className="asx-avatar" aria-hidden="true"><Mascot gear={mobile ? 'pro' : 'none'} mood="happy" animated={false} size={30} viewBox="12 8 76 76" /></span>
+                  <div className="asx-msg-body"><FileChecks files={messageFiles(message)} /></div>
+                </li>
               )])}
               {mode === 'thinking' && (
                 <li className="asx-msg is-bot">
                   <span className="asx-avatar" aria-hidden="true"><Mascot gear="pro" mood="thinking" animated={false} size={30} viewBox="12 8 76 76" /></span>
-                  {work.work && work.work.steps.length > 1 ? <WorkLive work={work.work} /> : <div className="asx-typing" role="img" aria-label={tr("เลขากระรอกกำลังคิด")}><i /><i /><i /></div>}
+                  {work.work?.heavy ? <WorkLive work={work.work} /> : <div className="asx-typing" role="img" aria-label={tr("เลขากระรอกกำลังคิด")}><i /><i /><i /></div>}
                 </li>
               )}
             </ol>

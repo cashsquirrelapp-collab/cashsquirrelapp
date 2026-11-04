@@ -479,8 +479,11 @@ card does not need:
   still have every row. Text files are never vault attach cards. LINE does not take these files yet.
 
 ### Live steps and the file check (owner, 2026-11-04: "แบบของ Claude หรือ GPT ขึ้นสถานะไว้" / "ขึ้นหน้าแบบว่าเหมือนกำลังเช็คงาน")
-- While เลขา works, the typing dots become a grey bubble: "เลขากระรอกกำลังทำงาน" with the seconds, then each step with a green
-  tick when done and a small turning mark on the current one (`ChatWorkSteps.tsx`, `workSteps.ts`). The device's own steps
+- While เลขา works on something heavy (owner, 2026-11-04: "เวลาถามสั้นๆง่าย ไม่ต้องขึ้นสถานะเรียลไทม์ จะขึ้นก็ต่อเมื่อโดนถาม
+  อะไรยากๆ": files sent, cards being prepared, a web search, a hand-over to prepare entries), the typing dots become the
+  steps, with no box around them ("เอากรอบเทาออก"): "เลขากระรอกกำลังทำงาน" with the seconds, then each step with a green
+  tick when done and a small turning mark on the current one (`ChatWorkSteps.tsx`, `workSteps.ts`). Quick questions keep
+  the dots and fold no steps. The device's own steps
   (reading each file, checking its figures) come first; then the server's (`shared/assistantProgress.ts`: model steps and
   tool names only, never model or vendor names or account data), streamed as JSON lines when the chat sends
   `Accept: application/x-ndjson`. After the answer the list folds above it: "ขั้นตอนที่ทำ N ขั้น · S วิ".
@@ -491,9 +494,11 @@ card does not need:
   ยังไม่ถึงกำหนด / เกินกำหนด, expenses, every row to be saved (jobs, then expenses; four shown, ดูทั้งหมด for the rest), and
   "ตรวจความครบถ้วน": columns the app has no field for (kept in the note), tabs left out and why, rows missing something
   with their fixes as chips, the file's รวม rows compared, before/after withholding. The one primary "บันทึก N รายการ"
-  saves in the chat (owner, 2026-11-04: "ถ้าเขาอยากทำในนี้ก็ให้เขาทำในนี้"), then ดูงานที่บันทึก / ยกเลิกการบันทึกนี้;
-  ตรวจทีละแถว (grey) opens ย้ายข้อมูลเข้าแอป with the file for finer fixes. เลขา gets the figures first and is told never to
-  send the person to another page or to export. An import of the person's own file does not open the overdue radar.
+  saves in the chat (owner, 2026-11-04: "ถ้าเขาอยากทำในนี้ก็ให้เขาทำในนี้"), then ดูงานที่บันทึก / ยกเลิกการบันทึกนี้.
+  The card is เลขา's report, on its side of the chat with its avatar, under the person's file ("ควรจะอยู่ฝั่งของมึงที่เป็น
+  รายงานมึง"); nothing on it leads to the import window ("ไม่ต้องไปโยงเข้าไปในไฟล์ export"). เลขา gets the figures first and is
+  told never to send the person to another page or to export. An import of the person's own file does not open the
+  overdue radar.
 
 ### Import offered to an empty account (owner, 2026-11-04)
 - A friend did not know the import existed. While an account of one's own has no jobs and no expenses, the overview's

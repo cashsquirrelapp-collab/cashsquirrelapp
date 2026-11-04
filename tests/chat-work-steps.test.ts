@@ -24,6 +24,13 @@ test('the steps say what happens: the device reading the files first, then each 
   assert.deepEqual(next.steps.slice(4).map(step => [step.label, step.done, step.count]), [
     ['อ่านไฟล์และวิเคราะห์', true, 1], ['ค้นงานในบัญชี', true, 1], ['เตรียมการ์ดเพิ่มงาน', false, 3]]);
   assert.deepEqual(finishWork(next, 13_500), { steps: next.steps.map(step => ({ label: step.label, count: step.count })), ms: 12_500 });
+  // Steps are shown only for heavy work (owner, 2026-11-04): files, cards being prepared, a web search, a hand-over.
+  assert.equal(work.heavy, true);
+  const quick = addProgress(addProgress(startWork([], 0), { kind: 'model', route: 'chat', round: 0, files: 0, web: false }), { kind: 'tool', name: 'search_jobs' });
+  assert.equal(quick.heavy, false);
+  assert.equal(addProgress(quick, { kind: 'tool', name: 'propose_add_job' }).heavy, true);
+  assert.equal(addProgress(quick, { kind: 'model', route: 'chat', round: 0, files: 0, web: true }).heavy, true);
+  assert.equal(addProgress(quick, { kind: 'model', route: 'action', round: 1, files: 0, web: false }).heavy, true);
   // Without files: the question goes over, then the analysis; a web search and a second look say so.
   assert.equal(startWork([]).steps[0].label, 'ส่งคำถามให้เลขากระรอก');
   assert.equal(progressLabel({ kind: 'model', route: 'chat', round: 0, files: 0, web: false }), 'วิเคราะห์คำถาม');

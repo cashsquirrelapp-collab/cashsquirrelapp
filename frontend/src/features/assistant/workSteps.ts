@@ -9,7 +9,9 @@ import type { PreparedFile } from './voice';
 // answer, folded.
 
 export interface WorkStep { label: string; done: boolean; count: number }
-export interface Work { steps: WorkStep[]; startedAt: number }
+/** heavy: worth showing (owner, 2026-11-04: "เวลาถามสั้นๆง่าย ไม่ต้องขึ้นสถานะเรียลไทม์ จะขึ้นก็ต่อเมื่อโดนถามอะไรยากๆ เช่น
+ *  บันทึกงาน อ่านข้อมูลไฟล์เยอะๆ"): files sent, cards being prepared, a web search, a hand-over to prepare entries. */
+export interface Work { steps: WorkStep[]; startedAt: number; heavy: boolean }
 /** What the answer keeps: the steps and how long it took. */
 export interface FinishedWork { steps: { label: string; count: number }[]; ms: number }
 
@@ -31,6 +33,12 @@ const TOOL_LABELS: Record<string, string> = {
   propose_goal_transaction: T("เตรียมการ์ดเป้าหมายออม"),
 };
 
+/** Tools that make a request worth showing its steps: preparing anything to save, outside facts, longer work on files. */
+const HEAVY_TOOLS = new Set(['web_search', 'accounting_check', 'tax_estimate', 'business_calc', 'cash_forecast', 'collection_draft', 'attach_file', 'note_from_file']);
+export const isHeavyStep = (event: AssistantProgress) => (event.kind === 'tool'
+  ? event.name.startsWith('propose_') || HEAVY_TOOLS.has(event.name)
+  : event.web || (event.route === 'action' && event.round > 0));
+
 /** The words for one step the server reported. */
 export function progressLabel(event: AssistantProgress): string {
   if (event.kind === 'tool') return tr(TOOL_LABELS[event.name] ?? T("ดูข้อมูลในบัญชี"));
@@ -48,15 +56,16 @@ export function startWork(files: PreparedFile[], now = Date.now()): Work {
     return [{ label: read, done: true, count: 1 }, ...(file.check ? [{ label: tr("ตรวจตัวเลขและเทียบยอดกับไฟล์"), done: true, count: 1 }] : [])];
   });
   steps.push({ label: files.length ? tr("ส่งให้เลขากระรอกวิเคราะห์") : tr("ส่งคำถามให้เลขากระรอก"), done: false, count: 1 });
-  return { steps, startedAt: now };
+  return { steps, startedAt: now, heavy: files.length > 0 };
 }
 
 /** One more step: the one before is done; the same step again counts up ("เตรียมการ์ดเพิ่มงาน (3)"). */
 export function addProgress(work: Work, event: AssistantProgress): Work {
   const label = progressLabel(event);
   const last = work.steps.at(-1);
-  if (last && last.label === label) return { ...work, steps: [...work.steps.slice(0, -1), { ...last, count: last.count + (event.kind === 'tool' ? 1 : 0) }] };
-  return { ...work, steps: [...work.steps.map(step => ({ ...step, done: true })), { label, done: false, count: 1 }].slice(-12) };
+  const heavy = work.heavy || isHeavyStep(event);
+  if (last && last.label === label) return { ...work, heavy, steps: [...work.steps.slice(0, -1), { ...last, count: last.count + (event.kind === 'tool' ? 1 : 0) }] };
+  return { ...work, heavy, steps: [...work.steps.map(step => ({ ...step, done: true })), { label, done: false, count: 1 }].slice(-12) };
 }
 
 export function finishWork(work: Work, now = Date.now()): FinishedWork {
@@ -72,11 +81,11 @@ export function useWork() {
     work,
     begin: React.useCallback((files: PreparedFile[]) => set(startWork(files)), [set]),
     progress: React.useCallback((event: AssistantProgress) => { if (ref.current) set(addProgress(ref.current, event)); }, [set]),
-    /** The finished steps for the answer (only when there was more than handing the question over), and clears them. */
+    /** The finished steps for the answer (only for heavy work), and clears them. */
     finish: React.useCallback((): FinishedWork | undefined => {
       const current = ref.current;
       set(null);
-      return current && current.steps.length > 2 ? finishWork(current) : undefined;
+      return current && current.heavy && current.steps.length > 2 ? finishWork(current) : undefined;
     }, [set]),
     clear: React.useCallback(() => set(null), [set]),
   };

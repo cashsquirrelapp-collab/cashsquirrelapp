@@ -5,7 +5,6 @@ import { tr, T } from '../../i18n/tr';
 import { formatCurrency, safeFormatThaiDate } from '../../utils';
 import { Money } from './ChatCards';
 import type { FileCheck } from './fileCheck';
-import { IMPORT_FILE_EVENT } from './importFileEvent';
 import { useImportActions } from '../import/importActions';
 import { buildCommit, startsIncluded } from '../import/importCommit';
 import { analyzeSheet, buildImportPlan, defaultIncluded, planDetails, planTotals, splitSideBySide, type ImportRow, type IssueCode } from '../import/sheetImport';
@@ -17,7 +16,7 @@ import { applyGroupFix, columnsWaiting, issueGroups, quietCounts, sheetReports, 
 // The import's own rules read the file against the account's own rows (importActions.ts), so nothing is saved twice and the
 // figures are what is saved. The card ticks its checks, then shows the totals, every row to be saved, what cannot be saved
 // and why (columns the app has no field for, tabs left out, rows missing something) with a fix where there is one, and
-// บันทึก saves here, the whole batch undoable. ตรวจทีละแถว opens the import window for anything finer.
+// บันทึก saves here, the whole batch undoable. Shown on เลขา's side of the chat as its report (owner, 2026-11-04).
 
 const FIX_WORDS: Partial<Record<GroupFix, string>> = {
   confirm: T("นำเข้าตามที่อ่านได้"), today: T("ใช้วันนี้"), monthStart: T("ใช้วันแรกของเดือน"), monthEnd: T("ใช้วันสิ้นเดือน"),
@@ -112,7 +111,6 @@ export function FileCheckCard({ name, check }: { name: string; check: FileCheck 
   const checking = shown < steps.length;
 
   const update = (next: ChatState) => setState(next);
-  const openImport = () => { if (check.importFile) window.dispatchEvent(new CustomEvent(IMPORT_FILE_EVENT, { detail: { file: check.importFile } })); };
 
   // What to know before saving: questions with their answers first, then what is left out and why.
   const findings: Finding[] = [];
@@ -275,11 +273,9 @@ export function FileCheckCard({ name, check }: { name: string; check: FileCheck 
                 </section>
               )}
 
+              {/* Saved here only (owner, 2026-11-04: "ไม่ต้องไปโยงเข้าไปในไฟล์ export ไอ้นั้นไม่เอา"): no link to the import window. */}
               <div className="asx-rcard-actions">
-                {actions
-                  ? <button type="button" className="asx-pill-btn is-primary" onClick={save} disabled={blocked || !saveCount}>{tr("บันทึก {0} รายการ", saveCount)}</button>
-                  : check.importFile && <button type="button" className="asx-pill-btn is-primary" onClick={openImport}>{tr("ตรวจทีละแถว")}</button>}
-                {actions && check.importFile && <div className="asx-rcard-secondary"><button type="button" className="asx-pill-btn" onClick={openImport}>{tr("ตรวจทีละแถว")}</button></div>}
+                <button type="button" className="asx-pill-btn is-primary" onClick={save} disabled={!actions || blocked || !saveCount}>{tr("บันทึก {0} รายการ", saveCount)}</button>
               </div>
               <p className="asx-card-context">{blocked ? tr("ตอบคำถามในส่วนตรวจความครบถ้วนก่อน แล้วจึงบันทึกได้") : tr("บันทึกในแชตนี้ได้เลย ยกเลิกทั้งชุดได้ภายใน 7 วัน")}</p>
             </div>
