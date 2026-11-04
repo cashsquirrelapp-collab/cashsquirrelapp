@@ -531,8 +531,8 @@ card does not need:
   ดูรายละเอียด (a chevron on phones); rows that leave themselves out (folded into a job, transfers, totals, already in the
   app) are not listed. At the foot: one sentence on what to do, the full-width นำเข้า N รายการ, and แก้ไขแบบตาราง ·
   ตั้งค่าคอลัมน์ · เปลี่ยนกลับ.
-- Every fix is kept so เปลี่ยนกลับ restores what was there. White grouped cards, the user's bubble in cream, เลขา's looped
-  type, chips are pills (quick replies), one orange primary.
+- Every fix is kept so เปลี่ยนกลับ restores what was there. White grouped cards, the user's bubble in cream, the CI type
+  (IBM Plex Sans Thai, `--font-sans`; owner, 2026-11-04: "เอา text CI ดิ"), chips are pills (quick replies), one orange primary.
 - Typing to เลขา (owner's answer, 2026-10-31): free for every account, 10 messages a file, 3 files a day, 6 a minute, no
   Krarok tokens (`backend/src/ai/importChat.ts`, action `import-chat`). It gets the message, the tabs and columns (headers,
   current fields, 3 masked samples) and the problems' counts, never the rows; it answers with a short reply and at most 8

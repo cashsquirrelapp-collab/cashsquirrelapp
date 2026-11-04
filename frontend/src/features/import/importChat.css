@@ -1,17 +1,15 @@
 /* The import as a chat with เลขากระรอก (ImportChat.tsx, owner 2026-10-31). Formal and white like the rest of เลขา: grouped
-   cards, one orange primary, the user's bubble in cream; เลขา's looped type; Thai line-height never under 1.45. Colours
+   cards, one orange primary, the user's bubble in cream; the CI type; Thai line-height never under 1.45. Colours
    come from the app's tokens, so the evening dark mode and Onyx follow. Computers and iPads: a centred window; phones:
    the Modal's sheet from the bottom, full height. */
 
-/* เลขา's type, as in the assistant chat (assistant.css): Apple's Thonburi for Thai on Mac, iPhone and iPad, the system font
-   for English, Noto Sans Thai Looped elsewhere; real weights only. */
-@font-face { font-family: 'Krarok Chat Thai'; src: local('Thonburi'); unicode-range: U+0E00-0E7F; font-weight: 300 500; }
-@font-face { font-family: 'Krarok Chat Thai'; src: local('Thonburi Bold'), local('Thonburi-Bold'); unicode-range: U+0E00-0E7F; font-weight: 600 900; }
+/* The CI type (owner, 2026-11-04: "เอา text CI ดิ"): IBM Plex Sans Thai with IBM Plex Sans for Latin and digits, the app's
+   own --font-sans, on every device; it was เลขา's chat type (Thonburi on Apple devices) before. Real weights only. */
 
 .ic {
   --ic-cream: #FFF1E8; --ic-orange: #E65F2B; --ic-orange-text: #C24A16; --ic-green: #12804F; --ic-warn: #8A5A0B; --ic-warn-bg: #FDF6EC; --ic-group: #F6F5F3;
   display: flex; flex-direction: column; height: min(86vh, 860px); min-height: 0; color: var(--text);
-  font-family: 'Krarok Chat Thai', -apple-system, BlinkMacSystemFont, 'Noto Sans Thai Looped', 'IBM Plex Sans Thai', var(--font-sans);
+  font-family: var(--font-sans);
   line-height: 1.6; font-synthesis: none; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
 }
 .dark .ic { --ic-cream: rgba(255, 164, 115, 0.14); --ic-orange: #F07440; --ic-orange-text: #FFA473; --ic-green: #4ADE80; --ic-warn: #F2B76B; --ic-warn-bg: rgba(242, 183, 107, 0.1); --ic-group: var(--faint); }
