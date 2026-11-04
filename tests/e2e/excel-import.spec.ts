@@ -384,6 +384,8 @@ for (const width of [1280, 390]) {
     const steps = chat.getByTestId('import-steps');
     await expect(steps).toHaveAttribute('data-state', 'live');
     await expect(steps).toContainText('กำลังตรวจไฟล์…');
+    // A step still running says what it does; what it found shows once it ticks.
+    await expect(steps.locator('[data-state="live"] .ic-step-detail')).toHaveCount(0);
     await expect(chat.getByTestId('import-summary')).toHaveCount(0);
     await expect(steps).toHaveAttribute('data-state', 'done', { timeout: 10_000 });
     await expect(chat.getByTestId('import-summary')).toBeVisible();
@@ -403,6 +405,81 @@ for (const width of [1280, 390]) {
         await chat.getByTestId(id).scrollIntoViewIfNeeded();
         await chat.screenshot({ path: `${process.env.SHOT_DIR}/import-${id}-${width}.png` });
       }
+    }
+  });
+}
+
+// A recorded walk-through for the owner (2026-11-04: "ขอพรีวิวหน่อยถ้าสมมติโยนไฟล์ไปมันจะเป็นยังไง"): PREVIEW_DIR=… records
+// the drop, the live check, the cards, answering, importing; skipped in normal runs. Sample data only.
+for (const size of [{ name: 'computer', width: 1280, height: 820 }, { name: 'phone', width: 390, height: 844 }]) {
+  test(`preview walk-through (${size.name})`, async ({ browser }, testInfo) => {
+    test.skip(!process.env.PREVIEW_DIR, 'preview only');
+    test.setTimeout(90_000);
+    const dir = process.env.PREVIEW_DIR!;
+    const context = await browser.newContext({
+      baseURL: testInfo.project.use.baseURL, serviceWorkers: 'block', viewport: { width: size.width, height: size.height },
+      deviceScaleFactor: size.width < 744 ? 2 : 1,
+    });
+    const page = await context.newPage();
+    // Frames for scripts/tutorial/line/encode.swift (this Mac has no ffmpeg): screenshots as fast as they come, then laid
+    // out at 20 frames a second by the time each was taken.
+    const { mkdirSync, copyFileSync } = await import('node:fs');
+    const raw = `${dir}/${size.name}-raw`, frames = `${dir}/${size.name}-frames`;
+    mkdirSync(raw, { recursive: true }); mkdirSync(frames, { recursive: true });
+    const taken: { t: number; file: string }[] = [];
+    let recording = false;
+    let started = 0;
+    let recorder: Promise<void> = Promise.resolve();
+    const record = () => {
+      recording = true; started = Date.now();
+      recorder = (async () => {
+        for (let n = 0; recording; n++) {
+          const file = `${raw}/${String(n).padStart(5, '0')}.jpg`;
+          try { await page.screenshot({ path: file, type: 'jpeg', quality: 85 }); taken.push({ t: Date.now() - started, file }); } catch { break; }
+        }
+      })();
+    };
+    await open(page, size.width, '/jobs');
+    await page.setViewportSize({ width: size.width, height: size.height });
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    const pause = (ms: number) => page.waitForTimeout(ms);
+    const shot = (name: string) => page.screenshot({ path: `${dir}/${size.name}-${name}.png` });
+    await pause(800);
+    if (size.width < 744) await page.getByRole('button', { name: 'ตัวกรองและเครื่องมืองาน' }).click();
+    await page.getByTestId(size.width < 744 ? 'jobs-import-button-phone' : 'jobs-import-button').click();
+    const chat = page.getByTestId('import-wizard');
+    const scroller = chat.locator('.ic-scroll');
+    await pause(900);
+    record();
+    await pause(1400);
+    await shot('1-start');
+    await chat.locator('#import-sheet-file').setInputFiles({ name: 'งานของฉัน.xlsx', mimeType: XLSX_TYPE, buffer: sheetFile() });
+    const steps = chat.getByTestId('import-steps');
+    await expect(steps).toHaveAttribute('data-state', 'live');
+    await pause(900);
+    await shot('2-checking');
+    await expect(steps).toHaveAttribute('data-state', 'done', { timeout: 15_000 });
+    await pause(1200);
+    await shot('3-result');
+    // Read down through the cards slowly.
+    for (let i = 0; i < 6; i++) { await scroller.evaluate(el => el.scrollBy({ top: 170, behavior: 'smooth' })); await pause(650); }
+    await shot('4-questions');
+    await chat.getByRole('radio', { name: 'ยอดเต็มก่อนหัก' }).click();
+    await pause(1200);
+    await chat.getByTestId('import-next').scrollIntoViewIfNeeded();
+    await pause(1200);
+    await shot('5-next');
+    await chat.getByTestId('import-commit').click();
+    await expect(chat.getByTestId('import-save-state')).toHaveAttribute('data-state', 'saved');
+    await pause(1800);
+    await shot('6-done');
+    recording = false;
+    await recorder;
+    await context.close();
+    const fps = 20, total = taken.at(-1)!.t;
+    for (let k = 0, at = 0; k * 1000 / fps <= total; k++) {
+      while (at + 1 < taken.length && taken[at + 1].t <= k * 1000 / fps) at++;
+      copyFileSync(taken[at].file, `${frames}/${String(k).padStart(5, '0')}.jpg`);
     }
   });
 }

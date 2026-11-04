@@ -35,7 +35,7 @@ export function ImportSteps({ steps, done }: { steps: ImportStep[]; done: number
         return (
           <li key={step.key} className={live ? 'is-live' : 'is-done'} data-testid="import-step" data-state={live ? 'live' : 'done'}>
             <span className="ic-step-mark" aria-hidden="true">{live ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}</span>
-            <span className="min-w-0"><span className="ic-step-label">{step.label}</span>{step.detail && <span className="ic-step-detail">{step.detail}</span>}</span>
+            <span className="min-w-0"><span className="ic-step-label">{step.label}</span>{!live && step.detail && <span className="ic-step-detail">{step.detail}</span>}</span>
           </li>
         );
       })}
