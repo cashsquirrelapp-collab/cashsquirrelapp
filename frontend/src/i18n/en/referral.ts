@@ -42,4 +42,5 @@ export const referral: Record<string, string> = {
   'กรุณากรอกโค้ดแนะนำ': 'Please enter a referral code',
   'กรุณาโหลดหน้าใหม่แล้วลองอีกครั้ง': 'Please reload the page and try again',
   'กรุณายืนยันอีเมลก่อนกรอกโค้ด': 'Please confirm your email before entering a code',
+  'กรอกโค้ดหลายครั้งเกินไป เพื่อความปลอดภัย กรุณาลองใหม่ในวันพรุ่งนี้': 'Too many tries. For safety, please try again tomorrow',
 };

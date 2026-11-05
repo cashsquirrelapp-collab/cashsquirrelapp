@@ -65,11 +65,21 @@ export async function entriesFor(referrerId: string): Promise<ReferralEntry[]> {
   return (await entryRowsFor(referrerId)).map(row => row.entry).filter((entry): entry is ReferralEntry => Boolean(entry));
 }
 
-/** The owner's own code has no limit of people (it goes into the clips); every other code takes 5. */
-export async function codeLimit(referrerId: string): Promise<number | null> {
+/**
+ * The account behind a code. A code counts only for a real, live account (owner, 2026-11-05: "ถ้าไม่ใช่โค้ดที่เป็นมีบัญชี
+ * จริงๆ ห้ามได้เด็ดขาด"): it exists, its email is confirmed, it is not banned, paused or deleted. The owner's own code has
+ * no limit of people (it goes into the clips); every other code takes 5.
+ */
+export async function codeAccount(referrerId: string): Promise<{ live: boolean; limit: number | null }> {
   const { data, error } = await getSupabaseAdmin().auth.admin.getUserById(referrerId);
-  if (error) throw error;
-  return data.user && isOwnerAccount(data.user) ? null : REFERRAL_PER_PERSON;
+  if (error && (error as { status?: number }).status !== 404) throw error;
+  const user = data?.user;
+  const banned = Boolean(user?.banned_until && Date.parse(user.banned_until) > Date.now());
+  const live = Boolean(user && user.email_confirmed_at && !banned && !user.deleted_at && user.app_metadata?.account_paused !== true);
+  return { live, limit: user && isOwnerAccount(user) ? null : REFERRAL_PER_PERSON };
+}
+export async function codeLimit(referrerId: string): Promise<number | null> {
+  return (await codeAccount(referrerId)).limit;
 }
 
 /** How many have entered this account's code (waiting entries from the first round included). */
@@ -121,14 +131,18 @@ export async function finishWaiting(userId: string, entry: ReferralEntry, now = 
 export async function enterCode(input: { userId: string; code: string; deviceHash: string; entered: ReferralEntry | null }, now = new Date()): Promise<ReferralEntry> {
   const code = normalizeCode(input.code);
   if (input.entered) throw new HttpError(409, 'บัญชีนี้กรอกโค้ดไปแล้ว', 'referral_entered');
+  const unknown = () => new HttpError(404, 'ไม่พบโค้ดนี้ กรุณาตรวจอีกครั้ง', 'referral_unknown');
   const referrerId = await referrerOf(code);
-  if (!referrerId) throw new HttpError(404, 'ไม่พบโค้ดนี้ กรุณาตรวจอีกครั้ง', 'referral_unknown');
+  if (!referrerId) throw unknown();
   if (referrerId === input.userId) throw new HttpError(400, 'กรอกโค้ดของตัวเองไม่ได้', 'referral_self');
+  // A code of an account that is not real and live is answered exactly as one that does not exist.
+  const account = await codeAccount(referrerId);
+  if (!account.live) throw unknown();
   if (await deviceUsed(input.deviceHash) || await referrerUsedDevice(referrerId, input.deviceHash)) {
     throw new HttpError(409, 'เครื่องนี้ใช้กรอกโค้ดไปแล้ว', 'referral_device');
   }
   if ((await allRewards()).length >= REFERRAL_TOTAL) throw new HttpError(409, `แคมเปญครบ ${REFERRAL_TOTAL} สิทธิ์แล้ว`, 'referral_full');
-  const limit = await codeLimit(referrerId);
+  const limit = account.limit;
   const full = () => new HttpError(409, `โค้ดนี้มีคนใช้ครบ ${limit} คนแล้ว`, 'referral_referrer_full');
   if (limit !== null && rankEntries(await entryRowsFor(referrerId)).length >= limit) throw full();
   const entry: ReferralEntry = { code, referrerId, at: now.toISOString(), device: input.deviceHash, status: 'pending' };

@@ -3,6 +3,7 @@ import { HttpError, withGuard } from '../http/guard.js';
 import { getSupabaseAdmin } from '../config/supabase.js';
 import { allRewards, codeLimit, deviceHash, enterCode, finishWaiting, loadReferral, rememberDevice, usedCount } from '../repositories/referral.js';
 import { rateLimit } from '../security/rateLimit.js';
+import { clientIp } from '../security/ingress.js';
 import { requireUser } from '../security/session.js';
 import { canEnterCode, REFERRAL_TOKENS, REFERRAL_TOTAL, type ReferralEntry, type ReferralStatus } from '../../../shared/referral.js';
 
@@ -11,6 +12,27 @@ import { canEnterCode, REFERRAL_TOKENS, REFERRAL_TOTAL, type ReferralEntry, type
 // code; the 200 tokens are given at once. The device's own random id comes in X-Device-ID; only its hash is kept.
 
 const enterSchema = z.object({ code: z.string().min(3).max(24) }).strict();
+
+/**
+ * No guessing codes (owner, 2026-11-05: "เครื่องมือสุ่มรหัสหลายๆรอบเพื่อที่จะให้มันได้โทเค็นฟรี ... ห้ามได้เด็ดขาด"). Every
+ * try counts, right or wrong: 5 a day for an account, 5 a day for a device, 30 an hour for an internet address. A person
+ * enters a code once or twice; a guessing tool is stopped long before it could find one of about a trillion codes.
+ */
+export const TRY_LIMITS = [
+  { scope: 'referral-try-account', limit: 5, seconds: 86_400 },
+  { scope: 'referral-try-device', limit: 5, seconds: 86_400 },
+  { scope: 'referral-try-ip', limit: 30, seconds: 3_600 },
+] as const;
+async function countTry(identities: [string, string, string]): Promise<void> {
+  try {
+    for (const [i, rule] of TRY_LIMITS.entries()) await rateLimit(rule.scope, identities[i], rule.limit, rule.seconds);
+  } catch (error) {
+    if ((error as { status?: number }).status === 429) {
+      throw new HttpError(429, 'กรอกโค้ดหลายครั้งเกินไป เพื่อความปลอดภัย กรุณาลองใหม่ในวันพรุ่งนี้', 'referral_locked');
+    }
+    throw error;
+  }
+}
 const DEVICE = /^[A-Za-z0-9-]{16,64}$/;
 
 async function publicId(userId: string): Promise<string | null> {
@@ -47,6 +69,8 @@ export default withGuard(async (req, res) => {
   if (!parsed.success) throw new HttpError(400, 'กรุณากรอกโค้ดแนะนำ', 'referral_invalid');
   if (!hash) throw new HttpError(400, 'กรุณาโหลดหน้าใหม่แล้วลองอีกครั้ง', 'referral_device_missing');
   if (!canEnterCode(user)) throw new HttpError(403, 'กรุณายืนยันอีเมลก่อนกรอกโค้ด', 'referral_email');
+  if (entry) throw new HttpError(409, 'บัญชีนี้กรอกโค้ดไปแล้ว', 'referral_entered');
+  await countTry([user.id, hash, clientIp(req)]);
   const saved = await enterCode({ userId: user.id, code: parsed.data.code, deviceHash: hash, entered: entry });
   res.json(await status(user, saved));
 }, { csrf: true });

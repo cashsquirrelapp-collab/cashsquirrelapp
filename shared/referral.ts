@@ -4,6 +4,8 @@
 // one friend's code, once, and gets 200 Krarok Tokens (a token grant) at once; the friend gets nothing, the gift is what
 // they pass on. One code is entered by 5 people (the owner's own code has no limit, it goes into the clips), 100 rewards in
 // the whole campaign. One device enters a code once, and never the code of an account that has used that device.
+// No guessing ("เครื่องมือสุ่มรหัส ... ห้ามได้เด็ดขาด"): every try counts, 5 a day per account and per device, 30 an hour
+// per internet address (backend/src/handlers/referral.ts), and a code counts only for a real, live account.
 // The first round (until 2026-11-05 16:xx) gave the tokens to the one who invited, 2 people a code: entries from it that
 // were still waiting are finished the new way (the one who entered gets the tokens).
 
