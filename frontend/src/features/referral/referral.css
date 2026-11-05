@@ -50,6 +50,9 @@
   background: #fff; color: #1C1917; font: inherit; font-size: 17px; font-weight: 600; letter-spacing: 0.06em; text-align: center; }
 .dark .ref-enter input { border-color: rgba(255, 255, 255, 0.16); background: #2A2B30; color: #F2F0ED; }
 .ref-enter input:focus { outline: 2px solid #E65F2B; outline-offset: 1px; }
+/* The shape of a code, as a faint hint in the empty field. */
+.ref-enter input::placeholder { color: #C9C4BE; font-weight: 500; letter-spacing: 0.06em; opacity: 1; }
+.dark .ref-enter input::placeholder { color: #6B6862; }
 .ref-enter button { flex: none; min-height: 48px; padding: 0 20px; border: 0; border-radius: 12px; background: #E65F2B; color: #fff; font: inherit; font-size: 15px;
   font-weight: 600; line-height: 1.45; white-space: nowrap; cursor: pointer; }
 .ref-enter button:disabled { cursor: not-allowed; opacity: 0.5; }

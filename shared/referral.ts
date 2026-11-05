@@ -30,7 +30,18 @@ export interface ReferralEntry {
 }
 
 const CODE = /^SQ-[0-9A-F]{10}$/;
-export const normalizeCode = (text: string) => text.trim().toUpperCase().replace(/\s+/g, '');
+/**
+ * The code in whatever was typed or pasted (owner, 2026-11-05: pasting over a field that already said "SQ-" made
+ * "SQ-SQ-…"): spaces dropped, upper case, the first SQ code found (with or without its dash, even inside other words),
+ * or the 10 characters alone with SQ- put in front.
+ */
+export function normalizeCode(text: string): string {
+  const flat = text.toUpperCase().replace(/\s+/g, '');
+  const found = /SQ-?([0-9A-F]{10})(?![0-9A-F])/.exec(flat);
+  if (found) return `SQ-${found[1]}`;
+  if (/^[0-9A-F]{10}$/.test(flat)) return `SQ-${flat}`;
+  return flat;
+}
 export const isReferralCode = (text: string) => CODE.test(normalizeCode(text));
 
 export function readEntry(value: unknown): ReferralEntry | null {

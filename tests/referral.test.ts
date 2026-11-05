@@ -69,6 +69,12 @@ const codeOf = (error: unknown) => (error as { code?: string }).code;
 
 test('codes and who may enter: SQ codes only; any account with a confirmed email', () => {
   assert.equal(normalizeCode(' sq-8f2a41c9da '), 'SQ-8F2A41C9DA');
+  // Pasted over a field that already said SQ-, without its prefix, with spaces, or inside a message: the code itself.
+  for (const typed of ['SQ-SQ-8F2A41C9DA', 'sq-sq-8f2a41c9da', '8f2a41c9da', 'SQ8F2A41C9DA', 'SQ- 8F2A 41C9 DA', 'กรอกโค้ด SQ-8F2A41C9DA รับ 200 โทเคน']) {
+    assert.equal(normalizeCode(typed), 'SQ-8F2A41C9DA', typed);
+    assert.equal(isReferralCode(typed), true, typed);
+  }
+  for (const bad of ['SQ-', 'SQ-8F2A41C9D', 'SQ-8F2A41C9DA1']) assert.equal(isReferralCode(bad), false, bad);
   assert.equal(isReferralCode('sq-8f2a41c9da'), true);
   assert.equal(isReferralCode('SQ-8F2K41C9DA'), false, 'public IDs are hex');
   for (const bad of ['', 'SQ-123', 'XX-8F2K41C9DA', 'SQ-8F2K41C9DAX']) assert.equal(isReferralCode(bad), false, bad);

@@ -2,7 +2,7 @@ import React from 'react';
 import { ChevronRight, Copy, Gift, X } from 'lucide-react';
 import { tr } from '../../i18n/tr';
 import { Mascot } from '../../components/mascot/Mascot';
-import type { ReferralStatus } from '../../../../shared/referral';
+import { isReferralCode, normalizeCode, type ReferralStatus } from '../../../../shared/referral';
 import './referral.css';
 
 // ใส่โค้ด รับ 200 โทเคน, แนะนำเพื่อนร่วมอาชีพ (owner, 2026-11-05; shared/referral.ts). Small buttons, not a card ("ทำเป็นปุ่ม
@@ -42,7 +42,8 @@ export function ReferralDialog({ status, phone, busy, initial, view: firstView, 
   onCopy: () => void; onEnter: (code: string) => Promise<boolean>; onChat: () => void; onClose: () => void;
 }) {
   const [view, setView] = React.useState<ReferralView | 'done'>(firstView);
-  const [code, setCode] = React.useState(initial || 'SQ-');
+  // Empty, with the shape of a code as its hint (owner: "ตัด SQ ออก ... เป็นเงาพื้นหลัง"); a pasted code is cleaned at once.
+  const [code, setCode] = React.useState(initial ? normalizeCode(initial) : '');
   const dialogRef = React.useRef<HTMLElement>(null);
   React.useEffect(() => {
     dialogRef.current?.focus({ preventScroll: true });
@@ -69,9 +70,10 @@ export function ReferralDialog({ status, phone, busy, initial, view: firstView, 
           <h2 id="ref-dialog-title">{tr("ใส่โค้ด รับ {0} โทเคน", status.tokens)}</h2>
           <p className="ref-scarce">{tr("ใช้งานเอเจนต์เลขากระรอกฟรี · กรอกได้ครั้งเดียว")}</p>
           <form className="ref-enter" data-testid="referral-entry" onSubmit={event => { void submit(event); }}>
-            <input value={code} onChange={event => setCode(event.target.value.toUpperCase())} aria-label={tr("โค้ดแนะนำ")} maxLength={20}
-              autoCapitalize="characters" autoComplete="off" spellCheck={false} data-testid="referral-input" />
-            <button type="submit" disabled={busy || code.replace(/[^0-9A-Z]/gi, '').length < 12} data-testid="referral-submit">
+            <input value={code} onChange={event => setCode(event.target.value.toUpperCase())} aria-label={tr("โค้ดแนะนำ")} maxLength={40}
+              onPaste={event => { const text = event.clipboardData.getData('text'); if (text) { event.preventDefault(); setCode(normalizeCode(text)); } }}
+              placeholder="SQ-XXXXXXXXXX" autoCapitalize="characters" autoComplete="off" spellCheck={false} data-testid="referral-input" />
+            <button type="submit" disabled={busy || !isReferralCode(code)} data-testid="referral-submit">
               {busy ? tr("กำลังตรวจโค้ด…") : tr("รับโทเคน")}
             </button>
           </form>

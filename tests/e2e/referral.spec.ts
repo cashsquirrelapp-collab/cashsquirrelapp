@@ -72,6 +72,11 @@ for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'l
     await expect(dialog).toHaveAttribute('data-view', 'enter');
     await expect(dialog.getByRole('heading')).toHaveText('ใส่โค้ด รับ 200 โทเคน');
     await expect(dialog).toContainText('แคมเปญเหลือ 63 สิทธิ์');
+    // Empty, with the shape of a code as a faint hint; nothing to delete before pasting.
+    await expect(page.getByTestId('referral-input')).toHaveValue('');
+    await expect(page.getByTestId('referral-input')).toHaveAttribute('placeholder', 'SQ-XXXXXXXXXX');
+    await expect(page.getByTestId('referral-submit')).toBeDisabled();
+    await page.screenshot({ path: `test-results/referral-${device.name}-empty.png` });
     await page.getByTestId('referral-input').fill('sq-1111ab22cd');
     expect(await textOverlapIssues(page)).toEqual([]);
     await page.screenshot({ path: `test-results/referral-${device.name}-enter.png` });
@@ -155,6 +160,21 @@ test('from a shared link: the window opens once with the friend\'s code in it', 
   await expect(page.getByTestId('referral-input')).toHaveValue('SQ-1111AB22CD');
   await page.getByTestId('referral-submit').click();
   await expect(dialog).toHaveAttribute('data-view', 'done');
+  expect(mock.posts).toEqual([{ code: 'SQ-1111AB22CD' }]);
+});
+
+test('a pasted code is cleaned: no doubled SQ-, and the 10 characters alone are enough', async ({ page }) => {
+  const mock = await open(page, { canEnter: true });
+  await page.getByTestId('referral-button').click();
+  const input = page.getByTestId('referral-input');
+  await input.focus();
+  await page.evaluate(() => navigator.clipboard.writeText('กรอกโค้ด SQ-1111AB22CD รับ 200 โทเคน'));
+  await page.keyboard.press('ControlOrMeta+V');
+  await expect(input).toHaveValue('SQ-1111AB22CD');
+  await input.fill('1111ab22cd');
+  await expect(page.getByTestId('referral-submit')).toBeEnabled();
+  await page.getByTestId('referral-submit').click();
+  await expect(page.getByTestId('referral-dialog')).toHaveAttribute('data-view', 'done');
   expect(mock.posts).toEqual([{ code: 'SQ-1111AB22CD' }]);
 });
 
