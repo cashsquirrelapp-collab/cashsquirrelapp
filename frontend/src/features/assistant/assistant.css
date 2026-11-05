@@ -1630,5 +1630,5 @@ button.asx-party-tile:hover:not(:disabled) .asx-party-copy strong { color: var(-
 .dark .asx-file-notice.is-quiet { background: transparent; color: var(--muted); }
 .asx-file-notice.is-quiet > svg { margin-top: 0; color: var(--muted); }
 .asx.is-mobile .asx-file-notice { margin: 0 10px 8px; }
-/* ชวนเพื่อน รับ 200 โทเคน in the Pro box (shared/referral.ts). */
+/* ใส่โค้ด รับ 200 โทเคน in the Pro box (shared/referral.ts). */
 .asx-upsell-gift { margin-top: 8px; font-size: 13px; font-weight: 600; line-height: 1.55; color: var(--asx-accent-text, #C24A16); }

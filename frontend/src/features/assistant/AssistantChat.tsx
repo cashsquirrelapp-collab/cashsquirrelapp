@@ -59,7 +59,7 @@ type Props = {
   /** The real notification settings. */
   onOpenNotifications: () => void;
   onUpgrade: () => void;
-  /** ชวนเพื่อน รับ 200 โทเคน (shared/referral.ts): offered first to an account without Pro, opening its code. */
+  /** ใส่โค้ด รับ 200 โทเคน (shared/referral.ts): offered first to an account without Pro that may still enter a code. */
   referral?: { tokens: number; onOpen: () => void } | null;
   /** Open a page of the app from a link or card in an answer. */
   /** carry: computers and iPads, the chat to go on in the floating window on the page opened (owner, 2026-10-28). */
@@ -1241,12 +1241,12 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                       {SUGGESTIONS.map(({ label, ask }) => <button key={label} type="button" onClick={() => send(tr(ask), true)}>{tr(label)}</button>)}
                     </div>
                     {gate === 'pro' && referral && (
-                      <p className="asx-upsell-gift" data-testid="chat-referral">{tr("ชวนเพื่อน 1 คน รับ {0} โทเคน ใช้คุยกับเลขาได้โดยไม่ต้องเป็น Pro", referral.tokens)}</p>
+                      <p className="asx-upsell-gift" data-testid="chat-referral">{tr("มีโค้ดแนะนำ ใส่โค้ดรับ {0} โทเคน ใช้คุยกับเลขาได้โดยไม่ต้องเป็น Pro", referral.tokens)}</p>
                     )}
                     <div className="asx-upsell-actions">
                       {gate === 'pro' && referral
                         ? <>
-                          <button type="button" className="asx-pill-btn is-primary" onClick={referral.onOpen} data-testid="chat-referral-open">{tr("ดูโค้ดชวนเพื่อน")}</button>
+                          <button type="button" className="asx-pill-btn is-primary" onClick={referral.onOpen} data-testid="chat-referral-open">{tr("ใส่โค้ด")}</button>
                           <button type="button" className="asx-pill-btn" onClick={onUpgrade}>{tr("ดูแพ็กเกจ Pro")}</button>
                         </>
                         : <button type="button" className="asx-pill-btn is-primary" onClick={onUpgrade}>{tr("ดูแพ็กเกจ Pro")}</button>}
@@ -1258,8 +1258,8 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
               {gate === 'pro' && !upsell && referral && (
                 <p className="asx-notice is-try is-gift" role="status" data-testid="chat-referral">
                   <Gift size={14} />
-                  {tr("ชวนเพื่อน 1 คน รับ {0} โทเคน ใช้เลขาได้โดยไม่ต้องเป็น Pro", referral.tokens)}
-                  <button type="button" className="asx-link-btn" onClick={referral.onOpen} data-testid="chat-referral-open">{tr("ดูโค้ดของคุณ")}</button>
+                  {tr("มีโค้ดแนะนำ รับ {0} โทเคน ใช้เลขาได้โดยไม่ต้องเป็น Pro", referral.tokens)}
+                  <button type="button" className="asx-link-btn" onClick={referral.onOpen} data-testid="chat-referral-open">{tr("ใส่โค้ด")}</button>
                 </p>
               )}
               {gate && !upsell && !(gate === 'pro' && referral) && (

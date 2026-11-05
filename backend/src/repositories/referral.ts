@@ -3,12 +3,13 @@ import { getSupabaseAdmin } from '../config/supabase.js';
 import { patchPrivate } from './accounts.js';
 import { addTokenGrant } from './tokenGrants.js';
 import { HttpError } from '../http/guard.js';
+import { isOwnerAccount } from '../security/adminAnalyticsAccess.js';
 import { normalizeCode, rankEntries, rankRewards, readEntry, REFERRAL_PER_PERSON, REFERRAL_TOKENS, REFERRAL_TOTAL, type ReferralEntry } from '../../../shared/referral.js';
 
-// ชวนเพื่อน รับ 200 โทเคน (shared/referral.ts), kept in cashflow_private_state, a table only server code reads or writes:
+// ใส่โค้ด รับ 200 โทเคน (shared/referral.ts), kept in cashflow_private_state, a table only server code reads or writes:
 // the code an account entered under referral, the devices an account has used under referralDevices (hashes, at most 5).
-// No new table, so no SQL to run. The limits hold without a lock: a reward is written, then every reward is read back and
-// ranked; one past the friend's 10 or the campaign's 100 is turned back at once, before any token is given.
+// No new table, so no SQL to run. The limits hold without a lock: an entry is written, then every entry is read back and
+// ranked; one past the code's 5 or the campaign's 100 is turned back at once, before any token is given.
 
 const MAX_DEVICES = 5;
 export const deviceHash = (deviceId: string) => createHash('sha256').update(`krarok-referral:${deviceId}`).digest('hex');
@@ -64,50 +65,59 @@ export async function entriesFor(referrerId: string): Promise<ReferralEntry[]> {
   return (await entryRowsFor(referrerId)).map(row => row.entry).filter((entry): entry is ReferralEntry => Boolean(entry));
 }
 
-/** Whether this account has recorded at least one job or expense of its own. */
-export async function hasFirstRecord(userId: string): Promise<boolean> {
-  for (const table of ['cashflow_jobs', 'cashflow_expenses'] as const) {
-    const { count, error } = await getSupabaseAdmin().from(table).select('id', { count: 'exact', head: true }).eq('user_id', userId);
-    if (error) throw error;
-    if ((count ?? 0) > 0) return true;
-  }
-  return false;
+/** The owner's own code has no limit of people (it goes into the clips); every other code takes 5. */
+export async function codeLimit(referrerId: string): Promise<number | null> {
+  const { data, error } = await getSupabaseAdmin().auth.admin.getUserById(referrerId);
+  if (error) throw error;
+  return data.user && isOwnerAccount(data.user) ? null : REFERRAL_PER_PERSON;
+}
+
+/** How many have entered this account's code (waiting entries from the first round included). */
+export async function usedCount(referrerId: string): Promise<number> {
+  return rankEntries(await entryRowsFor(referrerId)).length;
 }
 
 /**
- * Gives the friend its 200 tokens once this account (who entered the code) has its first record, while the friend has
- * fewer than 10 rewards and the campaign fewer than 100. Returns the entry as it stands afterwards.
+ * Gives this account (who entered the code) its 200 tokens, while the campaign has fewer than 100 rewards. The entry is
+ * written as rewarded first and ranked against every other reward; one past the 100th is turned back before any token.
+ * The grant's id is made from this account, so a retry never gives twice; if it cannot be written, the entry goes back to
+ * what it was and the error is the caller's.
  */
-export async function rewardIfReady(userId: string, entry: ReferralEntry, now = new Date()): Promise<ReferralEntry> {
-  if (entry.status !== 'pending' || !(await hasFirstRecord(userId))) return entry;
-  const before = await allRewards();
-  const refuse = async (reason: NonNullable<ReferralEntry['reason']>) => {
-    const refused: ReferralEntry = { ...entry, status: 'refused', reason };
-    await patchPrivate(userId, { referral: refused });
-    return refused;
-  };
-  if (before.length >= REFERRAL_TOTAL) return refuse('campaign_full');
-  if (before.filter(r => r.referrerId === entry.referrerId).length >= REFERRAL_PER_PERSON) return refuse('referrer_full');
+async function reward(userId: string, entry: ReferralEntry, before: ReferralEntry | null, now: Date): Promise<ReferralEntry> {
   const rewarded: ReferralEntry = { ...entry, status: 'rewarded', rewardedAt: now.toISOString() };
   await patchPrivate(userId, { referral: rewarded });
-  // Two rewards at the same moment for the last place: the ranking decides, the same for every reader.
-  const after = await allRewards();
-  const place = after.findIndex(r => r.userId === userId);
-  const friendPlace = after.filter(r => r.referrerId === entry.referrerId).findIndex(r => r.userId === userId);
-  if (place < 0 || place >= REFERRAL_TOTAL) return refuse('campaign_full');
-  if (friendPlace >= REFERRAL_PER_PERSON) return refuse('referrer_full');
-  // The grant's id is made from this account, so a retry never gives twice. If it cannot be written, the entry goes back
-  // to waiting and the next look tries again.
+  const undo = () => (before ? patchPrivate(userId, { referral: before }) : patchPrivate(userId, {}, ['referral'])).catch(() => undefined);
+  const place = (await allRewards()).findIndex(r => r.userId === userId);
+  if (place < 0 || place >= REFERRAL_TOTAL) {
+    await undo();
+    throw new HttpError(409, `แคมเปญครบ ${REFERRAL_TOTAL} สิทธิ์แล้ว`, 'referral_full');
+  }
   try {
-    await addTokenGrant(entry.referrerId, { id: `referral-${userId.replace(/-/g, '')}`, tokens: REFERRAL_TOKENS, at: rewarded.rewardedAt!, note: 'ชวนเพื่อน' });
+    await addTokenGrant(userId, { id: `referral-${userId.replace(/-/g, '')}`, tokens: REFERRAL_TOKENS, at: rewarded.rewardedAt!, note: 'ใส่โค้ดเพื่อน' });
   } catch (error) {
-    await patchPrivate(userId, { referral: entry }).catch(() => undefined);
+    await undo();
     throw error;
   }
   return rewarded;
 }
 
-/** Enters a friend's code for this account, after every check; 4xx with a code the app words. */
+/** An entry from the first round that was still waiting for a first record: finished the new way. */
+export async function finishWaiting(userId: string, entry: ReferralEntry, now = new Date()): Promise<ReferralEntry> {
+  if (entry.status !== 'pending') return entry;
+  if ((await allRewards()).length >= REFERRAL_TOTAL) {
+    const refused: ReferralEntry = { ...entry, status: 'refused', reason: 'campaign_full' };
+    await patchPrivate(userId, { referral: refused });
+    return refused;
+  }
+  return reward(userId, entry, entry, now).catch(async error => {
+    if ((error as { code?: string }).code !== 'referral_full') throw error;
+    const refused: ReferralEntry = { ...entry, status: 'refused', reason: 'campaign_full' };
+    await patchPrivate(userId, { referral: refused });
+    return refused;
+  });
+}
+
+/** Enters a friend's code for this account, after every check, and gives it 200 tokens at once; 4xx with a code the app words. */
 export async function enterCode(input: { userId: string; code: string; deviceHash: string; entered: ReferralEntry | null }, now = new Date()): Promise<ReferralEntry> {
   const code = normalizeCode(input.code);
   if (input.entered) throw new HttpError(409, 'บัญชีนี้กรอกโค้ดไปแล้ว', 'referral_entered');
@@ -115,18 +125,21 @@ export async function enterCode(input: { userId: string; code: string; deviceHas
   if (!referrerId) throw new HttpError(404, 'ไม่พบโค้ดนี้ กรุณาตรวจอีกครั้ง', 'referral_unknown');
   if (referrerId === input.userId) throw new HttpError(400, 'กรอกโค้ดของตัวเองไม่ได้', 'referral_self');
   if (await deviceUsed(input.deviceHash) || await referrerUsedDevice(referrerId, input.deviceHash)) {
-    throw new HttpError(409, 'เครื่องนี้ใช้กรอกโค้ดชวนเพื่อนไปแล้ว', 'referral_device');
+    throw new HttpError(409, 'เครื่องนี้ใช้กรอกโค้ดไปแล้ว', 'referral_device');
   }
-  if ((await allRewards()).length >= REFERRAL_TOTAL) throw new HttpError(409, 'แคมเปญชวนเพื่อนครบ 100 สิทธิ์แล้ว', 'referral_full');
-  const full = () => new HttpError(409, `โค้ดนี้มีคนใช้ครบ ${REFERRAL_PER_PERSON} คนแล้ว`, 'referral_referrer_full');
-  if (rankEntries(await entryRowsFor(referrerId)).length >= REFERRAL_PER_PERSON) throw full();
+  if ((await allRewards()).length >= REFERRAL_TOTAL) throw new HttpError(409, `แคมเปญครบ ${REFERRAL_TOTAL} สิทธิ์แล้ว`, 'referral_full');
+  const limit = await codeLimit(referrerId);
+  const full = () => new HttpError(409, `โค้ดนี้มีคนใช้ครบ ${limit} คนแล้ว`, 'referral_referrer_full');
+  if (limit !== null && rankEntries(await entryRowsFor(referrerId)).length >= limit) throw full();
   const entry: ReferralEntry = { code, referrerId, at: now.toISOString(), device: input.deviceHash, status: 'pending' };
   await patchPrivate(input.userId, { referral: entry });
   // Two people entering the same code for its last place at once: the ranking decides, the same for every reader.
-  const place = rankEntries(await entryRowsFor(referrerId)).findIndex(e => e.userId === input.userId);
-  if (place < 0 || place >= REFERRAL_PER_PERSON) {
-    await patchPrivate(input.userId, {}, ['referral']);
-    throw full();
+  if (limit !== null) {
+    const place = rankEntries(await entryRowsFor(referrerId)).findIndex(e => e.userId === input.userId);
+    if (place < 0 || place >= limit) {
+      await patchPrivate(input.userId, {}, ['referral']);
+      throw full();
+    }
   }
-  return rewardIfReady(input.userId, entry, now);
+  return reward(input.userId, entry, null, now);
 }

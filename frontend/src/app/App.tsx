@@ -131,9 +131,9 @@ const MotionStudy = import.meta.env.DEV ? lazy(() => import('../features/marketi
 const FounderStory = lazy(() => import('../features/marketing/v5/FounderStory'));
 const Guides = lazy(() => import('../features/marketing/v5/Guides'));
 import { fireMascot } from '../mascotBus';
-import { enterReferral, readReferral, rememberSharedCode, sharedCode } from '../services/referral';
+import { enterReferral, readReferral, rememberSharedCode, sharedCode, TOKENS_GRANTED_EVENT } from '../services/referral';
 import type { ReferralStatus } from '../../../shared/referral';
-import { ReferralButton, ReferralDialog } from '../features/referral/ReferralCards';
+import { ReferralButtons, ReferralDialog, type ReferralView } from '../features/referral/ReferralCards';
 import { leafBus } from '../leafBus';
 import { DashboardPeriodPicker } from '../features/dashboard/DashboardPeriodPicker';
 import { BrandLockup } from '../components/brand/BrandLogo';
@@ -594,11 +594,11 @@ export default function App() {
     query.addEventListener('change', update);
     return () => query.removeEventListener('change', update);
   }, []);
-  // Wide enough for the ชวนเพื่อน button beside the month in the overview header; narrower computers and iPads have it on
+  // Wide enough for the referral buttons beside the month in the overview header; narrower computers and iPads have it on
   // its own row under the header, so the page title keeps its room.
-  const [wideHeader, setWideHeader] = useState(() => window.matchMedia('(min-width: 1280px)').matches);
+  const [wideHeader, setWideHeader] = useState(() => window.matchMedia('(min-width: 1440px)').matches);
   useEffect(() => {
-    const query = window.matchMedia('(min-width: 1280px)');
+    const query = window.matchMedia('(min-width: 1440px)');
     const update = () => setWideHeader(query.matches);
     query.addEventListener('change', update);
     return () => query.removeEventListener('change', update);
@@ -1504,12 +1504,20 @@ export default function App() {
       lastQuiet = Date.now();
       void check(0);
     };
+    // Tokens just given here (a friend's code, shared/referral.ts): asked again at once.
+    const granted = () => {
+      if (!quiet || connected || controller.signal.aborted) return;
+      lastQuiet = Date.now();
+      void check(0);
+    };
     document.addEventListener('visibilitychange', askAgain);
     window.addEventListener('focus', askAgain);
+    window.addEventListener(TOKENS_GRANTED_EVENT, granted);
     return () => {
       controller.abort(); window.clearTimeout(retry);
       document.removeEventListener('visibilitychange', askAgain);
       window.removeEventListener('focus', askAgain);
+      window.removeEventListener(TOKENS_GRANTED_EVENT, granted);
     };
   }, [assistantCheckId, assistantUserId, financeGroupId]);
   const [birthOpen, setBirthOpen] = useState(false);
@@ -1526,38 +1534,37 @@ export default function App() {
   // evening tip once. A change by the sun / moon button holds until the next switch (automatic) or becomes the choice.
   const personalSettings = Boolean(session?.user?.id && !session.isGuest && !financeGroupId);
   const accountLoaded = Boolean(session?.user?.id) && cloudSyncStatus === 'synced' && loadedFinanceOwner === financeOwner;
-  // ชวนเพื่อน รับ 200 โทเคน (owner, 2026-11-05; shared/referral.ts): every personal account has a small button that opens its
-  // code; a new member enters the friend's code in the same window. Asked again once the account has its first record,
-  // which is when the friend's tokens are given.
+  // ใส่โค้ด รับ 200 โทเคน, ส่งต่อให้เพื่อน (owner, 2026-11-05; shared/referral.ts): every personal account has a small button;
+  // one that may still enter a friend's code opens that first (the tokens come at once), the others open their own code.
   const referralAccount = accountLoaded && session && !session.isGuest && !financeGroupId ? session.user.id : null;
-  const hasFirstRecord = jobs.length + expenses.length > 0;
   const [referral, setReferral] = useState<ReferralStatus | null>(null);
   const [referralBusy, setReferralBusy] = useState(false);
-  const [referralOpen, setReferralOpen] = useState(false);
+  const [referralView, setReferralView] = useState<ReferralView | null>(null);
   useEffect(() => {
     setReferral(null);
-    setReferralOpen(false);
+    setReferralView(null);
     if (!referralAccount) return;
     let live = true;
     void readReferral(referralAccount).then(status => { if (live) setReferral(status); });
     return () => { live = false; };
-  }, [referralAccount, hasFirstRecord]);
+  }, [referralAccount]);
   const copyText = async (text: string, title: string) => {
     try { await navigator.clipboard.writeText(text); fireMascot({ mood: 'happy', title, message: text }); }
     catch { fireMascot({ mood: 'alert', tone: 'error', title: tr("คัดลอกไม่สำเร็จ"), message: text }); }
   };
-  const submitReferral = async (code: string) => {
-    if (!referralAccount || referralBusy) return;
+  /** Enters a friend's code; true once the 200 tokens are this account's (the window then says so). */
+  const submitReferral = async (code: string): Promise<boolean> => {
+    if (!referralAccount || referralBusy) return false;
     setReferralBusy(true);
     try {
       const status = await enterReferral(referralAccount, code);
       setReferral(status);
-      setReferralOpen(false);
-      fireMascot({ mood: 'celebrate', title: tr("บันทึกโค้ดของเพื่อนแล้ว"), message: status.entered?.status === 'rewarded'
-        ? tr("เพื่อนของคุณได้รับ {0} โทเคนแล้ว อยากได้บ้าง ชวนต่อด้วยโค้ดของคุณ", status.tokens)
-        : tr("เมื่อคุณบันทึกงานหรือรายจ่ายแรก เพื่อนจะได้รับ {0} โทเคน", status.tokens) });
+      try { localStorage.removeItem('krarok_ref'); } catch { /* the link's code is simply kept */ }
+      window.dispatchEvent(new Event(TOKENS_GRANTED_EVENT));
+      return true;
     } catch (error) {
       fireMascot({ mood: 'alert', tone: 'error', title: tr("ใช้โค้ดนี้ไม่ได้"), message: (error as Error).message || tr("กรุณาลองใหม่อีกครั้ง") });
+      return false;
     } finally { setReferralBusy(false); }
   };
   const accountThemePref = personalSettings && accountLoaded ? readThemePreference(settings.theme) : null;
@@ -2932,7 +2939,7 @@ export default function App() {
     if (!referralInvited || !referralAccount || onboardingFirst || termsWaiting || birthOpen || activeTab !== 'dashboard') return;
     const key = `krarok.referral.asked.${referralAccount}`;
     try { if (localStorage.getItem(key) === '1') return; localStorage.setItem(key, '1'); } catch { /* asked for this visit */ }
-    setReferralOpen(true);
+    setReferralView('enter');
   }, [referralInvited, referralAccount, onboardingFirst, termsWaiting, birthOpen, activeTab]);
   // The one-time evening tip for a new account, once its own settings have loaded, never over the first questions.
   const showThemeTip = accountLoaded && !termsWaiting && !onboardingFirst && !onboardingEdit && !birthOpen && !isImportOpen
@@ -3233,15 +3240,16 @@ export default function App() {
 
   // The referral button for the overview (computers: the header; phones: under the quick actions), its window and the
   // line in เลขา's chat (shared/referral.ts).
-  const referralShown = Boolean(referral?.code && referralAccount && (referral.left > 0 || referral.rewarded + referral.pending > 0 || referral.canEnter));
+  const referralShown = Boolean(referral?.code && referralAccount && (referral.left > 0 || referral.used > 0));
   const referralButton = referralShown && referral
-    ? <ReferralButton phone={isPhone} tokens={referral.tokens} onOpen={() => setReferralOpen(true)} /> : null;
-  const referralDialog = referralOpen && referral?.code ? createPortal(
-    <ReferralDialog status={referral} phone={isPhone} busy={referralBusy} initial={sharedCode()}
-      onCopy={() => { void copyText(referral.code!, tr("คัดลอกโค้ดแล้ว")); }}
-      onEnter={code => { void submitReferral(code); }} onClose={() => setReferralOpen(false)} />, document.body) : null;
-  const chatReferral = referral?.code && referral.left > 0 && !isPro && referralAccount
-    ? { tokens: referral.tokens, onOpen: () => setReferralOpen(true) } : null;
+    ? <ReferralButtons phone={isPhone} status={referral} onOpen={setReferralView} /> : null;
+  const referralDialog = referralView && referral ? createPortal(
+    <ReferralDialog status={referral} phone={isPhone} busy={referralBusy} initial={sharedCode()} view={referralView}
+      onCopy={() => { if (referral.code) void copyText(referral.code, tr("คัดลอกโค้ดแล้ว")); }}
+      onEnter={submitReferral} onClose={() => setReferralView(null)}
+      onChat={() => { setReferralView(null); navigateTab('assistant'); }} />, document.body) : null;
+  const chatReferral = referral?.canEnter && !isPro && referralAccount
+    ? { tokens: referral.tokens, onOpen: () => setReferralView('enter') } : null;
 
   return (
     <div className="app-shell h-screen bg-brand-bg flex lg:flex-row flex-col overflow-hidden">

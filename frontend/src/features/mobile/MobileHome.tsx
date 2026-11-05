@@ -84,7 +84,7 @@ export interface MobileHomeProps {
   onFeedback?: () => void;
   onCalendar: () => void;
   onTools: () => void;
-  /** ชวนเพื่อน รับ 200 โทเคน (shared/referral.ts): the small button that opens the code, made in App. */
+  /** ใส่โค้ด รับ 200 โทเคน (shared/referral.ts): the small button that opens the code, made in App. */
   referralButton?: React.ReactNode;
 }
 

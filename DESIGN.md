@@ -516,20 +516,22 @@ card does not need:
   (นอกประเทศไทย, ส่งทั้งไฟล์, โดยชอบ, ไม่กระทบการประมวลผล); where processing happens and the legal detail live in the
   privacy policy, linked from the card. Never claim a protection the code or the providers' terms do not give.
 
-### ชวนเพื่อน รับ 200 โทเคน (owner, 2026-11-05: "เอาโค้ดไปให้บัญชีอื่นกรอก ... คนที่ชวนจะได้ 200 โทเคน คนที่โดนชวนจะไม่ได้", Fastwork's invite card as the reference, "ตัดไอ้ไลน์ออก", "โค้ดหนึ่งสามารถกรอกได้แค่2คน", then "ทำเป็นปุ่มเล็กๆ ... ไม่ต้องเป็นการ์ดใหญ่", then "ให้มันดูน่าสนใจกว่านี้ ... บอกเขาด้วยว่ามันคือโทเค็นอะไร")
+### ใส่โค้ด รับ 200 โทเคน, แนะนำเพื่อนร่วมอาชีพ (owner, 2026-11-05: Fastwork's invite card as the reference, "ตัดไอ้ไลน์ออก", "ทำเป็นปุ่มเล็กๆ ... ไม่ต้องเป็นการ์ดใหญ่", "บอกเขาด้วยว่ามันคือโทเค็นอะไร", then round 2 "กูอยากให้มันมีปุ่มให้ใส่โค้ด ... โค้ดกูจะได้ประมาณสัก 5 สิทธิ์ ... แนะนำกันต่อกันเอง")
+- The one who enters a friend's code gets 200 tokens at once; the friend gets nothing, the gift is what they pass on. Any
+  account with a confirmed email enters once; a code takes 5 people (the owner's has no limit); 100 rewards in all.
 - No banner or card on the overview: one pill button in solid CI orange #E65F2B (52px high, white text, a soft orange
-  shadow): the squirrel holding its coin (the Mascot component) in a cream #FFF4EC circle, then two lines — "ชวนเพื่อน รับ
-  200 โทเคน" and "สำหรับใช้งานเอเจนต์เลขากระรอก" — and a chevron. On computers and iPads in the overview header before the
-  month picker, on phones on its own under the quick actions (`features/referral/ReferralCards.tsx`).
-- It opens one window after Fastwork's invite card: the squirrel (the Mascot component, waving), "ชวนเพื่อน รับ 200 โทเคน",
-  "**โค้ดนี้ใช้ได้แค่ 2 คน** เลือกเพื่อนให้ดี", a bordered code box (โค้ดชวนเพื่อน, the code large in monospace, one dark rounded
-  คัดลอกโค้ด, or "โค้ดนี้ใช้ครบ 2 คนแล้ว"), what the friend has to do, then one rust line: ใช้แล้ว n/2 · tokens earned ·
-  friends still to record a first job · rewards left. No LINE. Centred (440px) on computers, a sheet from the bottom on phones;
-  × / Esc / the backdrop close it.
-- A new member (made after the campaign began, email confirmed) also finds "มีโค้ดจากเพื่อนไหม" at the bottom of the same window
-  with ยืนยันโค้ด; arriving from a shared link (?ref=) opens the window once, code filled in, after the first questions. In
-  เลขา's chat an account without Pro sees "ชวนเพื่อน 1 คน รับ 200 โทเคน" with ดูโค้ดของคุณ, which opens the window
-  (shared/referral.ts, /api/referral).
+  shadow): the squirrel holding its coin (the Mascot component) in a cream #FFF4EC circle, two lines and a chevron.
+  While the account may still enter a code: "ใส่โค้ด รับ 200 โทเคน / สำหรับใช้งานเอเจนต์เลขากระรอก", and on computers and
+  iPads a small cream chip "แนะนำเพื่อนร่วมอาชีพ" (gift icon) beside it; afterwards: "แนะนำเพื่อนร่วมอาชีพ / ให้ใช้
+  เลขากระรอกฟรี 200 โทเคน". Never "ชวนเพื่อน": the words are for people at work, not a social app. On wide computers (1440px+) in the overview header before the month picker, on narrower computers and iPads on their own row
+  under the header, on phones under the quick actions (`features/referral/ReferralCards.tsx`).
+- One window, three faces (data-view): enter (the squirrel, the title, "ใช้งานเอเจนต์เลขากระรอกฟรี · กรอกได้ครั้งเดียว",
+  the code field and รับโทเคน in one row, the rewards left, a link to one's own code); done (the squirrel celebrating,
+  "ได้รับ 200 โทเคนแล้ว", คุยกับเลขากระรอก dark, แนะนำเพื่อนร่วมอาชีพ outlined); share, after Fastwork's card ("แนะนำเพื่อน
+  ร่วมอาชีพ", "โค้ดนี้ใช้ได้แค่ 5 คน เลือกคนที่ได้ใช้จริง", the code large in monospace in a bordered box with one dark rounded คัดลอกโค้ด or "ใช้ครบแล้ว",
+  what the friend gets, used n/5 and the rewards left). No LINE. Centred (440px) on computers, a sheet from the bottom on
+  phones; × / Esc / the backdrop close it. A shared link (?ref=) opens the enter face once with the code in it. In เลขา's
+  chat an account without Pro that may still enter a code sees "มีโค้ดแนะนำ รับ 200 โทเคน" with ใส่โค้ด.
 
 ### Live steps and the file check (owner, 2026-11-04: "แบบของ Claude หรือ GPT ขึ้นสถานะไว้" / "ขึ้นหน้าแบบว่าเหมือนกำลังเช็คงาน")
 - While เลขา works on something heavy (owner, 2026-11-04: "เวลาถามสั้นๆง่าย ไม่ต้องขึ้นสถานะเรียลไทม์ จะขึ้นก็ต่อเมื่อโดนถาม

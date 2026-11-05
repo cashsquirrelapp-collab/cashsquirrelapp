@@ -67,8 +67,8 @@ interface DashboardTabProps {
   receivablesAccess?: boolean;
   /** Quotations can be issued (phone overview wording). Defaults to fullFeatureAccess. */
   quotationAccess?: boolean;
-  /** ชวนเพื่อน รับ 200 โทเคน (shared/referral.ts): the button made in App, for phones and for screens too narrow to have it
-   *  in the header (under 1280px); null when the header has it. */
+  /** ใส่โค้ด รับ 200 โทเคน (shared/referral.ts): the button made in App, for phones and for screens too narrow to have it
+   *  in the header (under 1440px); null when the header has it. */
   referralButton?: React.ReactNode;
 }
 
@@ -871,7 +871,7 @@ export default function DashboardTab({
       {/* 1. Greeting + KPI cards -- share order-1 so this block never collides with the
           pre-existing Alert Zone below, which already owns order-2. */}
       <div className="order-1 flex flex-col gap-5">
-      {/* ชวนเพื่อน รับ 200 โทเคน on narrower computers and iPads: its own row, so the header's title keeps its room. */}
+      {/* The referral buttons on narrower computers and iPads: its own row, so the header's title keeps its room. */}
       {referralButton && <div className="flex">{referralButton}</div>}
       <MonthlyWorkValueBanner receivablesAccess={receivablesAccess} jobs={jobs} monthKey={selectedMonthKey} onOpenDetails={() => setBreakdownFilter('workValue')} />
 

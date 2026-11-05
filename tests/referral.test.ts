@@ -1,20 +1,24 @@
 import { after, before, beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
-// ชวนเพื่อน รับ 200 โทเคน (owner, 2026-11-05): a new account enters a friend's code once; the friend gets 200 tokens when
-// this account records its first job or expense; one code is entered by 2 people at most, 100 rewards in the campaign; one device
-// enters a code once and never the code of an account that used that device. The database is mocked.
+// ใส่โค้ด รับ 200 โทเคน (owner, 2026-11-05, round 2): any account with a confirmed email enters a friend's code once and
+// gets 200 tokens at once; the friend gets nothing; one code is entered by 5 people (the owner's own code has no limit),
+// 100 rewards in the campaign; one device enters a code once and never the code of an account that used that device.
+// The database is mocked.
 
 Object.assign(process.env, { SUPABASE_URL: 'https://referral.supabase.co', SUPABASE_PUBLISHABLE_KEY: 'test', SUPABASE_SERVICE_ROLE_KEY: 'test-admin' });
 const repo = await import('../backend/src/repositories/referral.js');
-const { isNewMember, isReferralCode, normalizeCode, rankEntries, rankRewards, readEntry, REFERRAL_FROM, REFERRAL_PER_PERSON, shareText } = await import('../shared/referral.js');
+const { canEnterCode, isReferralCode, normalizeCode, rankEntries, rankRewards, readEntry, REFERRAL_PER_PERSON, shareText } = await import('../shared/referral.js');
+// The owner's address as the server knows it (not written out again here).
+const OWNER = /OWNER_EMAIL = '([^']+)'/.exec(readFileSync('backend/src/security/adminAnalyticsAccess.ts', 'utf8'))![1];
 const { readGrants } = await import('../shared/tokenGrants.js');
 
 const realFetch = globalThis.fetch;
 type State = { referral?: unknown; referralDevices?: unknown; aiTokenGrants?: unknown };
 let state: Record<string, State> = {};
 let profiles: Record<string, string> = {};
-let records: Record<string, number> = {};
+let owners = new Set<string>();
 /** A reward someone else writes between this account's write and its read-back (two at the same moment). */
 let racing: Record<string, unknown> | null = null;
 
@@ -31,13 +35,12 @@ before(() => {
       if (param('public_id')) { const hit = Object.entries(profiles).find(([, c]) => c === param('public_id')); return json(hit ? { user_id: hit[0] } : null); }
       return json({ public_id: profiles[param('user_id') ?? ''] ?? null });
     }
-    if (url.pathname.endsWith('/cashflow_jobs') || url.pathname.endsWith('/cashflow_expenses')) {
-      const n = url.pathname.endsWith('/cashflow_jobs') ? records[param('user_id') ?? ''] ?? 0 : 0;
-      return new Response(null, { status: 200, headers: { 'content-range': `*/${n}` } });
-    }
+    const admin = /\/auth\/v1\/admin\/users\/([^/]+)$/.exec(url.pathname);
+    if (admin) return json({ id: admin[1], aud: 'authenticated', email: owners.has(admin[1]) ? OWNER : `${admin[1]}@example.com`, email_confirmed_at: '2026-01-01T00:00:00Z', app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z' });
     if (url.pathname.endsWith('/rpc/cashflow_patch_private')) {
       const body = JSON.parse(String(init?.body));
       state[body.p_user_id] = { ...(state[body.p_user_id] ?? {}), ...body.p_patch };
+      for (const key of body.p_remove ?? []) delete (state[body.p_user_id] as Record<string, unknown>)[key];
       if (racing && (body.p_patch.referral as { status?: string })?.status === 'rewarded') { Object.entries(racing).forEach(([id, entry]) => { state[id] = { ...(state[id] ?? {}), referral: entry }; }); racing = null; }
       return new Response(null, { status: 204 });
     }
@@ -56,7 +59,7 @@ before(() => {
   };
 });
 after(() => { globalThis.fetch = realFetch; });
-beforeEach(() => { state = {}; profiles = { [uid(1)]: code(1), [uid(2)]: code(2), [uid(3)]: code(3) }; records = {}; racing = null; });
+beforeEach(() => { state = {}; profiles = { [uid(1)]: code(1), [uid(2)]: code(2), [uid(3)]: code(3) }; owners = new Set(); racing = null; });
 
 const FRIEND = uid(1);
 const NEW = uid(2);
@@ -64,95 +67,95 @@ const DEVICE = repo.deviceHash('device-of-the-new-member-0001');
 const enter = (userId: string, c: string, device = DEVICE) => repo.enterCode({ userId, code: c, deviceHash: device, entered: readEntry(state[userId]?.referral) }, new Date('2026-11-06T05:00:00Z'));
 const codeOf = (error: unknown) => (error as { code?: string }).code;
 
-test('codes and new members: SQ codes only; made after the campaign began with a confirmed email', () => {
+test('codes and who may enter: SQ codes only; any account with a confirmed email', () => {
   assert.equal(normalizeCode(' sq-8f2a41c9da '), 'SQ-8F2A41C9DA');
   assert.equal(isReferralCode('sq-8f2a41c9da'), true);
   assert.equal(isReferralCode('SQ-8F2K41C9DA'), false, 'public IDs are hex');
   for (const bad of ['', 'SQ-123', 'XX-8F2K41C9DA', 'SQ-8F2K41C9DAX']) assert.equal(isReferralCode(bad), false, bad);
-  const after = new Date(REFERRAL_FROM + 1000).toISOString();
-  assert.equal(isNewMember({ created_at: after, email_confirmed_at: after }), true);
-  assert.equal(isNewMember({ created_at: after, email_confirmed_at: null }), false, 'an unconfirmed email');
-  assert.equal(isNewMember({ created_at: new Date(REFERRAL_FROM - 1000).toISOString(), email_confirmed_at: after }), false, 'made before');
-  assert.match(shareText('https://krarok.com', 'SQ-8F2K41C9DA'), /SQ-8F2K41C9DA .*https:\/\/krarok\.com\/\?ref=SQ-8F2K41C9DA$/);
+  assert.equal(canEnterCode({ email_confirmed_at: '2025-01-01T00:00:00Z' }), true, 'an older account too');
+  assert.equal(canEnterCode({ email_confirmed_at: null }), false, 'an unconfirmed email');
+  assert.match(shareText('https://krarok.com', 'SQ-8F2A41C9DA'), /SQ-8F2A41C9DA .*200 .*https:\/\/krarok\.com\/\?ref=SQ-8F2A41C9DA$/);
 });
 
-test('entering: unknown, own code, a used device and the friend\'s own device are refused; a good code waits for a first record', async () => {
+const grantsOf = (id: string) => readGrants(state[id]?.aiTokenGrants);
+
+test('entering: unknown, own code and used devices are refused; a good code gives this account 200 tokens at once', async () => {
   await assert.rejects(enter(NEW, code(9)), error => codeOf(error) === 'referral_unknown');
   await assert.rejects(enter(NEW, code(2)), error => codeOf(error) === 'referral_self');
-  // The friend has used this device: a second account here can never count for the friend.
+  // The friend has used this device: a second account here can never use the friend's code.
   state[FRIEND] = { referralDevices: [DEVICE] };
   await assert.rejects(enter(NEW, code(1)), error => codeOf(error) === 'referral_device');
   state = {};
   const entry = await enter(NEW, code(1));
-  assert.equal(entry.status, 'pending', 'no record yet: nothing given');
-  assert.deepEqual(readGrants(state[FRIEND]?.aiTokenGrants), []);
+  assert.equal(entry.status, 'rewarded');
+  assert.deepEqual(grantsOf(NEW).map(g => [g.id, g.tokens, g.note]), [[`referral-${NEW.replace(/-/g, '')}`, 200, 'ใส่โค้ดเพื่อน']]);
+  assert.deepEqual(grantsOf(FRIEND), [], 'the friend gets nothing: the gift is what they pass on');
   await assert.rejects(enter(NEW, code(3)), error => codeOf(error) === 'referral_entered', 'one code per account');
-  // Another new account on the same device: refused.
+  assert.equal(grantsOf(NEW).length, 1, 'never twice');
+  // Another account on the same device: refused.
   await assert.rejects(enter(uid(3), code(1)), error => codeOf(error) === 'referral_device');
 });
 
-test('the reward: 200 tokens to the friend once the new account has its first record, and only once', async () => {
-  const entry = await enter(NEW, code(1));
-  records[NEW] = 1;
-  const rewarded = await repo.rewardIfReady(NEW, entry, new Date('2026-11-06T06:00:00Z'));
-  assert.equal(rewarded.status, 'rewarded');
-  const grants = readGrants(state[FRIEND]?.aiTokenGrants);
-  assert.deepEqual(grants.map(g => [g.tokens, g.note]), [[200, 'ชวนเพื่อน']]);
-  assert.equal(grants[0].id, `referral-${NEW.replace(/-/g, '')}`);
-  await repo.rewardIfReady(NEW, rewarded);
-  assert.equal(readGrants(state[FRIEND]?.aiTokenGrants).length, 1, 'never twice');
-  // A first record before entering: the friend is rewarded at once (the code's second and last place).
-  records[uid(3)] = 2;
-  const at = await enter(uid(3), code(1), repo.deviceHash('another-device-of-someone-0002'));
-  assert.equal(at.status, 'rewarded');
-  assert.equal(readGrants(state[FRIEND]?.aiTokenGrants).length, 2);
+test('a first-round entry still waiting is finished the new way: the one who entered gets the tokens, once', async () => {
+  const waiting = { code: code(1), referrerId: FRIEND, at: '2026-11-05T09:00:00.000Z', device: 'd-old', status: 'pending' as const };
+  state[NEW] = { referral: waiting };
+  const done = await repo.finishWaiting(NEW, waiting, new Date('2026-11-06T06:00:00Z'));
+  assert.equal(done.status, 'rewarded');
+  assert.equal(grantsOf(NEW).length, 1);
+  assert.deepEqual(grantsOf(FRIEND), []);
+  assert.equal((await repo.finishWaiting(NEW, done)).status, 'rewarded');
+  assert.equal(grantsOf(NEW).length, 1, 'never twice');
 });
 
-test('one code, 2 people: the third is refused, and two at once for the last place never make three', async () => {
-  assert.equal(REFERRAL_PER_PERSON, 2);
-  const waiting = (n: number, at: string) => ({ referral: { code: code(1), referrerId: FRIEND, at, device: `d${n}`, status: 'pending' } });
-  state = { [uid(10)]: waiting(10, '2026-11-06T01:00:00.000Z'), [uid(11)]: waiting(11, '2026-11-06T01:30:00.000Z') };
+test('one code, 5 people: the sixth is refused, and two at once for the last place never make six', async () => {
+  assert.equal(REFERRAL_PER_PERSON, 5);
+  const used = (n: number, at: string) => ({ referral: { code: code(1), referrerId: FRIEND, at, device: `d${n}`, status: 'rewarded', rewardedAt: at } });
+  const five = () => Object.fromEntries([10, 11, 12, 13, 14].map((n, i) => [uid(n), used(n, `2026-11-06T01:0${i}:00.000Z`)]));
+  state = five();
   await assert.rejects(enter(NEW, code(1)), error => codeOf(error) === 'referral_referrer_full');
-  assert.equal(state[NEW]?.referral, undefined, 'nothing kept for the third');
+  assert.equal(state[NEW]?.referral, undefined, 'nothing kept for the sixth');
+  assert.deepEqual(grantsOf(NEW), []);
   // One place left; another person's entry lands just before this one's read-back: this one is taken out again.
-  state = { [uid(10)]: waiting(10, '2026-11-06T01:00:00.000Z') };
+  state = five(); delete state[uid(14)];
   const before = globalThis.fetch;
   globalThis.fetch = async (input, init) => {
     const url = new URL(String(input));
-    if (url.pathname.endsWith('/rpc/cashflow_patch_private') && JSON.parse(String(init?.body)).p_patch.referral) {
-      const reply = await before(input, init);
-      state[uid(11)] = waiting(11, '2026-11-06T04:59:59.000Z');
-      return reply;
-    }
-    if (url.pathname.endsWith('/rpc/cashflow_patch_private')) {
-      const body = JSON.parse(String(init?.body));
-      for (const key of body.p_remove ?? []) delete (state[body.p_user_id] as Record<string, unknown>)[key];
-      return new Response(null, { status: 204 });
-    }
-    return before(input, init);
+    const reply = await before(input, init);
+    if (url.pathname.endsWith('/rpc/cashflow_patch_private') && JSON.parse(String(init?.body)).p_patch.referral?.status === 'pending') state[uid(14)] = used(14, '2026-11-06T04:59:59.000Z');
+    return reply;
   };
   try {
     await assert.rejects(enter(NEW, code(1)), error => codeOf(error) === 'referral_referrer_full');
   } finally { globalThis.fetch = before; }
   assert.equal(state[NEW]?.referral, undefined, 'the late entry is taken out');
-  assert.equal(rankEntries(Object.entries(state).map(([userId, s]) => ({ userId, entry: readEntry(s.referral) }))).length, 2);
+  assert.deepEqual(grantsOf(NEW), [], 'and given nothing');
+  assert.equal(rankEntries(Object.entries(state).map(([userId, s]) => ({ userId, entry: readEntry(s.referral) }))).length, 5);
+});
+
+test('the owner\'s own code has no limit of people (it goes into the clips)', async () => {
+  owners.add(FRIEND);
+  state = Object.fromEntries([10, 11, 12, 13, 14, 15].map(n => [uid(n), { referral: { code: code(1), referrerId: FRIEND, at: '2026-11-06T01:00:00.000Z', device: `d${n}`, status: 'rewarded', rewardedAt: '2026-11-06T01:00:00.000Z' } }]));
+  const entry = await enter(NEW, code(1));
+  assert.equal(entry.status, 'rewarded', 'the seventh still counts');
+  assert.equal(await repo.codeLimit(FRIEND), null);
+  assert.equal(await repo.codeLimit(uid(3)), 5);
+  assert.equal(await repo.usedCount(FRIEND), 7);
 });
 
 test('the campaign: 100 rewards, and two at the same moment for the last one never make 101', async () => {
   const rewardedBy = (referrerId: string, n: number, offset = 100) => Object.fromEntries(Array.from({ length: n }, (_, i) => [uid(offset + i), {
-    referral: { code: code(1), referrerId, at: '2026-11-06T01:00:00.000Z', device: `d${offset + i}`, status: 'rewarded', rewardedAt: `2026-11-06T02:${String(i % 60).padStart(2, '0')}:00.000Z` },
+    referral: { code: code(3), referrerId, at: '2026-11-06T01:00:00.000Z', device: `d${offset + i}`, status: 'rewarded', rewardedAt: `2026-11-06T02:${String(i % 60).padStart(2, '0')}:00.000Z` },
   }]));
-  // The campaign has 100 (from others): refused at entry.
+  owners.add(uid(3));
+  // The campaign has 100: refused at entry.
   state = rewardedBy(uid(3), 100, 200);
   await assert.rejects(enter(NEW, code(1)), error => codeOf(error) === 'referral_full');
-  // 99 given; this one waits; meanwhile another reward takes the last place just before it: this one is turned back.
+  // 99 given; another reward takes the last place just before this one's read-back: this one is turned back, no tokens.
   state = rewardedBy(uid(3), 99, 200);
-  const entry = await enter(NEW, code(1));
-  records[NEW] = 1;
-  racing = { [uid(999)]: { code: code(3), referrerId: uid(3), at: '2026-11-06T01:00:00.000Z', device: 'race', status: 'rewarded', rewardedAt: '2026-11-06T05:59:59.000Z' } };
-  const outcome = await repo.rewardIfReady(NEW, entry, new Date('2026-11-06T06:00:00Z'));
-  assert.deepEqual([outcome.status, outcome.reason], ['refused', 'campaign_full']);
-  assert.deepEqual(readGrants(state[FRIEND]?.aiTokenGrants), [], 'no tokens for a turned-back reward');
+  racing = { [uid(999)]: { code: code(3), referrerId: uid(3), at: '2026-11-06T01:00:00.000Z', device: 'race', status: 'rewarded', rewardedAt: '2026-11-06T04:59:59.000Z' } };
+  await assert.rejects(enter(NEW, code(1)), error => codeOf(error) === 'referral_full');
+  assert.equal(state[NEW]?.referral, undefined, 'the entry is taken out');
+  assert.deepEqual(grantsOf(NEW), [], 'no tokens for a turned-back reward');
   assert.equal((await repo.allRewards()).length, 100);
 });
 

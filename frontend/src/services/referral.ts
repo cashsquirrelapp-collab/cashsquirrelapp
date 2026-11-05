@@ -1,8 +1,11 @@
 import { isReferralCode, normalizeCode, type ReferralStatus } from '../../../shared/referral';
 import { apiJson } from './api';
 
-// ชวนเพื่อน รับ 200 โทเคน (shared/referral.ts): this device's own random id (the server keeps only its hash, so one device
+// ใส่โค้ด รับ 200 โทเคน (shared/referral.ts): this device's own random id (the server keeps only its hash, so one device
 // enters a friend's code once), the code a shared link brought (?ref=SQ-…), and the calls.
+
+/** Sent when this account has just been given tokens, so เลขากระรอก turns on without a reload. */
+export const TOKENS_GRANTED_EVENT = 'krarok:tokens-granted';
 
 const DEVICE_KEY = 'krarok_device';
 const REF_KEY = 'krarok_ref';

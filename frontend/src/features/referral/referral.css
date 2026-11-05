@@ -1,4 +1,4 @@
-/* ชวนเพื่อน รับ 200 โทเคน (owner, 2026-11-05): a small button, and one dialog after Fastwork's invite card. */
+/* ใส่โค้ด รับ 200 โทเคน, แนะนำเพื่อนร่วมอาชีพ (owner, 2026-11-05): small buttons, and one window after Fastwork's invite card. */
 .ref-pill { display: inline-flex; align-items: center; gap: 10px; min-height: 52px; padding: 4px 12px 4px 4px; border: 0; border-radius: 999px;
   background: #E65F2B; color: #fff; font: inherit; text-align: left; white-space: nowrap; cursor: pointer;
   box-shadow: 0 8px 18px -10px rgba(194, 74, 22, 0.75); transition: background-color 0.15s, transform 0.15s; }
@@ -44,19 +44,33 @@
 .dark .ref-note { color: #B5B0A9; }
 .ref-count { margin: 0; font-size: 12.5px; font-weight: 500; line-height: 1.55; color: #C24A16; }
 .dark .ref-count { color: #FFA473; }
-.ref-enter { display: grid; gap: 6px; width: 100%; margin-top: 8px; padding-top: 16px; border-top: 1px solid #E5E3DF; text-align: left; }
-.dark .ref-enter { border-color: rgba(255, 255, 255, 0.12); }
-.ref-enter b { font-size: 14.5px; font-weight: 600; line-height: 1.5; }
-.ref-enter small { font-size: 13px; line-height: 1.6; color: #7D7772; text-wrap: pretty; }
-.dark .ref-enter small { color: #B5B0A9; }
-.ref-enter-row { display: flex; gap: 8px; margin-top: 4px; }
-.ref-enter-row input { flex: 1 1 auto; min-width: 0; height: 44px; padding: 0 14px; border: 1px solid #E5E3DF; border-radius: 10px;
-  background: #fff; color: #1C1917; font: inherit; font-size: 15px; font-weight: 500; letter-spacing: 0.04em; }
-.dark .ref-enter-row input { border-color: rgba(255, 255, 255, 0.16); background: #2A2B30; color: #F2F0ED; }
-.ref-enter-row input:focus { outline: 2px solid #E65F2B; outline-offset: 1px; }
-.ref-enter-row button { min-height: 44px; padding: 0 16px; border: 0; border-radius: 10px; background: #E65F2B; color: #fff; font: inherit; font-size: 14px;
+/* Entering a friend's code: one row, the code and รับโทเคน. */
+.ref-enter { display: flex; gap: 8px; width: 100%; margin-top: 8px; }
+.ref-enter input { flex: 1 1 auto; min-width: 0; height: 48px; padding: 0 16px; border: 1px solid #E5E3DF; border-radius: 12px;
+  background: #fff; color: #1C1917; font: inherit; font-size: 17px; font-weight: 600; letter-spacing: 0.06em; text-align: center; }
+.dark .ref-enter input { border-color: rgba(255, 255, 255, 0.16); background: #2A2B30; color: #F2F0ED; }
+.ref-enter input:focus { outline: 2px solid #E65F2B; outline-offset: 1px; }
+.ref-enter button { flex: none; min-height: 48px; padding: 0 20px; border: 0; border-radius: 12px; background: #E65F2B; color: #fff; font: inherit; font-size: 15px;
   font-weight: 600; line-height: 1.45; white-space: nowrap; cursor: pointer; }
-.ref-enter-row button:disabled { cursor: not-allowed; opacity: 0.5; }
+.ref-enter button:disabled { cursor: not-allowed; opacity: 0.5; }
+/* The way between entering a code and passing one's own on. */
+.ref-switch { display: inline-flex; align-items: center; gap: 2px; margin-top: 6px; padding: 6px 4px; border: 0; background: none; color: #C24A16;
+  font: inherit; font-size: 13.5px; font-weight: 600; line-height: 1.5; cursor: pointer; }
+.ref-switch:hover { text-decoration: underline; text-underline-offset: 3px; }
+.dark .ref-switch { color: #FFA473; }
+/* After the tokens are given: talk to เลขา, or pass the code on. */
+.ref-actions { display: grid; gap: 8px; width: 100%; margin-top: 8px; }
+.ref-second-btn { min-height: 46px; border: 1px solid #E5E3DF; border-radius: 999px; background: #fff; color: #1C1917; font: inherit; font-size: 15px;
+  font-weight: 600; line-height: 1.45; cursor: pointer; }
+.ref-second-btn:hover { background: #F7F6F4; }
+.dark .ref-second-btn { border-color: rgba(255, 255, 255, 0.16); background: transparent; color: #F2F0ED; }
+/* The buttons on the overview: the orange pill, and on computers and iPads a small แนะนำเพื่อนร่วมอาชีพ beside it. */
+.ref-buttons { display: flex; align-items: center; gap: 8px; }
+.ref-buttons.is-phone { justify-content: center; }
+.ref-chip { display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 0 15px; border: 1px solid #F6CDB8; border-radius: 999px;
+  background: #FFF1E8; color: #C24A16; font: inherit; font-size: 13.5px; font-weight: 600; line-height: 1.45; white-space: nowrap; cursor: pointer; }
+.ref-chip:hover { background: #FFE6D6; }
+.dark .ref-chip { background: rgba(255, 164, 115, 0.14); border-color: rgba(255, 164, 115, 0.28); color: #FFA473; }
 /* Phones: a sheet from the bottom. */
 .ref-scrim.is-phone { align-items: flex-end; padding: 0; }
 .ref-scrim.is-phone .ref-dialog { max-width: none; border-radius: 22px 22px 0 0; padding: 24px 18px calc(18px + env(safe-area-inset-bottom, 0px)); }

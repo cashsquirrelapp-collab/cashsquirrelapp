@@ -1,15 +1,16 @@
-// ชวนเพื่อน รับ 200 โทเคน (owner, 2026-11-05: "จะทำโทเคนได้ก็ต่อเมื่อเอาโค้ดไปให้บัญชีอื่นกรอก ... คนที่ชวนจะได้ 200 โทเคน
-// คนที่โดนชวนจะไม่ได้ ถ้าอยากได้ต้องไปชวนอีกคน ... บัญชีห้ามซ้ำคนเดิมเด็ดขาด"; design B, the orange banner).
-// Every account's code is its public ID (SQ-XXXXXXXXXX). A new account (made after the campaign began, email confirmed)
-// enters one friend's code, once; the friend gets 200 Krarok Tokens (a token grant) once this account has recorded its
-// first job or expense. One code is entered by 2 people at most (owner: "โค้ดหนึ่งสามารถกรอกได้แค่2คน"), 100 rewards in the
-// whole campaign. One device enters a code once, and never the code of an account that has used that device ("เช็คเครื่อง
-// ได้เลย"). The card follows Fastwork's invite card (owner's reference): the code large, one copy button, no LINE.
+// ใส่โค้ด รับ 200 โทเคน, ส่งต่อให้เพื่อน (owner, 2026-11-05, round 2: "กูอยากให้มันมีปุ่มให้ใส่โค้ด ... ใส่โค้ดเพื่อรับ ...
+// โค้ดกูจะได้ประมาณสัก 5 สิทธิ์ ... การตลาดแบบว่าเป็นการแนะนำกันต่อกันเอง ... awareness ... สิทธิพิเศษที่เขาจะได้ก็คือได้รับ
+// 200 โทเค็นให้ใช้ฟรี"). Every account's code is its public ID (SQ-XXXXXXXXXX). Any account with a confirmed email enters
+// one friend's code, once, and gets 200 Krarok Tokens (a token grant) at once; the friend gets nothing, the gift is what
+// they pass on. One code is entered by 5 people (the owner's own code has no limit, it goes into the clips), 100 rewards in
+// the whole campaign. One device enters a code once, and never the code of an account that has used that device.
+// The first round (until 2026-11-05 16:xx) gave the tokens to the one who invited, 2 people a code: entries from it that
+// were still waiting are finished the new way (the one who entered gets the tokens).
 
 export const REFERRAL_TOKENS = 200;
-export const REFERRAL_PER_PERSON = 2;
+export const REFERRAL_PER_PERSON = 5;
 export const REFERRAL_TOTAL = 100;
-/** Accounts made from this moment can enter a friend's code; the automatic 200 for new accounts ends here. */
+/** The automatic 200 for new accounts ended here, when the invite campaign began (shared/signupGift.ts). */
 export const REFERRAL_FROM = Date.parse('2026-11-05T15:25:00+07:00');
 
 export type ReferralState = 'pending' | 'rewarded' | 'refused';
@@ -22,7 +23,7 @@ export interface ReferralEntry {
   device: string;
   status: ReferralState;
   rewardedAt?: string;
-  /** Why no reward came (the campaign or the friend's 10 were full). */
+  /** Why no reward came (the campaign or the code was full). */
   reason?: 'campaign_full' | 'referrer_full';
 }
 
@@ -43,7 +44,7 @@ export function readEntry(value: unknown): ReferralEntry | null {
   };
 }
 
-/** The entries that hold one of a code's 2 places (waiting or rewarded), first first (time, then account id). */
+/** The entries that hold one of a code's places (waiting or rewarded), first first (time, then account id). */
 export function rankEntries(rows: { userId: string; entry: ReferralEntry | null }[]): { userId: string; at: string }[] {
   return rows.filter(row => row.entry && row.entry.status !== 'refused')
     .map(row => ({ userId: row.userId, at: row.entry!.at }))
@@ -60,11 +61,11 @@ export function rankRewards(rows: { userId: string; entry: ReferralEntry | null 
 /** What the app shows for one account. */
 export interface ReferralStatus {
   code: string | null;
-  /** Friends who brought this account its tokens, and friends who entered the code but have not recorded anything yet. */
-  rewarded: number;
-  pending: number;
+  /** How many have entered this account's code. */
+  used: number;
   tokens: number;
-  perPerson: number;
+  /** How many may enter this code; null: no limit (the owner's own code). */
+  perPerson: number | null;
   /** Rewards left in the whole campaign. */
   left: number;
   total: number;
@@ -74,10 +75,9 @@ export interface ReferralStatus {
   entered: { code: string; status: ReferralState } | null;
 }
 
-/** A new member for this campaign: made after it began, with a confirmed email (Google and Facebook sign-ins are). */
-export const isNewMember = (user: { created_at?: string | null; email_confirmed_at?: string | null }) =>
-  Boolean(user.email_confirmed_at) && Number.isFinite(Date.parse(user.created_at ?? '')) && Date.parse(user.created_at!) >= REFERRAL_FROM;
+/** Who may enter a code: an account with a confirmed email (Google and Facebook sign-ins are), new or not. */
+export const canEnterCode = (user: { email_confirmed_at?: string | null }) => Boolean(user.email_confirmed_at);
 
 export const shareLink = (origin: string, code: string) => `${origin}/?ref=${encodeURIComponent(code)}`;
 export const shareText = (origin: string, code: string) =>
-  `ลองใช้แอปกระรอกตุนเงิน ช่วยจดงาน ตามเงินลูกค้า และสรุปการเงินให้ฟรีแลนซ์ สมัครแล้วกรอกโค้ดของผม ${code} ให้หน่อยนะ ${shareLink(origin, code)}`;
+  `ลองใช้แอปกระรอกตุนเงิน ช่วยจดงาน ตามเงินลูกค้า และสรุปการเงินให้ฟรีแลนซ์ กรอกโค้ดแนะนำ ${code} รับ 200 โทเคนใช้เลขากระรอกฟรี ${shareLink(origin, code)}`;
