@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronRight, Copy, Gift, X } from 'lucide-react';
+import { ChevronRight, Copy, UserPlus, X } from 'lucide-react';
 import { tr } from '../../i18n/tr';
 import { Mascot } from '../../components/mascot/Mascot';
 import { isReferralCode, normalizeCode, type ReferralStatus } from '../../../../shared/referral';
@@ -30,7 +30,8 @@ export function ReferralButtons({ phone, status, onOpen }: { phone: boolean; sta
       </button>
       {enter && !phone && (
         <button type="button" className="ref-chip" onClick={() => onOpen('share')} data-testid="referral-share-button">
-          <Gift size={15} aria-hidden="true" />{tr("แนะนำเพื่อนร่วมอาชีพ")}
+          {/* A person with a plus, not a gift box (owner, 2026-11-05: the gift looked like a game). */}
+          <UserPlus size={15} aria-hidden="true" />{tr("แนะนำเพื่อนร่วมอาชีพ")}
         </button>
       )}
     </div>

@@ -522,7 +522,7 @@ card does not need:
 - No banner or card on the overview: one pill button in solid CI orange #E65F2B (52px high, white text, a soft orange
   shadow): the squirrel holding its coin (the Mascot component) in a cream #FFF4EC circle, two lines and a chevron.
   While the account may still enter a code: "ใส่โค้ด รับ 200 โทเคน / สำหรับใช้งานเอเจนต์เลขากระรอก", and on computers and
-  iPads a small cream chip "แนะนำเพื่อนร่วมอาชีพ" (gift icon) beside it; afterwards: "แนะนำเพื่อนร่วมอาชีพ / ให้ใช้
+  iPads a small cream chip "แนะนำเพื่อนร่วมอาชีพ" (person-plus icon, never a gift box: "มันเหมือนเกม") beside it; afterwards: "แนะนำเพื่อนร่วมอาชีพ / ให้ใช้
   เลขากระรอกฟรี 200 โทเคน". Never "ชวนเพื่อน": the words are for people at work, not a social app. On wide computers (1440px+) in the overview header before the month picker, on narrower computers and iPads on their own row
   under the header, on phones under the quick actions (`features/referral/ReferralCards.tsx`).
 - One window, three faces (data-view): enter (the squirrel, the title, "ใช้งานเอเจนต์เลขากระรอกฟรี · กรอกได้ครั้งเดียว",
