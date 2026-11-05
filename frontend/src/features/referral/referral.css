@@ -1,0 +1,65 @@
+/* ชวนเพื่อน รับ 200 โทเคน (owner, 2026-11-05): a small button, and one dialog after Fastwork's invite card. */
+.ref-pill { display: inline-flex; align-items: center; gap: 10px; min-height: 52px; padding: 4px 12px 4px 4px; border: 0; border-radius: 999px;
+  background: #E65F2B; color: #fff; font: inherit; text-align: left; white-space: nowrap; cursor: pointer;
+  box-shadow: 0 8px 18px -10px rgba(194, 74, 22, 0.75); transition: background-color 0.15s, transform 0.15s; }
+.ref-pill:hover { background: #D6541F; }
+.ref-pill:active { transform: scale(0.98); }
+.ref-pill:focus-visible { outline: 2px solid #E65F2B; outline-offset: 2px; }
+.ref-pill-face { display: grid; place-items: center; flex: none; width: 44px; height: 44px; border-radius: 50%; background: #FFF4EC; overflow: hidden; }
+.ref-pill-text { display: grid; min-width: 0; }
+.ref-pill-text b { font-size: 14px; font-weight: 600; line-height: 1.45; }
+.ref-pill-text small { font-size: 12px; font-weight: 500; line-height: 1.45; color: rgba(255, 255, 255, 0.9); }
+.ref-pill-arrow { flex: none; opacity: 0.9; }
+.ref-pill.is-phone { min-height: 54px; }
+.ref-pill.is-phone .ref-pill-face { width: 46px; height: 46px; }
+
+.ref-scrim { position: fixed; inset: 0; z-index: 9000; display: flex; align-items: center; justify-content: center; padding: 16px;
+  background: rgba(28, 25, 23, 0.42); backdrop-filter: blur(4px); }
+.dark .ref-scrim { background: rgba(0, 0, 0, 0.6); }
+.ref-dialog { position: relative; display: grid; justify-items: center; gap: 10px; width: 100%; max-width: 440px; max-height: 100%; overflow-y: auto;
+  padding: 28px 28px 24px; border-radius: 24px; background: #fff; color: #1C1917; text-align: center; box-shadow: 0 24px 64px rgba(28, 25, 23, 0.25); outline: none; }
+.dark .ref-dialog { background: #212226; color: #F2F0ED; }
+.ref-close { position: absolute; top: 14px; right: 14px; display: grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: 50%;
+  background: transparent; color: #57534E; cursor: pointer; }
+.ref-close:hover { background: rgba(120, 113, 108, 0.12); }
+.dark .ref-close { color: #B5B0A9; }
+.ref-figure { display: block; width: 92px; height: 92px; }
+.ref-dialog h2 { margin: 0; font-size: 20px; font-weight: 600; line-height: 1.45; }
+.ref-scarce { margin: 0; font-size: 15px; line-height: 1.55; color: #7D7772; }
+.ref-scarce b { color: #1C1917; font-weight: 600; }
+.dark .ref-scarce { color: #B5B0A9; }
+.dark .ref-scarce b { color: #F2F0ED; }
+.ref-codebox { display: grid; justify-items: center; gap: 8px; width: 100%; margin-top: 6px; padding: 16px 16px 14px; border: 1px solid #E5E3DF; border-radius: 16px; }
+.dark .ref-codebox { border-color: rgba(255, 255, 255, 0.12); }
+.ref-codebox small { font-size: 13px; font-weight: 500; line-height: 1.5; color: #7D7772; }
+.dark .ref-codebox small { color: #B5B0A9; }
+.ref-codebox b { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 26px; font-weight: 600; line-height: 1.4; letter-spacing: 0.08em; white-space: nowrap; }
+.ref-copy-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 46px; border: 0; border-radius: 999px;
+  background: #1C1917; color: #fff; font: inherit; font-size: 15px; font-weight: 600; line-height: 1.45; cursor: pointer; }
+.ref-copy-btn:hover { background: #33302D; }
+.dark .ref-copy-btn { background: #F2F0ED; color: #1C1917; }
+.ref-done { font-size: 14px; font-weight: 600; line-height: 1.5; color: #12804F; }
+.dark .ref-done { color: #4ADE80; }
+.ref-note { margin: 4px 0 0; font-size: 13.5px; line-height: 1.6; color: #7D7772; text-wrap: balance; }
+.dark .ref-note { color: #B5B0A9; }
+.ref-count { margin: 0; font-size: 12.5px; font-weight: 500; line-height: 1.55; color: #C24A16; }
+.dark .ref-count { color: #FFA473; }
+.ref-enter { display: grid; gap: 6px; width: 100%; margin-top: 8px; padding-top: 16px; border-top: 1px solid #E5E3DF; text-align: left; }
+.dark .ref-enter { border-color: rgba(255, 255, 255, 0.12); }
+.ref-enter b { font-size: 14.5px; font-weight: 600; line-height: 1.5; }
+.ref-enter small { font-size: 13px; line-height: 1.6; color: #7D7772; text-wrap: pretty; }
+.dark .ref-enter small { color: #B5B0A9; }
+.ref-enter-row { display: flex; gap: 8px; margin-top: 4px; }
+.ref-enter-row input { flex: 1 1 auto; min-width: 0; height: 44px; padding: 0 14px; border: 1px solid #E5E3DF; border-radius: 10px;
+  background: #fff; color: #1C1917; font: inherit; font-size: 15px; font-weight: 500; letter-spacing: 0.04em; }
+.dark .ref-enter-row input { border-color: rgba(255, 255, 255, 0.16); background: #2A2B30; color: #F2F0ED; }
+.ref-enter-row input:focus { outline: 2px solid #E65F2B; outline-offset: 1px; }
+.ref-enter-row button { min-height: 44px; padding: 0 16px; border: 0; border-radius: 10px; background: #E65F2B; color: #fff; font: inherit; font-size: 14px;
+  font-weight: 600; line-height: 1.45; white-space: nowrap; cursor: pointer; }
+.ref-enter-row button:disabled { cursor: not-allowed; opacity: 0.5; }
+/* Phones: a sheet from the bottom. */
+.ref-scrim.is-phone { align-items: flex-end; padding: 0; }
+.ref-scrim.is-phone .ref-dialog { max-width: none; border-radius: 22px 22px 0 0; padding: 24px 18px calc(18px + env(safe-area-inset-bottom, 0px)); }
+.ref-scrim.is-phone .ref-codebox b { font-size: 23px; }
+/* Phones: on its own under the quick actions. */
+.ksm-referral { display: flex; justify-content: center; margin-top: 14px; }

@@ -32,7 +32,7 @@ test('agreeing keeps the version and the time; withdrawing keeps the agreement w
 test('the consent route needs the same-origin check, and เลขา and LINE refuse without the record', () => {
   const router = readFileSync(new URL('../backend/src/http/router.ts', import.meta.url), 'utf8');
   assert.match(router, /routes\.consent = consent;/);
-  assert.match(router, /'assistant','consent'\]\.includes\(route\)/);
+  assert.match(router, /'assistant','consent'(,'[a-z-]+')*\]\.includes\(route\)/);
   const assistant = readFileSync(new URL('../backend/src/handlers/assistant.ts', import.meta.url), 'utf8');
   assert.equal((assistant.match(/await requireAiConsent\(user\.id\)/g) ?? []).length, 3, 'chat, voice and the import chat');
   assert.match(assistant, /hasConsent\(user\.id, 'ai'\)\)\) \{ res\.json\(\{ columns: \[\], available: false/);

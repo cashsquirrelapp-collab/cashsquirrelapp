@@ -69,6 +69,9 @@ interface DashboardTabProps {
   quotationAccess?: boolean;
   /** "ย้ายข้อมูลเข้าแอป" while the account is empty (owner, 2026-11-04); null once anything is recorded or after ไม่ต้อง. */
   importInvite?: { onOpen: () => void; onDismiss: () => void } | null;
+  /** ชวนเพื่อน รับ 200 โทเคน (shared/referral.ts): the button made in App, for phones and for screens too narrow to have it
+   *  in the header (under 1280px); null when the header has it. */
+  referralButton?: React.ReactNode;
 }
 
 const MINI_CALENDAR_EVENT_STYLES: Record<CalendarEventKind, { bg: string; color: string }> = {
@@ -102,6 +105,7 @@ export default function DashboardTab({
   receivablesAccess = fullFeatureAccess,
   quotationAccess = fullFeatureAccess,
   importInvite = null,
+  referralButton = null,
 }: DashboardTabProps) {
   const { t, language } = useLanguage();
   // Which hero-card figure's job breakdown is currently open ('contract' | 'received' | 'pending'),
@@ -860,6 +864,7 @@ export default function DashboardTab({
         onCalendar={() => (onOpenCalendar ? onOpenCalendar() : onSwitchTab('calendar'))}
         onTools={() => onOpenTools?.()}
         importInvite={importInvite}
+        referralButton={referralButton}
       />
     );
   })() : null;
@@ -870,6 +875,8 @@ export default function DashboardTab({
       {/* 1. Greeting + KPI cards -- share order-1 so this block never collides with the
           pre-existing Alert Zone below, which already owns order-2. */}
       <div className="order-1 flex flex-col gap-5">
+      {/* ชวนเพื่อน รับ 200 โทเคน on narrower computers and iPads: its own row, so the header's title keeps its room. */}
+      {referralButton && <div className="flex">{referralButton}</div>}
       {/* An empty account is offered its old records first (owner, 2026-11-04); ไม่ต้อง hides it on this device. */}
       {importInvite && (
         <section data-testid="import-invite" aria-labelledby="import-invite-title" className={`${uiSurface} import-invite`}>

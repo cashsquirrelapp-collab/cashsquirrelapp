@@ -35,10 +35,12 @@ import { tax } from './tax';
 import { vault } from './vault';
 import { documentsPhone } from './documentsPhone';
 import { consent } from './consent';
+import { referral } from './referral';
 
 export const EN: Record<string, string> = {
   ...documentsPhone,
   ...consent,
+  ...referral,
   ...admin,
   ...assistant,
   ...briefing,

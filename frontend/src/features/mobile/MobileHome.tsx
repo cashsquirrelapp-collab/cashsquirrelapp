@@ -86,6 +86,8 @@ export interface MobileHomeProps {
   onTools: () => void;
   /** "ย้ายข้อมูลเข้าแอป" while the account is empty (owner, 2026-11-04); null once anything is recorded or after ไม่ต้อง. */
   importInvite?: { onOpen: () => void; onDismiss: () => void } | null;
+  /** ชวนเพื่อน รับ 200 โทเคน (shared/referral.ts): the small button that opens the code, made in App. */
+  referralButton?: React.ReactNode;
 }
 
 export function MobileHome(props: MobileHomeProps) {
@@ -187,6 +189,8 @@ export function MobileHome(props: MobileHomeProps) {
           </button>
         ))}
       </section>
+
+      {props.referralButton && <div className="ksm-referral">{props.referralButton}</div>}
 
       {/* An empty account is offered its old records first (owner, 2026-11-04); ไม่ต้อง hides it on this device. */}
       {props.importInvite && (
