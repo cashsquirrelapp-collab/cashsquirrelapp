@@ -2,7 +2,7 @@
 // โค้ดกูจะได้ประมาณสัก 5 สิทธิ์ ... การตลาดแบบว่าเป็นการแนะนำกันต่อกันเอง ... awareness ... สิทธิพิเศษที่เขาจะได้ก็คือได้รับ
 // 200 โทเค็นให้ใช้ฟรี"). Every account's code is its public ID (SQ-XXXXXXXXXX). Any account with a confirmed email enters
 // one friend's code, once, and gets 200 Krarok Tokens (a token grant) at once; the friend gets nothing, the gift is what
-// they pass on. One code is entered by 5 people (the owner's own code has no limit, it goes into the clips), 100 rewards in
+// they pass on. One code is entered by 5 people (the owner's own too: "ตัวนี้จะใส่ได้แค่ 5 สิทธิ์เท่านั้น"), 100 rewards in
 // the whole campaign. One device enters a code once, and never the code of an account that has used that device.
 // No guessing ("เครื่องมือสุ่มรหัส ... ห้ามได้เด็ดขาด"): every try counts, 5 a day per account and per device, 30 an hour
 // per internet address (backend/src/handlers/referral.ts), and a code counts only for a real, live account.
@@ -77,7 +77,7 @@ export interface ReferralStatus {
   /** How many have entered this account's code. */
   used: number;
   tokens: number;
-  /** How many may enter this code; null: no limit (the owner's own code). */
+  /** How many may enter this code (5 for every code today); null would mean no limit. */
   perPerson: number | null;
   /** Rewards left in the whole campaign. */
   left: number;

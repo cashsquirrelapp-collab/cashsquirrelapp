@@ -138,21 +138,19 @@ test('one code, 5 people: the sixth is refused, and two at once for the last pla
   assert.equal(rankEntries(Object.entries(state).map(([userId, s]) => ({ userId, entry: readEntry(s.referral) }))).length, 5);
 });
 
-test('the owner\'s own code has no limit of people (it goes into the clips)', async () => {
+test('the owner\'s own code takes 5 people too ("ตัวนี้จะใส่ได้แค่ 5 สิทธิ์เท่านั้น")', async () => {
   owners.add(FRIEND);
-  state = Object.fromEntries([10, 11, 12, 13, 14, 15].map(n => [uid(n), { referral: { code: code(1), referrerId: FRIEND, at: '2026-11-06T01:00:00.000Z', device: `d${n}`, status: 'rewarded', rewardedAt: '2026-11-06T01:00:00.000Z' } }]));
-  const entry = await enter(NEW, code(1));
-  assert.equal(entry.status, 'rewarded', 'the seventh still counts');
-  assert.equal(await repo.codeLimit(FRIEND), null);
-  assert.equal(await repo.codeLimit(uid(3)), 5);
-  assert.equal(await repo.usedCount(FRIEND), 7);
+  state = Object.fromEntries([10, 11, 12, 13, 14].map(n => [uid(n), { referral: { code: code(1), referrerId: FRIEND, at: '2026-11-06T01:00:00.000Z', device: `d${n}`, status: 'rewarded', rewardedAt: '2026-11-06T01:00:00.000Z' } }]));
+  await assert.rejects(enter(NEW, code(1)), error => codeOf(error) === 'referral_referrer_full');
+  assert.deepEqual(grantsOf(NEW), []);
+  assert.equal(await repo.codeLimit(FRIEND), 5);
+  assert.equal(await repo.usedCount(FRIEND), 5);
 });
 
 test('the campaign: 100 rewards, and two at the same moment for the last one never make 101', async () => {
   const rewardedBy = (referrerId: string, n: number, offset = 100) => Object.fromEntries(Array.from({ length: n }, (_, i) => [uid(offset + i), {
     referral: { code: code(3), referrerId, at: '2026-11-06T01:00:00.000Z', device: `d${offset + i}`, status: 'rewarded', rewardedAt: `2026-11-06T02:${String(i % 60).padStart(2, '0')}:00.000Z` },
   }]));
-  owners.add(uid(3));
   // The campaign has 100: refused at entry.
   state = rewardedBy(uid(3), 100, 200);
   await assert.rejects(enter(NEW, code(1)), error => codeOf(error) === 'referral_full');

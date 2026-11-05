@@ -3,7 +3,6 @@ import { getSupabaseAdmin } from '../config/supabase.js';
 import { patchPrivate } from './accounts.js';
 import { addTokenGrant } from './tokenGrants.js';
 import { HttpError } from '../http/guard.js';
-import { isOwnerAccount } from '../security/adminAnalyticsAccess.js';
 import { normalizeCode, rankEntries, rankRewards, readEntry, REFERRAL_PER_PERSON, REFERRAL_TOKENS, REFERRAL_TOTAL, type ReferralEntry } from '../../../shared/referral.js';
 
 // ใส่โค้ด รับ 200 โทเคน (shared/referral.ts), kept in cashflow_private_state, a table only server code reads or writes:
@@ -67,8 +66,8 @@ export async function entriesFor(referrerId: string): Promise<ReferralEntry[]> {
 
 /**
  * The account behind a code. A code counts only for a real, live account (owner, 2026-11-05: "ถ้าไม่ใช่โค้ดที่เป็นมีบัญชี
- * จริงๆ ห้ามได้เด็ดขาด"): it exists, its email is confirmed, it is not banned, paused or deleted. The owner's own code has
- * no limit of people (it goes into the clips); every other code takes 5.
+ * จริงๆ ห้ามได้เด็ดขาด"): it exists, its email is confirmed, it is not banned, paused or deleted. Every code takes 5 people,
+ * the owner's own too (owner, 2026-11-05: "ตัวนี้จะใส่ได้แค่ 5 สิทธิ์เท่านั้น", as the clip's message says).
  */
 export async function codeAccount(referrerId: string): Promise<{ live: boolean; limit: number | null }> {
   const { data, error } = await getSupabaseAdmin().auth.admin.getUserById(referrerId);
@@ -76,7 +75,7 @@ export async function codeAccount(referrerId: string): Promise<{ live: boolean; 
   const user = data?.user;
   const banned = Boolean(user?.banned_until && Date.parse(user.banned_until) > Date.now());
   const live = Boolean(user && user.email_confirmed_at && !banned && !user.deleted_at && user.app_metadata?.account_paused !== true);
-  return { live, limit: user && isOwnerAccount(user) ? null : REFERRAL_PER_PERSON };
+  return { live, limit: REFERRAL_PER_PERSON };
 }
 export async function codeLimit(referrerId: string): Promise<number | null> {
   return (await codeAccount(referrerId)).limit;

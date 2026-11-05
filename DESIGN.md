@@ -518,7 +518,7 @@ card does not need:
 
 ### ใส่โค้ด รับ 200 โทเคน, แนะนำเพื่อนร่วมอาชีพ (owner, 2026-11-05: Fastwork's invite card as the reference, "ตัดไอ้ไลน์ออก", "ทำเป็นปุ่มเล็กๆ ... ไม่ต้องเป็นการ์ดใหญ่", "บอกเขาด้วยว่ามันคือโทเค็นอะไร", then round 2 "กูอยากให้มันมีปุ่มให้ใส่โค้ด ... โค้ดกูจะได้ประมาณสัก 5 สิทธิ์ ... แนะนำกันต่อกันเอง")
 - The one who enters a friend's code gets 200 tokens at once; the friend gets nothing, the gift is what they pass on. Any
-  account with a confirmed email enters once; a code takes 5 people (the owner's has no limit); 100 rewards in all.
+  account with a confirmed email enters once; every code takes 5 people, the owner's too; 100 rewards in all.
 - No banner or card on the overview: one pill button in solid CI orange #E65F2B (52px high, white text, a soft orange
   shadow): the squirrel holding its coin (the Mascot component) in a cream #FFF4EC circle, two lines and a chevron.
   While the account may still enter a code: "ใส่โค้ด รับ 200 โทเคน / สำหรับใช้งานเอเจนต์เลขากระรอก", and on computers and
