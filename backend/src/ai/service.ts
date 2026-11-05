@@ -132,6 +132,8 @@ export interface PlanInfo {
   grants?: { tokens: number; at: string }[];
   /** The account uses เลขา only because of given tokens (no plan of its own). */
   granted?: true;
+  /** A new account's free tokens (signupTokens.ts). */
+  signup?: true;
 }
 const asPlan = (value: AssistantPlan | PlanInfo): PlanInfo => (typeof value === 'string' ? { plan: value } : value);
 
@@ -198,7 +200,9 @@ export const thaiDay = (date: Date) => {
 };
 
 const NO_ACCESS = 'เลขากระรอกเป็นสิทธิ์ของสมาชิก Pro';
-export function refuse(reason: 'tokens' | 'requests' | 'daily_cap', resetsAt: Date | null, trial = false, lapsed = false): never {
+export function refuse(reason: 'tokens' | 'requests' | 'daily_cap', resetsAt: Date | null, trial = false, lapsed = false, signup = false): never {
+  // A new account's free tokens (signupTokens.ts) are gone: said as what they were, with the way on.
+  if (reason === 'tokens' && signup) throw new HttpError(402, 'ใช้โทเคนฟรีสำหรับบัญชีใหม่ครบแล้ว อัปเกรดเป็น Pro เพื่อใช้เลขากระรอกต่อ', 'ai_trial_used');
   if (reason === 'requests' || (reason === 'tokens' && trial)) throw new HttpError(402, 'สิทธิ์ทดลองใช้เลขากระรอกครบแล้ว อัปเกรดเป็น Pro เพื่อใช้งานต่อ', 'ai_trial_used');
   if (reason === 'tokens' && lapsed) throw new HttpError(402, 'โทเคนที่เหลือจาก Pro หมดแล้ว ต่ออายุ Pro เพื่อรับโทเคนใหม่ทุกเดือน', 'ai_tokens_used');
   // With no refill date (Pro given by hand): said plainly, with where to ask for more.
@@ -247,7 +251,7 @@ export async function handleMessage(db: AssistantDb, deps: MessageDeps, userId: 
   const requestId = randomUUID();
   const reserved = await db.reserve({ userId, cycle: limits.cycle, requestId, tokens: limits.requestLimit !== null ? 0 : RESERVE_TOKENS,
     tokenLimit: limits.tokenLimit, requestLimit: limits.requestLimit, dailyCapUsd: config.dailyCostCapUsd });
-  if (!reserved.ok) refuse(reserved.reason, limits.resetsAt, plan === 'trial' && !asPlan(value).granted, plan === 'lapsed');
+  if (!reserved.ok) refuse(reserved.reason, limits.resetsAt, plan === 'trial' && !asPlan(value).granted, plan === 'lapsed', Boolean(asPlan(value).signup));
   // Hard stop before the start (cost brief, phase 4/7): a request that could take the app past its daily cap is refused
   // now, instead of being started and cut off. Sonnet requests can reach about $0.12 (a first-of-the-hour cache write).
   if (reserved.spentTodayUsd !== undefined && config.dailyCostCapUsd > 0) {

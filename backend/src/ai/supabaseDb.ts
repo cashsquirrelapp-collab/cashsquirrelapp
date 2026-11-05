@@ -1,5 +1,6 @@
 import { inFreeTrial } from '../../../shared/trial.js';
 import { isTesterPublicId, TESTER_BUCKET, TESTER_TOKENS } from './testers.js';
+import { signupTokens } from './signupTokens.js';
 import type { User } from '@supabase/supabase-js';
 import { getSupabaseAdmin } from '../config/supabase.js';
 import { HttpError } from '../http/guard.js';
@@ -67,6 +68,9 @@ export async function assistantPlan(user: User, now = Date.now()): Promise<PlanI
   if (sub && proHasEnded(sub, now)) {
     return { plan: 'lapsed', periodEnd: sub.current_period_end, tokens: sub.plan === 'pro_prepaid' ? await paidPlanTokens(user.id, Date.parse(sub.current_period_end!) - 1, sub.pro_access_reset_at) : undefined, ...(grants ? { grants } : {}) };
   }
+  // A new account (signupTokens.ts): 200 free tokens once, in a bucket of its own; tokens the owner gives are added to it.
+  const gift = signupTokens(user.created_at);
+  if (gift) return { plan: 'trial', tokens: gift.tokens, bucket: gift.bucket, signup: true, ...(grants ? { grants } : {}) };
   return grantedOnly(grants);
 }
 
