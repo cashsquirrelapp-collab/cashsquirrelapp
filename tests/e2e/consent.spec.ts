@@ -19,19 +19,19 @@ type Setup = {
   cached: Partial<Record<keyof typeof CONSENT_VERSIONS, string>>;
   /** What the server holds. */
   server: Record<string, unknown>;
-  width?: number; height?: number; path?: string;
+  width?: number; height?: number; path?: string; dark?: boolean;
   reply?: (body: any) => { status: number; json: unknown };
 };
 async function open(page: Page, setup: Setup) {
   const consentPosts: any[] = [];
   const otherPosts: { url: string; body: any }[] = [];
   let server = { ...setup.server };
-  await page.addInitScript(([id, cached]) => {
-    localStorage.setItem('cashflow_language', 'th'); localStorage.setItem('cashflow_dark_mode', 'false');
+  await page.addInitScript(([id, cached, dark]) => {
+    localStorage.setItem('cashflow_language', 'th'); localStorage.setItem('cashflow_dark_mode', dark ? 'true' : 'false');
     localStorage.setItem('cashflow_theme_auto_period', String(Math.floor((Date.now() + 7 * 3600e3 - 6 * 3600e3) / (12 * 3600e3))));
     localStorage.setItem('krarok_consent', JSON.stringify({ [id as string]: cached }));
     localStorage.setItem(`krarok.fileNotice.${id}`, '1');
-  }, [user.id, setup.cached] as const);
+  }, [user.id, setup.cached, Boolean(setup.dark)] as const);
   await page.route('**/*', route => (['127.0.0.1', 'localhost'].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort()));
   await page.route('**/api/**', route => route.fulfill({ json: {} }));
   await page.route('**/api/auth*', route => route.fulfill({ json: { session: { user } } }));
@@ -65,7 +65,7 @@ async function open(page: Page, setup: Setup) {
 const all = { ...CONSENT_VERSIONS };
 const record = (key: keyof typeof CONSENT_VERSIONS) => ({ [key]: { version: CONSENT_VERSIONS[key], at } });
 
-for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'phone', width: 390, height: 844 }]) {
+for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'ipad', width: 768, height: 1024 }, { name: 'phone', width: 390, height: 844 }]) {
   test(`terms: asked once before the app on the ${device.name}; both ticks, then the agreement is kept with its version`, async ({ page }) => {
     const mock = await open(page, { cached: {}, server: {}, width: device.width, height: device.height });
     const gate = page.getByTestId('terms-gate');
@@ -78,7 +78,9 @@ for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'p
     await gate.getByTestId('terms-gate-clients').check();
     await expect(gate.getByRole('link', { name: 'ข้อกำหนดการใช้งาน' })).toHaveAttribute('href', '/terms');
     await expect(gate.getByRole('link', { name: 'นโยบายความเป็นส่วนตัว' })).toHaveAttribute('href', '/privacy');
+    await expect(accept).toBeEnabled();
     expect(await textOverlapIssues(page)).toEqual([]);
+    await page.waitForTimeout(300); // the ticks' colour change settles before the picture
     await page.screenshot({ path: `test-results/consent-terms-${device.name}.png` });
     await accept.click();
     await expect(gate).toBeHidden();
@@ -91,6 +93,23 @@ for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'p
     expect(mock.consentPosts).toHaveLength(1);
   });
 }
+
+// Owner, 2026-11-05 ("ปรับเปลี่ยน UI หน่อยไม่ค่อยสวยเลย" → design B): on computers and iPads the dialog is two halves, the
+// cream side with how the data is looked after and the white side with the two choices, which turn orange when ticked.
+test('terms on a computer: the two halves, choice cards that turn orange, light and dark', async ({ page }) => {
+  await open(page, { cached: {}, server: {}, width: 1280, height: 720, dark: true });
+  const gate = page.getByTestId('terms-gate');
+  await expect(gate.getByRole('dialog', { name: 'ข้อตกลงก่อนใช้งาน' })).toBeVisible();
+  await expect(gate.locator('aside')).toContainText('เราไม่ขายข้อมูลส่วนบุคคล');
+  await gate.getByTestId('terms-gate-terms').check();
+  await expect(gate.getByTestId('terms-gate-accept')).toBeDisabled();
+  // The whole dialog fits a 1280×720 screen, buttons included.
+  const box = await gate.getByRole('dialog').boundingBox();
+  expect(box && box.y >= 0 && box.y + box.height <= 720).toBeTruthy();
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: 'test-results/consent-terms-dark.png' });
+});
 
 test('terms: the server\'s record counts on a new device, and an agreement whose save failed is sent again', async ({ page }) => {
   const mock = await open(page, { cached: {}, server: record('terms') });

@@ -494,8 +494,11 @@ card does not need:
   dialogs never flash; the server's record is what counts.
 - Terms (`app/TermsGate.tsx`): once per account before anything else opens (onboarding, tips, the radar and the team's
   message wait for it). Two ticks: the terms and privacy policy, and that client details are the person's to use.
-  Centred card on computers and iPads, a sheet on phones; ไม่ยอมรับ ออกจากระบบ, then the one orange button. It never
-  closes by itself.
+  It never closes by itself. Computers and iPads (owner, 2026-11-05, design B "เอาแบบนี้"): one card, 900px at most, in
+  two halves: a cream side (brand lockup, "เราดูแลข้อมูลของคุณ", three promises from the privacy policy in white round
+  icons, the once-only note at the foot; 340px, 288px under 1024px) and a white side (title, the two choices as cards
+  with a round tick that turn orange with an inner ring when ticked, then ไม่ยอมรับ ออกจากระบบ and the orange button at
+  equal width). Phones keep their bottom sheet with the grey group of two ticks.
 - เลขากระรอก (`features/assistant/AiConsent.tsx`): a direction-A card in place of the message box in the full chat, the
   floating window, the phone sheet and the import window, until agreed. The server refuses chat, voice and the import
   chat without it (428 `ai_consent_required`) and LINE asks the person to agree in the app. The line under every box:

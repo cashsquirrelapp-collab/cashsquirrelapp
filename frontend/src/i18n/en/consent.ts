@@ -10,6 +10,14 @@ export const consent: Record<string, string> = {
   'ไม่ยอมรับ ออกจากระบบ': 'Decline and sign out',
   'ยอมรับและใช้งานต่อ': 'Agree and continue',
   'บันทึกไม่สำเร็จ กรุณาลองใหม่': 'Could not save. Please try again.',
+  // The terms dialog on computers and iPads (design B, 2026-11-05)
+  'เราดูแลข้อมูลของคุณ': 'How we look after your data',
+  'สรุปสั้น ๆ จากนโยบายความเป็นส่วนตัว': 'In short, from our privacy policy',
+  'ข้อมูลงาน ลูกค้า และการเงิน เก็บไว้ในบัญชีของคุณ': 'Your jobs, clients and money are kept in your account',
+  'เราไม่ขายข้อมูลส่วนบุคคล': 'We never sell personal data',
+  'ไม่ใช้ข้อมูลการเงินของคุณเพื่อโฆษณา': 'Your financial data is never used for advertising',
+  'กรุณายืนยัน 2 ข้อ ก่อนเริ่มใช้งาน': 'Please confirm both points to get started',
+  'ข้อกำหนดและนโยบาย': 'Terms and policy',
   // เลขากระรอก's consent card (features/assistant/AiConsent.tsx)
   'ความยินยอม': 'Consent',
   'ความเป็นส่วนตัว': 'Privacy',
