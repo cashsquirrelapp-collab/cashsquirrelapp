@@ -6,7 +6,7 @@ import { loadLayoutFonts } from './testFonts';
 // ใส่โค้ด รับ 200 โทเคน, ส่งต่อให้เพื่อน (owner, 2026-11-05, round 2: "กูอยากให้มันมีปุ่มให้ใส่โค้ด ... โค้ดกูจะได้ประมาณสัก
 // 5 สิทธิ์ ... แนะนำกันต่อกันเอง"): an account that may still enter a code has the orange "ใส่โค้ด รับ 200 โทเคน" (and a
 // small แนะนำเพื่อนร่วมอาชีพ on computers and iPads); entering gives the tokens at once and leads on to passing the account's own code
-// on (5 people a code, the owner's without limit, no LINE). A shared link opens the window once with the code in it, and
+// on (5 people a code, the owner's too, no LINE). A shared link opens the window once with the code in it, and
 // เลขา's chat offers it to an account without Pro. The backend is mocked; nothing is sent anywhere.
 
 test.use({ serviceWorkers: 'block', permissions: ['clipboard-read', 'clipboard-write'] });
@@ -144,7 +144,7 @@ test('a code used by all 5: the window says so and there is nothing to copy', as
   await expect(dialog).toHaveCount(0);
 });
 
-test('the owner\'s code: no limit of people', async ({ page }) => {
+test('a code without a limit (none today: every code takes 5, the owner\'s too) would say so', async ({ page }) => {
   await open(page, { status: { perPerson: null, used: 12 } });
   await page.getByTestId('referral-button').click();
   const dialog = page.getByTestId('referral-dialog');
