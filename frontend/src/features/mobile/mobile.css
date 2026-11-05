@@ -257,15 +257,6 @@ body:has(.fbc.is-mobile, .asx.is-mobile) .ksm-nav-fade { display: none; }
 .ksm-quick.is-primary .ksm-quick-icon { background: #E65F2B; color: #FFFFFF; box-shadow: 0 8px 18px rgba(230, 95, 43, 0.32); }
 .ksm-quick.is-primary:hover .ksm-quick-icon { background: #D35221; }
 
-/* Moving old records in, while the account is empty (owner, 2026-11-04): the notice card's look, with its two buttons. */
-.ksm-import { margin-top: 18px; padding: 12px 14px 14px; border: 1px solid var(--ksm-border); border-radius: 18px; background: var(--ksm-surface); color: var(--ksm-text); box-shadow: 0 4px 14px var(--ksm-shadow-near); animation: ksm-card-in 0.26s ease-out both; }
-.ksm-import-row { display: flex; align-items: center; gap: 14px; }
-.ksm-import-row b { display: block; font-size: 16px; font-weight: 600; line-height: 1.45; }
-.ksm-import-row small { display: block; margin-top: 2px; font-size: 13px; line-height: 1.55; color: var(--ksm-secondary); }
-.ksm-import-actions { display: flex; gap: 8px; margin-top: 12px; }
-.ksm-import-actions > .ksm-btn-secondary { min-height: 44px; padding: 8px 16px; font-size: 14px; }
-.ksm-import-actions > .ksm-btn { flex: 1; }
-
 /* Cards below: money owed, the next date, the latest money in and out. */
 .ksm-notice, .ksm-agenda, .ksm-activity, .ksm-quiet { animation: ksm-card-in 0.26s ease-out both; }
 @keyframes ksm-card-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }

@@ -4,13 +4,16 @@ import { CONSENT_VERSIONS } from '../../shared/consents';
 import { textOverlapIssues } from './textOverlap';
 import { loadLayoutFonts } from './testFonts';
 
-// Consent before sensitive data (owner, 2026-11-05): the terms once before the app, เลขากระรอก's card before the first
-// message, the LINE consent before the code, and Settings › ความยินยอม. The backend is mocked; nothing is sent anywhere.
+// Consent before sensitive data (owner, 2026-11-05): the terms once before the app, for a new account only ("ถามแค่ครั้ง
+// เดียวพอตอนที่เขาเพิ่งสมัครมาใหม่ ไม่ต้องถามทุกครั้งเวลาเปิดเว็บไซต์"), เลขากระรอก's card before the first message, the LINE
+// consent before the code, and Settings › ความยินยอม. The backend is mocked; nothing is sent anywhere.
 
 test.use({ serviceWorkers: 'block' });
 
 const user = { adminLevel: 'owner' as const, id: '11111111-1111-4111-8111-111111111111', email: 'consent@example.com', role: 'admin', created_at: '2026-01-01T00:00:00Z', user_metadata: {} };
-const snapshot = { jobs: [], expenses: [], goals: [], invoices: [], settings: { monthlyExpense: 0, monthlyRevenueGoal: 20000, savingsPercentage: 40, profileSetupCompleted: true, userPersona: 'freelance' }, statuses: [], jobTypes: [], notifSettings: {} };
+const snapshot = { jobs: [], expenses: [], goals: [], invoices: [], settings: { monthlyExpense: 0, monthlyRevenueGoal: 20000, savingsPercentage: 40, profileSetupCompleted: true, userPersona: 'freelance', onboarding: { completedAt: '2026-11-05T03:00:00.000Z' } }, statuses: [], jobTypes: [], notifSettings: {} };
+/** An account made after the terms dialog began, so it is asked once (shared/consents.ts asksTerms). */
+const NEW = '2026-11-05T02:00:00Z';
 const versions = { cashflow_jobs: {}, cashflow_expenses: {}, cashflow_goals: {}, cashflow_invoices: {}, cashflow_documents: { settings: 1 } };
 const at = '2026-11-05T03:00:00.000Z';
 
@@ -21,6 +24,10 @@ type Setup = {
   server: Record<string, unknown>;
   width?: number; height?: number; path?: string; dark?: boolean;
   reply?: (body: any) => { status: number; json: unknown };
+  /** When the account was made (default: long before the terms dialog). */
+  createdAt?: string;
+  /** The server cannot read the record (a busy database). */
+  readFails?: boolean;
 };
 async function open(page: Page, setup: Setup) {
   const consentPosts: any[] = [];
@@ -34,7 +41,8 @@ async function open(page: Page, setup: Setup) {
   }, [user.id, setup.cached, Boolean(setup.dark)] as const);
   await page.route('**/*', route => (['127.0.0.1', 'localhost'].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort()));
   await page.route('**/api/**', route => route.fulfill({ json: {} }));
-  await page.route('**/api/auth*', route => route.fulfill({ json: { session: { user } } }));
+  const account = { ...user, created_at: setup.createdAt ?? user.created_at };
+  await page.route('**/api/auth*', route => route.fulfill({ json: { session: { user: account } } }));
   await page.route('**/api/profile', route => route.fulfill({ json: { userId: user.id, publicId: 'SQ-1111111111', displayName: 'ผู้ใช้ตัวอย่าง' } }));
   await page.route('**/api/groups?*', route => route.fulfill({ json: { systemRole: 'admin', groups: [], invitations: [], total: 0, page: 0 } }));
   await page.route('**/api/vault', route => route.fulfill({ json: { files: [] } }));
@@ -42,7 +50,9 @@ async function open(page: Page, setup: Setup) {
     : { snapshot, versions, subscription: { status: 'active', plan: 'pro_monthly', current_period_end: '2099-01-01T00:00:00Z' } } }));
   await page.route('**/api/consent', route => {
     const request = route.request();
-    if (request.method() === 'GET') return route.fulfill({ json: { consents: server, versions: CONSENT_VERSIONS } });
+    if (request.method() === 'GET') return setup.readFails
+      ? route.fulfill({ status: 503, json: { error: 'อ่านข้อมูลความยินยอมไม่สำเร็จ กรุณาลองใหม่อีกครั้ง', code: 'consent_unavailable' } })
+      : route.fulfill({ json: { consents: server, versions: CONSENT_VERSIONS } });
     const body = request.postDataJSON();
     consentPosts.push(body);
     server = body.accepted ? { ...server, [body.key]: { version: body.version, at } } : { ...server, [body.key]: { ...(server[body.key] as object), withdrawnAt: at } };
@@ -67,7 +77,7 @@ const record = (key: keyof typeof CONSENT_VERSIONS) => ({ [key]: { version: CONS
 
 for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'ipad', width: 768, height: 1024 }, { name: 'phone', width: 390, height: 844 }]) {
   test(`terms: asked once before the app on the ${device.name}; both ticks, then the agreement is kept with its version`, async ({ page }) => {
-    const mock = await open(page, { cached: {}, server: {}, width: device.width, height: device.height });
+    const mock = await open(page, { cached: {}, server: {}, width: device.width, height: device.height, createdAt: NEW });
     const gate = page.getByTestId('terms-gate');
     await expect(gate).toBeVisible();
     await expect(gate.getByRole('dialog', { name: 'ข้อตกลงก่อนใช้งาน' })).toBeVisible();
@@ -97,7 +107,7 @@ for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'i
 // Owner, 2026-11-05 ("ปรับเปลี่ยน UI หน่อยไม่ค่อยสวยเลย" → design B): on computers and iPads the dialog is two halves, the
 // cream side with how the data is looked after and the white side with the two choices, which turn orange when ticked.
 test('terms on a computer: the two halves, choice cards that turn orange, light and dark', async ({ page }) => {
-  await open(page, { cached: {}, server: {}, width: 1280, height: 720, dark: true });
+  await open(page, { cached: {}, server: {}, width: 1280, height: 720, dark: true, createdAt: NEW });
   const gate = page.getByTestId('terms-gate');
   await expect(gate.getByRole('dialog', { name: 'ข้อตกลงก่อนใช้งาน' })).toBeVisible();
   await expect(gate.locator('aside')).toContainText('เราไม่ขายข้อมูลส่วนบุคคล');
@@ -111,18 +121,43 @@ test('terms on a computer: the two halves, choice cards that turn orange, light 
   await page.screenshot({ path: 'test-results/consent-terms-dark.png' });
 });
 
-test('terms: the server\'s record counts on a new device, and an agreement whose save failed is sent again', async ({ page }) => {
-  const mock = await open(page, { cached: {}, server: record('terms') });
+test('terms: the server\'s record counts on a new device and is remembered there; a failed save is sent again', async ({ page }) => {
+  const mock = await open(page, { cached: {}, server: record('terms'), createdAt: NEW });
   await expect(page.getByRole('button', { name: 'ข้ามไปเนื้อหา' })).toBeAttached();
   await page.waitForTimeout(500);
   await expect(page.getByTestId('terms-gate')).toHaveCount(0);
   expect(mock.consentPosts).toEqual([]);
+  // Kept on this device, so the next visit never waits for the server.
+  await expect.poll(() => page.evaluate(id => JSON.parse(localStorage.getItem('krarok_consent') || '{}')[id]?.terms, user.id)).toBe(CONSENT_VERSIONS.terms);
 
   const other = await page.context().newPage();
-  const second = await open(other, { cached: { terms: CONSENT_VERSIONS.terms }, server: {} });
+  const second = await open(other, { cached: { terms: CONSENT_VERSIONS.terms }, server: {}, createdAt: NEW });
   await expect(other.getByRole('button', { name: 'ข้ามไปเนื้อหา' })).toBeAttached();
   await expect.poll(() => second.consentPosts).toEqual([{ key: 'terms', accepted: true, version: CONSENT_VERSIONS.terms }]);
   await expect(other.getByTestId('terms-gate')).toHaveCount(0);
+});
+
+// Owner, 2026-11-05: "ถามแค่ครั้งเดียวพอตอนที่เขาเพิ่งสมัครมาใหม่ ไม่ต้องถามทุกครั้งเวลาเปิดเว็บไซต์".
+test('terms: an account from before the terms began is never stopped by them', async ({ page }) => {
+  const mock = await open(page, { cached: {}, server: {} });
+  await expect(page.getByRole('button', { name: 'ข้ามไปเนื้อหา' })).toBeAttached();
+  await page.waitForTimeout(800);
+  await expect(page.getByTestId('terms-gate')).toHaveCount(0);
+  expect(mock.consentPosts).toEqual([]);
+});
+
+test('terms: when the record cannot be read (a busy server), nothing is asked meanwhile', async ({ page }) => {
+  await open(page, { cached: {}, server: record('terms'), createdAt: NEW, readFails: true });
+  await expect(page.getByRole('button', { name: 'ข้ามไปเนื้อหา' })).toBeAttached();
+  await page.waitForTimeout(1500);
+  await expect(page.getByTestId('terms-gate')).toHaveCount(0);
+});
+
+test('เลขา: when the record cannot be read, the consent card is not shown again', async ({ page }) => {
+  await open(page, { cached: { terms: CONSENT_VERSIONS.terms }, server: { ...record('terms'), ...record('ai') }, path: '/assistant', readFails: true });
+  await expect(page.locator('#asx-message')).toBeVisible();
+  await page.waitForTimeout(800);
+  await expect(page.getByTestId('ai-consent')).toHaveCount(0);
 });
 
 test('เลขา: the consent card takes the place of the box until agreed; nothing reaches the assistant before', async ({ page }) => {

@@ -14,6 +14,14 @@ export async function loadConsents(userId: string): Promise<ConsentRecords> {
   } catch { return {}; }
 }
 
+/** The records for the app to show; a read error is an error (the app then waits and asks again later), never "none",
+ *  so a slow database never makes the app ask for an agreement the person already gave. */
+export async function readConsentsOrThrow(userId: string): Promise<ConsentRecords> {
+  const { data, error } = await getSupabaseAdmin().from('cashflow_private_state').select('consents:data->consents').eq('user_id', userId).maybeSingle();
+  if (error) throw error;
+  return readConsents((data as { consents?: unknown } | null)?.consents);
+}
+
 export async function hasConsent(userId: string, key: ConsentKey): Promise<boolean> {
   return isConsented(await loadConsents(userId), key);
 }

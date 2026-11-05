@@ -2,7 +2,7 @@ import { afterEach, beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { Readable } from 'node:stream';
-import { CONSENT_VERSIONS, isConsented, readConsents, withConsent } from '../shared/consents';
+import { asksTerms, CONSENT_VERSIONS, isConsented, readConsents, TERMS_FROM, withConsent } from '../shared/consents';
 import { routeHandler } from '../backend/src/http/router';
 import { seal } from '../backend/src/security/cookies';
 
@@ -17,6 +17,15 @@ test('records: only well-formed entries count; the current version, not withdraw
   assert.equal(isConsented(records, 'ai'), false, 'an older text asks again');
   assert.equal(isConsented(records, 'line'), false);
   for (const raw of [null, undefined, 'yes', [], 42]) assert.deepEqual(readConsents(raw), {});
+});
+
+// Owner, 2026-11-05: "ถามแค่ครั้งเดียวพอตอนที่เขาเพิ่งสมัครมาใหม่ ไม่ต้องถามทุกครั้งเวลาเปิดเว็บไซต์".
+test('the terms are asked of accounts made from the day the dialog began, never of older ones', () => {
+  assert.equal(asksTerms(new Date(TERMS_FROM).toISOString()), true);
+  assert.equal(asksTerms('2026-11-06T10:00:00Z'), true);
+  assert.equal(asksTerms(new Date(TERMS_FROM - 1).toISOString()), false);
+  assert.equal(asksTerms('2026-01-01T00:00:00Z'), false);
+  for (const value of [undefined, null, '', 'not a date']) assert.equal(asksTerms(value), false);
 });
 
 test('agreeing keeps the version and the time; withdrawing keeps the agreement with when it was withdrawn', () => {

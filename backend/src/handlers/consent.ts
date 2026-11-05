@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { CONSENT_KEYS, CONSENT_VERSIONS } from '../../../shared/consents.js';
 import { HttpError, withGuard } from '../http/guard.js';
-import { loadConsents, saveConsent } from '../repositories/consents.js';
+import { readConsentsOrThrow, saveConsent } from '../repositories/consents.js';
 import { rateLimit } from '../security/rateLimit.js';
 import { requireUser } from '../security/session.js';
 
@@ -16,7 +16,10 @@ export default withGuard(async (req, res) => {
   if (req.headers['x-account-id'] !== user.id) throw new HttpError(401, 'บัญชีเปลี่ยน กรุณาโหลดหน้าใหม่');
   if (req.method === 'GET') {
     await rateLimit('consent-read', user.id, 60, 60);
-    res.json({ consents: await loadConsents(user.id), versions: CONSENT_VERSIONS });
+    let consents;
+    try { consents = await readConsentsOrThrow(user.id); }
+    catch { throw new HttpError(503, 'อ่านข้อมูลความยินยอมไม่สำเร็จ กรุณาลองใหม่อีกครั้ง', 'consent_unavailable'); }
+    res.json({ consents, versions: CONSENT_VERSIONS });
     return;
   }
   const parsed = actionSchema.safeParse(req.body);

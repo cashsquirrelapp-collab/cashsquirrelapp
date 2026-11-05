@@ -5,6 +5,9 @@ import { apiJson } from './api';
 // What the signed-in account has agreed to (shared/consents.ts; owner, 2026-11-05). The server keeps the record and is
 // what counts: เลขากระรอก and connecting LINE refuse without it (428). This device keeps a copy per account so the app
 // knows at once on the next visit (no flash of the terms dialog), and an agreement whose save failed is sent again.
+// Asked once (owner, 2026-11-05: "ไม่ต้องถามทุกครั้งเวลาเปิดเว็บไซต์"): an agreement the server already has is kept on the
+// device too, and an answer that could not be read (offline, a slow server) is "not known yet", never "not agreed", so
+// nothing asks again because of it; it is read again a little later.
 
 export const CONSENT_CACHE_KEY = 'krarok_consent';
 type Cached = Record<string, Partial<Record<ConsentKey, string>>>;
@@ -39,28 +42,46 @@ const post = (account: string, key: ConsentKey, accepted: boolean) => apiJson<Re
   body: JSON.stringify({ key, accepted, ...(accepted ? { version: CONSENT_VERSIONS[key] } : {}) }),
 });
 
+const RETRY_MS = [5_000, 20_000, 60_000, 180_000];
+const attempts = new Map<string, number>();
+
 function load(account: string) {
   if (entries.has(account)) return;
   entries.set(account, { status: 'loading', records: {} });
   apiJson<Reply>('/api/consent', { headers: { 'X-Account-ID': account } }).then(reply => {
+    attempts.delete(account);
     const records = readConsents(reply?.consents);
     for (const key of CONSENT_KEYS) {
       const record = records[key];
       // Withdrawn on another device: this one forgets it too.
       if (record?.withdrawnAt && record.version === CONSENT_VERSIONS[key]) writeCache(account, key, null);
+      // Agreed (here or on another device): this device remembers it, so the next visit never waits for the server.
+      else if (isConsented(records, key)) writeCache(account, key, CONSENT_VERSIONS[key]);
       // Agreed on this device while its save failed: sent again now.
-      else if (!isConsented(records, key) && cachedYes(account, key)) void post(account, key, true).catch(() => undefined);
+      else if (cachedYes(account, key)) void post(account, key, true).catch(() => undefined);
     }
     entries.set(account, { status: 'ready', records });
     emit();
-  }).catch(() => { entries.set(account, { status: 'offline', records: {} }); emit(); });
+  }).catch(() => {
+    // Not known: nothing is asked meanwhile. Read again later (the session ending is handled elsewhere).
+    entries.set(account, { status: 'offline', records: {} });
+    emit();
+    const tried = attempts.get(account) ?? 0;
+    if (tried >= RETRY_MS.length) return;
+    attempts.set(account, tried + 1);
+    window.setTimeout(() => {
+      if (entries.get(account)?.status !== 'offline') return;
+      entries.delete(account);
+      load(account);
+    }, RETRY_MS[tried]);
+  });
 }
 
 /** Agreed (true), not agreed (false), or not known yet (undefined, while the first answer is on its way). */
 export function consentGiven(account: string, key: ConsentKey): boolean | undefined {
   if (cachedYes(account, key)) return true;
   const entry = entries.get(account);
-  if (!entry || entry.status === 'loading') return undefined;
+  if (!entry || entry.status !== 'ready') return undefined;
   return isConsented(entry.records, key);
 }
 

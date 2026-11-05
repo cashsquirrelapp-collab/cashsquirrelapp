@@ -77,7 +77,6 @@ import { VAULT_FREE_FILES } from '../../../shared/vault';
 import { useFeedbackWaiting } from '../features/feedback/useFeedbackWaiting';
 import { applyFields, carriesBatch, recentImports, undoUpdate } from '../features/import/importBatches';
 import type { ImportCommit, ImportResult, SaveOutcome } from '../features/import/importShared';
-import { dismissImportInvite, importInviteDismissed, shouldOfferImport } from '../features/import/importInvite';
 import { IMPORT_FILE_EVENT } from '../features/assistant/importFileEvent';
 import { importActionsChanged, registerImportActions, type ImportActions } from '../features/import/importActions';
 import type { SettingsView } from '../features/settings/SettingsTab';
@@ -114,6 +113,7 @@ import { DEFAULT_DARK_FROM, DEFAULT_LIGHT_FROM, effectiveThemePreference, readTh
 import { ThemeTip, type ThemeTipChoice } from './ThemeTip';
 import { TermsGate } from './TermsGate';
 import { useConsents } from '../services/consent';
+import { asksTerms } from '../../../shared/consents';
 import { usageStatsAllowed, readCookieConsent, COOKIE_CHOICE_EVENT } from '../services/cookieConsent';
 import { buildBriefing } from '../../../shared/briefing';
 import { currentCash } from '../../../shared/cashBalance';
@@ -611,10 +611,11 @@ export default function App() {
   // What the person opens, for เลขา's greeting (greeting.ts): counted on this device, per account, never sent.
   useEffect(() => { if (session && !session.isGuest) notePage(session.user.id, activeTab); }, [activeTab, session?.user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   // The terms, once per account and version (owner, 2026-11-05; TermsGate.tsx): before the first questions and every
-  // other popup. Until the answer is known, nothing else opens on its own.
+  // other popup. Until the answer is known, nothing else opens on its own. Asked only of a new account, once (owner,
+  // 2026-11-05: "ถามแค่ครั้งเดียวพอตอนที่เขาเพิ่งสมัครมาใหม่"; shared/consents.ts asksTerms).
   const consentAccount: string | undefined = session && !session.isGuest && !session.user?.accountPaused ? session.user.id : undefined;
   const consents = useConsents(consentAccount);
-  const termsGiven = consentAccount ? consents.given('terms') : true;
+  const termsGiven = consentAccount && asksTerms(session?.user?.created_at) ? consents.given('terms') : true;
   const termsWaiting = termsGiven !== true;
   const termsOpen = Boolean(consentAccount) && termsGiven === false && pathname !== '/recover';
 
@@ -2215,8 +2216,6 @@ export default function App() {
     window.addEventListener(IMPORT_FILE_EVENT, onFile);
     return () => window.removeEventListener(IMPORT_FILE_EVENT, onFile);
   }, []);
-  // "ย้ายข้อมูลเข้าแอป" on an empty overview, until ไม่ต้อง (owner, 2026-11-04); per account, on this device.
-  const [importInviteHidden, setImportInviteHidden] = useState<Record<string, boolean>>({});
   const [isAddGoalOpen, setIsAddGoalOpen] = useState(false);
   const [isPwaModalOpen, setIsPwaModalOpen] = useState(false);
   const [initialSelectedGoalId, setInitialSelectedGoalId] = useState<string | null>(null);
@@ -2936,11 +2935,7 @@ export default function App() {
     setReferralOpen(true);
   }, [referralInvited, referralAccount, onboardingFirst, termsWaiting, birthOpen, activeTab]);
   // The one-time evening tip for a new account, once its own settings have loaded, never over the first questions.
-  // An empty account's "ย้ายข้อมูลเข้าแอป" card comes first; the evening tip waits until it is gone (anything recorded, or
-  // ไม่ต้อง), so two prompts never stack on the overview (2026-11-04).
-  const importInviteOn = accountLoaded && Boolean(session?.user?.id) && shouldOfferImport({ jobs: jobs.length, expenses: expenses.length, guest: session?.isGuest === true,
-    groupWorkspace: Boolean(financeGroupId), dismissed: importInviteHidden[session?.user?.id ?? ''] ?? importInviteDismissed(session?.user?.id ?? '') });
-  const showThemeTip = accountLoaded && !termsWaiting && !onboardingFirst && !onboardingEdit && !birthOpen && !isImportOpen && !importInviteOn
+  const showThemeTip = accountLoaded && !termsWaiting && !onboardingFirst && !onboardingEdit && !birthOpen && !isImportOpen
     && shouldOfferThemeTip({ saved: accountThemePref, createdAt: session?.user?.created_at, guest: session?.isGuest === true, groupWorkspace: Boolean(financeGroupId), now: new Date(themeTipClock) });
   /** Keeps the answers in the account's settings (and the name as the account's name, the one เลขา uses), and lets
    *  them do what the old setup did: the work type sets the menu's default grouping, the occupations add job types. */
@@ -2961,10 +2956,10 @@ export default function App() {
     if (extra.length) setJobTypes(prev => [...prev, ...extra.filter(type => !prev.includes(type))]);
     setOnboardingDone(true);
     setOnboardingEdit(false);
-    // The last first-run question (owner, 2026-11-04): มี opens the import at once; ไม่มี is respected, so the
-    // overview does not offer it again (the Jobs page and Settings still have it).
+    // The last first-run question (owner, 2026-11-04): มี opens the import at once. It is asked only there (owner,
+    // 2026-11-05: "มันควรถามตั้งแต่ตอนที่เราเพิ่งสมัครบัญชีใหม่"); the overview has no card for it, and the Jobs page and
+    // Settings keep the import.
     if (result.importOld === true) setIsImportOpen(true);
-    else if (result.importOld === false) { dismissImportInvite(userId); setImportInviteHidden(prev => ({ ...prev, [userId]: true })); }
   };
 
   const handleUpdateSettings = (newSettings: AppSettings) => {
@@ -3620,11 +3615,6 @@ export default function App() {
                   monthPicker={<DashboardPeriodPicker monthKey={dashboardMonthKey} onChange={setDashboardMonthKey} compact labelOnly />}
                   onOpenTools={() => setIsMobileMenuOpen(true)}
                   referralButton={isPhone || !wideHeader ? referralButton : null}
-                  importInvite={importInviteOn
-                    ? {
-                      onOpen: () => setIsImportOpen(true),
-                      onDismiss: () => { dismissImportInvite(session.user.id); setImportInviteHidden(prev => ({ ...prev, [session.user.id]: true })); },
-                    } : null}
                 />
               )}
 

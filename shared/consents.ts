@@ -13,6 +13,15 @@ export type ConsentKey = typeof CONSENT_KEYS[number];
 /** The version of each text. A new version asks every account again. */
 export const CONSENT_VERSIONS: Record<ConsentKey, string> = { terms: '2026-11-05', ai: '2026-11-05', line: '2026-11-05' };
 
+/** The terms are asked once, when the account is new (owner, 2026-11-05: "ถามแค่ครั้งเดียวพอตอนที่เขาเพิ่งสมัครมาใหม่ ไม่ต้อง
+ *  ถามทุกครั้งเวลาเปิดเว็บไซต์"): accounts made from the day the terms dialog began. Older accounts are not stopped by it;
+ *  เลขากระรอก and LINE still ask for their own consent once, the first time they are used (the server requires it). */
+export const TERMS_FROM = Date.parse('2026-11-05T00:00:00+07:00');
+export function asksTerms(createdAt?: string | null): boolean {
+  const made = Date.parse(createdAt ?? '');
+  return Number.isFinite(made) && made >= TERMS_FROM;
+}
+
 export interface ConsentRecord { version: string; at: string; withdrawnAt?: string }
 export type ConsentRecords = Partial<Record<ConsentKey, ConsentRecord>>;
 

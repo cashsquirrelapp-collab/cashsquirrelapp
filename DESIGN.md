@@ -491,9 +491,11 @@ card does not need:
 ### Consent before sensitive data (owner, 2026-11-05: "อะไรที่มันเป็นข้อมูลที่เซนซิทีฟทุกจุด ... ให้เขายืนยันหรือยินยอมเราก่อน")
 - Records: `shared/consents.ts` (keys `terms`, `ai`, `line`, each with a version), kept by the server in the private
   state (`/api/consent`); a new version asks again. The device keeps a copy per account (`services/consent.ts`) so the
-  dialogs never flash; the server's record is what counts.
-- Terms (`app/TermsGate.tsx`): once per account before anything else opens (onboarding, tips, the radar and the team's
-  message wait for it). Two ticks: the terms and privacy policy, and that client details are the person's to use.
+  dialogs never flash; the server's record is what counts. Asked once (owner, 2026-11-05: "ไม่ต้องถามทุกครั้งเวลาเปิด
+  เว็บไซต์"): an agreement the server has is remembered on the device, and a record that cannot be read (offline, a busy
+  server: 503) is "not known yet", never "not agreed", so no dialog or card comes back because of it.
+- Terms (`app/TermsGate.tsx`): once, for a new account only (made from 5 Nov 2569, `asksTerms`; owner: "ถามแค่ครั้งเดียวพอ
+  ตอนที่เขาเพิ่งสมัครมาใหม่"), before anything else opens (onboarding, tips, the radar and the team's message wait for it). Two ticks: the terms and privacy policy, and that client details are the person's to use.
   It never closes by itself. Computers and iPads (owner, 2026-11-05, design B "เอาแบบนี้"): one card, 900px at most, in
   two halves: a cream side (brand lockup, "เราดูแลข้อมูลของคุณ", three promises from the privacy policy in white round
   icons, the once-only note at the foot; 340px, 288px under 1024px) and a white side (title, the two choices as cards
@@ -551,11 +553,11 @@ card does not need:
   told never to send the person to another page or to export. An import of the person's own file does not open the
   overdue radar.
 
-### Import offered to an empty account (owner, 2026-11-04)
-- A friend did not know the import existed. While an account of one's own has no jobs and no expenses, the overview's
-  first card is "เริ่มจากข้อมูลเดิมของคุณ": a cream icon tile, one muted line, ไม่ต้อง (secondary) and the one primary
-  ย้ายข้อมูลเข้าแอป (`importInvite.ts`; computers and iPads at the top of the overview, phones under the four round
-  shortcuts). ไม่ต้อง, or ไม่มี on onboarding step 5, hides it on that device; the Jobs page and Settings keep the import.
+### Import offered once, when the account is new (owner, 2026-11-04, then 2026-11-05)
+- A friend did not know the import existed, so the welcome questions end with "มีข้อมูลเดิมอยากย้ายเข้ามาไหม?" (step 5);
+  มี opens ย้ายข้อมูลเข้าแอป right after. It is asked only there (owner, 2026-11-05: "เริ่มจากดึงข้อมูล ... ไม่ใช่ต้องเอาไว้
+  ตรงนั้น มันควรถามตั้งแต่ตอนที่เราเพิ่งสมัครบัญชีใหม่"): the overview has no import card. The Jobs page and Settings keep
+  the import.
 
 ### Import as a chat with เลขากระรอก (owner, 2026-10-31: "ทำให้มันเป็นแบบแชท ... ตรงไหนที่ไม่สามารถดึงได้มันก็แจ้งเขาเลย")
 - "ย้ายข้อมูลเข้าแอป" replaced the 4-step dialog on every device (`features/import/ImportChat.tsx`, `importChatModel.ts`,

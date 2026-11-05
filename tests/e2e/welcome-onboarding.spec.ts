@@ -147,7 +147,7 @@ test('a new account: four steps in order, "อื่น ๆ" opens a box, the ex
   await page.screenshot({ path: info.outputPath('onboarding-1280-step5.png') });
   await box.getByRole('button', { name: 'เริ่มใช้งาน' }).click();
   await expect(box).toHaveCount(0);
-  // Not answered is ไม่มี: the import does not open, and the empty overview does not offer it.
+  // Not answered is ไม่มี: the import does not open, and the overview has no card for it.
   await expect(importChat(page)).toHaveCount(0);
   await expect(page.getByTestId('import-invite')).toHaveCount(0);
 
@@ -337,9 +337,9 @@ for (const [width, height] of [[1024, 768], [768, 1024], [375, 667]] as const) {
 }
 
 // Owner, 2026-11-04: "สมัครเลยว่าแบบต้องการย้ายข้อมูลไหม ... ถ้าเขาไม่ต้องการก็โอเค". มี opens ย้ายข้อมูลเข้าแอป as the screen
-// closes; closing it without importing leaves the overview's card, the way back.
+// closes. It is asked only here (owner, 2026-11-05): the overview has no card for it afterwards.
 for (const [width, height] of [[1280, 860], [390, 844]] as const) {
-  test(`step 5 at ${width}px: มี opens ย้ายข้อมูลเข้าแอป right after, and the empty overview keeps the way back`, async ({ page }, info) => {
+  test(`step 5 at ${width}px: มี opens ย้ายข้อมูลเข้าแอป right after; the overview has no import card`, async ({ page }, info) => {
     const mock = await open(page, { width, height });
     const box = dialog(page);
     await box.getByLabel('ชื่อที่ให้เลขากระรอกเรียก').fill('มายด์');
@@ -358,55 +358,22 @@ for (const [width, height] of [[1280, 860], [390, 844]] as const) {
     await page.screenshot({ path: info.outputPath(`import-opened-${width}.png`) });
     await importChat(page).getByRole('button', { name: 'ปิด', exact: true }).first().click();
     await expect(importChat(page)).toHaveCount(0);
-    await expect(page.getByTestId('import-invite')).toBeVisible();
-  });
-}
-
-// An empty account is offered the import on the overview (owner, 2026-11-04: a friend did not know it existed).
-for (const [width, height] of [[1280, 860], [1024, 768], [390, 844]] as const) {
-  test(`the empty overview at ${width}px: เริ่มจากข้อมูลเดิมของคุณ opens the import, ไม่ต้อง hides it for good`, async ({ page }, info) => {
-    await open(page, { user: OLD_USER, width, height });
-    const card = page.getByTestId('import-invite');
-    await expect(card).toBeVisible();
-    await expect(card).toContainText('เริ่มจากข้อมูลเดิมของคุณ');
-    await expect(card.getByRole('button')).toHaveText(['ไม่ต้อง', 'ย้ายข้อมูลเข้าแอป']);
-    await page.waitForTimeout(600);
-    expect(await textOverlapIssues(page)).toEqual([]);
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await page.screenshot({ path: info.outputPath(`import-invite-${width}.png`) });
-    await card.getByRole('button', { name: 'ย้ายข้อมูลเข้าแอป' }).click();
-    await expect(importChat(page).getByRole('heading', { name: 'ย้ายข้อมูลเข้าแอป' })).toBeVisible();
-    await importChat(page).getByRole('button', { name: 'ปิด', exact: true }).first().click();
-    await expect(importChat(page)).toHaveCount(0);
-    await card.getByRole('button', { name: 'ไม่ต้อง' }).click();
-    await expect(card).toHaveCount(0);
-    await page.reload();
-    await expect(page.getByRole('main')).toBeVisible();
-    await page.waitForTimeout(1200);
     await expect(page.getByTestId('import-invite')).toHaveCount(0);
   });
 }
 
-test('dark mode: the overview card reads clearly on the computer and the phone', async ({ page }, info) => {
-  await open(page, { user: OLD_USER, dark: true });
-  await expect(page.getByTestId('import-invite')).toBeVisible();
-  await page.waitForTimeout(600);
-  expect(await textOverlapIssues(page)).toEqual([]);
-  await page.screenshot({ path: info.outputPath('import-invite-1280-dark.png') });
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.reload();
-  await expect(page.getByTestId('import-invite')).toBeVisible();
-  await page.waitForTimeout(600);
-  expect(await textOverlapIssues(page)).toEqual([]);
-  await page.screenshot({ path: info.outputPath('import-invite-390-dark.png') });
-});
-
-test('an account with a job is not offered the import on the overview', async ({ page }) => {
-  await open(page, { user: OLD_USER, jobs: [{ id: 'job_1', name: 'งานแรก', client: 'ลูกค้า', type: 'Sponsored Post', creditTerm: 0, note: '', value: 1000, whtRate: 0, whtAmount: 0, received: 0, pending: 1000, status: 'todo', paymentStatus: 'unpaid', isPosted: false, postDate: '2026-11-10', payDate: '2026-11-20' }] });
-  await expect(page.getByRole('main')).toBeVisible();
-  await page.waitForTimeout(1200);
-  await expect(page.getByTestId('import-invite')).toHaveCount(0);
-});
+// The import is asked once, in the welcome questions (owner, 2026-11-05: "เริ่มจากดึงข้อมูล ... ไม่ใช่ต้องเอาไว้ตรงนั้น"):
+// an empty account's overview has no card for it, on computers, iPads and phones.
+for (const [width, height] of [[1280, 860], [1024, 768], [390, 844]] as const) {
+  test(`the empty overview at ${width}px has no import card`, async ({ page }) => {
+    await open(page, { user: OLD_USER, width, height });
+    await expect(page.getByRole('main')).toBeVisible();
+    await page.waitForTimeout(1200);
+    await expect(page.getByTestId('import-invite')).toHaveCount(0);
+    await expect(page.getByText('เริ่มจากข้อมูลเดิมของคุณ')).toHaveCount(0);
+    expect(await textOverlapIssues(page)).toEqual([]);
+  });
+}
 
 test('Settings: the answers open again with what was chosen, and saving changes them', async ({ page }) => {
   const done = { version: 'welcome-v1', status: 'COMPLETED', work_type: 'student', work_type_other: null, occupations: ['teacher_coach'], occupation_other: null, goals: ['exploring'], updated_at: '2026-10-28T01:00:00.000Z', completed_at: '2026-10-28T01:00:00.000Z' };
