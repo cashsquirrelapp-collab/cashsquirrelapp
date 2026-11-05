@@ -1229,21 +1229,24 @@ export default function App() {
       (settings.goalsFeatureEnabled !== false || item.key !== 'split') &&
       (item.key !== 'adminDashboard' || canViewAdminAnalytics)
     );
+    // เลขากระรอก leads the sidebar for every account, the owner's included (owner, 2026-11-05: "ย้ายฟีเจอร์เลขากระรอกไปไว้
+    // ด้านบนเหมือนแบบยูสเซอร์ทั่วไป"). Computers and iPads only: the phone's menu has its own layout.
+    const assistantFirst = (items: typeof base) => [...items.filter(item => item.key === 'assistant'), ...items.filter(item => item.key !== 'assistant')];
     if (!fullFeatureAccess) {
-      // Same order as the full sidebar (owner, 2026-10-20): ภาพรวม · งาน · ปฏิทิน with เงินค้างรับ under it ·
+      // Same order as the full sidebar (owner, 2026-10-20): เลขากระรอก · ภาพรวม · งาน · ปฏิทิน with เงินค้างรับ under it ·
       // รายจ่าย · เอกสาร · แจ้งปัญหา. Sub-items stay under their parent.
-      const order: TabKey[] = ['dashboard', 'adminDashboard', 'jobs', 'calendar', 'receivables', 'incomeExpense', 'invoice', 'feedback', 'plans', 'settings'];
+      const order: TabKey[] = ['assistant', 'dashboard', 'adminDashboard', 'jobs', 'calendar', 'receivables', 'incomeExpense', 'invoice', 'feedback', 'plans', 'settings'];
       return base.map(item => item.group === 'bottom' || item.group === 'sub' ? item : { ...item, group: 'core' as const })
         .sort((left, right) => order.indexOf(left.key) - order.indexOf(right.key));
     }
     const persona = settings.userPersona;
-    if (!persona || persona === 'freelance') return base;
+    if (!persona || persona === 'freelance') return assistantFirst(base);
     const coreKeys = PERSONA_CORE_KEYS[persona];
-    return base.map(item =>
-      item.group === 'bottom' || item.group === 'sub' || item.key === 'dashboard' || item.key === 'adminDashboard' || item.key === 'jobs' || item.key === 'incomeExpense' || item.key === 'groups'
+    return assistantFirst(base.map(item =>
+      item.group === 'bottom' || item.group === 'sub' || item.key === 'assistant' || item.key === 'dashboard' || item.key === 'adminDashboard' || item.key === 'jobs' || item.key === 'incomeExpense' || item.key === 'groups'
         ? item
         : { ...item, group: coreKeys.includes(item.key) ? 'core' as const : 'more' as const }
-    );
+    ));
   }, [settings.userPersona, settings.goalsFeatureEnabled, canViewAdminAnalytics, fullFeatureAccess]);
   const [notifSettings, setNotifSettings] = useState<NotifSettings>(() => {
     return {
