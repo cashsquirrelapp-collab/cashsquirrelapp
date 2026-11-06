@@ -596,9 +596,10 @@ export default function App() {
   }, []);
   // Wide enough for the referral buttons beside the month in the overview header; narrower computers and iPads have it on
   // its own row under the header, so the page title keeps its room.
-  const [wideHeader, setWideHeader] = useState(() => window.matchMedia('(min-width: 1440px)').matches);
+  // 1280px+ (owner, 2026-11-06: "ย้ายมันไปไว้ด้านบนหน่อย" on a 1280px laptop): the compact buttons fit beside the month.
+  const [wideHeader, setWideHeader] = useState(() => window.matchMedia('(min-width: 1280px)').matches);
   useEffect(() => {
-    const query = window.matchMedia('(min-width: 1440px)');
+    const query = window.matchMedia('(min-width: 1280px)');
     const update = () => setWideHeader(query.matches);
     query.addEventListener('change', update);
     return () => query.removeEventListener('change', update);

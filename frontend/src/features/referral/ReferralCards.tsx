@@ -20,16 +20,18 @@ export function ReferralButtons({ phone, status, onOpen }: { phone: boolean; sta
   const enter = status.canEnter;
   return (
     <div className={`ref-buttons${phone ? ' is-phone' : ''}`}>
-      <button type="button" className={`ref-pill${phone ? ' is-phone' : ''}`} onClick={() => onOpen(enter ? 'enter' : 'share')} data-testid="referral-button">
-        <span className="ref-pill-face" aria-hidden="true"><Mascot mood="happy" action="hold-coin" size={phone ? 38 : 36} /></span>
+      {/* Computers and iPads: compact, the height of the month picker beside it (owner, 2026-11-06: "ย้ายมันไปไว้ด้านบนหน่อย
+          แอบใหญ่ไป"); phones keep the full-size pill. */}
+      <button type="button" className={`ref-pill${phone ? ' is-phone' : ' is-compact'}`} onClick={() => onOpen(enter ? 'enter' : 'share')} data-testid="referral-button">
+        <span className="ref-pill-face" aria-hidden="true"><Mascot mood="happy" action="hold-coin" size={phone ? 38 : 30} /></span>
         <span className="ref-pill-text">
           <b>{enter ? tr("ใส่โค้ด รับ {0} โทเคน", status.tokens) : tr("แนะนำเพื่อนร่วมอาชีพ")}</b>
           <small>{enter ? tr("สำหรับใช้งานเอเจนต์เลขากระรอก") : tr("ให้ใช้เลขากระรอกฟรี {0} โทเคน", status.tokens)}</small>
         </span>
-        <ChevronRight className="ref-pill-arrow" size={16} aria-hidden="true" />
+        <ChevronRight className="ref-pill-arrow" size={phone ? 16 : 14} aria-hidden="true" />
       </button>
       {enter && !phone && (
-        <button type="button" className="ref-chip" onClick={() => onOpen('share')} data-testid="referral-share-button">
+        <button type="button" className="ref-chip is-compact" onClick={() => onOpen('share')} data-testid="referral-share-button">
           {/* A person with a plus, not a gift box (owner, 2026-11-05: the gift looked like a game). */}
           <UserPlus size={15} aria-hidden="true" />{tr("แนะนำเพื่อนร่วมอาชีพ")}
         </button>

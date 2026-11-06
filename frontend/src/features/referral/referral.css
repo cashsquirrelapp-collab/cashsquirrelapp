@@ -12,6 +12,11 @@
 .ref-pill-arrow { flex: none; opacity: 0.9; }
 .ref-pill.is-phone { min-height: 54px; }
 .ref-pill.is-phone .ref-pill-face { width: 46px; height: 46px; }
+/* Computers and iPads: in the overview header beside the month, so no taller than 44px and smaller type (owner: "แอบใหญ่ไป"). */
+.ref-pill.is-compact { gap: 7px; min-height: 44px; padding: 3px 10px 3px 3px; box-shadow: 0 6px 14px -10px rgba(194, 74, 22, 0.7); }
+.ref-pill.is-compact .ref-pill-face { width: 38px; height: 38px; }
+.ref-pill.is-compact .ref-pill-text b { font-size: 13px; }
+.ref-pill.is-compact .ref-pill-text small { font-size: 11px; }
 
 .ref-scrim { position: fixed; inset: 0; z-index: 9000; display: flex; align-items: center; justify-content: center; padding: 16px;
   background: rgba(28, 25, 23, 0.42); backdrop-filter: blur(4px); }
@@ -74,6 +79,7 @@
   background: #FFF1E8; color: #C24A16; font: inherit; font-size: 13.5px; font-weight: 600; line-height: 1.45; white-space: nowrap; cursor: pointer; }
 .ref-chip:hover { background: #FFE6D6; }
 .dark .ref-chip { background: rgba(255, 164, 115, 0.14); border-color: rgba(255, 164, 115, 0.28); color: #FFA473; }
+.ref-chip.is-compact { gap: 6px; min-height: 38px; padding: 0 13px; font-size: 13px; }
 /* Phones: a sheet from the bottom. */
 .ref-scrim.is-phone { align-items: flex-end; padding: 0; }
 .ref-scrim.is-phone .ref-dialog { max-width: none; border-radius: 22px 22px 0 0; padding: 24px 18px calc(18px + env(safe-area-inset-bottom, 0px)); }
