@@ -75,6 +75,28 @@ test('attach_file is offered only with a file in the app chat, not in LINE and n
   await runAssistant({ user: user(), plan: 'pro', text: 'แนบไว้กับงานรีวิวด้วย', channel: 'line', history: [{ role: 'user', text: 'สลิป [แนบไฟล์: slip.jpg]' }] },
     { config: config(), ...memoryStores(), fetchImpl: line.fetchImpl });
   assert.ok(line.tools.every(list => !list.includes('attach_file')), 'LINE keeps files through its own vault cards');
+
+  // LINE, several pictures sent at once (owner, 2026-11-06: "ทำให้ส่งหลายรูปแล้วผูกบิลอัตโนมัติด้วย"): เลขา names which
+  // picture goes with which record. One picture alone keeps the single-file path.
+  const lineSet = gemini('อ่านครบ 2 ใบครับ');
+  await runAssistant({ user: user(), plan: 'pro', text: 'ช่วยอ่านรูปทั้ง 2 รูปนี้', channel: 'line',
+    attachments: [{ name: 'รูปจาก LINE 1.jpg', mimeType: 'image/jpeg', data: jpeg }, { name: 'รูปจาก LINE 2.jpg', mimeType: 'image/jpeg', data: jpeg }] },
+  { config: config(), ...memoryStores(), fetchImpl: lineSet.fetchImpl });
+  assert.ok(lineSet.tools[0].includes('attach_file'), 'a LINE picture set may name each picture\'s record');
+  const lineOne = gemini('อ่านแล้วครับ');
+  await runAssistant({ user: user(), plan: 'pro', text: 'ช่วยอ่านไฟล์นี้', channel: 'line', attachment: { name: 'รูปจาก LINE.jpg', mimeType: 'image/jpeg', data: jpeg } },
+    { config: config(), ...memoryStores(), fetchImpl: lineOne.fetchImpl });
+  assert.ok(lineOne.tools.every(list => !list.includes('attach_file')), 'one picture in LINE: its cards remember it without attach_file');
+});
+
+test('attach_file in LINE: no button to press, so the note says the picture goes with its record on confirm', async () => {
+  const names = ['รูปจาก LINE 1.jpg', 'รูปจาก LINE 2.jpg'];
+  const line = await executeVaultTool('attach_file', { kind: 'expense', record_name: 'ค่าน้ำมัน', file_name: names[1] }, user(), undefined, new Date(), names[0], names, 'line');
+  assert.deepEqual([(line.card as Record<string, unknown>).fileName, (line.card as Record<string, unknown>).expenseName], [names[1], 'ค่าน้ำมัน']);
+  assert.match(JSON.stringify(line.result), /attached to this record by itself when the user confirms/);
+  assert.doesNotMatch(JSON.stringify(line.result), /แนบเข้าคลังเอกสาร button/);
+  const app = await executeVaultTool('attach_file', { kind: 'expense', record_name: 'ค่าน้ำมัน', file_name: names[1] }, user(), undefined, new Date(), names[0], names);
+  assert.match(JSON.stringify(app.result), /แนบเข้าคลังเอกสาร button/, 'the app keeps its button');
 });
 
 test('the prompt: ask for the ใบ 50 ทวิ after a received payment; with a file, offer to keep it', () => {

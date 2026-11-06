@@ -1,6 +1,6 @@
 import { getSupabaseAdmin } from '../config/supabase.js';
 import { patchPrivate } from '../repositories/accounts.js';
-import { updateVaultFile } from './vault.js';
+import type { AssistantCard } from '../ai/types.js';
 
 // A picture or PDF sent in LINE that เลขากระรอก read (owner, 2026-11-06: "ในไลน์สามารถทำให้อ่านไฟล์ PDF อ่านรูปภาพได้ไหม
 // แล้วก็แกะออกมาเพื่อบันทึกรายจ่ายหรือรายรับ ... เหมือนแบบในเลขากระรอกเลยในแอป"). The file is kept in คลังเอกสาร at once; the
@@ -28,22 +28,35 @@ function fresh(links: Links, now: number): Links {
 
 /** The cards เลขา prepared from this file remember it. */
 export async function rememberFileProposals(userId: string, fileId: string, proposalIds: string[], now = new Date()): Promise<void> {
-  const ids = proposalIds.filter(id => PROPOSAL_ID.test(id));
-  if (!ids.length || !FILE_ID.test(fileId)) return;
+  await rememberFileLinks(userId, proposalIds.map(proposalId => ({ proposalId, fileId })), now);
+}
+
+/** Each card remembers its own file (several pictures sent at once: one picture per card), in one write. */
+export async function rememberFileLinks(userId: string, pairs: { proposalId: string; fileId: string }[], now = new Date()): Promise<void> {
+  const valid = pairs.filter(pair => PROPOSAL_ID.test(pair.proposalId) && FILE_ID.test(pair.fileId));
+  if (!valid.length) return;
   const links = fresh(await readLinks(userId), now.getTime());
-  for (const id of ids) links[id] = { fileId, at: now.toISOString() };
+  for (const pair of valid) links[pair.proposalId] = { fileId: pair.fileId, at: now.toISOString() };
   const kept = Object.fromEntries(Object.entries(links).sort((a, b) => Date.parse(b[1].at) - Date.parse(a[1].at)).slice(0, 20));
   await patchPrivate(userId, { [KEY]: kept });
 }
 
 /** The file a confirmed card came from, taken off every card of that file so it is attached once. */
 export async function takeFileForProposal(userId: string, proposalId: string, now = new Date()): Promise<string | null> {
-  if (!PROPOSAL_ID.test(proposalId)) return null;
+  return (await takeFilesForProposals(userId, [proposalId], now)).get(proposalId) ?? null;
+}
+
+/** The files of several confirmed cards (บันทึกทั้งหมด), taken in one read and one write. */
+export async function takeFilesForProposals(userId: string, proposalIds: string[], now = new Date()): Promise<Map<string, string>> {
+  const ids = proposalIds.filter(id => PROPOSAL_ID.test(id));
+  const taken = new Map<string, string>();
+  if (!ids.length) return taken;
   const links = fresh(await readLinks(userId), now.getTime());
-  const fileId = links[proposalId]?.fileId;
-  if (!fileId) return null;
-  await patchPrivate(userId, { [KEY]: Object.fromEntries(Object.entries(links).filter(([, link]) => link.fileId !== fileId)) });
-  return fileId;
+  for (const id of ids) if (links[id]?.fileId) taken.set(id, links[id].fileId);
+  if (!taken.size) return taken;
+  const files = new Set(taken.values());
+  await patchPrivate(userId, { [KEY]: Object.fromEntries(Object.entries(links).filter(([, link]) => !files.has(link.fileId))) });
+  return taken;
 }
 
 const EXPENSE_KINDS = new Set(['add_expense', 'edit_expense']);
@@ -52,15 +65,80 @@ const JOB_KINDS = new Set(['add_job', 'edit_job', 'record_payment']);
 /** Attaches the file to the record the confirmed card saved (a bill or slip to its expense, anything else to its job).
  *  Returns the record's name, or null when this kind of card has no record to attach to. */
 export async function attachFileToRecord(userId: string, fileId: string, done: { kind: string; jobId?: string; recordId?: string }): Promise<string | null> {
-  const expense = EXPENSE_KINDS.has(done.kind);
-  const id = expense ? done.recordId : JOB_KINDS.has(done.kind) ? done.jobId : undefined;
-  if (!id || !FILE_ID.test(fileId)) return null;
-  const { data } = await getSupabaseAdmin().from(expense ? 'cashflow_expenses' : 'cashflow_jobs').select('data').eq('user_id', userId).eq('id', id).maybeSingle();
-  const record = (data as { data?: { name?: unknown; client?: unknown } } | null)?.data;
-  const name = typeof record?.name === 'string' && record.name.trim() ? record.name.trim().slice(0, 200) : null;
-  const client = typeof record?.client === 'string' && record.client.trim() ? record.client.trim().slice(0, 200) : null;
-  await updateVaultFile({ kind: 'user', id: userId }, { action: 'update', id: fileId, kind: expense ? 'expense' : 'other', jobId: id, jobName: name, client });
-  return name ?? 'รายการนี้';
+  return (await attachFilesToRecords(userId, [{ fileId, done }]))[0] ?? null;
+}
+
+/** Several files, each to its record (บันทึกทั้งหมด): the records' names in one read a table, then one write a file, so
+ *  five pictures stay well inside the server's limit on calls per message. Returns each record's name, or null. */
+export async function attachFilesToRecords(userId: string, items: { fileId: string; done: { kind: string; jobId?: string; recordId?: string } }[]): Promise<(string | null)[]> {
+  const targets = items.map(({ fileId, done }) => {
+    const expense = EXPENSE_KINDS.has(done.kind);
+    const id = expense ? done.recordId : JOB_KINDS.has(done.kind) ? done.jobId : undefined;
+    return id && FILE_ID.test(fileId) ? { fileId, id, expense } : null;
+  });
+  const names = new Map<string, { name: string | null; client: string | null }>();
+  for (const expense of [true, false]) {
+    const ids = [...new Set(targets.flatMap(target => (target && target.expense === expense ? [target.id] : [])))];
+    if (!ids.length) continue;
+    const { data } = await getSupabaseAdmin().from(expense ? 'cashflow_expenses' : 'cashflow_jobs').select('id, data').eq('user_id', userId).in('id', ids);
+    for (const row of (data ?? []) as { id: string; data?: { name?: unknown; client?: unknown } }[]) {
+      const name = typeof row.data?.name === 'string' && row.data.name.trim() ? row.data.name.trim().slice(0, 200) : null;
+      const client = typeof row.data?.client === 'string' && row.data.client.trim() ? row.data.client.trim().slice(0, 200) : null;
+      names.set(`${expense}:${row.id}`, { name, client });
+    }
+  }
+  const out: (string | null)[] = [];
+  for (const target of targets) {
+    if (!target) { out.push(null); continue; }
+    const record = names.get(`${target.expense}:${target.id}`) ?? { name: null, client: null };
+    // The account's own file only (the same columns updateVaultFile writes); one that fails leaves the others attached.
+    const { data, error } = await getSupabaseAdmin().from('cashflow_vault_files')
+      .update({ kind: target.expense ? 'expense' : 'other', job_id: target.id, job_name: record.name, client: record.client })
+      .eq('id', target.fileId).eq('user_id', userId).select('id');
+    if (error || !(data as unknown[] | null)?.length) { console.error('line-assistant: a file was not attached'); out.push(null); continue; }
+    out.push(record.name ?? 'รายการนี้');
+  }
+  return out;
+}
+
+const EXPENSE_CARD = /รายจ่าย/;
+/** The rows of a card that name its record (an expense's รายการ, a job's งาน). */
+const NAME_LABELS = new Set(['รายการ', 'งาน', 'ชื่องาน']);
+const plain = (value: string) => value.toLowerCase().replace(/[\s"'“”‘’()[\]{}.,:;!?\-–—_/\\]+/g, '');
+
+/**
+ * Which picture goes with which card, from the attach_file cards เลขา gave with them (each names its picture and the
+ * record it belongs to, as in the app's chat). A bill or slip of money paid out goes with an expense card, a slip of
+ * money received with a job's card, matched by the record's name (the same name, else one inside the other); two
+ * cards of one name take their pictures in order. A picture no attach card names, or a ใบ 50 ทวิ or contract, is left
+ * in คลังเอกสาร as it is: never a guess.
+ */
+export function linkCardsToFiles(cards: AssistantCard[], files: { name: string; fileId: string }[]): { proposalId: string; fileId: string }[] {
+  const confirms = cards.filter((card): card is Extract<AssistantCard, { kind: 'confirm' }> => card.kind === 'confirm');
+  const fileIds = new Map(files.map(file => [file.name, file.fileId]));
+  const taken = new Set<string>();
+  const used = new Set<string>();
+  const pairs: { proposalId: string; fileId: string }[] = [];
+  for (const attach of cards) {
+    if (attach.kind !== 'attach' || (attach.fileKind !== 'expense' && attach.fileKind !== 'other')) continue;
+    const fileId = fileIds.get(attach.fileName);
+    const name = plain(attach.fileKind === 'expense' ? attach.expenseName ?? '' : attach.jobName ?? '');
+    if (!fileId || used.has(fileId) || name.length < 2) continue;
+    const score = (card: Extract<AssistantCard, { kind: 'confirm' }>) => {
+      if (taken.has(card.id) || EXPENSE_CARD.test(card.title) !== (attach.fileKind === 'expense')) return 0;
+      const values = card.changes.filter(change => NAME_LABELS.has(change.label)).map(change => plain(change.value)).filter(value => value.length >= 2);
+      return values.includes(name) ? 2 : values.some(value => value.includes(name) || name.includes(value)) ? 1 : 0;
+    };
+    const best = confirms.reduce<{ card?: Extract<AssistantCard, { kind: 'confirm' }>; score: number }>((top, card) => {
+      const points = score(card);
+      return points > top.score ? { card, score: points } : top;
+    }, { score: 0 });
+    if (!best.card) continue;
+    taken.add(best.card.id);
+    used.add(fileId);
+    pairs.push({ proposalId: best.card.id, fileId });
+  }
+  return pairs;
 }
 
 // Several pictures sent at once (owner, 2026-11-06: "ส่งหลายรูปพร้อมกันให้รวมเป็นการ์ดเดียวได้ไหม", then "การ์ดเดียว +

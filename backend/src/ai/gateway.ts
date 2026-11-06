@@ -515,8 +515,10 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
     lastEditError = undefined;
     const short = route === 'chat' && shortTools;
     const docs = documents || DOCUMENT_WORDS.test(handoff ?? '');
-    // attach_file only with a file in this chat, in the app (LINE keeps its files through its own vault cards).
-    const attachHere = Boolean(attachmentName) && request.channel !== 'line';
+    // attach_file only with a file in this chat, in the app (LINE keeps its files through its own vault cards). In LINE,
+    // only for several pictures sent at once (owner, 2026-11-06: "ทำให้ส่งหลายรูปแล้วผูกบิลอัตโนมัติด้วย"): its cards say
+    // which picture goes with which record, and each picture is attached when its record is confirmed (lineFileLinks.ts).
+    const attachHere = Boolean(attachmentName) && (request.channel !== 'line' || (sentFiles.length > 0 && attachmentNames.length > 1));
     const availableTools = [...toolsFor(route).filter(tool => (!short || SHORT_CHAT_TOOLS.has(tool.name)) && (docs || !DOCUMENT_TOOLS_WRITE.has(tool.name))
       && (attachHere || tool.name !== 'attach_file')).map(withSay),
       ...(accounting ? ACCOUNTING_TOOLS : [])];

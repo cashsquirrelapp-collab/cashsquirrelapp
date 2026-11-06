@@ -8,7 +8,7 @@ import { VAULT_KIND_LABEL, VAULT_MAX_BYTES, sniffVaultMime, type VaultKind } fro
 import { ATTACHMENT_MAX_BYTES, MAX_FILES, checkAttachment, checkAttachments } from '../ai/attachment.js';
 import type { ChatFile } from '../ai/types.js';
 import type { LineAnswer } from '../ai/lineBridge.js';
-import { dropImageParts, groupIdFor, noteImagePart, rememberFileProposals, saveCardGroup, type ImagePart } from './lineFileLinks.js';
+import { dropImageParts, groupIdFor, linkCardsToFiles, noteImagePart, rememberFileLinks, rememberFileProposals, saveCardGroup, type ImagePart } from './lineFileLinks.js';
 import { cardGroupMessage, lineAssistantReply } from '../ai/lineFormat.js';
 import { rateLimit } from '../security/rateLimit.js';
 import { lineAreaOpen } from './lineLaunch.js';
@@ -150,8 +150,8 @@ export async function handleLineFileMessage(lineUserId: string, event: LineFileE
   }
 }
 
-/** What a person sending several pictures at once asks of เลขา. */
-export const lineFilesRequest = (count: number) => `ช่วยอ่านรูปทั้ง ${count} รูปนี้ แล้วเตรียมบันทึกรายรับหรือรายจ่ายให้ครบทุกใบ`;
+/** What a person sending several pictures at once asks of เลขา: each picture is kept with its own record. */
+export const lineFilesRequest = (count: number) => `ช่วยอ่านรูปทั้ง ${count} รูปนี้ แล้วเตรียมบันทึกรายรับหรือรายจ่ายให้ครบทุกใบ และแนบแต่ละรูปกับรายการของรูปนั้น`;
 
 /** Replaceable parts of a picture set, for tests. */
 export interface LineImageSetDeps extends LineFileDeps {
@@ -160,6 +160,7 @@ export interface LineImageSetDeps extends LineFileDeps {
   claim?: (key: string) => Promise<boolean>;
   finish?: (key: string) => Promise<void>;
   saveGroup?: typeof saveCardGroup;
+  link?: typeof rememberFileLinks;
 }
 
 /** One event of all the pictures of a set reads them: the one that wins this claim (an event id, once), marked done after
@@ -219,17 +220,24 @@ async function readImageSet(user: UserRow, groupId: string, index: number, bytes
   const ordered = [...parts.entries()].sort((a, b) => a[0] - b[0]);
   await (deps.drop ?? dropImageParts)(user.user_id, groupId, ordered.map(([at]) => at)).catch(() => undefined);
   const kept = ordered.filter(([, item]) => !item.failed && item.fileId);
-  const notes = [
+  // How many pictures will be attached by themselves when their records are confirmed (0 until เลขา has read them).
+  const notesWith = (linked: number) => [
     `เก็บรูปไว้ในคลังเอกสารแล้ว ${kept.length} รูปครับ`,
+    ...(linked ? [linked >= kept.length ? 'กดบันทึกแล้วผมแนบรูปกับรายการให้ครบทุกรูปครับ' : `กดบันทึกแล้วผมแนบรูปกับรายการให้ ${linked} รูป ที่เหลือแนบเองได้ในคลังเอกสารครับ`] : []),
     ...(kept.length > MAX_FILES ? [`เลขาอ่านได้ครั้งละ ${MAX_FILES} รูป อีก ${kept.length - MAX_FILES} รูปส่งมาใหม่ได้เลย`] : []),
     ...(ordered.length > kept.length ? [`${ordered.length - kept.length} รูปเก็บไม่สำเร็จ กรุณาส่งรูปนั้นใหม่`] : []),
   ].join('\n');
+  const notes = notesWith(0);
   const files: ChatFile[] = [];
+  const fileIds: string[] = [];
   for (const [at, item] of kept.slice(0, MAX_FILES)) {
     try {
       const content = at === index && bytes ? bytes : await read(item.messageId, token);
       const mime = sniffVaultMime(content.subarray(0, 16));
-      if (mime && content.length <= ATTACHMENT_MAX_BYTES) files.push({ name: item.fileName || `รูป ${at}`, mimeType: mime, data: content.toString('base64') });
+      if (mime && content.length <= ATTACHMENT_MAX_BYTES) {
+        files.push({ name: item.fileName || `รูป ${at}`, mimeType: mime, data: content.toString('base64') });
+        fileIds.push(item.fileId as string);
+      }
     } catch { console.error('line-vault: a picture of a set could not be read again'); }
   }
   if (!files.length) return [{ type: 'text', text: `${notes}\nแต่เลขาอ่านรูปเหล่านี้ให้ไม่ได้` }];
@@ -241,14 +249,25 @@ async function readImageSet(user: UserRow, groupId: string, index: number, bytes
     if (!answered) return [{ type: 'text', text: notes }];
     try { await (deps.saveHistory ?? saveChatHistory)(user, `[ส่งรูป ${checked.length} รูป]`, answered.text.slice(0, 1000)); }
     catch { console.error('line-vault: chat history not saved'); }
-    const confirms = (answered.reply?.cards ?? []).filter(card => card.kind === 'confirm');
+    const cards = answered.reply?.cards ?? [];
+    // Each picture with the card เลขา said it belongs to (owner, 2026-11-06: "ทำให้ส่งหลายรูปแล้วผูกบิลอัตโนมัติด้วย"):
+    // attached when that card is confirmed, by บันทึกทั้งหมด or on its own (lineBridge.ts).
+    const pairs = linkCardsToFiles(cards, checked.map((file, at) => ({ name: file.name, fileId: fileIds[at] })));
+    let linked = 0;
+    if (pairs.length) {
+      try { await (deps.link ?? rememberFileLinks)(user.user_id, pairs); linked = pairs.length; }
+      catch { console.error('line-vault: pictures not linked to their cards'); }
+    }
+    const said = { type: 'text' as const, text: notesWith(linked) };
+    const confirms = cards.filter(card => card.kind === 'confirm');
     if (confirms.length >= 2) {
       await (deps.saveGroup ?? saveCardGroup)(user.user_id, groupId, { cards: confirms, files: checked.length });
-      const others = (answered.reply?.cards ?? []).filter(card => card.kind !== 'confirm');
+      // Attach cards are not shown in LINE: their pictures are linked above.
+      const others = cards.filter(card => card.kind !== 'confirm' && card.kind !== 'attach');
       const words = answered.reply?.text.trim() || others.length ? lineAssistantReply(answered.reply?.text ?? '', others) : [];
-      return [...words.slice(0, 2), cardGroupMessage(groupId, confirms, checked.length), { type: 'text' as const, text: notes }];
+      return [...words.slice(0, 2), cardGroupMessage(groupId, confirms, checked.length), said];
     }
-    return [...answered.messages.slice(0, 4), { type: 'text', text: notes }];
+    return [...answered.messages.slice(0, 4), said];
   } catch (error) {
     const failure = error as { status?: number; message?: string } | null;
     console.error('line-vault: reading a picture set failed', { status: failure?.status ?? null });

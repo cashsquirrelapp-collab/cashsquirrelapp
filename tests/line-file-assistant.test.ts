@@ -96,12 +96,19 @@ test('lineAssistantAnswer: the file goes to เลขา as in the app, and the 
 // The links between a file and its cards, against a stand-in private state.
 const realFetch = globalThis.fetch;
 let stored: Record<string, unknown> = {};
+let requests: string[] = [];
 beforeEach(() => {
   stored = {};
+  requests = [];
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(input));
     if (url.origin !== process.env.SUPABASE_URL) return realFetch(input, init);
+    requests.push(`${init?.method ?? 'GET'} ${url.pathname.split('/').pop()}`);
     const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
+    // Records and vault rows for attaching (synthetic).
+    if (url.pathname.endsWith('/cashflow_expenses')) return json([{ id: 'exp-1', data: { name: 'ค่าน้ำมัน' } }, { id: 'exp-2', data: { name: 'ค่าที่จอดรถ' } }]);
+    if (url.pathname.endsWith('/cashflow_jobs')) return json([{ id: 'job-1', data: { name: 'รีวิวสินค้า', client: 'บริษัท บี' } }]);
+    if (url.pathname.endsWith('/cashflow_vault_files')) return json(url.searchParams.get('id') === `eq.${FILE}` ? [] : [{ id: 'x' }]);
     if (url.pathname.endsWith('/rpc/cashflow_patch_private')) {
       const body = JSON.parse(String(init?.body));
       Object.assign(stored, body.p_patch);
@@ -231,4 +238,91 @@ test('picture parts: each picture under its own key, so two at once never overwr
   assert.deepEqual(Object.keys(stored).filter(key => key.startsWith('lineImagePart:')), []);
   assert.equal(links.groupIdFor('E005D41A-7288'), 'gE005D41A7288');
   assert.equal(links.groupIdFor('../x'), null);
+});
+
+// Several pictures, each attached to its own record (owner, 2026-11-06: "ทำให้ส่งหลายรูปแล้วผูกบิลอัตโนมัติด้วย").
+const fileId = (n: number) => `11111111-2222-4333-8444-00000000000${n}`;
+const attachCard = (fileName: string, name: string, fileKind = 'expense') => ({ kind: 'attach', id: `at_${fileName}`, fileKind, fileName,
+  ...(fileKind === 'expense' ? { expenseName: name } : { jobName: name }) });
+const named = (n: number, title: string, label: string, value: string) => ({ kind: 'confirm', id: `p_aaaaaaaa-bbbb-4ccc-8ddd-00000000000${n}`, title,
+  changes: [{ label, value }, { label: 'จำนวนเงิน', value: '฿100.00' }] });
+
+test('which picture goes with which card: by the record each attach card names, never a guess', () => {
+  const files = [1, 2, 3, 4, 5].map(n => ({ name: `รูปจาก LINE ${n}.jpg`, fileId: fileId(n) }));
+  const cards = [
+    named(1, 'เพิ่มรายจ่าย', 'รายการ', 'ค่าน้ำมัน PTT'), named(2, 'เพิ่มรายจ่าย', 'รายการ', 'ค่าน้ำมัน PTT'), named(3, 'บันทึกรับเงินครบ', 'งาน', 'รีวิวสินค้า'),
+    named(4, 'เพิ่มรายจ่าย', 'รายการ', 'ค่าที่จอดรถ'),
+    attachCard('รูปจาก LINE 2.jpg', 'ค่าน้ำมัน PTT'), attachCard('รูปจาก LINE 1.jpg', 'ค่าน้ำมัน ptt'), attachCard('รูปจาก LINE 3.jpg', 'รีวิวสินค้า', 'other'),
+    attachCard('รูปจาก LINE 4.jpg', 'รีวิวสินค้า', 'wht50'), attachCard('ไม่มีไฟล์นี้.jpg', 'ค่าที่จอดรถ'), attachCard('รูปจาก LINE 5.jpg', 'รีวิวสินค้า'),
+  ] as any;
+  assert.deepEqual(links.linkCardsToFiles(cards, files), [
+    { proposalId: cards[0].id, fileId: fileId(2) }, { proposalId: cards[1].id, fileId: fileId(1) }, { proposalId: cards[2].id, fileId: fileId(3) },
+  ], 'same names in order; a slip received goes with a job card; a ใบ 50 ทวิ, an unknown file and a kind that does not fit stay unlinked');
+  assert.deepEqual(links.linkCardsToFiles([named(1, 'เพิ่มรายจ่าย', 'รายการ', 'ค่าน้ำมัน')] as any, files), [], 'no attach card, no link');
+});
+
+test('a picture set with attach cards: each picture remembered with its card, and the reply says they will be attached', async () => {
+  let stores = 0;
+  const pairs: unknown[] = [];
+  const { deps: d } = setDeps({
+    store: async (_s: unknown, _a: unknown, _b: Buffer, meta: { fileName: string }) => ({ id: fileId(++stores), fileName: `${meta.fileName}.jpg` }),
+    answer: async () => {
+      const cards = [card(1), card(2), card(3), ...[1, 2, 3].map(n => attachCard(`รูปจาก LINE ${n}.jpg`, `ใบเสร็จ ${n}`))];
+      return { messages: [], text: 'อ่านครบ 3 ใบ', proposalIds: cards.slice(0, 3).map(c => c.id), reply: { text: '', cards } };
+    },
+  });
+  d.link = async (_u: string, given: unknown[]) => { pairs.push(...given); };
+  for (const n of [1, 2]) await handleLineImageSetPart('U', setEvent(n), 't', d);
+  const reply = await handleLineImageSetPart('U', setEvent(3), 't', d) as any[];
+  assert.deepEqual(reply.map(message => message.type), ['flex', 'text'], 'no words and no attach card shown, never the fallback line');
+  assert.match(reply[1].text, /กดบันทึกแล้วผมแนบรูปกับรายการให้ครบทุกรูปครับ/);
+  assert.equal(pairs.length, 3);
+  for (const n of [1, 2, 3]) assert.ok(pairs.some((pair: any) => pair.proposalId === card(n).id), `card ${n}`);
+});
+
+test('บันทึกทั้งหมด attaches each saved record\'s picture in one batch; one confirmed before keeps what it had', async () => {
+  const group = { cards: [card(1), card(2), card(3)], files: 3, at: new Date().toISOString() };
+  const fromFiles = { [card(1).id]: { fileId: fileId(1) }, [card(2).id]: { fileId: fileId(2) }, [card(3).id]: { fileId: fileId(3) } };
+  const user = { user_id: USER, notif_settings: { 'lineCardGroup:gabcdef12': group, lineFileProposals: fromFiles } } as any;
+  const asked: string[][] = [];
+  const attachedItems: unknown[] = [];
+  const reply = await lineGroupCommand(user, { action: 'confirm', groupId: 'gabcdef12' }, {
+    confirm: async (_u, id) => { if (id.endsWith('2')) throw new HttpError(409, 'ยืนยันไปแล้ว'); return { kind: 'add_expense', recordId: `exp-${id.slice(-1)}`, path: '/incomeExpense' }; },
+    drop: async () => undefined,
+    take: async (_u, ids) => { asked.push(ids); return new Map(ids.map(id => [id, fromFiles[id].fileId])); },
+    attach: async (_u, items) => { attachedItems.push(...items); return items.map(() => 'ใบเสร็จ'); },
+  });
+  assert.deepEqual(asked, [[card(1).id, card(3).id]], 'only the cards saved now, in one take');
+  assert.deepEqual(attachedItems, [{ fileId: fileId(1), done: { kind: 'add_expense', recordId: 'exp-1', path: '/incomeExpense' } },
+    { fileId: fileId(3), done: { kind: 'add_expense', recordId: 'exp-3', path: '/incomeExpense' } }]);
+  const json = JSON.stringify(reply);
+  assert.ok(json.includes('แนบรูปกับรายการ') && json.includes('2 รูป'), json);
+  // Attaching that fails never costs the saved records.
+  const failed = await lineGroupCommand(user, { action: 'confirm', groupId: 'gabcdef12' }, {
+    confirm: async () => ({ kind: 'add_expense', recordId: 'exp-1' }), drop: async () => undefined,
+    take: async () => { throw new Error('offline'); },
+  });
+  assert.ok(JSON.stringify(failed).includes('บันทึกแล้ว 3 รายการ') && !JSON.stringify(failed).includes('แนบรูปกับรายการ'));
+});
+
+test('file links for a set: one write to remember them all, one read and one write to take them; attaching is batched', async () => {
+  const now = new Date('2026-11-06T08:00:00Z');
+  await links.rememberFileLinks(USER, [{ proposalId: card(1).id, fileId: fileId(1) }, { proposalId: card(2).id, fileId: fileId(2) }, { proposalId: 'bad', fileId: fileId(3) }], now);
+  assert.deepEqual(Object.keys(stored.lineFileProposals as object).sort(), [card(1).id, card(2).id].sort());
+  requests = [];
+  const taken = await links.takeFilesForProposals(USER, [card(1).id, card(2).id], now);
+  assert.deepEqual([...taken.entries()], [[card(1).id, fileId(1)], [card(2).id, fileId(2)]]);
+  assert.deepEqual(stored.lineFileProposals, {});
+  assert.equal(requests.length, 2, requests.join(' | '));
+
+  // Two expenses and a job: one read a table, one write a file (the server allows about 50 calls per message).
+  requests = [];
+  const names = await links.attachFilesToRecords(USER, [
+    { fileId: fileId(1), done: { kind: 'add_expense', recordId: 'exp-1' } }, { fileId: fileId(2), done: { kind: 'add_expense', recordId: 'exp-2' } },
+    { fileId: fileId(3), done: { kind: 'record_payment', jobId: 'job-1' } }, { fileId: fileId(4), done: { kind: 'delete_job', jobId: 'job-1' } },
+  ]);
+  assert.deepEqual(names, ['ค่าน้ำมัน', 'ค่าที่จอดรถ', 'รีวิวสินค้า', null]);
+  assert.deepEqual(requests, ['GET cashflow_expenses', 'GET cashflow_jobs', 'PATCH cashflow_vault_files', 'PATCH cashflow_vault_files', 'PATCH cashflow_vault_files']);
+  // A file that is not the account's: nothing attached, and said so.
+  assert.deepEqual(await links.attachFilesToRecords(USER, [{ fileId: FILE, done: { kind: 'add_expense', recordId: 'exp-1' } }]), [null]);
 });

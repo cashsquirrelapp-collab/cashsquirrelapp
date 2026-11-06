@@ -419,8 +419,13 @@ card does not need:
 - Several pictures sent at once (owner, 2026-11-06: "การ์ดเดียว + บันทึกทั้งหมด"): nothing is said until the set is complete;
   then up to five are read together and two or more cards become ONE card (cardGroupMessage): "บันทึก N รายการ / จากรูป
   ที่ส่งมา N รูป", the total when all are the same kind, a row per card (name, amount; kind · date muted), the note that
-  the pictures are kept, and buttons บันทึกทั้งหมด (primary) / ดูทีละใบ / ยกเลิกทั้งหมด. Pictures of a set are not attached
-  to records automatically (which picture is which record is not known); they stay in คลังเอกสาร.
+  the pictures are kept, and buttons บันทึกทั้งหมด (primary) / ดูทีละใบ / ยกเลิกทั้งหมด.
+- Each picture of a set is attached to its own record (owner, 2026-11-06: "ทำให้ส่งหลายรูปแล้วผูกบิลอัตโนมัติด้วย"): เลขา
+  names each picture's record with attach_file, as in the app's chat (LINE shows no attach card); a bill or slip paid
+  out goes with an expense card, a slip received with a job's card, by the record's name (linkCardsToFiles). The line
+  under the card says "กดบันทึกแล้วผมแนบรูปกับรายการให้ครบทุกรูปครับ" (or how many); บันทึกทั้งหมด's card adds the row
+  "แนบรูปกับรายการ N รูป", and ดูทีละใบ's ยืนยัน says "แนบกับ … ในคลังเอกสารแล้ว". A picture no card claims, a ใบ 50 ทวิ
+  or a contract stays in คลังเอกสาร unattached, never a guess.
 
 ### Quotations and invoices in LINE (owner, 2026-10-30, after a competitor's LINE: cards, not question after question)
 - "ทำ / ออก / สร้าง / ขอ + ใบเสนอราคา / ใบแจ้งหนี้ / ใบวางบิล" in LINE is read by fixed rules, with no model call

@@ -435,7 +435,7 @@ export function createToolbox(context: ToolContext) {
       }
       return outcome;
     }
-    if (isVaultTool(call.name)) return executeVaultTool(call.name, args, user, loadVaultFiles, context.now, context.attachmentName, context.attachmentNames);
+    if (isVaultTool(call.name)) return executeVaultTool(call.name, args, user, loadVaultFiles, context.now, context.attachmentName, context.attachmentNames, context.channel);
     if (isPastWorkTool(call.name)) return executePastWork(args, user);
     if (isDocumentActionTool(call.name)) return executeDocumentAction(call.name, args, context);
     if (isRecordActionTool(call.name)) return executeRecordAction(call.name, args, context);

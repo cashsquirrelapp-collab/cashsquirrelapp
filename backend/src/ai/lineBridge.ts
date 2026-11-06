@@ -9,7 +9,7 @@ import { rateLimit } from '../security/rateLimit.js';
 import { confirmProposal, handleMessage, MESSAGE_RATE, thaiDay, usageStatus, type AssistantDb, type PlanInfo, type UsageStatus } from './service.js';
 import { assistantPlanForUserId, supabaseAssistantDb } from './supabaseDb.js';
 import type { AssistantCard, ChatFile, ChatTurn } from './types.js';
-import { attachFileToRecord, cardGroupOf, dropCardGroup, takeFileForProposal } from '../services/lineFileLinks.js';
+import { attachFilesToRecords, attachFileToRecord, cardGroupOf, dropCardGroup, takeFileForProposal, takeFilesForProposals } from '../services/lineFileLinks.js';
 import { lineHistoryText, type ChannelTurn } from './crossChannel.js';
 import { notifyBillingIssues } from '../services/ownerAlerts.js';
 import { hasConsent } from '../repositories/consents.js';
@@ -149,9 +149,11 @@ export async function lineAssistantCommand(user: UserRow, command: { action: 'co
 
 /** Replaceable parts of the group commands, for tests. */
 export interface LineGroupDeps {
-  confirm?: (userId: string, proposalId: string) => Promise<{ kind: string; path?: string }>;
+  confirm?: (userId: string, proposalId: string) => Promise<{ kind: string; path?: string; jobId?: string; recordId?: string }>;
   cancel?: (userId: string, proposalId: string) => Promise<boolean>;
   drop?: typeof dropCardGroup;
+  take?: typeof takeFilesForProposals;
+  attach?: typeof attachFilesToRecords;
   now?: Date;
 }
 
@@ -176,19 +178,34 @@ export async function lineGroupCommand(user: UserRow, command: { action: 'confir
   let already = 0;
   let failed = 0;
   let path: string | undefined;
+  const confirmed: { id: string; done: { kind: string; jobId?: string; recordId?: string } }[] = [];
   for (const card of cards) {
     try {
       const done = await (deps.confirm ?? ((id, proposal) => confirmProposal(supabaseAssistantDb, id, proposal, { channel: 'line' })))(user.user_id, card.id);
       saved += 1;
       path ??= done.path;
+      confirmed.push({ id: card.id, done });
     } catch (error) {
       // Confirmed already (ดูทีละใบ), or no longer waiting: counted, never saved twice.
       if (error instanceof HttpError && error.status === 409) already += 1; else failed += 1;
     }
   }
   if (!failed) await drop(user.user_id, command.groupId).catch(() => undefined);
+  // Each saved record gets the picture เลขา said it came from (owner, 2026-11-06: "ทำให้ส่งหลายรูปแล้วผูกบิลอัตโนมัติด้วย"),
+  // taken in one read and attached in a batch; saved already, so attaching never costs a record.
+  let attached = 0;
+  const fromFiles = (user.notif_settings as { lineFileProposals?: Record<string, unknown> } | undefined)?.lineFileProposals ?? {};
+  const linked = confirmed.filter(item => fromFiles[item.id]);
+  if (linked.length) {
+    try {
+      const files = await (deps.take ?? takeFilesForProposals)(user.user_id, linked.map(item => item.id));
+      const items = linked.flatMap(item => (files.get(item.id) ? [{ fileId: files.get(item.id) as string, done: item.done }] : []));
+      if (items.length) attached = (await (deps.attach ?? attachFilesToRecords)(user.user_id, items)).filter(Boolean).length;
+    } catch { console.error('line-assistant: the pictures were not attached'); }
+  }
   const body = [
     lineValueRow('บันทึกแล้ว', `${saved} รายการ`, { bold: true }),
+    ...(attached ? [lineValueRow('แนบรูปกับรายการ', `${attached} รูป`, { bold: false })] : []),
     ...(already ? [lineValueRow('ยืนยันไว้ก่อนแล้ว', `${already} รายการ`, { bold: false })] : []),
     ...(failed ? [lineValueRow('ยังไม่สำเร็จ', `${failed} รายการ`, { bold: false, color: LINE_CARD_COLORS.negative })] : []),
   ];

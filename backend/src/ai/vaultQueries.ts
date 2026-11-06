@@ -42,9 +42,9 @@ const paginate = <T,>(rows: T[], offset: number, limit: number) => ({ total: row
 const text = (value: unknown, max = 300) => typeof value === 'string' ? value.slice(0, max) : '';
 const metadata = (file: VaultFile) => ({ file_id: file.id, kind: file.kind, file_name: text(file.fileName), job_id: file.jobId, job_name: text(file.jobName), client: text(file.client), mime_type: file.mimeType, size_bytes: file.sizeBytes, created_at: file.createdAt });
 
-export async function executeVaultTool(name: string, args: Record<string, unknown>, user: UserRow, load: VaultLoader | undefined, now = new Date(), fileName = '', fileNames: string[] = []): Promise<ToolOutcome> {
+export async function executeVaultTool(name: string, args: Record<string, unknown>, user: UserRow, load: VaultLoader | undefined, now = new Date(), fileName = '', fileNames: string[] = [], channel: 'app' | 'line' = 'app'): Promise<ToolOutcome> {
   if (!isVaultTool(name)) return fail('ไม่รู้จักเครื่องมือคลังเอกสาร');
-  if (name === ATTACH_TOOL.name) return attachCard(args, user, fileName, fileNames);
+  if (name === ATTACH_TOOL.name) return attachCard(args, user, fileName, fileNames, channel);
   const parsed = name === 'search_vault' ? filesSchema.safeParse(args) : trackingSchema.safeParse(args);
   if (!parsed.success) return fail('ตัวกรองคลังเอกสารไม่ถูกต้อง ใช้เฉพาะตัวกรองที่เครื่องมือรองรับ');
   if (!load) return fail('ยังอ่านคลังเอกสารไม่ได้ในคำขอนี้ จึงยังยืนยันไม่ได้ว่ามีไฟล์หรือไม่');
@@ -74,7 +74,7 @@ export async function executeVaultTool(name: string, args: Record<string, unknow
   } };
 }
 
-function attachCard(args: Record<string, unknown>, user: UserRow, defaultName: string, fileNames: string[] = []): ToolOutcome {
+function attachCard(args: Record<string, unknown>, user: UserRow, defaultName: string, fileNames: string[] = [], channel: 'app' | 'line' = 'app'): ToolOutcome {
   const parsed = attachSchema.safeParse(args);
   if (!parsed.success) return fail('ข้อมูลการแนบไฟล์ไม่ถูกต้อง');
   const { kind, job_id: jobId, expense_id: expenseId, record_name: recordName, file_name: asked } = parsed.data;
@@ -95,5 +95,8 @@ function attachCard(args: Record<string, unknown>, user: UserRow, defaultName: s
       ? { ...(expense ? { expenseId: expense.id as string, expenseName: text(expense.name, 200) } : name ? { expenseName: name } : {}) }
       : { ...(job ? { jobId: job.id, jobName: text(job.name, 200), ...(job.client ? { client: text(job.client, 200) } : {}) } : name ? { jobName: name } : {}) }),
   };
+  // LINE shows no attach card: the pictures are in คลังเอกสาร already, and each goes with its record when that record's
+  // card is confirmed (lineFileLinks.ts linkCardsToFiles).
+  if (channel === 'line') return { result: { ok: true, card_shown: 'none', note: 'In LINE the picture is already kept in คลังเอกสาร, and it is attached to this record by itself when the user confirms the record\'s card. Mention no button. Never say it was attached yet.' }, card };
   return { result: { ok: true, card_shown: 'attach_file', note: 'A card with an แนบเข้าคลังเอกสาร button is under your answer. The file is NOT saved yet: say in one short line that the user can press the button to keep it with the job or expense. Never say it was attached.' }, card };
 }
