@@ -91,13 +91,12 @@ test('LINE lists: the name on its own line, the amount and date indented below, 
     // Next year keeps its year.
     '• งานของ กยศ', '   ฿3,000 · 3 ม.ค. 2570', '',
     'ดูทั้งหมดได้ที่เมนู งาน ครับ'].join('\n'));
-  // The opening sentence in one bubble, the whole list in the next: blank lines between items never cut it.
-  const bubbles = lineAssistantReply(answer, []).map(message => (message as { text: string }).text);
-  assert.equal(bubbles.length, 2);
-  assert.match(bubbles[1], /^• ตัดคลิปคุณหมอ คลิป 2\n/);
-  assert.match(bubbles[1], /ดูทั้งหมดได้ที่เมนู งาน ครับ$/);
-  // An answer that opens with its list stays in one bubble.
-  assert.equal(lineAssistantReply(['- งาน A · ฿1,000 · 7 พ.ย. 2569 · ลูกค้ารายใหญ่', '- งาน B · ฿2,000'].join('\n'), []).length, 1);
+  // In LINE the sentence comes first, the list as a CI card, then the closing line (owner, 2026-11-06: "ถ้าเป็นข้อมูลอ่ะส่ง
+  // เป็นการ์ด").
+  const reply = lineAssistantReply(answer, [], now) as any[];
+  assert.deepEqual(reply.map(message => message.type), ['text', 'flex', 'text']);
+  assert.equal(reply[0].text, 'มีงานที่ยังไม่จ่ายทั้งหมด 5 งาน ยอดค้างรวม 9,000 บาทครับ');
+  assert.equal(reply[2].text, 'ดูทั้งหมดได้ที่เมนู งาน ครับ');
   // A list of short items stays one item a line.
   assert.equal(markdownToLineText(['- งาน 1 · ฿1,000', '- งาน 2 · ฿2,000'].join('\n'), now), '• งาน 1 · ฿1,000\n• งาน 2 · ฿2,000');
 });
@@ -191,4 +190,45 @@ test('LINE: many confirmation cards arrive in carousels, each with its own butto
   const shown = forty.filter(message => message.type === 'flex').reduce((sum, message) => sum + (message as any).contents.contents.length, 0);
   assert.ok(forty.some(message => (message as any).text === `มีอีก ${40 - shown} รายการ เปิดดูในเลขาในแอปได้ครับ`), 'the rest is counted exactly');
   for (const message of forty) assert.ok(new TextEncoder().encode(JSON.stringify(message)).length < 50_000, 'every message within LINE\'s size limit');
+});
+
+// Owner, 2026-11-06: "ถ้าเป็นคำถามธรรมดา ... ส่งทีละประโยค ... เพื่อความเป็นธรรมชาติ ... ถ้าเป็นข้อมูลอ่ะส่งเป็นการ์ดเป็นอะไรก็ได้
+// ที่มันสามารถดูง่ายกว่านี้ ไม่ส่งเป็นข้อมูลแบบเยอะๆพูดๆไป".
+test('LINE replies: everyday talk one sentence to a bubble; steps and questions stay whole; at most five messages', () => {
+  const now = new Date('2026-11-06T07:00:00Z');
+  const texts = (reply: any[]) => reply.map(message => message.type === 'text' ? message.text : `[${message.type}]`);
+  assert.deepEqual(texts(lineAssistantReply('ดีครับปาร์ค หายไปตั้ง 5 วันแน่ะ\n\nวันนี้มีงานใหม่มาบ้างไหมครับ\n\nถ้ามีบอกได้เลย', [], now)),
+    ['ดีครับปาร์ค หายไปตั้ง 5 วันแน่ะ', 'วันนี้มีงานใหม่มาบ้างไหมครับ', 'ถ้ามีบอกได้เลย']);
+  // A long paragraph is split at its sentences.
+  assert.equal(lineAssistantReply('เดือนนี้รับเงินจริงแล้ว ฿19,000 ครับ ส่วนรายจ่ายที่บันทึกไว้อยู่ที่ ฿13,850 ทำให้กำไรสุทธิเหลือ ฿5,150 ครับ ยังมีเงินค้างรับอีก ฿16,000 จาก 2 งานครับ', [], now).length, 3);
+  // Steps keep their lead-in and stay one message.
+  assert.deepEqual(texts(lineAssistantReply('ทำได้แบบนี้ครับ\n\n1. กดเมนู งาน\n2. กด เพิ่มงาน\n3. กรอกชื่อและยอดเงิน\n\nลองดูนะครับ', [], now)),
+    ['ทำได้แบบนี้ครับ\n1. กดเมนู งาน\n2. กด เพิ่มงาน\n3. กรอกชื่อและยอดเงิน', 'ลองดูนะครับ']);
+  // Many sentences: the first three alone, the rest together in the fourth.
+  const many = lineAssistantReply(['หนึ่ง', 'สอง', 'สาม', 'สี่', 'ห้า', 'หก'].join('\n\n'), [], now) as any[];
+  assert.equal(many.length, 4);
+  assert.equal(many[3].text, 'สี่\nห้า\nหก');
+});
+
+test('LINE replies: a list of records becomes one CI card with its title, count, total, rows and a way into the app', () => {
+  process.env.APP_URL = process.env.APP_URL || 'https://krarok.example';
+  const now = new Date('2026-11-06T07:00:00Z');
+  const reply = lineAssistantReply(['มีงานค้างรับ 8 งาน รวม ฿36,000 ครับ', '', ...Array.from({ length: 8 }, (_, i) => `- งาน ${i + 1} · ฿${i + 1},000 · ${i + 1} ธ.ค. 2569`)].join('\n'), [], now) as any[];
+  assert.deepEqual(reply.map(message => message.type), ['text', 'flex']);
+  const card = JSON.stringify(reply[1]);
+  for (const text of ['รอรับเงิน', '8 รายการ', 'ยอดค้างรับรวม', '฿36,000', 'งาน 1', '฿1,000', '1 ธ.ค.', 'และอีก 3 รายการ ดูต่อในแอป', 'ดูเงินรอรับในแอป']) assert.ok(card.includes(text), text);
+  assert.ok(!card.includes('ธ.ค. 2569'), 'this year left off');
+  assert.equal(reply[1].altText, 'มีงานค้างรับ 8 งาน รวม ฿36,000 ครับ');
+  // Expenses get the expense card.
+  assert.ok(JSON.stringify(lineAssistantReply('รายจ่ายเดือนนี้ 2 รายการครับ\n\n- ค่าเน็ต · ฿599\n- ค่าไฟ · ฿1,200', [], now)).includes('"text":"รายจ่าย"'));
+});
+
+test('LINE prompt: LINE TALK keeps the tone of VOICE and the user\'s profile in LINE, and only in LINE', async () => {
+  const { buildSystemPrompt } = await import('../backend/src/ai/prompt');
+  const base = { route: 'chat' as const, plan: 'pro' as const, nowLocal: '6 พ.ย. 2569 10:00', knowledge: '-', accountContext: '{}' };
+  const line = buildSystemPrompt({ ...base, channel: 'line' });
+  assert.match(line, /LINE TALK: the LINE rules above decide layout and length only\. Tone comes from VOICE, COMMUNICATION PROFILE and\nMEMORY exactly as in the app/);
+  assert.match(line, /1 to 4 short messages of one sentence each/);
+  assert.ok(line.indexOf('LINE TALK') > line.indexOf('CHANNEL: LINE'), 'after the LINE rules, which stay as they were');
+  assert.doesNotMatch(buildSystemPrompt(base), /LINE TALK/);
 });

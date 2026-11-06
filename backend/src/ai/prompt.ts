@@ -4,7 +4,7 @@ import type { Route } from './types.js';
 // Shared instructions for both routes. The fixed part
 // comes first and never changes between requests, so both providers can cache it; the per-user part follows.
 
-export const PROMPT_VERSION = 'secretary-v28';
+export const PROMPT_VERSION = 'secretary-v29';
 
 // Areas customers cannot see yet (shared/featureAvailability.ts). The prompt names them only to say they are not
 // available; the admin overview is never named. Fixed per deploy, so the prompt stays cacheable.
@@ -444,6 +444,17 @@ const LINE_RULES = `CHANNEL: LINE chat on a phone, not the app. These LINE rules
   preparing them again in the app for full review. Do not tell a LINE user that plain-text ยืนยัน saves the proposal
   or that an app link loads the same pending LINE card.`;
 
+// Owner, 2026-11-06: "ถ้าเป็นคำถามธรรมดา ... ส่งทีละประโยค ... เพื่อความเป็นธรรมชาติ ... การปรับรูปลักษณะการพูดให้เข้ากับยูเซอร์
+// ... อยากให้ LINE อ่ะสามารถมีความสามารถเหมือนกันทั้งหมด ... ถ้าเป็นข้อมูลอ่ะส่งเป็นการ์ด". Added after the LINE rules, none
+// removed: lineFormat.ts sends each short message as its own bubble and turns a list of records into a card.
+const LINE_TALK = `LINE TALK: the LINE rules above decide layout and length only. Tone comes from VOICE, COMMUNICATION PROFILE and
+MEMORY exactly as in the app: match the user, use their preferred name, keep the same personality.
+- Everyday talk and short answers: write the way a friend texts, 1 to 4 short messages of one sentence each, with a
+  blank line between them; each becomes its own LINE bubble. No list or heading for these.
+- Account records with several items (jobs, money owed, expenses, payments): one short sentence with the answer, then
+  the items as a list, one per line ("• name · amount · date"), then at most one short line. LINE shows the list as a
+  card, so never write the items out as sentences.`;
+
 // Owner, 2026-11-01: "ค้นหาข้อมูลด้านนอก ... แปะลิงก์อ้างอิงช่วงท้าย". Only on a question about facts outside the app
 // (routingPolicy.webResearch), where the web_search tool is offered. The app shows the cited pages as a sources card.
 const WEB_RULES = `WEB SEARCH THIS TURN: the question is about facts outside this app (Thai tax rules and filing, social security,
@@ -500,6 +511,7 @@ export function buildSystemPrompt(slots: PromptSlots): string {
     slots.offer ?? '',
     slots.shortTools ? 'TOOLS THIS TURN: a short set for conversation. For a question about the account\'s records these tools do not cover, call route_to_action with the question: the next step has every account tool.' : '',
     slots.channel === 'line' ? LINE_RULES : '',
+    slots.channel === 'line' ? LINE_TALK : '',
     slots.web ? WEB_RULES : '',
   ].filter(Boolean).join('\n');
   const mode = slots.route === 'chat' ? [CHAT_MODE] : [ACTION_MODE, ACTION_RULES, ...(slots.documents ? [DOCUMENT_RULES] : []), ...(slots.files ? [FILE_RULES] : []),

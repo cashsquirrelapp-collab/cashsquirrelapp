@@ -134,6 +134,11 @@ function shapeLists(lines: string[]): string[] {
 
 /** Plain LINE text from the model's Markdown, shaped for a phone (owner, 2026-10-24: "ยาวเหยียด ตัวหนังสือติดกัน"). */
 export function markdownToLineText(markdown: string, now = new Date()): string {
+  return layoutItems(shapedLines(markdown), now).join('\n').replace(/\n{3,}/g, '\n\n').trim().slice(0, LINE_TEXT_MAX);
+}
+
+/** The answer as plain LINE lines (tables and Markdown gone, long lines split, lists capped), before items are laid out. */
+function shapedLines(markdown: string): string[] {
   const lines = markdown.replace(/\r/g, '').split('\n');
   const out: string[] = [];
   for (let i = 0; i < lines.length; i += 1) {
@@ -158,7 +163,7 @@ export function markdownToLineText(markdown: string, now = new Date()): string {
       .trimEnd();
     for (const part of splitInlineList(plain)) out.push(...sentenceLines(part));
   }
-  return layoutItems(shapeLists(out), now).join('\n').replace(/\n{3,}/g, '\n\n').trim().slice(0, LINE_TEXT_MAX);
+  return shapeLists(out);
 }
 
 /** The postback a confirmation card's buttons send, or null. Ids are checked again when the proposal is claimed. */
@@ -344,15 +349,128 @@ function cardMessages(cards: AssistantCard[], room: number): { messages: LineMes
 }
 
 /** One LINE reply: the answer in at most two text bubbles, then the cards (carousels when there are several). */
-export function lineAssistantReply(text: string, cards: AssistantCard[]): LineMessage[] {
-  const plain = markdownToLineText(text);
-  const parts = plain ? plain.split(/\n{2,}/).map(part => part.trimEnd()).filter(part => part.trim()) : [];
-  // The opening sentence on its own, the rest together; an answer that opens with its list stays in one bubble, so the
-  // blank lines between items never cut a list in two.
-  const bubbles = parts.length > 2 || (parts.length === 2 && itemMarker(parts[0].trimStart()))
-    ? (itemMarker(parts[0].trimStart()) ? [parts.join('\n\n')] : [parts[0], parts.slice(1).join('\n\n')]) : parts;
-  const { messages: cardsOut, left } = cardMessages(cards, LINE_MAX_MESSAGES - bubbles.length - 1);
-  if (left > 0) bubbles.push(`มีอีก ${left} รายการ เปิดดูในเลขาในแอปได้ครับ`);
-  const messages: LineMessage[] = [...bubbles.map(part => ({ type: 'text' as const, text: part })), ...cardsOut];
+// One LINE reply the way people text (owner, 2026-11-06: "ถ้าเป็นคำถามธรรมดา ... ส่งทีละประโยค ... เพื่อความเป็นธรรมชาติ
+// ... ถ้าเป็นข้อมูลอ่ะส่งเป็นการ์ด ... ไม่ส่งเป็นข้อมูลแบบเยอะๆพูดๆไป"): everyday talk goes one sentence to a bubble;
+// a list of records (items with an amount or details) becomes one CI card, between the sentence before it and the
+// line after it. LINE takes at most five messages in one reply.
+
+type ListItem = { name: string; amount?: string; meta?: string };
+type Segment = { kind: 'text'; lines: string[] } | { kind: 'list'; items: ListItem[]; more?: string; raw: string[] };
+const MONEY_TOKEN = /^(?:[+\-−]?฿\s*-?[\d,]+(?:\.\d+)?|[+\-−]?[\d,]+(?:\.\d+)?\s*บาท)$/;
+
+function parseListItem(head: string, continuation: string[], buddhistYear: number): ListItem {
+  const marker = itemMarker(head)!;
+  const [name, ...rest] = [head.slice(marker.length), ...continuation.map(text => text.trim())].join(' · ')
+    .split(ITEM_SEPARATOR).map(part => part.trim()).filter(Boolean);
+  const details = rest.map(text => text.replace(THAI_MONTH_DATE, (whole, day: string, year: string) => (Number(year) === buddhistYear ? day : whole)));
+  const moneyAt = details.findIndex(part => MONEY_TOKEN.test(part));
+  const amount = moneyAt >= 0 ? details.splice(moneyAt, 1)[0] : undefined;
+  return { name: name || '—', ...(amount ? { amount } : {}), ...(details.length ? { meta: details.join(' · ') } : {}) };
+}
+
+/** The answer's lines as text runs and lists. */
+function segmentsOf(lines: string[], buddhistYear: number): Segment[] {
+  const out: Segment[] = [];
+  for (let i = 0; i < lines.length; i += 1) {
+    if (!itemMarker(lines[i])) {
+      const last = out[out.length - 1];
+      if (last?.kind === 'text') last.lines.push(lines[i]); else out.push({ kind: 'text', lines: [lines[i]] });
+      continue;
+    }
+    const items: ListItem[] = [];
+    const raw: string[] = [];
+    let more: string | undefined;
+    while (i < lines.length && itemMarker(lines[i])) {
+      const head = lines[i];
+      raw.push(head);
+      const continuation: string[] = [];
+      while (i + 1 < lines.length && isContinuation(lines[i + 1])) { continuation.push(lines[i + 1]); raw.push(lines[i + 1]); i += 1; }
+      if (head.startsWith('• …')) more = head.slice(3).trim();
+      else items.push(parseListItem(head, continuation, buddhistYear));
+      i += 1;
+    }
+    i -= 1;
+    out.push({ kind: 'list', items, raw, ...(more ? { more } : {}) });
+  }
+  return out;
+}
+
+/** A list of records: two or more items, most of them with an amount or details (steps and questions are not). */
+const isRecordList = (segment: Segment): segment is Extract<Segment, { kind: 'list' }> =>
+  segment.kind === 'list' && segment.items.length >= 2 && segment.items.filter(item => item.amount || item.meta).length * 2 >= segment.items.length;
+
+const LIST_KINDS: { test: RegExp; title: string; character: Parameters<typeof lineCard>[0]['character']; total: string; path: string; link: string }[] = [
+  { test: /ค้าง|ยังไม่(ได้)?(จ่าย|รับ|โอน)|รอรับ|เลยกำหนด|ครบกำหนด/, title: 'รอรับเงิน', character: 'reminder', total: 'ยอดค้างรับรวม', path: '/receivables', link: 'ดูเงินรอรับในแอป' },
+  { test: /กำลัง(ทำ|ดำเนินการ)|ระหว่าง(ทำ|ดำเนินการ)|ยังไม่ส่ง/, title: 'งานที่กำลังทำ', character: 'working', total: 'มูลค่ารวม', path: '/jobs', link: 'ดูงานในแอป' },
+  { test: /รายจ่าย|ค่าใช้จ่าย|จ่ายไป/, title: 'รายจ่าย', character: 'spent', total: 'รายจ่ายรวม', path: '/incomeExpense', link: 'ดูรายจ่ายในแอป' },
+  { test: /รับเงิน|ได้รับ|เงินเข้า|รายรับ/, title: 'รับเงิน', character: 'received', total: 'รับเงินรวม', path: '/incomeExpense', link: 'ดูรายรับในแอป' },
+  { test: /เอกสาร|ใบเสนอราคา|ใบแจ้งหนี้|ใบเสร็จ/, title: 'เอกสาร', character: 'document', total: 'ยอดรวม', path: '/invoice', link: 'ดูเอกสารในแอป' },
+  { test: /งาน/, title: 'งาน', character: 'working', total: 'มูลค่ารวม', path: '/jobs', link: 'ดูงานในแอป' },
+];
+const TOTAL_IN_TEXT = /รวม(?:ทั้งหมด)?\s*(฿\s*-?[\d,]+(?:\.\d+)?|-?[\d,]+(?:\.\d+)?\s*บาท)/;
+
+function listCard(list: Extract<Segment, { kind: 'list' }>, lead: string): LineMessage {
+  const kind = LIST_KINDS.find(entry => entry.test.test(lead)) ?? { title: 'รายการ', character: 'report' as const, total: 'ยอดรวม', path: '/', link: 'เปิดแอป' };
+  const moreCount = Number(/(\d+)/.exec(list.more ?? '')?.[1] ?? 0);
+  const count = list.items.length + moreCount;
+  const totalText = TOTAL_IN_TEXT.exec(lead)?.[1];
+  const total = totalText ? (totalText.startsWith('฿') ? totalText.replace(/\s+/g, '') : `฿${totalText.replace(/\s*บาท$/, '')}`) : undefined;
+  const C = LINE_CARD_COLORS;
+  const rows = list.items.flatMap((item, at) => [
+    ...(at > 0 ? [{ type: 'separator', color: C.border, margin: 'lg' }] : []),
+    { type: 'box', layout: 'vertical', margin: 'lg', spacing: 'xs', contents: [
+      { type: 'box', layout: 'horizontal', spacing: 'md', contents: [
+        { type: 'text', text: item.name.slice(0, 120), size: 'sm', color: C.text, wrap: true, maxLines: 2, flex: 1 },
+        ...(item.amount ? [{ type: 'text', text: item.amount.slice(0, 40), size: 'sm', weight: 'bold', color: C.text, align: 'end', flex: 0, wrap: true }] : []),
+      ] },
+      ...(item.meta ? [{ type: 'text', text: item.meta.slice(0, 160), size: 'xs', color: C.muted, wrap: true }] : []),
+    ] },
+  ]);
+  return lineCard({
+    title: kind.title, subtitle: `${count} รายการ`, character: kind.character,
+    altText: lead || `${kind.title} ${count} รายการ${total ? ` รวม ${total}` : ''}`,
+    ...(total ? { metric: { label: kind.total, value: total } } : {}),
+    body: rows,
+    ...(list.more ? { note: list.more } : {}),
+    ...(lineAppLink(kind.path, kind.link) ? { footer: lineAppLink(kind.path, kind.link)! } : {}),
+  });
+}
+
+/** Short messages, one sentence to a bubble; a list (steps, questions) stays whole with the line before it. */
+function talkBubbles(lines: string[], now: Date, max: number): string[] {
+  const units: string[] = [];
+  const paragraphs = layoutItems(lines, now).join('\n').replace(/\n{3,}/g, '\n\n').trim().split(/\n{2,}/).filter(part => part.trim());
+  for (const paragraph of paragraphs) {
+    const rows = paragraph.split('\n');
+    if (rows.some(row => itemMarker(row) || isContinuation(row))) {
+      // The sentence that introduces a list goes with it.
+      const last = units.length && !itemMarker(rows[0]) ? null : units.pop();
+      units.push([...(last ? [last] : []), paragraph].join('\n'));
+    } else units.push(...rows.map(row => row.trim()).filter(Boolean));
+  }
+  if (units.length <= max) return units;
+  return [...units.slice(0, Math.max(0, max - 1)), units.slice(Math.max(0, max - 1)).join('\n')];
+}
+
+export function lineAssistantReply(text: string, cards: AssistantCard[], now = new Date()): LineMessage[] {
+  const buddhistYear = new Date(now.getTime() + 7 * 3600_000).getUTCFullYear() + 543;
+  const segments = segmentsOf(shapedLines(text), buddhistYear);
+  const recordAt = segments.findIndex(isRecordList);
+  const textOf = (part: Segment[]) => part.flatMap(segment => (segment.kind === 'text' ? segment.lines : segment.raw));
+  const out: LineMessage[] = [];
+  if (recordAt >= 0) {
+    const before = textOf(segments.slice(0, recordAt));
+    const after = textOf(segments.slice(recordAt + 1));
+    const lead = before.join(' ').trim();
+    out.push(...talkBubbles(before, now, 2).map(part => ({ type: 'text' as const, text: part })));
+    out.push(listCard(segments[recordAt] as Extract<Segment, { kind: 'list' }>, lead));
+    const tail = talkBubbles(after, now, 1);
+    out.push(...tail.map(part => ({ type: 'text' as const, text: part })));
+  } else {
+    out.push(...talkBubbles(textOf(segments), now, cards.length ? 2 : 4).map(part => ({ type: 'text' as const, text: part.slice(0, LINE_TEXT_MAX) })));
+  }
+  const { messages: cardsOut, left } = cardMessages(cards, LINE_MAX_MESSAGES - out.length - 1);
+  const messages: LineMessage[] = [...out, ...cardsOut];
+  if (left > 0) messages.push({ type: 'text', text: `มีอีก ${left} รายการ เปิดดูในเลขาในแอปได้ครับ` });
   return messages.length ? messages.slice(0, LINE_MAX_MESSAGES) : [{ type: 'text', text: 'ขออภัยครับ ตอนนี้ยังตอบไม่ได้ ลองพิมพ์ใหม่อีกครั้งนะครับ' }];
 }

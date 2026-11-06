@@ -403,6 +403,16 @@ card does not need:
   they keep one line. A switched-off Facebook still fades as before.
 - With reduced motion nothing moves; everything is simply in place.
 
+### เลขา's replies in LINE (owner, 2026-11-06: "ถ้าเป็นคำถามธรรมดา ... ส่งทีละประโยค ... ถ้าเป็นข้อมูลอ่ะส่งเป็นการ์ด")
+- Everyday talk is sent the way a friend texts: one sentence to a bubble (up to four), in the user's own tone (VOICE,
+  COMMUNICATION PROFILE and MEMORY, the same as in the app; prompt LINE TALK).
+- A list of records (two or more items with an amount or details: jobs, money owed, expenses, payments, documents)
+  becomes one formal CI card (`lineFormat.ts` listCard): the sentence before it as a bubble, then the card (title by
+  what the list is, e.g. รอรับเงิน; "N รายการ"; the total from that sentence as the amount on the band; one row per
+  item, name left, amount right, date and details muted below, this year's dates without the year; "และอีก N รายการ"
+  as the note; a button into the matching page), then the closing line. Steps and questions stay text.
+- Text lists that stay text: the name alone, details indented below, a blank line between items.
+
 ### Quotations and invoices in LINE (owner, 2026-10-30, after a competitor's LINE: cards, not question after question)
 - "ทำ / ออก / สร้าง / ขอ + ใบเสนอราคา / ใบแจ้งหนี้ / ใบวางบิล" in LINE is read by fixed rules, with no model call
   (`backend/src/services/lineDocumentDraft.ts`): the client, line items ("20 รูป รูปละ 300"), the amount ("ยอด 4,000"),
