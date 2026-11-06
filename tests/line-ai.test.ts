@@ -65,7 +65,7 @@ test('LINE: ยืนยัน / ยกเลิก buttons on a เลขา ca
   assert.deepEqual(decodeAssistantAction(`ai:confirm:${PROPOSAL}`), { action: 'confirm', proposalId: PROPOSAL });
 });
 
-test('LINE text: a table row becomes "• name · amount" with the details on a second line; Markdown marks are removed', () => {
+test('LINE text: a table row becomes an item, its name alone and the amount and details indented below; Markdown marks are removed', () => {
   const text = markdownToLineText([
     'มีค้างรับ **5 งาน** รวม **฿47,100** ครับ', '',
     '| งาน | ลูกค้า | ยอดค้าง | ครบกำหนด |', '|---|---|---|---|',
@@ -73,7 +73,33 @@ test('LINE text: a table row becomes "• name · amount" with the details on a 
     '| แบนเนอร์ | ร้านกาแฟตัวอย่าง | ฿3,500 | วันนี้ |', '',
     'ดูทั้งหมดได้ที่ [หน้างาน](/jobs)',
   ].join('\n'));
-  assert.equal(text, 'มีค้างรับ 5 งาน รวม ฿47,100 ครับ\n\n• ออกแบบโลโก้ · ฿12,000\n   ร้านกาแฟตัวอย่าง · เลยกำหนด 15 วัน\n• แบนเนอร์ · ฿3,500\n   ร้านกาแฟตัวอย่าง · วันนี้\n\nดูทั้งหมดได้ที่ หน้างาน');
+  assert.equal(text, 'มีค้างรับ 5 งาน รวม ฿47,100 ครับ\n\n• ออกแบบโลโก้\n   ฿12,000 · ร้านกาแฟตัวอย่าง\n   เลยกำหนด 15 วัน\n\n• แบนเนอร์\n   ฿3,500 · ร้านกาแฟตัวอย่าง\n   วันนี้\n\nดูทั้งหมดได้ที่ หน้างาน');
+});
+
+// Owner, 2026-11-06: "ฝากเรียงคำพูดในไลน์หน่อย ข้อความแต่ละอันบางทีแอบอ่านยากมาก" ("• ตัดคลิปคุณหมอ คลิป 2 · ฿1,000 · 7 พ.ย.
+// 2569" wrapped in the middle of its date on a phone).
+test('LINE lists: the name on its own line, the amount and date indented below, this year left off, a blank line between items', () => {
+  const now = new Date('2026-11-06T07:00:00Z');
+  const answer = ['มีงานที่ยังไม่จ่ายทั้งหมด 5 งาน ยอดค้างรวม 9,000 บาทครับ', '',
+    '- ตัดคลิปคุณหมอ คลิป 2 · ฿1,000 · 7 พ.ย. 2569', '- แม่ · ฿1,000 · 30 พ.ย. 2569', '- งานของ กยศ · ฿3,000 · 3 ม.ค. 2570', '',
+    'ดูทั้งหมดได้ที่เมนู งาน ครับ'].join('\n');
+  assert.equal(markdownToLineText(answer, now), [
+    'มีงานที่ยังไม่จ่ายทั้งหมด 5 งาน ยอดค้างรวม 9,000 บาทครับ', '',
+    '• ตัดคลิปคุณหมอ คลิป 2', '   ฿1,000 · 7 พ.ย.', '',
+    // The short one takes the same shape as the rest of its list.
+    '• แม่', '   ฿1,000 · 30 พ.ย.', '',
+    // Next year keeps its year.
+    '• งานของ กยศ', '   ฿3,000 · 3 ม.ค. 2570', '',
+    'ดูทั้งหมดได้ที่เมนู งาน ครับ'].join('\n'));
+  // The opening sentence in one bubble, the whole list in the next: blank lines between items never cut it.
+  const bubbles = lineAssistantReply(answer, []).map(message => (message as { text: string }).text);
+  assert.equal(bubbles.length, 2);
+  assert.match(bubbles[1], /^• ตัดคลิปคุณหมอ คลิป 2\n/);
+  assert.match(bubbles[1], /ดูทั้งหมดได้ที่เมนู งาน ครับ$/);
+  // An answer that opens with its list stays in one bubble.
+  assert.equal(lineAssistantReply(['- งาน A · ฿1,000 · 7 พ.ย. 2569 · ลูกค้ารายใหญ่', '- งาน B · ฿2,000'].join('\n'), []).length, 1);
+  // A list of short items stays one item a line.
+  assert.equal(markdownToLineText(['- งาน 1 · ฿1,000', '- งาน 2 · ฿2,000'].join('\n'), now), '• งาน 1 · ฿1,000\n• งาน 2 · ฿2,000');
 });
 
 // Owner, 2026-10-24: "ข้อความแบบยังยาวเหยียด แล้วก็แบบตัวหนังสือติดกัน ทำให้อ่านยาก".

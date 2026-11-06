@@ -21,13 +21,66 @@ const CONFIRM_MAX_TEXT = 2000;
 const MONEY_CELL = /฿\s*-?[\d,]|-?[\d,]+(\.\d+)?\s*บาท$/;
 const MAX_LIST_ITEMS = 5;
 
-/** One table row as a LINE item: "• name · amount", the other cells on a second, indented line. */
+/** One table row as a LINE item, "• name · amount · the other cells" (itemLines lays it out for a phone). */
 function rowItem(cells: string[]): string {
   const [name, ...rest] = cells;
   const moneyAt = rest.findIndex(cell => MONEY_CELL.test(cell));
   const money = moneyAt >= 0 ? rest.splice(moneyAt, 1)[0] : '';
-  const head = `• ${name}${money ? ` · ${money}` : ''}`;
-  return rest.length ? `${head}\n   ${rest.join(' · ')}` : head;
+  return `• ${[name, money, ...rest].filter(Boolean).join(' · ')}`;
+}
+
+// A list item laid out for a phone's LINE bubble (owner, 2026-11-06: "ฝากเรียงคำพูดในไลน์หน่อย ข้อความแต่ละอันบางทีแอบ
+// อ่านยากมาก": "• ตัดคลิปคุณหมอ คลิป 2 · ฿1,000 · 7 พ.ย. 2569" wrapped in the middle of its date). The name stays on
+// the item's own line; the amount and the rest go on indented lines below, as many to a line as fit; this year's
+// dates drop the year. A LINE bubble holds about 30 Thai characters a line; 27 leaves room for the indent.
+const ITEM_WIDTH = 27;
+const ITEM_SEPARATOR = /\s+[·—–]\s+/;
+const THAI_MONTH_DATE = /(\d{1,2}\s(?:ม\.ค|ก\.พ|มี\.ค|เม\.ย|พ\.ค|มิ\.ย|ก\.ค|ส\.ค|ก\.ย|ต\.ค|พ\.ย|ธ\.ค)\.)\s?(25\d{2})/g;
+/** How wide a line looks: Thai vowel and tone marks above or below a letter take no room of their own. */
+const visibleLength = (text: string) => text.replace(/[\u0E31\u0E34-\u0E3A\u0E47-\u0E4E]/g, '').length;
+const itemMarker = (line: string) => /^(•|\d{1,2}[.)])\s/.exec(line)?.[0] ?? null;
+
+function itemLines(line: string, continuation: string[], buddhistYear: number, split: boolean): string[] {
+  const marker = itemMarker(line)!;
+  const [name, ...details] = line.slice(marker.length).split(ITEM_SEPARATOR).map(part => part.trim()).filter(Boolean);
+  const rest = [...details, ...continuation.map(text => text.trim())]
+    .map(text => text.replace(THAI_MONTH_DATE, (whole, day: string, year: string) => (Number(year) === buddhistYear ? day : whole)));
+  if (!rest.length || (!split && visibleLength(`${marker}${[name, ...rest].join(' · ')}`) <= ITEM_WIDTH)) {
+    return [`${marker}${[name, ...rest].join(' · ')}`];
+  }
+  const packed: string[] = [];
+  for (const part of rest) {
+    const last = packed[packed.length - 1];
+    if (last && visibleLength(`${last} · ${part}`) <= ITEM_WIDTH) packed[packed.length - 1] = `${last} · ${part}`;
+    else packed.push(part);
+  }
+  return [`${marker}${name}`, ...packed.map(text => `   ${text}`)];
+}
+
+/** Lays out every list item. When one item of a list needs two lines, every item of it takes the same shape, with a
+ *  blank line between them, so a list never mixes one-line and two-line items. */
+function layoutItems(lines: string[], now: Date): string[] {
+  const buddhistYear = new Date(now.getTime() + 7 * 3600_000).getUTCFullYear() + 543;
+  const out: string[] = [];
+  for (let i = 0; i < lines.length; i += 1) {
+    if (!itemMarker(lines[i])) { out.push(lines[i]); continue; }
+    const raw: { head: string; continuation: string[] }[] = [];
+    while (i < lines.length && itemMarker(lines[i])) {
+      const head = lines[i];
+      const continuation: string[] = [];
+      while (i + 1 < lines.length && isContinuation(lines[i + 1])) { continuation.push(lines[i + 1]); i += 1; }
+      raw.push({ head, continuation });
+      i += 1;
+    }
+    i -= 1;
+    // "• …และอีก 3 รายการ ดูต่อในแอป" is the count of the rest, not an item to lay out.
+    const shape = (split: boolean) => raw.map(item => (item.head.startsWith('• …') ? [item.head] : itemLines(item.head, item.continuation, buddhistYear, split)));
+    const natural = shape(false);
+    const spaced = natural.some(item => item.length > 1);
+    const items = spaced ? shape(true) : natural;
+    items.forEach((item, at) => { if (spaced && at > 0) out.push(''); out.push(...item); });
+  }
+  return out;
 }
 
 /** "1. ลูกค้าคือใคร  2. ส่งงานแล้วหรือยัง" written on one line becomes one question per line. */
@@ -80,7 +133,7 @@ function shapeLists(lines: string[]): string[] {
 }
 
 /** Plain LINE text from the model's Markdown, shaped for a phone (owner, 2026-10-24: "ยาวเหยียด ตัวหนังสือติดกัน"). */
-export function markdownToLineText(markdown: string): string {
+export function markdownToLineText(markdown: string, now = new Date()): string {
   const lines = markdown.replace(/\r/g, '').split('\n');
   const out: string[] = [];
   for (let i = 0; i < lines.length; i += 1) {
@@ -105,7 +158,7 @@ export function markdownToLineText(markdown: string): string {
       .trimEnd();
     for (const part of splitInlineList(plain)) out.push(...sentenceLines(part));
   }
-  return shapeLists(out).join('\n').replace(/\n{3,}/g, '\n\n').trim().slice(0, LINE_TEXT_MAX);
+  return layoutItems(shapeLists(out), now).join('\n').replace(/\n{3,}/g, '\n\n').trim().slice(0, LINE_TEXT_MAX);
 }
 
 /** The postback a confirmation card's buttons send, or null. Ids are checked again when the proposal is claimed. */
@@ -293,8 +346,11 @@ function cardMessages(cards: AssistantCard[], room: number): { messages: LineMes
 /** One LINE reply: the answer in at most two text bubbles, then the cards (carousels when there are several). */
 export function lineAssistantReply(text: string, cards: AssistantCard[]): LineMessage[] {
   const plain = markdownToLineText(text);
-  const parts = plain ? plain.split(/\n{2,}/).map(part => part.trim()).filter(Boolean) : [];
-  const bubbles = parts.length > 2 ? [parts[0], parts.slice(1).join('\n\n')] : parts;
+  const parts = plain ? plain.split(/\n{2,}/).map(part => part.trimEnd()).filter(part => part.trim()) : [];
+  // The opening sentence on its own, the rest together; an answer that opens with its list stays in one bubble, so the
+  // blank lines between items never cut a list in two.
+  const bubbles = parts.length > 2 || (parts.length === 2 && itemMarker(parts[0].trimStart()))
+    ? (itemMarker(parts[0].trimStart()) ? [parts.join('\n\n')] : [parts[0], parts.slice(1).join('\n\n')]) : parts;
   const { messages: cardsOut, left } = cardMessages(cards, LINE_MAX_MESSAGES - bubbles.length - 1);
   if (left > 0) bubbles.push(`มีอีก ${left} รายการ เปิดดูในเลขาในแอปได้ครับ`);
   const messages: LineMessage[] = [...bubbles.map(part => ({ type: 'text' as const, text: part })), ...cardsOut];
