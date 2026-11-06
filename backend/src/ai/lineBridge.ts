@@ -7,7 +7,8 @@ import { lineAssistantReply } from './lineFormat.js';
 import { rateLimit } from '../security/rateLimit.js';
 import { confirmProposal, handleMessage, MESSAGE_RATE, thaiDay, usageStatus, type AssistantDb, type PlanInfo, type UsageStatus } from './service.js';
 import { assistantPlanForUserId, supabaseAssistantDb } from './supabaseDb.js';
-import type { ChatTurn } from './types.js';
+import type { ChatFile, ChatTurn } from './types.js';
+import { attachFileToRecord, takeFileForProposal } from '../services/lineFileLinks.js';
 import { lineHistoryText, type ChannelTurn } from './crossChannel.js';
 import { notifyBillingIssues } from '../services/ownerAlerts.js';
 import { hasConsent } from '../repositories/consents.js';
@@ -17,7 +18,7 @@ import { appOrigin } from '../config/env.js';
 // account), with answers shaped for LINE (lineFormat.ts). The LINE handler has already checked the account
 // link, its lifecycle and Pro before calling here.
 
-export interface LineAnswer { messages: LineMessage[]; text: string }
+export interface LineAnswer { messages: LineMessage[]; text: string; /** The confirmation cards this answer prepared. */ proposalIds?: string[] }
 
 /** Replaceable parts, for tests; production uses the real database, plan lookup and rate limiter. */
 export interface LineBridgeDeps {
@@ -56,8 +57,9 @@ export function tokenBalanceText(status: UsageStatus): string {
   return [`โทเคนเลขารอบนี้ เหลือ ${left} จาก ${status.tokenLimit.toLocaleString('en-US')}`, next, shared].filter(Boolean).join('\n');
 }
 
-/** The AI's answer, or null when the real เลขา is not on for this account (the handler keeps its old behaviour). */
-export async function lineAssistantAnswer(user: UserRow, text: string, history: ChatTurn[], deps: LineBridgeDeps = {}): Promise<LineAnswer | null> {
+/** The AI's answer, or null when the real เลขา is not on for this account (the handler keeps its old behaviour).
+ *  `files`: a picture or PDF sent in LINE (owner, 2026-11-06), read the same way as in the app's chat. */
+export async function lineAssistantAnswer(user: UserRow, text: string, history: ChatTurn[], deps: LineBridgeDeps = {}, files: ChatFile[] = []): Promise<LineAnswer | null> {
   const settings = aiConfig(deps.env ?? process.env);
   if (!settings.enabled) return null;
   const plan = await (deps.plan ?? assistantPlanForUserId)(user.user_id);
@@ -77,7 +79,7 @@ export async function lineAssistantAnswer(user: UserRow, text: string, history: 
     // The same per-minute limit as the app's chat: one bucket per account, wherever the message comes from.
     await (deps.rateLimit ?? rateLimit)(MESSAGE_RATE.scope, user.user_id, MESSAGE_RATE.limit, MESSAGE_RATE.seconds);
     const reply = await (deps.run ?? handleMessage)(db, { config, now: deps.now, signal: AbortSignal.timeout(deps.budgetMs ?? LINE_AI_BUDGET_MS),
-      onBillingIssue: issues => notifyBillingIssues(issues) }, user.user_id, plan, { text, history, channel: 'line' });
+      onBillingIssue: issues => notifyBillingIssues(issues) }, user.user_id, plan, { text, history, channel: 'line', ...(files.length ? { attachments: files } : {}) });
     const messages = lineAssistantReply(reply.text, reply.cards);
     // Running low: say so under the answer, with the same number the app shows.
     const limit = plan.plan === 'trial' ? config.trialTokens : plan.tokens ?? config.proTokensPerCycle;
@@ -87,7 +89,8 @@ export async function lineAssistantAnswer(user: UserRow, text: string, history: 
       if (last) last.text = `${last.text}\n\n${note}`; else if (messages.length < 5) messages.push({ type: 'text', text: note });
     }
     // LINE's short history keeps the questions and any card waiting, so a follow-up here or in the app knows them.
-    return { messages, text: lineHistoryText(reply.text, reply.cards as ChannelTurn['cards']) };
+    const proposalIds = reply.cards.flatMap(card => (card.kind === 'confirm' ? [card.id] : []));
+    return { messages, text: lineHistoryText(reply.text, reply.cards as ChannelTurn['cards']), ...(proposalIds.length ? { proposalIds } : {}) };
   } catch (error) {
     // Too slow this time: a plain line to send it again (a failed request costs no tokens).
     if (error instanceof HttpError && error.code === 'ai_provider') return { messages: [{ type: 'text', text: LINE_TOO_SLOW }], text: LINE_TOO_SLOW };
@@ -97,15 +100,20 @@ export async function lineAssistantAnswer(user: UserRow, text: string, history: 
   }
 }
 
-const DONE: Record<string, { title: string; character: 'working' | 'received' | 'cancelled' }> = {
+const DONE: Record<string, { title: string; character: 'working' | 'received' | 'cancelled' | 'spent' }> = {
   add_job: { title: 'เพิ่มงานแล้ว', character: 'working' },
+  add_expense: { title: 'บันทึกรายจ่ายแล้ว', character: 'spent' },
   record_payment: { title: 'บันทึกรับเงินแล้ว', character: 'received' },
   edit_job: { title: 'แก้ไขงานแล้ว', character: 'working' },
   delete_job: { title: 'ลบงานแล้ว', character: 'cancelled' },
 };
 
-/** ยืนยัน / ยกเลิก on a confirmation card in LINE. */
-export async function lineAssistantCommand(user: UserRow, command: { action: 'confirm' | 'cancel'; proposalId: string }): Promise<LineMessage[]> {
+/** The file links, replaceable for tests (lineFileLinks.ts). */
+export interface LineFileLinkDeps { take: typeof takeFileForProposal; attach: typeof attachFileToRecord }
+
+/** ยืนยัน / ยกเลิก on a confirmation card in LINE. A card prepared from a file sent in LINE gets that file attached. */
+export async function lineAssistantCommand(user: UserRow, command: { action: 'confirm' | 'cancel'; proposalId: string },
+  links: LineFileLinkDeps = { take: takeFileForProposal, attach: attachFileToRecord }): Promise<LineMessage[]> {
   if (command.action === 'cancel') {
     const cancelled = await supabaseAssistantDb.cancelProposal(user.user_id, command.proposalId);
     return [cancelled
@@ -116,9 +124,19 @@ export async function lineAssistantCommand(user: UserRow, command: { action: 'co
   try {
     const done = await confirmProposal(supabaseAssistantDb, user.user_id, command.proposalId, { channel: 'line' });
     const label = DONE[done.kind] ?? { title: 'บันทึกแล้ว', character: 'working' as const };
+    // Saved already: attaching the file never costs the confirmation.
+    // Only a card prepared from a file sent in LINE looks for it (the account's private state comes with notif_settings).
+    let attached: string | null = null;
+    const fromFile = (user.notif_settings as { lineFileProposals?: Record<string, unknown> } | undefined)?.lineFileProposals?.[command.proposalId];
+    if (fromFile) {
+      try {
+        const fileId = await links.take(user.user_id, command.proposalId);
+        if (fileId) attached = await links.attach(user.user_id, fileId, done as { kind: string; jobId?: string; recordId?: string });
+      } catch { console.error('line-assistant: the file was not attached'); }
+    }
     return [lineCard({
       title: label.title, subtitle: 'บันทึกในแอปเรียบร้อย', character: label.character, compact: true, altText: label.title,
-      body: [lineValueRow('สถานะ', 'บันทึกแล้ว', { bold: false })],
+      body: [lineValueRow('สถานะ', 'บันทึกแล้ว', { bold: false }), ...(attached ? [lineValueRow('ไฟล์', `แนบกับ ${attached} ในคลังเอกสารแล้ว`, { bold: false })] : [])],
       footer: lineAppLink(done.path || '/jobs', done.path ? 'เปิดรายการในแอป' : 'ดูในหน้างาน'),
     })];
   } catch (error) {

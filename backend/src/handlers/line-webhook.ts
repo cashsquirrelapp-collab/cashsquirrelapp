@@ -9,7 +9,7 @@ import { buildLineWelcome } from '../services/lineLinkCards.js';
 import type { LineMessage } from '../services/line.js';
 import { decodeLineDraftAction } from '../services/lineDraftReview.js';
 import { decodeLineDocumentAction } from '../services/lineDocumentDraft.js';
-import { decodeVaultAction, handleLineFile, handleLineVaultAction } from '../services/lineVaultChat.js';
+import { decodeVaultAction, handleLineFileMessage, handleLineVaultAction } from '../services/lineVaultChat.js';
 import { forgetLineMenu, lineMenuDeps, syncLineMenuFor } from '../services/lineRichMenus.js';
 import { decodeDueAction } from '../services/lineDuePayments.js';
 import { decodeWht50Action } from '../services/lineWht50Reminders.js';
@@ -187,10 +187,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // handleAssistantMessage returns null when this LINE user isn't linked to anything
         // yet, in which case we fall back to matching the message against a pending link code.
         if (vaultAction || vaultFile) {
-          const card = vaultAction
-            ? await handleLineVaultAction(lineUserId, vaultAction)
-            : await handleLineFile(lineUserId, vaultFile!, accessToken);
-          await send([card]);
+          // A picture or PDF is kept, then read by เลขา into confirmation cards (lineVaultChat.ts handleLineFileMessage).
+          await send(vaultAction ? [await handleLineVaultAction(lineUserId, vaultAction)] : await handleLineFileMessage(lineUserId, vaultFile!, accessToken));
           await complete();
           return;
         }

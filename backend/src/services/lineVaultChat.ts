@@ -1,10 +1,15 @@
 import type { LineMessage } from './line.js';
 import { lineAppLink, lineCard, LINE_CARD_COLORS } from './lineCards.js';
-import { findUserByLineId, isProUser, type UserRow } from './lineAssistant.js';
+import { findUserByLineId, isProUser, recentChatHistory, saveChatHistory, type UserRow } from './lineAssistant.js';
 import { checkLinkedAccountWriteAccess } from './linkedAccountAccess.js';
 import { getSupabaseAdmin } from '../config/supabase.js';
 import { listVaultFiles, storeVaultFile, updateVaultFile } from './vault.js';
-import { VAULT_KIND_LABEL, VAULT_MAX_BYTES, type VaultKind } from '../../../shared/vault.js';
+import { VAULT_KIND_LABEL, VAULT_MAX_BYTES, sniffVaultMime, type VaultKind } from '../../../shared/vault.js';
+import { ATTACHMENT_MAX_BYTES, checkAttachment } from '../ai/attachment.js';
+import type { ChatFile } from '../ai/types.js';
+import type { LineAnswer } from '../ai/lineBridge.js';
+import { rememberFileProposals } from './lineFileLinks.js';
+import { rateLimit } from '../security/rateLimit.js';
 import { lineAreaOpen } from './lineLaunch.js';
 import { isPhaseOneFeatureAvailable } from '../../../shared/featureAvailability.js';
 
@@ -80,21 +85,67 @@ export function fileSavedCard(fileId: string, fileName: string): LineMessage {
   });
 }
 
-export async function handleLineFile(lineUserId: string, event: LineFileEvent, token: string): Promise<LineMessage> {
+/** What a person sending a picture or PDF in LINE asks of เลขา, in their words. */
+export const LINE_FILE_REQUEST = 'ช่วยอ่านไฟล์นี้ แล้วเตรียมบันทึกรายรับหรือรายจ่ายให้หน่อย';
+
+/** Replaceable parts, for tests. */
+export interface LineFileDeps {
+  owner?: typeof owner;
+  read?: typeof readLineFile;
+  store?: typeof storeVaultFile;
+  answer?: (user: UserRow, text: string, history: { role: 'user' | 'assistant'; text: string }[], files: ChatFile[]) => Promise<LineAnswer | null>;
+  remember?: typeof rememberFileProposals;
+  saveHistory?: typeof saveChatHistory;
+  rateLimit?: typeof rateLimit;
+}
+
+/**
+ * A picture or PDF sent in LINE (owner, 2026-11-06: "อ่านไฟล์ PDF อ่านรูปภาพ ... แกะออกมาเพื่อบันทึกรายจ่ายหรือรายรับ ...
+ * เหมือนแบบในเลขากระรอกเลยในแอป", then "อ่านทันที แล้วเสนอการ์ดบันทึก"). The file goes into คลังเอกสาร first, as before;
+ * then เลขา reads it like a file in the app's chat and answers with its confirmation cards, which remember the file so
+ * the one confirmed gets it attached (lineFileLinks.ts). When nothing is prepared from it (a contract, a ใบ 50 ทวิ),
+ * when เลขา is not on for the account, or when it cannot be read, the earlier card asks what the file is.
+ */
+export async function handleLineFileMessage(lineUserId: string, event: LineFileEvent, token: string, deps: LineFileDeps = {}): Promise<LineMessage[]> {
   if (event.type !== 'image' && event.type !== 'file') throw new Error('Not a file event');
-  if (!event.id || !/^\d{1,40}$/.test(event.id)) return { type: 'text', text: 'อ่านรหัสไฟล์จาก LINE ไม่ได้ กรุณาส่งใหม่ครับ' };
-  if (event.fileSize && event.fileSize > VAULT_MAX_BYTES) return { type: 'text', text: 'ไฟล์ใหญ่เกิน 10 MB กรุณาลดขนาดแล้วส่งใหม่ครับ' };
-  const access = await owner(lineUserId);
-  if ('type' in access) return access;
+  if (!event.id || !/^\d{1,40}$/.test(event.id)) return [{ type: 'text', text: 'อ่านรหัสไฟล์จาก LINE ไม่ได้ กรุณาส่งใหม่ครับ' }];
+  if (event.fileSize && event.fileSize > VAULT_MAX_BYTES) return [{ type: 'text', text: 'ไฟล์ใหญ่เกิน 10 MB กรุณาลดขนาดแล้วส่งใหม่ครับ' }];
+  const access = await (deps.owner ?? owner)(lineUserId);
+  if ('type' in access) return [access];
+  let bytes: Buffer;
+  let saved: { id: string; fileName: string };
   try {
-    const bytes = await readLineFile(event.id, token);
-    const saved = await storeVaultFile({ kind: 'user', id: access.user.user_id }, access.auth, bytes, {
+    bytes = await (deps.read ?? readLineFile)(event.id, token);
+    saved = await (deps.store ?? storeVaultFile)({ kind: 'user', id: access.user.user_id }, access.auth, bytes, {
       kind: 'other', fileName: event.fileName || (event.type === 'image' ? 'รูปจาก LINE' : 'ไฟล์จาก LINE'),
     });
-    return fileSavedCard(saved.id, saved.fileName);
   } catch (error) {
     console.error('line-vault: upload failed', { type: error instanceof Error ? error.message : 'unknown' });
-    return { type: 'text', text: 'ยังเก็บไฟล์ไม่สำเร็จครับ รองรับ PDF, JPG, PNG, WEBP ไม่เกิน 10 MB กรุณาลองส่งใหม่ หรือเปิดคลังเอกสารในเว็บ' };
+    return [{ type: 'text', text: 'ยังเก็บไฟล์ไม่สำเร็จครับ รองรับ PDF, JPG, PNG, WEBP ไม่เกิน 10 MB กรุณาลองส่งใหม่ หรือเปิดคลังเอกสารในเว็บ' }];
+  }
+  const keep = fileSavedCard(saved.id, saved.fileName);
+  const mime = sniffVaultMime(bytes.subarray(0, 16));
+  if (!mime) return [keep];
+  if (bytes.length > ATTACHMENT_MAX_BYTES) return [{ type: 'text', text: 'ไฟล์ใหญ่เกิน 4 MB เลขาอ่านให้ไม่ได้ เก็บไว้ในคลังเอกสารแล้วครับ' }, keep];
+  try {
+    await (deps.rateLimit ?? rateLimit)('assistant-file', access.user.user_id, 25, 600);
+    const file = checkAttachment({ name: saved.fileName, mimeType: mime, data: bytes.toString('base64') });
+    const answer = deps.answer ?? (async (user, text, history, files) => (await import('../ai/lineBridge.js')).lineAssistantAnswer(user, text, history, {}, files));
+    const answered = await answer(access.user, LINE_FILE_REQUEST, recentChatHistory(access.user), [file]);
+    if (!answered) return [keep];
+    try { await (deps.saveHistory ?? saveChatHistory)(access.user, `[ส่งไฟล์] ${saved.fileName}`.slice(0, 200), answered.text.slice(0, 1000)); }
+    catch { console.error('line-vault: chat history not saved'); }
+    if (!answered.proposalIds?.length) return [...answered.messages.slice(0, 4), keep];
+    try { await (deps.remember ?? rememberFileProposals)(access.user.user_id, saved.id, answered.proposalIds); }
+    catch { console.error('line-vault: file not linked to its cards'); }
+    const note = { type: 'text' as const, text: 'เก็บไฟล์ไว้ในคลังเอกสารแล้ว กดยืนยันแล้วผมแนบไฟล์กับรายการให้ครับ' };
+    return answered.messages.length < 5 ? [...answered.messages, note] : answered.messages;
+  } catch (error) {
+    const failure = error as { status?: number; message?: string } | null;
+    console.error('line-vault: reading the file failed', { status: failure?.status ?? null });
+    // A limit or a file the checks refuse is said as it is; anything else plainly. The file is kept either way.
+    const said = failure?.status && failure.status < 500 && failure.message ? failure.message : 'เลขาอ่านไฟล์นี้ไม่สำเร็จ';
+    return [{ type: 'text', text: `${said} เก็บไฟล์ไว้ในคลังเอกสารแล้วครับ` }, keep];
   }
 }
 

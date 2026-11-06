@@ -412,6 +412,10 @@ card does not need:
   item, name left, amount right, date and details muted below, this year's dates without the year; "และอีก N รายการ"
   as the note; a button into the matching page), then the closing line. Steps and questions stay text.
 - Text lists that stay text: the name alone, details indented below, a blank line between items.
+- A picture or PDF sent in LINE (owner, 2026-11-06, "อ่านทันที แล้วเสนอการ์ดบันทึก"): kept in คลังเอกสาร, then read by
+  เลขา like a file in the app's chat into its confirmation cards, with one line that the file is kept and will be
+  attached on ยืนยัน; the saved card then says "แนบกับ … ในคลังเอกสารแล้ว". Nothing prepared, เลขา off, over 4 MB or not
+  a picture/PDF: the earlier "เก็บไฟล์ไว้แล้ว" card that asks what the file is.
 
 ### Quotations and invoices in LINE (owner, 2026-10-30, after a competitor's LINE: cards, not question after question)
 - "ทำ / ออก / สร้าง / ขอ + ใบเสนอราคา / ใบแจ้งหนี้ / ใบวางบิล" in LINE is read by fixed rules, with no model call

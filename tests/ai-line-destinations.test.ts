@@ -66,3 +66,22 @@ test('legacy job confirmations keep the jobs destination and foreign-owner claim
   assert.deepEqual(uris(foreign), []);
   assert.ok(JSON.stringify(foreign).includes('หมดเวลา'));
 });
+
+// Owner, 2026-11-06: a receipt sent in LINE is read into a card; confirming that card attaches the file to its record.
+test('a card prepared from a file sent in LINE gets the file attached when confirmed; other cards never look', async () => {
+  proposal = { ...proposal, kind: 'edit_expense', job_id: 'expense-a', record: { id: 'expense-a', name: 'ค่าเน็ต', amount: 599, category: 'อื่น ๆ', date: '2026-11-06' } };
+  const file = '11111111-2222-4333-8444-555555555555';
+  const calls: unknown[] = [];
+  const links = {
+    take: async (userId: string, id: string) => { calls.push(['take', userId, id]); return file; },
+    attach: async (userId: string, fileId: string, done: { kind: string; recordId?: string }) => { calls.push(['attach', userId, fileId, done.kind, done.recordId]); return 'ค่าเน็ต'; },
+  };
+  const fromFile = { ...user(owner), notif_settings: { lineFileProposals: { [proposalId]: { fileId: file, at: '2026-11-06T08:00:00Z' } } } } as UserRow;
+  const card = await lineAssistantCommand(fromFile, { action: 'confirm', proposalId }, links as any);
+  assert.deepEqual(calls, [['take', owner, proposalId], ['attach', owner, file, 'edit_expense', 'expense-a']]);
+  assert.ok(JSON.stringify(card).includes('แนบกับ ค่าเน็ต ในคลังเอกสารแล้ว'));
+  // A card with no file never looks.
+  calls.length = 0;
+  await lineAssistantCommand(user(owner), { action: 'confirm', proposalId }, links as any);
+  assert.deepEqual(calls, []);
+});

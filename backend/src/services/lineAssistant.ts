@@ -820,7 +820,7 @@ async function appendNameAskIfNeeded(user: UserRow, knowsName: boolean, alreadyA
 
 // Best-effort, same mutate-local-on-success pattern as the other notif_settings writers above --
 // trims to the last CHAT_HISTORY_MAX_TURNS turns (a "turn" = one user message + one reply).
-async function saveChatHistory(user: UserRow, userText: string, assistantText: string): Promise<void> {
+export async function saveChatHistory(user: UserRow, userText: string, assistantText: string): Promise<void> {
   const existing = user.notif_settings?.chatHistory || [];
   const updated: ChatHistoryEntry[] = [
     ...existing,
@@ -830,6 +830,13 @@ async function saveChatHistory(user: UserRow, userText: string, assistantText: s
   const notif_settings = { ...(user.notif_settings || {}), chatHistory: updated, chatHistoryUpdatedAt: new Date().toISOString() };
   await patchPrivate(user.user_id, { chatHistory: updated, chatHistoryUpdatedAt: notif_settings.chatHistoryUpdatedAt });
   user.notif_settings = notif_settings;
+}
+
+/** The short LINE history still in time (CHAT_HISTORY_TTL_MS), for a follow-up such as a file sent in LINE. */
+export function recentChatHistory(user: UserRow): { role: 'user' | 'assistant'; text: string }[] {
+  const at = user.notif_settings?.chatHistoryUpdatedAt;
+  const fresh = at && Date.now() - new Date(at).getTime() < CHAT_HISTORY_TTL_MS;
+  return fresh ? (user.notif_settings?.chatHistory || []).map(entry => ({ role: entry.role, text: entry.text })) : [];
 }
 
 // Shared tail for every conversational (plain-text) reply: appends the one-time name ask if due,
