@@ -9,7 +9,7 @@ import { buildLineWelcome } from '../services/lineLinkCards.js';
 import type { LineMessage } from '../services/line.js';
 import { decodeLineDraftAction } from '../services/lineDraftReview.js';
 import { decodeLineDocumentAction } from '../services/lineDocumentDraft.js';
-import { decodeVaultAction, handleLineFileMessage, handleLineVaultAction } from '../services/lineVaultChat.js';
+import { decodeVaultAction, handleLineFileMessage, handleLineImageSetPart, handleLineVaultAction } from '../services/lineVaultChat.js';
 import { forgetLineMenu, lineMenuDeps, syncLineMenuFor } from '../services/lineRichMenus.js';
 import { decodeDueAction } from '../services/lineDuePayments.js';
 import { decodeWht50Action } from '../services/lineWht50Reminders.js';
@@ -47,7 +47,7 @@ export interface LineEvent {
   webhookEventId?: string;
   replyToken?: string;
   source?: { type: string; userId?: string };
-  message?: { type: string; text?: string; id?: string; fileName?: string; fileSize?: number };
+  message?: { type: string; text?: string; id?: string; fileName?: string; fileSize?: number; imageSet?: { id?: string; index?: number; total?: number } };
   postback?: { data?: string };
 }
 
@@ -60,6 +60,9 @@ export function lineEventCommand(event: LineEvent): string | null {
     // ยืนยัน / ยกเลิก on a เลขากระรอก confirmation card.
     const ai = /^ai:(confirm|cancel):(p_[0-9a-f-]{36})$/.exec(data);
     if (ai) return `${ai[1] === 'confirm' ? 'ยืนยัน' : 'ยกเลิก'}รายการเลขา ${ai[2]}`;
+    // บันทึกทั้งหมด / ดูทีละใบ / ยกเลิกทั้งหมด on the one card for several pictures.
+    const group = /^ai:(confirmall|cancelall|showall):(g[A-Za-z0-9]{6,40})$/.exec(data);
+    if (group) return `${group[1] === 'confirmall' ? 'บันทึก' : group[1] === 'cancelall' ? 'ยกเลิก' : 'ดู'}ทั้งหมดเลขา ${group[2]}`;
     // สร้างเอกสาร / ยกเลิก on a quotation or invoice draft card (lineDocumentDraft.ts).
     return decodeLineDocumentAction(data) ?? decodeLineDraftAction(data);
   }
@@ -188,7 +191,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // yet, in which case we fall back to matching the message against a pending link code.
         if (vaultAction || vaultFile) {
           // A picture or PDF is kept, then read by เลขา into confirmation cards (lineVaultChat.ts handleLineFileMessage).
-          await send(vaultAction ? [await handleLineVaultAction(lineUserId, vaultAction)] : await handleLineFileMessage(lineUserId, vaultFile!, accessToken));
+          // Several pictures sent at once come one event each; only the one that completes the set answers.
+          const messages = vaultAction ? [await handleLineVaultAction(lineUserId, vaultAction)]
+            : (vaultFile!.imageSet?.total ?? 0) > 1 ? await handleLineImageSetPart(lineUserId, vaultFile!, accessToken)
+            : await handleLineFileMessage(lineUserId, vaultFile!, accessToken);
+          if (messages.length) await send(messages);
           await complete();
           return;
         }

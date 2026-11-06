@@ -62,3 +62,70 @@ export async function attachFileToRecord(userId: string, fileId: string, done: {
   await updateVaultFile({ kind: 'user', id: userId }, { action: 'update', id: fileId, kind: expense ? 'expense' : 'other', jobId: id, jobName: name, client });
   return name ?? 'รายการนี้';
 }
+
+// Several pictures sent at once (owner, 2026-11-06: "ส่งหลายรูปพร้อมกันให้รวมเป็นการ์ดเดียวได้ไหม", then "การ์ดเดียว +
+// บันทึกทั้งหมด"). LINE marks them as one imageSet; each arrives as its own event, so each picture is noted under its own
+// key (two at once never overwrite each other) and the event that finds the set complete reads them together. The cards
+// เลขา prepared from them are kept as one group for บันทึกทั้งหมด, ดูทีละใบ and ยกเลิกทั้งหมด. Ten minutes for a set, a day
+// for a group.
+
+export type ImagePart = { messageId: string; fileId?: string; fileName?: string; failed?: boolean; at: string };
+const PART_PREFIX = 'lineImagePart:';
+const GROUP_PREFIX = 'lineCardGroup:';
+const PART_TTL_MS = 10 * 60_000;
+export const GROUP_ID = /^g[A-Za-z0-9]{6,40}$/;
+
+/** The group id for a LINE imageSet id, or null when it is not one. */
+export const groupIdFor = (imageSetId: unknown) => {
+  const id = typeof imageSetId === 'string' ? `g${imageSetId.replace(/[^A-Za-z0-9]/g, '').slice(0, 40)}` : '';
+  return GROUP_ID.test(id) ? id : null;
+};
+
+async function privateData(userId: string): Promise<Record<string, unknown>> {
+  const { data, error } = await getSupabaseAdmin().from('cashflow_private_state').select('data').eq('user_id', userId).maybeSingle();
+  if (error) throw error;
+  const value = (data as { data?: unknown } | null)?.data;
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+/** Notes one picture of a set; returns every picture of the set noted so far (by its index), and drops stale ones. */
+export async function noteImagePart(userId: string, groupId: string, index: number, part: ImagePart, now = new Date()): Promise<Map<number, ImagePart>> {
+  await patchPrivate(userId, { [`${PART_PREFIX}${groupId}:${index}`]: part });
+  const data = await privateData(userId);
+  const parts = new Map<number, ImagePart>();
+  const stale: string[] = [];
+  for (const [key, value] of Object.entries(data)) {
+    if (!key.startsWith(PART_PREFIX)) continue;
+    const entry = value as ImagePart | null;
+    const fresh = entry && typeof entry.at === 'string' && now.getTime() - Date.parse(entry.at) < PART_TTL_MS;
+    if (!fresh) { stale.push(key); continue; }
+    const [, set, at] = key.slice(PART_PREFIX.length).match(/^([^:]+):(\d{1,2})$/) ?? [];
+    if (set === groupId) parts.set(Number(at), entry);
+  }
+  if (stale.length) await patchPrivate(userId, {}, stale);
+  return parts;
+}
+
+/** Forgets the pictures of a set once it has been read. */
+export async function dropImageParts(userId: string, groupId: string, indexes: number[]): Promise<void> {
+  await patchPrivate(userId, {}, indexes.map(index => `${PART_PREFIX}${groupId}:${index}`));
+}
+
+export type CardGroup = { cards: unknown[]; files: number; at: string };
+
+export async function saveCardGroup(userId: string, groupId: string, group: Omit<CardGroup, 'at'>, now = new Date()): Promise<void> {
+  if (!GROUP_ID.test(groupId)) return;
+  await patchPrivate(userId, { [`${GROUP_PREFIX}${groupId}`]: { ...group, at: now.toISOString() } });
+}
+
+/** A group still in time, from the account's notif_settings (the private state comes with it). */
+export function cardGroupOf(notifSettings: unknown, groupId: string, now = new Date()): CardGroup | null {
+  if (!GROUP_ID.test(groupId)) return null;
+  const group = (notifSettings as Record<string, unknown> | undefined)?.[`${GROUP_PREFIX}${groupId}`] as CardGroup | undefined;
+  if (!group || !Array.isArray(group.cards) || typeof group.at !== 'string' || now.getTime() - Date.parse(group.at) >= DAY_MS) return null;
+  return group;
+}
+
+export async function dropCardGroup(userId: string, groupId: string): Promise<void> {
+  if (GROUP_ID.test(groupId)) await patchPrivate(userId, {}, [`${GROUP_PREFIX}${groupId}`]);
+}

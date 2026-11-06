@@ -452,6 +452,55 @@ function talkBubbles(lines: string[], now: Date, max: number): string[] {
   return [...units.slice(0, Math.max(0, max - 1)), units.slice(Math.max(0, max - 1)).join('\n')];
 }
 
+// Several pictures read at once (owner, 2026-11-06: "ส่งหลายรูปพร้อมกันให้รวมเป็นการ์ดเดียว", then "การ์ดเดียว + บันทึก
+// ทั้งหมด"): one CI card with a row per card เลขา prepared (name, amount, what it is and its date), the total when they are
+// all the same kind, and three buttons: บันทึกทั้งหมด, ดูทีละใบ (the separate cards, to change one) and ยกเลิกทั้งหมด.
+type ConfirmCardLike = Extract<AssistantCard, { kind: 'confirm' }>;
+const THAI_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+function shortThaiDate(value: string, now: Date): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+  if (!match) return value;
+  const year = Number(match[1]) + 543;
+  const thisYear = new Date(now.getTime() + 7 * 3600_000).getUTCFullYear() + 543;
+  return `${Number(match[3])} ${THAI_MONTHS[Number(match[2]) - 1] ?? ''}${year === thisYear ? '' : ` ${year}`}`;
+}
+const changeOf = (card: ConfirmCardLike, labels: string[]) => card.changes.find(change => labels.includes(change.label))?.value;
+
+export function cardGroupMessage(groupId: string, cards: AssistantCard[], files: number, now = new Date()): LineMessage {
+  const C = LINE_CARD_COLORS;
+  const confirms = cards.filter((card): card is ConfirmCardLike => card.kind === 'confirm');
+  const items = confirms.map(card => {
+    const amount = changeOf(card, ['จำนวนเงิน', 'ยอดรับ', 'ยอดเงิน', 'มูลค่า', 'มูลค่างาน']) ?? card.changes.find(change => /฿/.test(change.value))?.value;
+    const date = changeOf(card, ['วันที่', 'วันที่รับเงิน', 'วันรับเงิน']);
+    return { name: changeOf(card, ['รายการ', 'งาน', 'ชื่องาน', 'ชื่อรายการ']) ?? card.title, amount, meta: [card.title, date ? shortThaiDate(date, now) : ''].filter(Boolean).join(' · ') };
+  });
+  const amounts = items.map(item => Number(String(item.amount ?? '').replace(/[^\d.-]/g, '')));
+  const total = new Set(confirms.map(card => card.title)).size === 1 && amounts.every(Number.isFinite) && amounts.length ? formatTHB(amounts.reduce((sum, value) => sum + value, 0)) : undefined;
+  const rows = items.flatMap((item, at) => [
+    ...(at > 0 ? [{ type: 'separator', color: C.border, margin: 'lg' }] : []),
+    { type: 'box', layout: 'vertical', margin: 'lg', spacing: 'xs', contents: [
+      { type: 'box', layout: 'horizontal', spacing: 'md', contents: [
+        { type: 'text', text: item.name.slice(0, 120), size: 'sm', color: C.text, wrap: true, maxLines: 2, flex: 1 },
+        ...(item.amount ? [{ type: 'text', text: item.amount.slice(0, 40), size: 'sm', weight: 'bold', color: C.text, align: 'end', flex: 0, wrap: true }] : []),
+      ] },
+      ...(item.meta ? [{ type: 'text', text: item.meta.slice(0, 160), size: 'xs', color: C.muted, wrap: true }] : []),
+    ] },
+  ]);
+  const message = lineCard({
+    title: `บันทึก ${confirms.length} รายการ`, subtitle: `จากรูปที่ส่งมา ${files} รูป`, character: 'review',
+    altText: `บันทึก ${confirms.length} รายการจากรูปที่ส่งมา${total ? ` รวม ${total}` : ''} · กดบันทึกทั้งหมด หรือดูทีละใบ`,
+    ...(total ? { metric: { label: 'ยอดรวม', value: total } } : {}),
+    body: rows, note: 'รูปทั้งหมดเก็บไว้ในคลังเอกสารแล้ว',
+  }) as LineMessage & { contents: Record<string, unknown> };
+  const button = (label: string, action: string, primary = false) => ({ type: 'button', style: primary ? 'primary' : 'secondary', height: 'sm',
+    color: primary ? C.accent : C.subtle, action: { type: 'postback', label, data: `ai:${action}:${groupId}`, displayText: label } });
+  message.contents.footer = { type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '20px', paddingTop: '0px', contents: [
+    button('บันทึกทั้งหมด', 'confirmall', true),
+    { type: 'box', layout: 'horizontal', spacing: 'sm', contents: [button('ดูทีละใบ', 'showall'), button('ยกเลิกทั้งหมด', 'cancelall')] },
+  ] };
+  return message;
+}
+
 export function lineAssistantReply(text: string, cards: AssistantCard[], now = new Date()): LineMessage[] {
   const buddhistYear = new Date(now.getTime() + 7 * 3600_000).getUTCFullYear() + 543;
   const segments = segmentsOf(shapedLines(text), buddhistYear);

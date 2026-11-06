@@ -4,11 +4,12 @@ import { lineAppLink, lineCard, lineValueRow } from '../services/lineCards.js';
 import type { UserRow } from '../services/lineAssistant.js';
 import { aiConfig, aiConfigFor } from './config.js';
 import { lineAssistantReply } from './lineFormat.js';
+import { LINE_CARD_COLORS } from '../services/lineCards.js';
 import { rateLimit } from '../security/rateLimit.js';
 import { confirmProposal, handleMessage, MESSAGE_RATE, thaiDay, usageStatus, type AssistantDb, type PlanInfo, type UsageStatus } from './service.js';
 import { assistantPlanForUserId, supabaseAssistantDb } from './supabaseDb.js';
-import type { ChatFile, ChatTurn } from './types.js';
-import { attachFileToRecord, takeFileForProposal } from '../services/lineFileLinks.js';
+import type { AssistantCard, ChatFile, ChatTurn } from './types.js';
+import { attachFileToRecord, cardGroupOf, dropCardGroup, takeFileForProposal } from '../services/lineFileLinks.js';
 import { lineHistoryText, type ChannelTurn } from './crossChannel.js';
 import { notifyBillingIssues } from '../services/ownerAlerts.js';
 import { hasConsent } from '../repositories/consents.js';
@@ -18,7 +19,8 @@ import { appOrigin } from '../config/env.js';
 // account), with answers shaped for LINE (lineFormat.ts). The LINE handler has already checked the account
 // link, its lifecycle and Pro before calling here.
 
-export interface LineAnswer { messages: LineMessage[]; text: string; /** The confirmation cards this answer prepared. */ proposalIds?: string[] }
+export interface LineAnswer { messages: LineMessage[]; text: string; /** The confirmation cards this answer prepared. */ proposalIds?: string[];
+  /** เลขา's own answer, for a reply built differently (several pictures as one card). */ reply?: { text: string; cards: AssistantCard[] } }
 
 /** Replaceable parts, for tests; production uses the real database, plan lookup and rate limiter. */
 export interface LineBridgeDeps {
@@ -90,7 +92,7 @@ export async function lineAssistantAnswer(user: UserRow, text: string, history: 
     }
     // LINE's short history keeps the questions and any card waiting, so a follow-up here or in the app knows them.
     const proposalIds = reply.cards.flatMap(card => (card.kind === 'confirm' ? [card.id] : []));
-    return { messages, text: lineHistoryText(reply.text, reply.cards as ChannelTurn['cards']), ...(proposalIds.length ? { proposalIds } : {}) };
+    return { messages, text: lineHistoryText(reply.text, reply.cards as ChannelTurn['cards']), ...(proposalIds.length ? { proposalIds } : {}), reply: { text: reply.text, cards: reply.cards } };
   } catch (error) {
     // Too slow this time: a plain line to send it again (a failed request costs no tokens).
     if (error instanceof HttpError && error.code === 'ai_provider') return { messages: [{ type: 'text', text: LINE_TOO_SLOW }], text: LINE_TOO_SLOW };
@@ -143,4 +145,57 @@ export async function lineAssistantCommand(user: UserRow, command: { action: 'co
     if (error instanceof HttpError && error.status < 500) return [{ type: 'text', text: error.message }];
     throw error;
   }
+}
+
+/** Replaceable parts of the group commands, for tests. */
+export interface LineGroupDeps {
+  confirm?: (userId: string, proposalId: string) => Promise<{ kind: string; path?: string }>;
+  cancel?: (userId: string, proposalId: string) => Promise<boolean>;
+  drop?: typeof dropCardGroup;
+  now?: Date;
+}
+
+/**
+ * บันทึกทั้งหมด / ดูทีละใบ / ยกเลิกทั้งหมด on the one card for several pictures (owner, 2026-11-06: "การ์ดเดียว + บันทึก
+ * ทั้งหมด"). Every card is confirmed on its own, so each keeps the app's checks; one already confirmed with ดูทีละใบ is
+ * counted, not saved twice.
+ */
+export async function lineGroupCommand(user: UserRow, command: { action: 'confirm' | 'cancel' | 'show'; groupId: string }, deps: LineGroupDeps = {}): Promise<LineMessage[]> {
+  const group = cardGroupOf(user.notif_settings, command.groupId, deps.now);
+  if (!group) return [{ type: 'text', text: 'การ์ดนี้หมดเวลาแล้วครับ ส่งรูปใหม่อีกครั้งได้เลย' }];
+  const cards = group.cards.filter((card): card is Extract<AssistantCard, { kind: 'confirm' }> => Boolean(card) && (card as AssistantCard).kind === 'confirm');
+  if (command.action === 'show') return lineAssistantReply('', cards);
+  const drop = deps.drop ?? dropCardGroup;
+  if (command.action === 'cancel') {
+    for (const card of cards) await (deps.cancel ?? ((id, proposal) => supabaseAssistantDb.cancelProposal(id, proposal)))(user.user_id, card.id).catch(() => false);
+    await drop(user.user_id, command.groupId).catch(() => undefined);
+    return [lineCard({ title: 'ยกเลิกทั้งหมดแล้ว', subtitle: `${cards.length} รายการนี้ไม่ได้ถูกบันทึก`, character: 'cancelled', compact: true,
+      altText: `ยกเลิก ${cards.length} รายการแล้ว`, body: [{ type: 'text', text: 'รูปยังอยู่ในคลังเอกสาร ส่งรูปใหม่หรือพิมพ์บอกเลขาได้เลย', size: 'sm', color: LINE_CARD_COLORS.muted, wrap: true }] })];
+  }
+  let saved = 0;
+  let already = 0;
+  let failed = 0;
+  let path: string | undefined;
+  for (const card of cards) {
+    try {
+      const done = await (deps.confirm ?? ((id, proposal) => confirmProposal(supabaseAssistantDb, id, proposal, { channel: 'line' })))(user.user_id, card.id);
+      saved += 1;
+      path ??= done.path;
+    } catch (error) {
+      // Confirmed already (ดูทีละใบ), or no longer waiting: counted, never saved twice.
+      if (error instanceof HttpError && error.status === 409) already += 1; else failed += 1;
+    }
+  }
+  if (!failed) await drop(user.user_id, command.groupId).catch(() => undefined);
+  const body = [
+    lineValueRow('บันทึกแล้ว', `${saved} รายการ`, { bold: true }),
+    ...(already ? [lineValueRow('ยืนยันไว้ก่อนแล้ว', `${already} รายการ`, { bold: false })] : []),
+    ...(failed ? [lineValueRow('ยังไม่สำเร็จ', `${failed} รายการ`, { bold: false, color: LINE_CARD_COLORS.negative })] : []),
+  ];
+  return [lineCard({
+    title: failed ? `บันทึกแล้ว ${saved} จาก ${cards.length} รายการ` : `บันทึกแล้ว ${saved + already} รายการ`, subtitle: 'บันทึกในแอปเรียบร้อย',
+    character: 'review', compact: true, altText: `บันทึกแล้ว ${saved} รายการ`, body,
+    ...(failed ? { note: 'กด “บันทึกทั้งหมด” อีกครั้ง หรือ “ดูทีละใบ” เพื่อดูรายการที่ยังไม่สำเร็จ' } : {}),
+    footer: lineAppLink(path || '/incomeExpense', 'เปิดในแอป'),
+  })];
 }

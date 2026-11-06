@@ -416,6 +416,11 @@ card does not need:
   เลขา like a file in the app's chat into its confirmation cards, with one line that the file is kept and will be
   attached on ยืนยัน; the saved card then says "แนบกับ … ในคลังเอกสารแล้ว". Nothing prepared, เลขา off, over 4 MB or not
   a picture/PDF: the earlier "เก็บไฟล์ไว้แล้ว" card that asks what the file is.
+- Several pictures sent at once (owner, 2026-11-06: "การ์ดเดียว + บันทึกทั้งหมด"): nothing is said until the set is complete;
+  then up to five are read together and two or more cards become ONE card (cardGroupMessage): "บันทึก N รายการ / จากรูป
+  ที่ส่งมา N รูป", the total when all are the same kind, a row per card (name, amount; kind · date muted), the note that
+  the pictures are kept, and buttons บันทึกทั้งหมด (primary) / ดูทีละใบ / ยกเลิกทั้งหมด. Pictures of a set are not attached
+  to records automatically (which picture is which record is not known); they stay in คลังเอกสาร.
 
 ### Quotations and invoices in LINE (owner, 2026-10-30, after a competitor's LINE: cards, not question after question)
 - "ทำ / ออก / สร้าง / ขอ + ใบเสนอราคา / ใบแจ้งหนี้ / ใบวางบิล" in LINE is read by fixed rules, with no model call

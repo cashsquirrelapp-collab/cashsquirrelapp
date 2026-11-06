@@ -1284,6 +1284,16 @@ async function handleAssistantMessageInner(
   }
 
   const trimmed = text.trim();
+  // บันทึกทั้งหมด / ดูทีละใบ / ยกเลิกทั้งหมด on the one card for several pictures (lineFormat.ts cardGroupMessage).
+  const groupMatch = /^(บันทึก|ยกเลิก|ดู)ทั้งหมดเลขา (g[A-Za-z0-9]{6,40})$/.exec(trimmed);
+  if (groupMatch) {
+    try {
+      return await (await import('../ai/lineBridge.js')).lineGroupCommand(user, { action: groupMatch[1] === 'บันทึก' ? 'confirm' : groupMatch[1] === 'ยกเลิก' ? 'cancel' : 'show', groupId: groupMatch[2] });
+    } catch {
+      console.error('line-assistant: a group card command failed');
+      return { type: 'text', text: 'บันทึกไม่สำเร็จ ลองกดอีกครั้งนะครับ' };
+    }
+  }
   // ยืนยัน / ยกเลิก on a เลขากระรอก confirmation card (the postback ai:confirm|cancel:<id>).
   const aiCommand = LINE_AI_COMMAND.exec(trimmed);
   if (aiCommand) {

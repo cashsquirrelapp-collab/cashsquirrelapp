@@ -102,8 +102,13 @@ beforeEach(() => {
     const url = new URL(String(input));
     if (url.origin !== process.env.SUPABASE_URL) return realFetch(input, init);
     const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
-    if (url.pathname.endsWith('/rpc/cashflow_patch_private')) { Object.assign(stored, JSON.parse(String(init?.body)).p_patch); return new Response(null, { status: 204 }); }
-    if (url.pathname.endsWith('/cashflow_private_state')) return json({ links: stored.lineFileProposals ?? null });
+    if (url.pathname.endsWith('/rpc/cashflow_patch_private')) {
+      const body = JSON.parse(String(init?.body));
+      Object.assign(stored, body.p_patch);
+      for (const key of body.p_remove ?? []) delete stored[key];
+      return new Response(null, { status: 204 });
+    }
+    if (url.pathname.endsWith('/cashflow_private_state')) return json(url.searchParams.get('select') === 'data' ? { data: stored } : { links: stored.lineFileProposals ?? null });
     return new Response('{}', { status: 500 });
   }) as typeof fetch;
 });
@@ -118,4 +123,112 @@ test('file links: every card of a file finds it once; the first confirmed takes 
   assert.equal(await links.takeFileForProposal(USER, PROPOSAL, now), null, 'attached once');
   await links.rememberFileProposals(USER, FILE, [PROPOSAL], now);
   assert.equal(await links.takeFileForProposal(USER, PROPOSAL, new Date(now.getTime() + 25 * 3600_000)), null, 'gone after a day');
+});
+
+// Several pictures sent at once (owner, 2026-11-06: "ส่งหลายรูปพร้อมกันให้รวมเป็นการ์ดเดียว", then "การ์ดเดียว + บันทึกทั้งหมด").
+const { handleLineImageSetPart, lineFilesRequest } = await import('../backend/src/services/lineVaultChat');
+const { cardGroupMessage } = await import('../backend/src/ai/lineFormat');
+const { lineGroupCommand } = await import('../backend/src/ai/lineBridge');
+const card = (n: number, title = 'เพิ่มรายจ่าย') => ({ kind: 'confirm', id: `p_aaaaaaaa-bbbb-4ccc-8ddd-00000000000${n}`, title,
+  changes: [{ label: 'รายการ', value: `ใบเสร็จ ${n}` }, { label: 'จำนวนเงิน', value: `฿${n}00.00` }, { label: 'วันที่', value: '2026-11-05' }] });
+
+function setDeps(over: Record<string, unknown> = {}) {
+  const calls: string[] = [];
+  const parts = new Map<number, unknown>();
+  let claimed = false;
+  const base = deps({
+    store: async (_s: unknown, _a: unknown, _b: Buffer, meta: { fileName: string }) => ({ id: FILE, fileName: meta.fileName }),
+    answer: async (_u: unknown, text: string, _h: unknown, files: unknown[]) => {
+      calls.push(`answer:${text}:${files.length}`);
+      const cards = [card(1), card(2), card(3)];
+      return { messages: [], text: 'อ่านครบ 3 ใบ', proposalIds: cards.map(c => c.id), reply: { text: 'อ่านครบ 3 ใบครับ', cards } };
+    },
+    ...over,
+  }).deps;
+  return {
+    calls,
+    deps: {
+      ...base,
+      note: async (_user: string, group: string, index: number, part: unknown) => { calls.push(`note:${group}:${index}`); parts.set(index, part); return new Map(parts); },
+      claim: async () => { const first = !claimed; claimed = true; calls.push(`claim:${first}`); return first; },
+      finish: async (key: string) => { calls.push(`finish:${key}`); },
+      drop: async (_u: string, _g: string, indexes: number[]) => { calls.push(`drop:${indexes.join(',')}`); },
+      saveGroup: async (_u: string, group: string, saved: { cards: unknown[]; files: number }) => { calls.push(`group:${group}:${saved.cards.length}:${saved.files}`); },
+    } as any,
+  };
+}
+const setEvent = (index: number, total = 3) => ({ id: String(100 + index), type: 'image', imageSet: { id: 'E005D41A7288F41B6559', index, total } });
+
+test('a picture set: nothing said until it is complete, then one read of every picture and one card with บันทึกทั้งหมด', async () => {
+  const { deps: d, calls } = setDeps();
+  assert.deepEqual(await handleLineImageSetPart('U', setEvent(2), 't', d), []);
+  assert.deepEqual(await handleLineImageSetPart('U', setEvent(1), 't', d), []);
+  const reply = await handleLineImageSetPart('U', setEvent(3), 't', d) as any[];
+  assert.deepEqual(reply.map(message => message.type), ['text', 'flex', 'text']);
+  assert.equal(reply[0].text, 'อ่านครบ 3 ใบครับ');
+  const json = JSON.stringify(reply[1]);
+  for (const text of ['บันทึก 3 รายการ', 'จากรูปที่ส่งมา 3 รูป', 'ใบเสร็จ 1', '฿100.00', '5 พ.ย.', 'ยอดรวม', 'บันทึกทั้งหมด', 'ดูทีละใบ', 'ยกเลิกทั้งหมด',
+    'ai:confirmall:gE005D41A7288F41B6559', 'ai:showall:gE005D41A7288F41B6559', 'ai:cancelall:gE005D41A7288F41B6559']) assert.ok(json.includes(text), text);
+  assert.match(reply[2].text, /เก็บรูปไว้ในคลังเอกสารแล้ว 3 รูป/);
+  assert.ok(calls.includes(`answer:${lineFilesRequest(3)}:3`));
+  assert.ok(calls.includes('group:gE005D41A7288F41B6559:3:3'));
+  assert.ok(calls.includes('drop:1,2,3') && calls.includes('finish:imageset:gE005D41A7288F41B6559'));
+  // A late duplicate of the last picture finds the set already read.
+  assert.deepEqual(await handleLineImageSetPart('U', setEvent(3), 't', d), []);
+});
+
+test('a picture set: an account LINE cannot keep files for hears it once, not once a picture', async () => {
+  const { deps: d } = setDeps({ owner: async () => ({ type: 'text', text: 'ใช้ได้ในแพ็กเกจ Pro ครับ' }) });
+  assert.equal((await handleLineImageSetPart('U', setEvent(1), 't', d)).length, 1);
+  assert.equal((await handleLineImageSetPart('U', setEvent(2), 't', d)).length, 0);
+});
+
+test('a picture set with one card or none: เลขา\'s answer as it is, with the line that the pictures are kept', async () => {
+  const { deps: d } = setDeps({ answer: async () => ({ messages: [{ type: 'text', text: 'เป็นสัญญา 2 ฉบับครับ' }], text: 'สัญญา', reply: { text: 'เป็นสัญญา 2 ฉบับครับ', cards: [] } }) });
+  await handleLineImageSetPart('U', setEvent(1, 2), 't', d);
+  const reply = await handleLineImageSetPart('U', setEvent(2, 2), 't', d) as any[];
+  assert.deepEqual(reply.map(message => message.text), ['เป็นสัญญา 2 ฉบับครับ', 'เก็บรูปไว้ในคลังเอกสารแล้ว 2 รูปครับ']);
+});
+
+test('the group card: no total when the cards are of different kinds', () => {
+  const mixed = JSON.stringify(cardGroupMessage('gabcdef12', [card(1), card(2, 'บันทึกรับเงิน')] as any, 2));
+  assert.ok(!mixed.includes('ยอดรวม'));
+  assert.ok(mixed.includes('บันทึกรับเงิน · 5 พ.ย.'));
+});
+
+test('บันทึกทั้งหมด confirms every card on its own; one confirmed before is counted, not saved twice; ดูทีละใบ and ยกเลิกทั้งหมด', async () => {
+  const group = { cards: [card(1), card(2), card(3)], files: 3, at: new Date().toISOString() };
+  const user = { user_id: USER, notif_settings: { 'lineCardGroup:gabcdef12': group } } as any;
+  const confirmed: string[] = [];
+  let dropped = 0;
+  const reply = await lineGroupCommand(user, { action: 'confirm', groupId: 'gabcdef12' }, {
+    confirm: async (_u, id) => { if (id.endsWith('2')) throw new HttpError(409, 'ยืนยันไปแล้ว'); confirmed.push(id); return { kind: 'add_expense', path: '/incomeExpense' }; },
+    drop: async () => { dropped += 1; },
+  });
+  assert.equal(confirmed.length, 2);
+  assert.equal(dropped, 1);
+  const json = JSON.stringify(reply);
+  assert.ok(json.includes('บันทึกแล้ว 3 รายการ') && json.includes('ยืนยันไว้ก่อนแล้ว'));
+  const shown = await lineGroupCommand(user, { action: 'show', groupId: 'gabcdef12' }) as any[];
+  assert.ok(JSON.stringify(shown).includes('ai:confirm:p_aaaaaaaa-bbbb-4ccc-8ddd-000000000001'), 'the separate cards with their own buttons');
+  const cancelled: string[] = [];
+  const gone = await lineGroupCommand(user, { action: 'cancel', groupId: 'gabcdef12' }, { cancel: async (_u, id) => { cancelled.push(id); return true; }, drop: async () => undefined });
+  assert.equal(cancelled.length, 3);
+  assert.ok(JSON.stringify(gone).includes('ยกเลิกทั้งหมดแล้ว'));
+  assert.match(JSON.stringify(await lineGroupCommand({ user_id: USER, notif_settings: {} } as any, { action: 'confirm', groupId: 'gabcdef12' })), /หมดเวลา/);
+});
+
+test('picture parts: each picture under its own key, so two at once never overwrite each other; stale ones dropped', async () => {
+  const now = new Date('2026-11-06T08:00:00Z');
+  stored['lineImagePart:gold000000:1'] = { messageId: '9', at: '2026-11-06T07:00:00Z' };
+  const [first, second] = await Promise.all([
+    links.noteImagePart(USER, 'gabcdef12', 1, { messageId: '1', fileId: FILE, at: now.toISOString() }, now),
+    links.noteImagePart(USER, 'gabcdef12', 2, { messageId: '2', fileId: FILE, at: now.toISOString() }, now),
+  ]);
+  assert.equal(Math.max(first.size, second.size), 2);
+  assert.ok(!('lineImagePart:gold000000:1' in stored), 'a stale picture is dropped');
+  await links.dropImageParts(USER, 'gabcdef12', [1, 2]);
+  assert.deepEqual(Object.keys(stored).filter(key => key.startsWith('lineImagePart:')), []);
+  assert.equal(links.groupIdFor('E005D41A-7288'), 'gE005D41A7288');
+  assert.equal(links.groupIdFor('../x'), null);
 });
