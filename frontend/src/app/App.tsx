@@ -131,7 +131,7 @@ const MotionStudy = import.meta.env.DEV ? lazy(() => import('../features/marketi
 const FounderStory = lazy(() => import('../features/marketing/v5/FounderStory'));
 const Guides = lazy(() => import('../features/marketing/v5/Guides'));
 import { fireMascot } from '../mascotBus';
-import { enterReferral, readReferral, rememberSharedCode, sharedCode, TOKENS_GRANTED_EVENT } from '../services/referral';
+import { enterReferral, forgetSharedCode, readReferral, rememberSharedCode, sharedCodeFor, TOKENS_GRANTED_EVENT } from '../services/referral';
 import type { ReferralStatus } from '../../../shared/referral';
 import { ReferralButtons, ReferralDialog, type ReferralView } from '../features/referral/ReferralCards';
 import { leafBus } from '../leafBus';
@@ -1560,7 +1560,7 @@ export default function App() {
     try {
       const status = await enterReferral(referralAccount, code);
       setReferral(status);
-      try { localStorage.removeItem('krarok_ref'); } catch { /* the link's code is simply kept */ }
+      forgetSharedCode();
       window.dispatchEvent(new Event(TOKENS_GRANTED_EVENT));
       return true;
     } catch (error) {
@@ -2935,7 +2935,9 @@ export default function App() {
   const onboardingFirst = Boolean(session?.user?.id) && cloudSyncStatus === 'synced' && loadedFinanceOwner === financeOwner && !onboardingDone && !birthOpen && !termsWaiting
     && shouldShowOnboarding({ createdAt: session?.user?.created_at, onboarding: settings.onboarding, guest: session?.isGuest === true, groupWorkspace: Boolean(financeGroupId) });
   // A new member who came from a friend's link sees the window with the code filled in, once, after the first questions.
-  const referralInvited = Boolean(referral?.canEnter && referralAccount && sharedCode());
+  // Only the account made from that link gets it; an older one opens the window with the field empty.
+  const invitedCode = referralAccount ? sharedCodeFor(session?.user?.created_at) : '';
+  const referralInvited = Boolean(referral?.canEnter && invitedCode);
   useEffect(() => {
     if (!referralInvited || !referralAccount || onboardingFirst || termsWaiting || birthOpen || activeTab !== 'dashboard') return;
     const key = `krarok.referral.asked.${referralAccount}`;
@@ -3245,7 +3247,7 @@ export default function App() {
   const referralButton = referralShown && referral
     ? <ReferralButtons phone={isPhone} status={referral} onOpen={setReferralView} /> : null;
   const referralDialog = referralView && referral ? createPortal(
-    <ReferralDialog status={referral} phone={isPhone} busy={referralBusy} initial={sharedCode()} view={referralView}
+    <ReferralDialog status={referral} phone={isPhone} busy={referralBusy} initial={invitedCode} view={referralView}
       onCopy={() => { if (referral.code) void copyText(referral.code, tr("คัดลอกโค้ดแล้ว")); }}
       onEnter={submitReferral} onClose={() => setReferralView(null)}
       onChat={() => { setReferralView(null); navigateTab('assistant'); }} />, document.body) : null;

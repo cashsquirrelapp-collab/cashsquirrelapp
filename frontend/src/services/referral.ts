@@ -1,4 +1,4 @@
-import { isReferralCode, normalizeCode, type ReferralStatus } from '../../../shared/referral';
+import { isReferralCode, normalizeCode, sharedCodeChoice, type ReferralStatus } from '../../../shared/referral';
 import { apiJson } from './api';
 
 // ใส่โค้ด รับ 200 โทเคน (shared/referral.ts): this device's own random id (the server keeps only its hash, so one device
@@ -22,14 +22,22 @@ export function deviceId(): string {
   }
 }
 
-/** A link like krarok.com/?ref=SQ-… keeps its code on this device until the new account is ready to enter it. */
-export function rememberSharedCode(search = window.location.search): void {
+/** A link like krarok.com/?ref=SQ-… keeps its code on this device, with the time it was opened, for the account made from it. */
+export function rememberSharedCode(search = window.location.search, now = Date.now()): void {
   const ref = new URLSearchParams(search).get('ref');
   if (!ref || !isReferralCode(ref)) return;
-  try { localStorage.setItem(REF_KEY, normalizeCode(ref)); } catch { /* typed by hand instead */ }
+  try { localStorage.setItem(REF_KEY, JSON.stringify({ code: normalizeCode(ref), at: now })); } catch { /* typed by hand instead */ }
 }
-export function sharedCode(): string {
-  try { return localStorage.getItem(REF_KEY) ?? ''; } catch { return ''; }
+/** The link's code for this account: only one made after the link was opened, within 7 days (sharedCodeChoice). */
+export function sharedCodeFor(accountCreatedAt: string | null | undefined, now = Date.now()): string {
+  try {
+    const choice = sharedCodeChoice(localStorage.getItem(REF_KEY), accountCreatedAt, now);
+    if (choice.forget) localStorage.removeItem(REF_KEY);
+    return choice.code;
+  } catch { return ''; }
+}
+export function forgetSharedCode(): void {
+  try { localStorage.removeItem(REF_KEY); } catch { /* the link's code is simply kept */ }
 }
 
 const headers = (account: string) => ({ 'X-Account-ID': account, 'X-Device-ID': deviceId() });

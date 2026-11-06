@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
 
 Object.assign(process.env, { SUPABASE_URL: 'https://referral.supabase.co', SUPABASE_PUBLISHABLE_KEY: 'test', SUPABASE_SERVICE_ROLE_KEY: 'test-admin' });
 const repo = await import('../backend/src/repositories/referral.js');
-const { canEnterCode, isReferralCode, normalizeCode, rankEntries, rankRewards, readEntry, REFERRAL_PER_PERSON, shareText } = await import('../shared/referral.js');
+const { canEnterCode, isReferralCode, normalizeCode, rankEntries, rankRewards, readEntry, REFERRAL_PER_PERSON, sharedCodeChoice, shareText } = await import('../shared/referral.js');
 // The owner's address as the server knows it (not written out again here).
 const OWNER = /OWNER_EMAIL = '([^']+)'/.exec(readFileSync('backend/src/security/adminAnalyticsAccess.ts', 'utf8'))![1];
 const { readGrants } = await import('../shared/tokenGrants.js');
@@ -81,6 +81,20 @@ test('codes and who may enter: SQ codes only; any account with a confirmed email
   assert.equal(canEnterCode({ email_confirmed_at: '2025-01-01T00:00:00Z' }), true, 'an older account too');
   assert.equal(canEnterCode({ email_confirmed_at: null }), false, 'an unconfirmed email');
   assert.match(shareText('https://krarok.com', 'SQ-8F2A41C9DA'), /SQ-8F2A41C9DA .*200 .*https:\/\/krarok\.com\/\?ref=SQ-8F2A41C9DA$/);
+});
+
+test('a code a friend\'s link left on the device fills the field only for the account made from it (owner, 2026-11-06)', () => {
+  const opened = Date.parse('2026-11-06T09:00:00Z');
+  const saved = JSON.stringify({ code: 'sq-1111ab22cd', at: opened });
+  const hour = 3_600_000;
+  assert.deepEqual(sharedCodeChoice(saved, '2026-11-06T09:05:00Z', opened + hour), { code: 'SQ-1111AB22CD', forget: false }, 'signed up after the link');
+  assert.deepEqual(sharedCodeChoice(saved, '2026-11-06T08:55:00Z', opened + hour), { code: 'SQ-1111AB22CD', forget: false }, 'a few minutes of clock difference');
+  assert.deepEqual(sharedCodeChoice(saved, '2025-03-01T00:00:00Z', opened + hour), { code: '', forget: false }, 'an older account is not handed it');
+  assert.deepEqual(sharedCodeChoice(saved, undefined, opened + hour), { code: '', forget: false });
+  assert.deepEqual(sharedCodeChoice(saved, '2026-11-06T09:05:00Z', opened + 8 * 24 * hour), { code: '', forget: true }, 'gone after 7 days');
+  assert.deepEqual(sharedCodeChoice('SQ-5971AA4D85', '2026-11-06T09:05:00Z', opened), { code: '', forget: true }, 'kept the old way, without a time');
+  assert.deepEqual(sharedCodeChoice(JSON.stringify({ code: 'nope', at: opened }), '2026-11-06T09:05:00Z', opened), { code: '', forget: true });
+  assert.deepEqual(sharedCodeChoice(null, '2026-11-06T09:05:00Z', opened), { code: '', forget: false });
 });
 
 const grantsOf = (id: string) => readGrants(state[id]?.aiTokenGrants);

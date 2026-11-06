@@ -13,12 +13,14 @@ test.use({ serviceWorkers: 'block', permissions: ['clipboard-read', 'clipboard-w
 
 const id = '66666666-6666-4666-8666-666666666666';
 const snapshot = { jobs: [], expenses: [], goals: [], invoices: [], statuses: [], jobTypes: [], notifSettings: {},
-  settings: { monthlyExpense: 0, monthlyRevenueGoal: 20000, savingsPercentage: 40, profileSetupCompleted: true, userPersona: 'freelance', onboarding: { completedAt: '2026-11-05T09:01:00.000Z' } } };
+  settings: { monthlyExpense: 0, monthlyRevenueGoal: 20000, savingsPercentage: 40, profileSetupCompleted: true, userPersona: 'freelance', onboarding: { completedAt: '2026-11-05T09:01:00.000Z' },
+    // The evening dark-mode tip (from 18:00 for a new account) already answered, so the checks hold at any hour.
+    theme: { mode: 'light', darkFrom: '18:00', lightFrom: '06:00', asked: true } } };
 const versions = { cashflow_jobs: {}, cashflow_expenses: {}, cashflow_goals: {}, cashflow_invoices: {}, cashflow_documents: { settings: 1 } };
 const base = { code: 'SQ-6666AB12CD', used: 1, tokens: 200, perPerson: 5 as number | null, left: 63, total: 100, canEnter: false, entered: null as unknown };
 
-async function open(page: Page, { width = 1440, height = 900, path = '/dashboard', canEnter = false, refuse, status: given }: { width?: number; height?: number; path?: string; canEnter?: boolean; refuse?: { error: string; code: string }; status?: Partial<typeof base> } = {}) {
-  const user = { id, email: 'friend@example.com', role: 'user', created_at: '2026-11-05T10:00:00Z', email_confirmed_at: '2026-11-05T10:00:00Z', user_metadata: {} };
+async function open(page: Page, { width = 1440, height = 900, path = '/dashboard', canEnter = false, refuse, status: given, createdAt = '2026-11-05T10:00:00Z' }: { width?: number; height?: number; path?: string; canEnter?: boolean; refuse?: { error: string; code: string }; status?: Partial<typeof base>; createdAt?: string } = {}) {
+  const user = { id, email: 'friend@example.com', role: 'user', created_at: createdAt, email_confirmed_at: '2026-11-05T10:00:00Z', user_metadata: {} };
   let status: Record<string, unknown> = { ...base, canEnter, ...given };
   const posts: unknown[] = [];
   const assistantReads: string[] = [];
@@ -154,13 +156,28 @@ test('a code without a limit (none today: every code takes 5, the owner\'s too) 
 });
 
 test('from a shared link: the window opens once with the friend\'s code in it', async ({ page }) => {
-  const mock = await open(page, { path: '/dashboard?ref=sq-1111ab22cd', canEnter: true });
+  const mock = await open(page, { path: '/dashboard?ref=sq-1111ab22cd', canEnter: true, createdAt: new Date().toISOString() });
   const dialog = page.getByTestId('referral-dialog');
   await expect(dialog).toHaveAttribute('data-view', 'enter');
   await expect(page.getByTestId('referral-input')).toHaveValue('SQ-1111AB22CD');
   await page.getByTestId('referral-submit').click();
   await expect(dialog).toHaveAttribute('data-view', 'done');
   expect(mock.posts).toEqual([{ code: 'SQ-1111AB22CD' }]);
+});
+
+test('an older account is not handed a code a link once left on this device (owner, 2026-11-06)', async ({ page }) => {
+  // One kept the old way (no time) is forgotten at once; a link opened by an account made before it fills nothing.
+  await page.addInitScript(() => { if (!sessionStorage.getItem('seeded')) { sessionStorage.setItem('seeded', '1'); localStorage.setItem('krarok_ref', 'SQ-5971AA4D85'); } });
+  await open(page, { canEnter: true });
+  await page.getByTestId('referral-button').click();
+  await expect(page.getByTestId('referral-input')).toHaveValue('');
+  expect(await page.evaluate(() => localStorage.getItem('krarok_ref'))).toBeNull();
+  await page.goto('/dashboard?ref=sq-1111ab22cd');
+  await expect(page.getByTestId('referral-button')).toBeVisible();
+  await page.waitForTimeout(600);
+  await expect(page.getByTestId('referral-dialog')).toHaveCount(0);
+  await page.getByTestId('referral-button').click();
+  await expect(page.getByTestId('referral-input')).toHaveValue('');
 });
 
 test('a pasted code is cleaned: no doubled SQ-, and the 10 characters alone are enough', async ({ page }) => {
@@ -179,7 +196,7 @@ test('a pasted code is cleaned: no doubled SQ-, and the 10 characters alone are 
 });
 
 test('the shared-link window opens only once on this device', async ({ page }) => {
-  await open(page, { path: '/dashboard?ref=sq-1111ab22cd', canEnter: true });
+  await open(page, { path: '/dashboard?ref=sq-1111ab22cd', canEnter: true, createdAt: new Date().toISOString() });
   await expect(page.getByTestId('referral-dialog')).toBeVisible();
   await page.keyboard.press('Escape');
   await page.reload();

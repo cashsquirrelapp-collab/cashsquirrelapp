@@ -94,3 +94,22 @@ export const canEnterCode = (user: { email_confirmed_at?: string | null }) => Bo
 export const shareLink = (origin: string, code: string) => `${origin}/?ref=${encodeURIComponent(code)}`;
 export const shareText = (origin: string, code: string) =>
   `ลองใช้แอปกระรอกตุนเงิน ช่วยจดงาน ตามเงินลูกค้า และสรุปการเงินให้ฟรีแลนซ์ กรอกโค้ดแนะนำ ${code} รับ 200 โทเคนใช้เลขากระรอกฟรี ${shareLink(origin, code)}`;
+
+/** How long a code a friend's link left on a device is kept for the account made from that link. */
+export const SHARED_CODE_DAYS = 7;
+const SHARED_CODE_CLOCK_MARGIN = 10 * 60_000;
+
+/** What a device does with the code a friend's link left on it (krarok_ref: { code, at }) when an account opens the
+ *  window: fill it in only for an account made after that link was opened, within 7 days of it. Owner, 2026-11-06:
+ *  "มันมี UID ใครก็ไม่รู้เนี่ยแปะอยู่ ... กูต้องลบออกทุกทีเลย" (an older account was handed a stranger's code every time).
+ *  A code kept the old way (no time), unreadable or older than 7 days is forgotten. */
+export function sharedCodeChoice(saved: string | null, accountCreatedAt: string | null | undefined, now: number): { code: string; forget: boolean } {
+  if (!saved) return { code: '', forget: false };
+  let value: { code?: unknown; at?: unknown } | null = null;
+  try { value = JSON.parse(saved); } catch { /* kept the old way */ }
+  const code = typeof value?.code === 'string' && isReferralCode(value.code) ? normalizeCode(value.code) : '';
+  const at = typeof value?.at === 'number' && Number.isFinite(value.at) ? value.at : NaN;
+  if (!code || !Number.isFinite(at) || now - at > SHARED_CODE_DAYS * 86_400_000) return { code: '', forget: true };
+  const made = Date.parse(accountCreatedAt ?? '');
+  return { code: Number.isFinite(made) && made >= at - SHARED_CODE_CLOCK_MARGIN ? code : '', forget: false };
+}
