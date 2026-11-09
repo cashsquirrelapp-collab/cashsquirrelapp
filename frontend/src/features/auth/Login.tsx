@@ -1175,11 +1175,8 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin, addAccount 
                       maxLength={128}
                       autoComplete="new-password"
                       required={isSignUp}
-                      className="w-full pl-10 pr-11 py-3 rounded-2xl border border-brand-border/60 bg-brand-bg/20 text-brand-text text-xs focus:ring-4 focus:ring-orange-500/10 focus:border-[#E65F2B] dark:focus:ring-orange-500/5 dark:focus:border-[#FFA473] outline-none transition-all placeholder:text-brand-muted/50"
+                      className="w-full pl-10 pr-3 py-3 rounded-2xl border border-brand-border/60 bg-brand-bg/20 text-brand-text text-xs focus:ring-4 focus:ring-orange-500/10 focus:border-[#E65F2B] dark:focus:ring-orange-500/5 dark:focus:border-[#FFA473] outline-none transition-all placeholder:text-brand-muted/50"
                     />
-                    <button type="button" onClick={() => setShowPassword(value => !value)} className="absolute inset-y-0 right-0 flex items-center px-3 text-brand-muted hover:text-brand-text transition-colors" aria-label={showPassword ? tr("ซ่อนรหัสผ่าน") : tr("แสดงรหัสผ่าน")}>
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
                   </div>
                 </motion.div>
               )}
