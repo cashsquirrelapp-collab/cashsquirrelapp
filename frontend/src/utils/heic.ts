@@ -25,7 +25,7 @@ export class HeicError extends Error { constructor() { super('heic'); this.name 
 /** The HEIC as a JPEG file with the same name ending .jpg. Throws HeicError when the picture cannot be read. */
 export async function heicToJpeg(file: File): Promise<File> {
   try {
-    const { heicTo } = await import('heic-to/csp');
+    const { heicTo } = await import('heic-to');
     const jpeg = await heicTo({ blob: file, type: 'image/jpeg', quality: 0.92 });
     const name = `${(file.name || 'photo').replace(/\.(heic|heif)$/i, '')}.jpg`;
     return new File([jpeg], name, { type: 'image/jpeg', lastModified: file.lastModified });
