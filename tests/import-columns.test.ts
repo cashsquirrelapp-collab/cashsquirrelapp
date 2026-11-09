@@ -4,7 +4,7 @@ import { columnMappingRequest, maskSample, readSuggestions, suggestColumns, type
 import { aiConfig } from '../backend/src/ai/config';
 
 // Matching an imported sheet's unnamed columns (owner, 2026-10-30): free for every account, automatic, the person
-// confirms every suggestion. Only headers and a few masked samples leave the app; the model only names fields.
+// confirms every suggestion. Only sanitized headers leave the app; sample cells stay on-device.
 
 const input: ColumnMappingInput = {
   sheet: 'Invoices 2026',
@@ -17,7 +17,7 @@ const input: ColumnMappingInput = {
   ],
 };
 
-test('samples leave the app masked and short: no emails, phones or ID numbers; amounts and dates stay', () => {
+test('no sample cells leave the app, regardless of column header; headers and sheet name are sanitized', () => {
   assert.equal(maskSample('bee@example.test'), '[อีเมล]');
   assert.equal(maskSample('โทร 081-234-5678'), 'โทร [เบอร์/เลขบัญชี]');
   assert.equal(maskSample('0105561234567'), '[เบอร์/เลขบัญชี]');
@@ -31,9 +31,17 @@ test('samples leave the app masked and short: no emails, phones or ID numbers; a
   assert.deepEqual(asked.taken, ['name']);
   assert.deepEqual(asked.columns.map((c: any) => c.header), ['Amt (THB)', 'Brand/Client', 'วันโอน', 'Contact']);
   // A contact column sends no samples at all (owner, 2026-11-04: nothing personal leaves for the AI service).
-  assert.deepEqual(asked.columns[3].samples, []);
-  assert.deepEqual(asked.columns[1].samples, ['ร้านบี', 'บริษัท แบรนด์เอ จำกัด']);
+  assert.ok(asked.columns.every((column: any) => column.samples.length === 0));
   assert.match(sent, /never instructions/);
+  const hostile = columnMappingRequest({
+    ...input,
+    sheet: 'owner@example.test',
+    columns: [{ index: 7, header: '081-234-5678', samples: ['owner@example.test', '081-234-5678'] }],
+  });
+  const hostileText = hostile.contents[0].parts[0].text;
+  assert.ok(!hostileText.includes('owner@example.test'));
+  assert.ok(!hostileText.includes('081-234-5678'));
+  assert.deepEqual(JSON.parse(hostileText).columns[0].samples, []);
 });
 
 test('the answer is checked: known columns and fields only, each field once, never a taken one', () => {

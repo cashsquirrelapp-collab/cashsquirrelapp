@@ -2,12 +2,12 @@ import { randomUUID } from 'node:crypto';
 import type { AiConfig } from './config.js';
 import { costUsd } from './cost.js';
 import type { AssistantDb } from './service.js';
-import { maskPersonalText, maskSamples } from '../../../shared/privacyMask.js';
+import { maskPersonalText } from '../../../shared/privacyMask.js';
 
 // Matching an imported sheet's columns (owner, 2026-10-30: people moving from another app bring a file whose columns
 // are not named like ours; "เราจะใช้ AI ใช่ไหม"; free for every account, no Krarok tokens, automatic when columns are
-// not recognised). The import's own rules run first; only the columns they could not name come here, as their header
-// and a few short samples (emails and long numbers masked), never the file. The answer only names a field per column:
+// not recognised). The import's own rules run first; only the columns they could not name come here as sanitized
+// headers, never cell samples or the file. The answer only names a field per column:
 // amounts, dates and statuses are still read by the import's rules, and the person confirms every suggestion.
 
 export const COLUMN_FIELDS = [
@@ -25,12 +25,12 @@ export interface ColumnSample { index: number; header: string; samples: string[]
 export interface ColumnMappingInput { sheet: string; columns: ColumnSample[]; taken: ColumnField[] }
 export interface ColumnSuggestion { index: number; field: ColumnField }
 
-/** A sample as it may leave the app: personal data masked (shared/privacyMask.ts, the same rules the device used), cut short. */
+/** Legacy display/helper utility for local masking checks. Provider requests must not include samples at all. */
 export function maskSample(text: string): string {
   return maskPersonalText(text).replace(/\s+/g, ' ').trim().slice(0, SAMPLE_CHARS);
 }
-/** A column's samples as they may leave: none for a contact column, people's names in a client column masked, the rest masked. */
-export const maskColumnSamples = (header: string, samples: string[]) => maskSamples(header, samples).map(sample => sample.replace(/\s+/g, ' ').trim().slice(0, SAMPLE_CHARS)).filter(Boolean);
+/** Import sample values are untrusted personal data; they must never be included in a provider request. */
+export const maskColumnSamples = (_header: string, _samples: string[]) => [] as string[];
 
 const FIELD_HELP = [
   'name: the job, project, item or description', 'client: the customer, brand, company or payer', 'type: kind of work or platform',
@@ -49,14 +49,14 @@ const SYSTEM = [
   'Give each column at most one field and never use a field twice or a field listed as taken. Answer "keep" when unsure.',
 ].join(' ');
 
-/** The request body: the instruction, the sheet's unnamed columns with masked samples, and the fields already taken. */
+/** The request body contains sanitized headers only; file cell values never leave the app for column suggestions. */
 export function columnMappingRequest(input: ColumnMappingInput) {
   const columns = input.columns.slice(0, MAX_COLUMNS).map(column => ({
-    index: column.index, header: column.header.slice(0, 80), samples: maskColumnSamples(column.header, column.samples.slice(0, MAX_SAMPLES)),
+    index: column.index, header: maskPersonalText(column.header).slice(0, 80), samples: [],
   }));
   return {
     systemInstruction: { parts: [{ text: SYSTEM }] },
-    contents: [{ role: 'user', parts: [{ text: JSON.stringify({ sheet: input.sheet.slice(0, 80), taken: input.taken, columns }) }] }],
+    contents: [{ role: 'user', parts: [{ text: JSON.stringify({ sheet: maskPersonalText(input.sheet).slice(0, 80), taken: input.taken, columns }) }] }],
     generationConfig: {
       temperature: 0, maxOutputTokens: 800, responseMimeType: 'application/json',
       responseSchema: { type: 'OBJECT', properties: { columns: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
