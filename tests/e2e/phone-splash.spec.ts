@@ -1,8 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
-// Opening the app shows the logo (phones since 2026-10-22, computers and iPads since 2026-11-11: "ในคอมไม่เห็นขึ้นเลย").
-// Look A since 2026-11-11 (after the Dime clip): a small mark breathes, the logo assembles as soon as the app's code is
-// here (not waiting for the data), and it hands over once the page under it is ready.
+// Opening the app shows the logo with a short animation instead of the grey skeleton (phones since 2026-10-22,
+// computers and iPads since 2026-11-11). It hands over once the page under it is ready.
 
 test.use({ serviceWorkers: 'block' });
 
@@ -11,14 +10,14 @@ const snapshot = { jobs: [], expenses: [], goals: [], invoices: [], settings: { 
 const versions = { cashflow_jobs: {}, cashflow_expenses: {}, cashflow_goals: {}, cashflow_invoices: {}, cashflow_documents: { settings: 1 } };
 const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1';
 
-async function open(page: Page, { signedInBefore = true, dataDelay = 1500, path = '/', motion = false, dark = false } = {}) {
+async function open(page: Page, { signedInBefore = true, dataDelay = 1500, path = '/' } = {}) {
   let releaseData: () => void = () => {};
   const dataGate = new Promise<void>(resolve => { releaseData = resolve; });
-  await page.addInitScript(([before, darkMode]) => {
-    localStorage.setItem('cashflow_language', 'th'); localStorage.setItem('cashflow_dark_mode', String(darkMode));
+  await page.addInitScript(before => {
+    localStorage.setItem('cashflow_language', 'th'); localStorage.setItem('cashflow_dark_mode', 'false');
     if (before) localStorage.setItem('cashflow_signed_in', '1');
-  }, [signedInBefore, dark]);
-  await page.emulateMedia({ reducedMotion: motion ? 'no-preference' : 'reduce' });
+  }, signedInBefore);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.route('**/*', route => (['127.0.0.1', 'localhost'].includes(new URL(route.request().url()).hostname) || /fonts\.(googleapis|gstatic)\.com/.test(route.request().url()) ? route.continue() : route.abort()));
   await page.route('**/api/**', route => route.fulfill({ json: {} }));
   await page.route('**/api/auth*', route => route.fulfill({ json: { session: signedInBefore ? { user } : null } }));
@@ -43,7 +42,6 @@ test.describe('phone', () => {
     await expect(splash).toHaveAttribute('aria-label', 'กำลังเปิดกระรอกตุนเงิน');
     await expect(page.locator('#root .boot')).toHaveCount(0); // phones get the logo, not the grey skeleton
     await expect(splash.locator('svg.splash-mark')).toBeVisible();
-    await expect(splash.locator('.splash-name')).toHaveText('กระรอกตุนเงิน');
     await expect(splash).toHaveCount(0, { timeout: 8000 });
     await expect(page.locator('#root [aria-busy="true"]')).toHaveCount(0);
     await expect(page.getByText('มูลค่างานเดือนนี้').first()).toBeVisible();
@@ -58,42 +56,6 @@ test.describe('phone', () => {
     expect(gone - shownAt).toBeGreaterThanOrEqual(1100);
   });
 
-  test('with motion: a small mark breathes, then the logo assembles before the data arrives, and hands over after', async ({ page }) => {
-    await open(page, { dataDelay: 4500, motion: true });
-    const splash = page.locator('#app-splash');
-    await expect(splash.locator('svg.splash-wait')).toBeVisible();
-    const shownAt = Number(await splash.getAttribute('data-shown-at'));
-    await expect(splash.locator('.splash-name span')).toHaveCount(11);
-    await expect(splash.locator('.splash-name')).toHaveText('กระรอกตุนเงิน');
-    // Assembled while the data is still on its way: every letter and the mark fully shown, the breathing mark gone.
-    const opacities = () => splash.evaluate(el => {
-      const of = (selector: string) => [...el.querySelectorAll(selector)].map(node => getComputedStyle(node).opacity);
-      return [...of('.splash-name span'), ...of('.splash-mark'), ...of('.splash-wait')].join(',');
-    });
-    await expect.poll(opacities, { timeout: 4000 }).toBe([...Array(12).fill('1'), '0'].join(','));
-    expect(Number(await splash.getAttribute('data-morph-at')) - shownAt).toBeGreaterThanOrEqual(350); // the mark was seen first
-    await expect(splash).toHaveClass(/is-long/, { timeout: 4000 }); // still waiting: the three dots show
-    await expect(splash).toHaveCount(0, { timeout: 8000 });
-    await expect(page.getByText('มูลค่างานเดือนนี้').first()).toBeVisible();
-  });
-
-  test('with motion and the app ready at once, it still finishes assembling before it goes', async ({ page }) => {
-    await open(page, { dataDelay: 0, motion: true });
-    const splash = page.locator('#app-splash');
-    const shownAt = Number(await splash.getAttribute('data-shown-at'));
-    await expect(splash).toHaveCount(0, { timeout: 8000 });
-    const gone = await page.evaluate(() => Date.now());
-    expect(gone - shownAt).toBeGreaterThanOrEqual(350 + 1300);
-  });
-
-  test('dark mode: the logo on the dark background', async ({ page }) => {
-    await open(page, { dataDelay: 3000, dark: true });
-    const splash = page.locator('#app-splash');
-    await expect(splash).toHaveClass(/\bdark\b/);
-    await expect(splash.locator('.splash-bg')).toHaveCSS('background-color', 'rgb(23, 24, 27)');
-    await expect(splash.locator('.splash-name span').first()).toHaveCSS('color', 'rgb(245, 245, 244)');
-  });
-
   test('no logo on the sign-in page, or for someone who never signed in here', async ({ page }) => {
     await open(page, { signedInBefore: false, path: '/login' });
     await expect(page.locator('#app-splash')).toHaveCount(0);
@@ -101,28 +63,14 @@ test.describe('phone', () => {
 });
 
 for (const [label, width, height] of [['computer', 1280, 800], ['iPad', 1024, 768]] as const) {
-  test(`${label}: the same opening logo, assembling, then handing over to the page (no grey skeleton)`, async ({ page }) => {
+  test(`${label}: the same opening logo, then the page (no grey skeleton)`, async ({ page }) => {
     await page.setViewportSize({ width, height });
-    await open(page, { dataDelay: 3000, motion: true });
+    await open(page);
     const splash = page.locator('#app-splash');
     await expect(splash).toBeVisible();
     await expect(page.locator('#root .boot')).toHaveCount(0);
-    await expect(splash.locator('.splash-name')).toHaveText('กระรอกตุนเงิน');
-    await expect.poll(() => splash.evaluate(el => [...el.querySelectorAll('.splash-name span, .splash-mark')].every(node => getComputedStyle(node).opacity === '1')), { timeout: 4000 }).toBe(true);
+    await expect(splash.locator('svg.splash-mark')).toBeVisible();
     await expect(splash).toHaveCount(0, { timeout: 8000 });
     await expect(page.getByText('มูลค่างานเดือนนี้').first()).toBeVisible();
   });
 }
-
-test('only transform and opacity move, so it stays smooth while the app starts', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await open(page, { dataDelay: 4000, motion: true });
-  const splash = page.locator('#app-splash');
-  await expect(splash.locator('.splash-name span')).toHaveCount(11);
-  await expect.poll(() => splash.getAttribute('data-morph-at'), { timeout: 4000 }).not.toBeNull();
-  const moved = await page.evaluate(() => [...new Set(document.getAnimations()
-    .filter(a => (a.effect as KeyframeEffect | null)?.target?.closest('#app-splash'))
-    .flatMap(a => (a.effect as KeyframeEffect).getKeyframes().flatMap(frame => Object.keys(frame)))
-    .filter(key => !['offset', 'computedOffset', 'easing', 'composite'].includes(key)))].sort());
-  expect(moved).toEqual(['opacity', 'transform']);
-});

@@ -7,10 +7,6 @@ import { CookieConsent } from './components/consent/CookieConsent';
 import './index.css';
 import { clearLegacyFinancialCache } from './services/privateCache';
 import { startUpdateWatch } from './app/appUpdate';
-import { playSplash } from './app/splash';
-
-// The app's code is here: the opening logo assembles now, without waiting for the account's data (app/splash.ts).
-playSplash();
 
 // Remove old financial browser caches before authentication finishes.
 clearLegacyFinancialCache();
