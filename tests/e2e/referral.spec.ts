@@ -64,15 +64,22 @@ for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'l
     const box = (await button.boundingBox())!;
     expect(box.height).toBeLessThanOrEqual(56);
     expect(box.width).toBeLessThan(300);
-    // Computers and iPads also have แนะนำเพื่อนร่วมอาชีพ beside it, as a round paper-plane button; phones keep one button.
-    await expect(page.getByTestId('referral-share-button')).toHaveCount(device.name === 'phone' ? 0 : 1);
+    // แนะนำเพื่อนร่วมอาชีพ beside it as a round paper-plane button, phones too (owner, 2026-11-10: "UI ปรับในมือถือด้วย"); formal:
+    // an icon instead of the squirrel everywhere.
+    await expect(page.getByTestId('referral-share-button')).toHaveCount(1);
+    await expect(page.getByTestId('referral-share-button')).toHaveAttribute('aria-label', 'แนะนำเพื่อนร่วมอาชีพ');
+    await expect(button.locator('.ref-pill-face')).toHaveCount(0);
+    if (device.name === 'phone') {
+      const plane = (await page.getByTestId('referral-share-button').boundingBox())!;
+      expect(Math.round(plane.width)).toBe(50);
+      expect(Math.abs((box.y + box.height / 2) - (plane.y + plane.height / 2))).toBeLessThan(3);
+    }
     if (device.name !== 'phone') {
       // In the overview header beside the month on every computer and iPad (owner, 2026-11-10: "ฝากแก้ในไอแพดให้อยู่ตำแหน่งนี้"),
       // formal: an icon instead of the squirrel.
       const header = page.locator('header.ui-page-header');
       await expect(header.getByTestId('referral-button')).toBeVisible();
-      await expect(header.getByTestId('referral-share-button')).toHaveAttribute('aria-label', 'แนะนำเพื่อนร่วมอาชีพ');
-      await expect(button.locator('.ref-pill-face')).toHaveCount(0);
+      await expect(header.getByTestId('referral-share-button')).toBeVisible();
       const plane = (await page.getByTestId('referral-share-button').boundingBox())!;
       expect(Math.round(plane.width)).toBe(40);
       const month = (await header.getByRole('button', { name: /ช่วงเวลาที่แสดง/ }).first().boundingBox())!;

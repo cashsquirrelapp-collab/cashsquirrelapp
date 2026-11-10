@@ -24,6 +24,12 @@
 .ref-plane:hover { color: #A63F1B; }
 .ref-plane:focus-visible { outline: 2px solid #E65F2B; outline-offset: 2px; }
 .dark .ref-plane { color: #FFA473; }
+/* Phones (owner, 2026-11-10: "UI ปรับในมือถือด้วย"): the same formal button, a size for a thumb, and the paper plane as a cream
+   circle like the quick actions above it (their --ksm-selected fill and orange icon). */
+.ref-pill.is-formal.is-phone { min-height: 50px; gap: 10px; padding: 5px 20px 5px 16px; }
+.ref-pill.is-formal.is-phone .ref-pill-text b { font-size: 14px; }
+.ref-pill.is-formal.is-phone .ref-pill-text small { font-size: 12px; }
+.ref-plane.is-phone { width: 50px; height: 50px; border: 0; background: var(--ksm-selected, #FFF1E8); color: #E65F2B; }
 
 .ref-scrim { position: fixed; inset: 0; z-index: 9000; display: flex; align-items: center; justify-content: center; padding: 16px;
   background: rgba(28, 25, 23, 0.42); backdrop-filter: blur(4px); }

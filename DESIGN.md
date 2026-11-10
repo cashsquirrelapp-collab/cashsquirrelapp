@@ -546,8 +546,8 @@ card does not need:
 - No banner or card on the overview: one button in solid CI orange #E65F2B with white text and two lines. While the
   account may still enter a code: "ใส่โค้ด รับ 200 โทเคน / สำหรับใช้งานเอเจนต์เลขากระรอก"; afterwards: "แนะนำเพื่อนร่วมอาชีพ /
   ให้ใช้เลขากระรอกฟรี 200 โทเคน". Never "ชวนเพื่อน": the words are for people at work, not a social app.
-  - Phones: the 52px pill with the squirrel holding its coin (the Mascot component) in a cream #FFF4EC circle, a soft orange
-    shadow and a chevron, under the quick actions.
+  - Phones (owner, 2026-11-10: "UI ปรับในมือถือด้วย"): the same formal button under the quick actions, 50px with 14/12px
+    lines, and the paper plane beside it as a 50px cream circle like the quick actions (--ksm-selected fill, orange icon).
   - Computers and iPads (owner, 2026-11-10: "ฝากแก้ในไอแพดให้อยู่ตำแหน่งนี้ แล้วก็ปรับ UI หน่อยให้มันดูทางการกว่านี้ ปุ่มแนะนำ
     เพื่อนเอาเป็นเครื่องบินพับกระดาษ"): always in the overview header before the month picker; formal: 44px, a ticket icon
     (a paper plane once a code is entered) instead of the squirrel, 13/11px lines, no shadow, no chevron. Beside it, while a

@@ -20,29 +20,20 @@ export function ReferralButtons({ phone, status, onOpen }: { phone: boolean; sta
   const enter = status.canEnter;
   const title = enter ? tr("ใส่โค้ด รับ {0} โทเคน", status.tokens) : tr("แนะนำเพื่อนร่วมอาชีพ");
   const line = enter ? tr("สำหรับใช้งานเอเจนต์เลขากระรอก") : tr("ให้ใช้เลขากระรอกฟรี {0} โทเคน", status.tokens);
-  // Phones keep the full-size pill with the squirrel holding its coin.
-  if (phone) return (
-    <div className="ref-buttons is-phone">
-      <button type="button" className="ref-pill is-phone" onClick={() => onOpen(enter ? 'enter' : 'share')} data-testid="referral-button">
-        <span className="ref-pill-face" aria-hidden="true"><Mascot mood="happy" action="hold-coin" size={38} /></span>
-        <span className="ref-pill-text"><b>{title}</b><small>{line}</small></span>
-        <ChevronRight className="ref-pill-arrow" size={16} aria-hidden="true" />
-      </button>
-    </div>
-  );
-  // Computers and iPads, in the overview header beside the month (owner, 2026-11-10: "ปรับ UI หน่อยให้มันดูทางการกว่านี้
-  // ปุ่มแนะนำเพื่อนเอาเป็นเครื่องบินพับกระดาษ"): a plain orange button with an icon instead of the squirrel, and แนะนำเพื่อนร่วมอาชีพ
-  // as a round paper-plane button the size of the bell beside it.
+  // Computers, iPads and phones (owner, 2026-11-10: "ปรับ UI หน่อยให้มันดูทางการกว่านี้ ปุ่มแนะนำเพื่อนเอาเป็นเครื่องบินพับกระดาษ",
+  // then "UI ปรับในมือถือด้วย"): a plain orange button with an icon instead of the squirrel, and แนะนำเพื่อนร่วมอาชีพ as a round
+  // paper-plane button beside it: on computers and iPads in the overview header, the size and glass of the bell; on phones
+  // under the quick actions, a cream circle like theirs.
   return (
-    <div className="ref-buttons">
-      <button type="button" className="ref-pill is-formal" onClick={() => onOpen(enter ? 'enter' : 'share')} data-testid="referral-button">
-        {enter ? <Ticket size={17} aria-hidden="true" /> : <Send size={16} aria-hidden="true" />}
+    <div className={`ref-buttons${phone ? ' is-phone' : ''}`}>
+      <button type="button" className={`ref-pill is-formal${phone ? ' is-phone' : ''}`} onClick={() => onOpen(enter ? 'enter' : 'share')} data-testid="referral-button">
+        {enter ? <Ticket size={phone ? 18 : 17} aria-hidden="true" /> : <Send size={phone ? 17 : 16} aria-hidden="true" />}
         <span className="ref-pill-text"><b>{title}</b><small>{line}</small></span>
       </button>
       {enter && (
-        <button type="button" className="ref-plane lg-glass" onClick={() => onOpen('share')} data-testid="referral-share-button"
+        <button type="button" className={`ref-plane${phone ? ' is-phone' : ' lg-glass'}`} onClick={() => onOpen('share')} data-testid="referral-share-button"
           aria-label={tr("แนะนำเพื่อนร่วมอาชีพ")} title={tr("แนะนำเพื่อนร่วมอาชีพ")}>
-          <Send size={16} aria-hidden="true" />
+          <Send size={phone ? 18 : 16} aria-hidden="true" />
         </button>
       )}
     </div>
