@@ -759,6 +759,7 @@ test('computers: the standing squirrel can be dragged anywhere, stays there, and
   await page.keyboard.press('Escape');
   // Kept for the next visit.
   await page.reload();
+  await expect(page.locator('#app-splash')).toHaveCount(0, { timeout: 8000 }); // the opening logo has handed over
   await expect(button).toBeVisible();
   const again = await rectOf(page, '.asx-buddy-btn.is-stand');
   expect(Math.abs(again.x - moved.x) + Math.abs(again.y - moved.y)).toBeLessThan(4);
