@@ -871,8 +871,6 @@ export default function DashboardTab({
       {/* 1. Greeting + KPI cards -- share order-1 so this block never collides with the
           pre-existing Alert Zone below, which already owns order-2. */}
       <div className="order-1 flex flex-col gap-5">
-      {/* The referral buttons on narrower computers and iPads: its own row, so the header's title keeps its room. */}
-      {referralButton && <div className="flex">{referralButton}</div>}
       <MonthlyWorkValueBanner receivablesAccess={receivablesAccess} jobs={jobs} monthKey={selectedMonthKey} onOpenDetails={() => setBreakdownFilter('workValue')} />
 
       <div>

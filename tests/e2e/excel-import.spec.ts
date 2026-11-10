@@ -290,7 +290,7 @@ test('computer: rows that need a decision are grouped with fixes; tapping one de
 
 // A file from another app (owner, 2026-10-30): the columns the rules do not know are sent to เลขากระรอก (headers and a few
 // samples only), its suggestions wait for ใช่, and nothing is read from them until the person confirms.
-test('computer: unknown columns get เลขากระรอก suggestions to confirm; only their headers and samples are sent', async ({ page }) => {
+test('computer: unknown columns get เลขากระรอก suggestions to confirm; only their headers are sent', async ({ page }) => {
   const saved = await open(page, 1280, '/jobs');
   const asked: any[] = [];
   await page.route('**/api/assistant', async route => {
@@ -307,7 +307,8 @@ test('computer: unknown columns get เลขากระรอก suggestions t
   await expect(chat.getByTestId('import-column-ask')).toHaveCount(2);
   expect(asked).toHaveLength(1);
   expect(asked[0].columns.map((c: any) => c.header)).toEqual(['Bill to', 'ช่องทาง']);
-  expect(asked[0].columns[0].samples).toEqual(['ร้านบี', 'บริษัท เอ']);
+  // Since f0a4880 ("Keep imported sample data out of AI requests") no cell values leave the device.
+  expect(asked[0].columns.every((c: any) => !c.samples?.length)).toBe(true);
   expect(asked[0].taken).toEqual(expect.arrayContaining(['name', 'value', 'received']));
   await expect(chat.getByTestId('import-column-ask').first()).toContainText('เลขาแนะนำ');
   // Not importable until both are confirmed.

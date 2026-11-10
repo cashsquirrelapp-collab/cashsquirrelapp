@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronRight, Copy, UserPlus, X } from 'lucide-react';
+import { ChevronRight, Copy, Send, Ticket, X } from 'lucide-react';
 import { tr } from '../../i18n/tr';
 import { Mascot } from '../../components/mascot/Mascot';
 import { isReferralCode, normalizeCode, type ReferralStatus } from '../../../../shared/referral';
@@ -18,22 +18,31 @@ export type ReferralView = 'enter' | 'share';
 
 export function ReferralButtons({ phone, status, onOpen }: { phone: boolean; status: ReferralStatus; onOpen: (view: ReferralView) => void }) {
   const enter = status.canEnter;
-  return (
-    <div className={`ref-buttons${phone ? ' is-phone' : ''}`}>
-      {/* Computers and iPads: compact, the height of the month picker beside it (owner, 2026-11-06: "ย้ายมันไปไว้ด้านบนหน่อย
-          แอบใหญ่ไป"); phones keep the full-size pill. */}
-      <button type="button" className={`ref-pill${phone ? ' is-phone' : ' is-compact'}`} onClick={() => onOpen(enter ? 'enter' : 'share')} data-testid="referral-button">
-        <span className="ref-pill-face" aria-hidden="true"><Mascot mood="happy" action="hold-coin" size={phone ? 38 : 30} /></span>
-        <span className="ref-pill-text">
-          <b>{enter ? tr("ใส่โค้ด รับ {0} โทเคน", status.tokens) : tr("แนะนำเพื่อนร่วมอาชีพ")}</b>
-          <small>{enter ? tr("สำหรับใช้งานเอเจนต์เลขากระรอก") : tr("ให้ใช้เลขากระรอกฟรี {0} โทเคน", status.tokens)}</small>
-        </span>
-        <ChevronRight className="ref-pill-arrow" size={phone ? 16 : 14} aria-hidden="true" />
+  const title = enter ? tr("ใส่โค้ด รับ {0} โทเคน", status.tokens) : tr("แนะนำเพื่อนร่วมอาชีพ");
+  const line = enter ? tr("สำหรับใช้งานเอเจนต์เลขากระรอก") : tr("ให้ใช้เลขากระรอกฟรี {0} โทเคน", status.tokens);
+  // Phones keep the full-size pill with the squirrel holding its coin.
+  if (phone) return (
+    <div className="ref-buttons is-phone">
+      <button type="button" className="ref-pill is-phone" onClick={() => onOpen(enter ? 'enter' : 'share')} data-testid="referral-button">
+        <span className="ref-pill-face" aria-hidden="true"><Mascot mood="happy" action="hold-coin" size={38} /></span>
+        <span className="ref-pill-text"><b>{title}</b><small>{line}</small></span>
+        <ChevronRight className="ref-pill-arrow" size={16} aria-hidden="true" />
       </button>
-      {enter && !phone && (
-        <button type="button" className="ref-chip is-compact" onClick={() => onOpen('share')} data-testid="referral-share-button">
-          {/* A person with a plus, not a gift box (owner, 2026-11-05: the gift looked like a game). */}
-          <UserPlus size={15} aria-hidden="true" />{tr("แนะนำเพื่อนร่วมอาชีพ")}
+    </div>
+  );
+  // Computers and iPads, in the overview header beside the month (owner, 2026-11-10: "ปรับ UI หน่อยให้มันดูทางการกว่านี้
+  // ปุ่มแนะนำเพื่อนเอาเป็นเครื่องบินพับกระดาษ"): a plain orange button with an icon instead of the squirrel, and แนะนำเพื่อนร่วมอาชีพ
+  // as a round paper-plane button the size of the bell beside it.
+  return (
+    <div className="ref-buttons">
+      <button type="button" className="ref-pill is-formal" onClick={() => onOpen(enter ? 'enter' : 'share')} data-testid="referral-button">
+        {enter ? <Ticket size={17} aria-hidden="true" /> : <Send size={16} aria-hidden="true" />}
+        <span className="ref-pill-text"><b>{title}</b><small>{line}</small></span>
+      </button>
+      {enter && (
+        <button type="button" className="ref-plane lg-glass" onClick={() => onOpen('share')} data-testid="referral-share-button"
+          aria-label={tr("แนะนำเพื่อนร่วมอาชีพ")} title={tr("แนะนำเพื่อนร่วมอาชีพ")}>
+          <Send size={16} aria-hidden="true" />
         </button>
       )}
     </div>

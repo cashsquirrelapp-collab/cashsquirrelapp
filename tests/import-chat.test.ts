@@ -159,10 +159,12 @@ const input: ImportChatInput = {
   issues: [{ code: 'noDate', count: 2 }, { code: 'foreignCurrency', count: 1 }],
 };
 
-test('the request carries masked samples, the problems and the message, and asks for checked JSON', () => {
+test('the request carries no cell values, the problems and the message, and asks for checked JSON', () => {
   const body = importChatRequest(input);
   const sent = JSON.parse(body.contents[0].parts[0].text);
-  assert.deepEqual(sent.file.tabs[0].columns[1].samples, ['TikTok', '[อีเมล]', '[เบอร์/เลขบัญชี]']);
+  // Since f0a4880 ("Keep imported sample data out of AI requests"), no cell values from the file leave the app at all.
+  assert.deepEqual(sent.file.tabs[0].columns[1].samples, []);
+  assert.equal(body.contents[0].parts[0].text.includes('bee@example.test'), false);
   assert.deepEqual(sent.file.problems, input.issues);
   assert.equal(sent.message, input.text);
   assert.equal(body.generationConfig.responseMimeType, 'application/json');

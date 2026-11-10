@@ -543,12 +543,17 @@ card does not need:
 ### ใส่โค้ด รับ 200 โทเคน, แนะนำเพื่อนร่วมอาชีพ (owner, 2026-11-05: Fastwork's invite card as the reference, "ตัดไอ้ไลน์ออก", "ทำเป็นปุ่มเล็กๆ ... ไม่ต้องเป็นการ์ดใหญ่", "บอกเขาด้วยว่ามันคือโทเค็นอะไร", then round 2 "กูอยากให้มันมีปุ่มให้ใส่โค้ด ... โค้ดกูจะได้ประมาณสัก 5 สิทธิ์ ... แนะนำกันต่อกันเอง")
 - The one who enters a friend's code gets 200 tokens at once; the friend gets nothing, the gift is what they pass on. Any
   account with a confirmed email enters once; every code takes 5 people, the owner's too; 100 rewards in all.
-- No banner or card on the overview: one pill button in solid CI orange #E65F2B (52px high, white text, a soft orange
-  shadow): the squirrel holding its coin (the Mascot component) in a cream #FFF4EC circle, two lines and a chevron.
-  While the account may still enter a code: "ใส่โค้ด รับ 200 โทเคน / สำหรับใช้งานเอเจนต์เลขากระรอก", and on computers and
-  iPads a small cream chip "แนะนำเพื่อนร่วมอาชีพ" (person-plus icon, never a gift box: "มันเหมือนเกม") beside it; afterwards: "แนะนำเพื่อนร่วมอาชีพ / ให้ใช้
-  เลขากระรอกฟรี 200 โทเคน". Never "ชวนเพื่อน": the words are for people at work, not a social app. On computers 1280px+ in the overview header before the month picker, compact (owner, 2026-11-06: "แอบใหญ่ไป": the pill 44px with 13/11px lines and a 38px squirrel circle, the chip 38px), on narrower computers and iPads on their own row
-  under the header, on phones under the quick actions (`features/referral/ReferralCards.tsx`).
+- No banner or card on the overview: one button in solid CI orange #E65F2B with white text and two lines. While the
+  account may still enter a code: "ใส่โค้ด รับ 200 โทเคน / สำหรับใช้งานเอเจนต์เลขากระรอก"; afterwards: "แนะนำเพื่อนร่วมอาชีพ /
+  ให้ใช้เลขากระรอกฟรี 200 โทเคน". Never "ชวนเพื่อน": the words are for people at work, not a social app.
+  - Phones: the 52px pill with the squirrel holding its coin (the Mascot component) in a cream #FFF4EC circle, a soft orange
+    shadow and a chevron, under the quick actions.
+  - Computers and iPads (owner, 2026-11-10: "ฝากแก้ในไอแพดให้อยู่ตำแหน่งนี้ แล้วก็ปรับ UI หน่อยให้มันดูทางการกว่านี้ ปุ่มแนะนำ
+    เพื่อนเอาเป็นเครื่องบินพับกระดาษ"): always in the overview header before the month picker; formal: 44px, a ticket icon
+    (a paper plane once a code is entered) instead of the squirrel, 13/11px lines, no shadow, no chevron. Beside it, while a
+    code may still be entered, แนะนำเพื่อนร่วมอาชีพ is a round 40px glass paper-plane button like the bell (aria-label and
+    title say แนะนำเพื่อนร่วมอาชีพ). Where the header is too narrow (iPads upright), the whole group of controls moves under the
+    title, right-aligned, still above the header line (PageHeader keepTitle). `features/referral/ReferralCards.tsx`.
 - One window, three faces (data-view): enter (the squirrel, the title, "ใช้งานเอเจนต์เลขากระรอกฟรี · กรอกได้ครั้งเดียว",
   the code field and รับโทเคน in one row, the rewards left, a link to one's own code); done (the squirrel celebrating,
   "ได้รับ 200 โทเคนแล้ว", คุยกับเลขากระรอก dark, แนะนำเพื่อนร่วมอาชีพ outlined); share, after Fastwork's card ("แนะนำเพื่อน

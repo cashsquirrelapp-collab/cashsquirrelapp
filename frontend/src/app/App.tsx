@@ -594,16 +594,6 @@ export default function App() {
     query.addEventListener('change', update);
     return () => query.removeEventListener('change', update);
   }, []);
-  // Wide enough for the referral buttons beside the month in the overview header; narrower computers and iPads have it on
-  // its own row under the header, so the page title keeps its room.
-  // 1280px+ (owner, 2026-11-06: "ย้ายมันไปไว้ด้านบนหน่อย" on a 1280px laptop): the compact buttons fit beside the month.
-  const [wideHeader, setWideHeader] = useState(() => window.matchMedia('(min-width: 1280px)').matches);
-  useEffect(() => {
-    const query = window.matchMedia('(min-width: 1280px)');
-    const update = () => setWideHeader(query.matches);
-    query.addEventListener('change', update);
-    return () => query.removeEventListener('change', update);
-  }, []);
   // เลขากระรอก on computers (owner, 2026-10-23, option ข.): the app's sidebar folds away so only the chat's
   // own history sidebar is on screen, and "กลับ" returns to the page the person came from.
   const chatFocus = activeTab === 'assistant' && isDesktop;
@@ -3547,9 +3537,11 @@ export default function App() {
           )}
           {/* On phones the overview draws its own heading and month row (the mobile design). */}
           {activeTab === 'dashboard' && !isPhone && (
-            <PageHeader page="dashboard" id="dashboard-title" className="mb-4">
+            <PageHeader page="dashboard" id="dashboard-title" className="mb-4" keepTitle>
               <div className="contents sm:flex sm:items-center sm:justify-end sm:gap-2">
-                {wideHeader && referralButton}
+                {/* The referral buttons beside the month on computers and iPads (owner, 2026-11-10: "ฝากแก้ในไอแพดให้อยู่ตำแหน่งนี้");
+                    when the row is too narrow, the whole group moves under the title, right-aligned. */}
+                {referralButton}
                 {/* Phones: its own full-width row under the title; wider screens: before the bell. */}
                 <div className="order-last w-full sm:order-none sm:w-auto">
                   <DashboardPeriodPicker monthKey={dashboardMonthKey} onChange={setDashboardMonthKey} />
@@ -3625,7 +3617,7 @@ export default function App() {
                   mobile={isPhone}
                   monthPicker={<DashboardPeriodPicker monthKey={dashboardMonthKey} onChange={setDashboardMonthKey} compact labelOnly />}
                   onOpenTools={() => setIsMobileMenuOpen(true)}
-                  referralButton={isPhone || !wideHeader ? referralButton : null}
+                  referralButton={isPhone ? referralButton : null}
                 />
               )}
 

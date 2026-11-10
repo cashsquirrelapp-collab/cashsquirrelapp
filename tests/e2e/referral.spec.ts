@@ -55,7 +55,7 @@ async function open(page: Page, { width = 1440, height = 900, path = '/dashboard
   return { posts, assistantReads };
 }
 
-for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'laptop', width: 1280, height: 800 }, { name: 'ipad', width: 744, height: 1133 }, { name: 'phone', width: 390, height: 844 }]) {
+for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'laptop', width: 1280, height: 800 }, { name: 'ipad', width: 744, height: 1133 }, { name: 'ipad landscape', width: 1180, height: 820 }, { name: 'phone', width: 390, height: 844 }]) {
   test(`the ${device.name}: ใส่โค้ด รับ 200 โทเคน, the tokens at once, then the own code to pass on`, async ({ page }) => {
     const mock = await open(page, { ...device, canEnter: true });
     const button = page.getByTestId('referral-button');
@@ -64,11 +64,24 @@ for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'l
     const box = (await button.boundingBox())!;
     expect(box.height).toBeLessThanOrEqual(56);
     expect(box.width).toBeLessThan(300);
-    // Computers and iPads also have a small แนะนำเพื่อนร่วมอาชีพ beside it; phones keep one button.
+    // Computers and iPads also have แนะนำเพื่อนร่วมอาชีพ beside it, as a round paper-plane button; phones keep one button.
     await expect(page.getByTestId('referral-share-button')).toHaveCount(device.name === 'phone' ? 0 : 1);
+    if (device.name !== 'phone') {
+      // In the overview header beside the month on every computer and iPad (owner, 2026-11-10: "ฝากแก้ในไอแพดให้อยู่ตำแหน่งนี้"),
+      // formal: an icon instead of the squirrel.
+      const header = page.locator('header.ui-page-header');
+      await expect(header.getByTestId('referral-button')).toBeVisible();
+      await expect(header.getByTestId('referral-share-button')).toHaveAttribute('aria-label', 'แนะนำเพื่อนร่วมอาชีพ');
+      await expect(button.locator('.ref-pill-face')).toHaveCount(0);
+      const plane = (await page.getByTestId('referral-share-button').boundingBox())!;
+      expect(Math.round(plane.width)).toBe(40);
+      const month = (await header.getByRole('button', { name: /ช่วงเวลาที่แสดง/ }).first().boundingBox())!;
+      expect(Math.abs((box.y + box.height / 2) - (month.y + month.height / 2))).toBeLessThan(4);
+      expect(box.x).toBeLessThan(month.x);
+    }
     expect(await textOverlapIssues(page)).toEqual([]);
     await page.waitForTimeout(400); // the overview's fade-in
-    await page.screenshot({ path: `test-results/referral-${device.name}-button.png` });
+    await page.screenshot({ path: `test-results/referral-${device.name.replace(' ', '-')}-button.png` });
     await button.click();
     const dialog = page.getByTestId('referral-dialog');
     await expect(dialog).toHaveAttribute('data-view', 'enter');
