@@ -70,6 +70,8 @@ async function open(page: Page, width: number, height: number, path: string) {
   } }));
   await page.setViewportSize({ width, height });
   await page.goto(noRadar(path));
+  // Phones open with the logo (app/splash.ts, its wordmark is the Thai name); the page is read once it has handed over.
+  await expect(page.locator('#app-splash')).toHaveCount(0, { timeout: 8000 });
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(400);
 }

@@ -32,6 +32,8 @@ async function open(page: Page, width: number, height: number, options: { role?:
   await page.route('**/api/data*', route => route.fulfill({ json: route.request().method() === 'POST' ? { ok: true, versions } : { snapshot, versions, subscription: options.free ? null : { status: 'active', plan: 'pro_monthly', current_period_end: '2099-01-01T00:00:00Z' } } }));
   await page.setViewportSize({ width, height });
   await page.goto(options.path ?? '/assistant');
+  // Phones open with the logo (app/splash.ts); the page is measured once it has handed over.
+  await expect(page.locator('#app-splash')).toHaveCount(0, { timeout: 8000 });
   return calls;
 }
 
