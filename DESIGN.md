@@ -688,6 +688,21 @@ card does not need:
   it is open), asks again when an app left open comes back on screen, and the admin page opens it as a preview
   (ดูหน้าต่างจริง) because an admin account is never shown its own message.
 
+### Admin: ผู้ใช้ประจำ (owner, 2026-11-10: "ดูได้หน่อยว่าใครแม่งกลับมาใช้ซ้ำบ่อยเป็นอีเมลอะไรชื่ออะไร ... เผื่อแบบบางทีกูส่งข้อมูลส่งอีเมลไปทางอีเมลของคนคนนั้นได้ จะได้เห็นตัวตนด้วยว่าเขาใช้เขาเป็นคนประเภทไหนใช้อะไรมากที่สุด")
+
+- The owner only (emails): a tab after ผู้ใช้งาน on computers and iPads, a tool on the phone admin page. Team admins never
+  see it and the server refuses them (admin-users ?action=regulars, ownerOnly).
+- One list (shared/adminRegulars.ts), the accounts that came back on 2+ days in the chosen 7/30/90 days, most days first,
+  then pages, then the latest: # · name, UID and plan · email (a mailto link and a copy button) · days used "12/30" with
+  pages · last seen · who they are (the sign-up answers: work type · occupations) · uses most (top 3 pages as grey chips,
+  "เลขา N ครั้ง" orange, LINE green). Chips filter 2+/5+/10+ days and ทุกคน / Pro (paid) / ยังไม่จ่าย; a search covers
+  name, UID, email and answers; คัดลอกอีเมลทั้งหมด (N) copies the list's emails, comma-separated, for an email's BCC.
+- Phones: the same as cards (rank circle, name, days on the right, email, answers, chips, last seen and pages).
+- The footer says days come from browsers that allow usage statistics, and that news or promotion emails should always
+  say how to stop receiving them.
+- The admin page's header uses PageHeader keepTitle, so on iPads the owner's buttons move under the title instead of
+  squeezing it.
+
 ### Admin levels and ทีมงานและโทเคน (owner, 2026-11-04: "ทำระบบเพิ่มให้สิทธิ์แอดมิน ... แจกโทเค็นตาม UID")
 - Two levels, decided by the server (`security/adminAnalyticsAccess.ts` `adminLevel`, sent as `session.user.adminLevel`):
   ผู้ดูแล = the owner's verified email with the admin role; แอดมิน = any other admin account. The team opens ผู้ใช้งาน,

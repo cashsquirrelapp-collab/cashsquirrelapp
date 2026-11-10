@@ -20,12 +20,13 @@ const AdminFeedbackInbox = lazy(() => import('../feedback/AdminFeedbackInbox'));
 const AdminActivity = lazy(() => import('./AdminActivity'));
 const AdminBroadcast = lazy(() => import('./AdminBroadcast'));
 const AdminTeamTokens = lazy(() => import('./AdminTeamTokens'));
+const AdminRegulars = lazy(() => import('./AdminRegulars'));
 import AdminOnboarding from './AdminOnboarding';
 import { sendLineSamplesToMe } from './lineSamples';
 
-type Page = 'payments' | 'accounts' | 'features' | 'onboarding' | 'feedback' | 'users' | 'groups' | 'activity' | 'broadcast' | 'team';
+type Page = 'payments' | 'accounts' | 'features' | 'onboarding' | 'feedback' | 'users' | 'groups' | 'activity' | 'regulars' | 'broadcast' | 'team';
 /** The owner's pages alone (owner, 2026-11-04): money, account rights and tokens, every team and its members. */
-const OWNER_PAGES: Page[] = ['payments', 'users', 'groups', 'team'];
+const OWNER_PAGES: Page[] = ['payments', 'users', 'groups', 'team', 'regulars'];
 const LINKED_PAGES: Page[] = ['feedback', 'broadcast', 'activity'];
 type Copy = (th: string, en: string) => string;
 
@@ -289,6 +290,17 @@ export default function AdminDashboardPhone({
         </Suspense>
       </>
     );
+  } else if (page === 'regulars' && isOwner) {
+    // ผู้ใช้ประจำ (owner, 2026-11-10): who keeps coming back, with their email.
+    body = (
+      <>
+        <MobilePageHero key="regulars" title={copy('ผู้ใช้ประจำ', 'Regulars')} {...back} />
+        {rangeSwitch}
+        <Suspense fallback={<SkeletonBlock className="mt-3 h-48 w-full rounded-2xl" />}>
+          <AdminRegulars userId={userId} range={range} accounts={data?.accounts} language={language} mobile />
+        </Suspense>
+      </>
+    );
   } else if (page === 'broadcast') {
     body = (
       <>
@@ -338,6 +350,7 @@ export default function AdminDashboardPhone({
       { key: 'features', icon: 'chart', title: copy('การใช้ฟีเจอร์', 'Feature usage'), sub: bestFeature ? copy(`${featureLabels[bestFeature.key][0]} ใช้มากสุด ${bestFeature.activeUsers} คน`, `${featureLabels[bestFeature.key][1]} leads with ${bestFeature.activeUsers}`) : copy('Free และ Pro ใช้อะไร', 'What Free and Pro use'), needsData: true },
       { key: 'onboarding', icon: 'target', title: copy('ผู้ใช้ใหม่', 'New users'), sub: data?.onboarding ? copy(`ตอบแบบสอบถาม ${data.onboarding.completed + data.onboarding.skipped} บัญชี · กลุ่มอาชีพและสิ่งที่ใช้จริง`, `${data.onboarding.completed + data.onboarding.skipped} answered · groups and what they use`) : copy('กลุ่มอาชีพและสิ่งที่ใช้จริง', 'Groups and what they use'), needsData: true },
       { key: 'activity', icon: 'users', title: copy('ผู้ใช้งาน', 'User activity'), sub: copy('ใครออนไลน์ ใครหายไปนาน ช่วงเวลาที่คนเข้าใช้', 'Who is on, who has gone quiet, when people use the app') },
+      { key: 'regulars', icon: 'users', title: copy('ผู้ใช้ประจำ', 'Regulars'), sub: copy('ใครกลับมาใช้บ่อย อีเมล เป็นใคร ใช้อะไรมากที่สุด', 'Who comes back, their email, who they are, what they use'), needsData: true },
       { key: 'broadcast', icon: 'bell', title: copy('ส่งข้อความถึงผู้ใช้', 'Message everyone'), sub: copy('ข้อความขึ้นบนหน้าจอทุกคน พร้อมคะแนนและคำตอบ', 'A message on everyone’s screen, with scores and answers') },
       { key: 'feedback', icon: 'chat', title: copy('ข้อความจากผู้ใช้', 'User feedback'), sub: feedbackWaiting ? copy(`รอตอบ ${feedbackWaiting} เรื่อง · อ่านและตอบได้ที่นี่`, `${feedbackWaiting} waiting · read and answer here`) : copy('อ่านและตอบเรื่องที่ผู้ใช้ส่งมา', 'Read and answer what users sent') },
       { key: 'team', icon: 'coins', title: copy('ทีมงานและโทเคน', 'Team and tokens'), sub: copy('ให้สิทธิ์แอดมิน · แจกโทเคนตาม UID', 'Admin rights · give tokens by UID') },

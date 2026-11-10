@@ -1,0 +1,37 @@
+/* ผู้ใช้ประจำ (AdminRegulars.tsx): chips and the email cell; the table and cards follow the ผู้ใช้งาน view. */
+.arg-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.arg-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+/* The filter chips, like the ผู้ใช้งาน view's (computers) and the phone's grey pill row (phones). */
+.arg-pick { border: 1px solid var(--border); border-radius: 999px; background: var(--white); padding: 5px 12px; font-size: 12.5px; font-weight: 500; line-height: 1.45; color: var(--text); white-space: nowrap; cursor: pointer; }
+.arg-pick:hover { background: var(--faint); }
+.arg-pick[aria-pressed="true"] { border-color: #E65F2B; background: #FFF1E8; color: #C24A16; }
+.dark .arg-pick[aria-pressed="true"] { background: rgba(255, 164, 115, 0.14); color: #FFA473; }
+.arg-controls.is-mobile .arg-chips { width: 100%; }
+.arg-controls.is-mobile .arg-pick { min-height: 36px; padding: 6px 13px; font-size: 13px; }
+.arg-copy-all { margin-left: auto; }
+.arg-controls.is-mobile { margin: 10px 0 12px; }
+.arg-controls.is-mobile .arg-copy-all { margin-left: 0; width: 100%; justify-content: center; }
+.arg-email { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.arg-email-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); text-decoration: none; }
+.arg-email-text:hover { color: #C24A16; text-decoration: underline; }
+.dark .arg-email-text:hover { color: #FFA473; }
+.arg-icon { display: grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: 8px; color: var(--muted); cursor: pointer; }
+.arg-icon:hover { background: var(--faint); color: var(--text); }
+.arg-type { display: block; font-size: 12.5px; line-height: 1.55; color: var(--text); }
+.arg-muted { font-size: 12px; line-height: 1.5; color: var(--muted); }
+.arg-uses { display: flex; flex-wrap: wrap; gap: 5px; }
+.arg-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 999px; background: var(--faint); color: var(--text); font-size: 11.5px; line-height: 1.55; white-space: nowrap; }
+.arg-chip.is-ai { background: #FFF1E8; color: #C24A16; }
+.arg-chip.is-line { background: #E8F6EE; color: #0A8F3F; }
+.dark .arg-chip.is-ai { background: rgba(255, 164, 115, 0.14); color: #FFA473; }
+.dark .arg-chip.is-line { background: rgba(74, 222, 128, 0.12); color: #4ADE80; }
+/* Phones */
+.arg-cards { display: grid; gap: 10px; }
+.arg-card { display: grid; gap: 8px; padding: 14px 16px; }
+.arg-card-head { display: flex; align-items: flex-start; gap: 10px; }
+.arg-rank { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--faint); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.arg-grow { flex: 1 1 auto; min-width: 0; display: grid; }
+.arg-grow b { font-size: 15px; line-height: 1.45; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.arg-grow small, .arg-days small { font-size: 11.5px; line-height: 1.45; color: var(--muted); }
+.arg-days { flex: none; display: grid; justify-items: end; }
+.arg-days strong { font-size: 15px; line-height: 1.45; font-variant-numeric: tabular-nums; }

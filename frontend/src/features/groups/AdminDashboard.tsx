@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   Megaphone,
   UserRoundCheck,
+  Repeat,
   RefreshCw,
   Search,
   Send,
@@ -54,13 +55,14 @@ const AiCreditBanner = lazy(() => import('./AdminAiCredit').then(module => ({ de
 const AdminDashboardPhone = lazy(() => import('./AdminDashboardPhone'));
 const AdminPaymentReadiness = lazy(() => import('./AdminPaymentReadiness'));
 const AdminActivity = lazy(() => import('./AdminActivity'));
+const AdminRegulars = lazy(() => import('./AdminRegulars'));
 const AdminBroadcast = lazy(() => import('./AdminBroadcast'));
 const AdminTeamTokens = lazy(() => import('./AdminTeamTokens'));
 
-type View = 'overview' | 'activity' | 'product' | 'revenue' | 'profit' | 'customers' | 'onboarding' | 'feedback' | 'broadcast' | 'operations' | 'team';
+type View = 'overview' | 'activity' | 'regulars' | 'product' | 'revenue' | 'profit' | 'customers' | 'onboarding' | 'feedback' | 'broadcast' | 'operations' | 'team';
 /** What each level opens (owner, 2026-11-04): a team admin never sees revenue, profit and AI cost, or the overview. */
 export const viewsFor = (level: 'owner' | 'admin'): readonly View[] => level === 'owner'
-  ? ['overview', 'activity', 'product', 'revenue', 'profit', 'customers', 'onboarding', 'feedback', 'broadcast', 'team', 'operations']
+  ? ['overview', 'activity', 'regulars', 'product', 'revenue', 'profit', 'customers', 'onboarding', 'feedback', 'broadcast', 'team', 'operations']
   : TEAM_ADMIN_VIEWS;
 /** ?view= opens a section straight away: the LINE alerts link to feedback and broadcast (owner, 2026-10-27 and 2026-11-03). */
 const LINKED_VIEWS: View[] = ['feedback', 'broadcast', 'activity'];
@@ -345,6 +347,8 @@ export default function AdminDashboard({ userId, level = 'owner', triggerConfirm
   const allViews: { key: View; label: string; icon: LucideIcon }[] = [
     { key: 'overview', label: copy('ภาพรวม', 'Overview'), icon: BarChart3 },
     { key: 'activity', label: copy('ผู้ใช้งาน', 'User activity'), icon: UserRoundCheck },
+    // ผู้ใช้ประจำ (owner, 2026-11-10): who keeps coming back, with their email; the owner only.
+    { key: 'regulars', label: copy('ผู้ใช้ประจำ', 'Regulars'), icon: Repeat },
     { key: 'product', label: copy('การใช้ฟีเจอร์', 'Product usage'), icon: Activity },
     { key: 'revenue', label: copy('รายได้ / Pro', 'Revenue / Pro'), icon: CircleDollarSign },
     { key: 'profit', label: copy('กำไรและต้นทุน AI', 'Profit and AI cost'), icon: Cpu },
@@ -373,7 +377,8 @@ export default function AdminDashboard({ userId, level = 'owner', triggerConfirm
 
   return (
     <section aria-labelledby="admin-dashboard-title" className="space-y-5 pb-8">
-      <PageHeader page="adminDashboard" id="admin-dashboard-title">
+      {/* keepTitle: on iPads the owner's buttons used to squeeze the title into one letter a line; now they move under it. */}
+      <PageHeader page="adminDashboard" id="admin-dashboard-title" keepTitle>
         <div className="flex flex-wrap items-center justify-end gap-2">
         {onPreviewGuide && <button type="button" className={secondary} onClick={onPreviewGuide} data-testid="admin-guide-preview"><ListChecks size={16} />{copy('ดูคู่มือเริ่มใช้ Pro', 'Replay the Pro guide')}</button>}
         {isOwner && <button type="button" className={secondary} onClick={sendSamples} disabled={samplesBusy} data-testid="admin-line-samples"
@@ -405,10 +410,11 @@ export default function AdminDashboard({ userId, level = 'owner', triggerConfirm
       {(view === 'overview' || view === 'revenue') && <Suspense fallback={null}><AdminStripeFinance userId={userId} range={range} revision={revision} liveTick={liveTick} detailed={view === 'revenue'} onViewDetails={() => setView('revenue')} /></Suspense>}
       {view === 'feedback' && <Suspense fallback={<div className={`${surface} p-6`}><SkeletonBlock className="h-5 w-48" /><SkeletonBlock className="mt-5 h-44 w-full" /></div>}><AdminFeedbackInbox userId={userId} /></Suspense>}
       {view === 'activity' && <Suspense fallback={<div className={`${surface} p-6`}><SkeletonBlock className="h-5 w-48" /><SkeletonBlock className="mt-5 h-44 w-full" /></div>}><AdminActivity userId={userId} range={range} revision={revision} language={language} /></Suspense>}
+      {view === 'regulars' && isOwner && <Suspense fallback={<div className={`${surface} p-6`}><SkeletonBlock className="h-5 w-48" /><SkeletonBlock className="mt-5 h-44 w-full" /></div>}><AdminRegulars userId={userId} range={range} accounts={data?.accounts} revision={revision} language={language} /></Suspense>}
       {view === 'broadcast' && <Suspense fallback={<div className={`${surface} p-6`}><SkeletonBlock className="h-5 w-48" /><SkeletonBlock className="mt-5 h-44 w-full" /></div>}><AdminBroadcast userId={userId} triggerConfirm={triggerConfirm} language={language} onOpenFeedback={() => setView('feedback')} /></Suspense>}
       {view === 'profit' && <Suspense fallback={null}><AdminProfitLive userId={userId} accounts={data?.accounts} appDays={range} liveTick={liveTick} revision={revision} /></Suspense>}
       {!['feedback', 'profit', 'activity', 'broadcast', 'team'].includes(view) && error && <div role="alert" className="rounded-2xl border border-red-300/60 bg-red-50 p-4 text-sm text-red-700 dark:bg-red-950/20 dark:text-red-300">{error}</div>}
-      {!['feedback', 'profit', 'activity', 'broadcast', 'team'].includes(view) && (loading && !data ? <AnalyticsSkeleton /> : data && (
+      {!['feedback', 'profit', 'activity', 'broadcast', 'team', 'regulars'].includes(view) && (loading && !data ? <AnalyticsSkeleton /> : data && (
         <>
           {view === 'overview' && (
             <div className="space-y-4">

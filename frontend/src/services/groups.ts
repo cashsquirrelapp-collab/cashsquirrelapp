@@ -1,3 +1,4 @@
+import type { RegularExtra } from '../../../shared/adminRegulars';
 import type {
   AdminDashboardStats,
   AdminDashboardDetails,
@@ -129,6 +130,13 @@ export const groupApi = {
       method: 'POST',
       headers: { 'X-Account-ID': account },
       body: JSON.stringify({ action: 'grant-tokens', userId, tokens, requestId, ...(note.trim() ? { note: note.trim() } : {}) }),
+    });
+  },
+  /** ผู้ใช้ประจำ (owner only): emails, sign-up answers, เลขา requests and LINE for every account. */
+  regulars(account: string, range: number, signal?: AbortSignal) {
+    return apiJson<{ range: number; accounts: RegularExtra[] }>(`/api/admin-users?action=regulars&range=${range}`, {
+      signal,
+      headers: { 'X-Account-ID': account },
     });
   },
   tokenGrants(account: string, signal?: AbortSignal) {

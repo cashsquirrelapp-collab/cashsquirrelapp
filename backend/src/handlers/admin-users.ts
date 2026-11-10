@@ -19,6 +19,7 @@ import { addTokenGrant, loadTokenGrants, recentTokenGrants } from '../repositori
 import { assistantPlan, supabaseAssistantDb } from '../ai/supabaseDb.js';
 import { aiConfig, aiConfigFor } from '../ai/config.js';
 import { usageStatus } from '../ai/service.js';
+import { regularExtras } from '../../../shared/adminRegulars.js';
 
 const RECOVERY_LINK_TTL_MS = 60 * 60 * 1000;
 const createRecoveryLinkSchema = z.object({ action: z.literal('create-recovery-link') }).strict();
@@ -112,6 +113,36 @@ export default withGuard(
         const parsed = lookupQuerySchema.safeParse(req.query);
         if (!parsed.success) throw new HttpError(400, 'กรุณาใส่ UID แบบ SQ-XXXXXXXXXX');
         res.json(await lookupAccount(db, parsed.data.target));
+        return;
+      }
+      // ผู้ใช้ประจำ (owner, 2026-11-10): emails, what each account said it does, เลขา requests in the range and LINE, for the
+      // accounts the admin page already lists. Owner only (emails).
+      if (req.query.action === 'regulars') {
+        const range = [7, 30, 90].includes(Number(req.query.range)) ? Number(req.query.range) : 30;
+        const since = new Date(Date.now() - range * 86_400_000).toISOString();
+        const page = async <T,>(read: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>, cap = 20) => {
+          const rows: T[] = [];
+          for (let i = 0; i < cap; i++) {
+            const { data, error } = await read(i * 1000, i * 1000 + 999);
+            if (error) throw error;
+            rows.push(...(data || []));
+            if ((data || []).length < 1000) break;
+          }
+          return rows;
+        };
+        const users: { id: string; email?: string | null; last_sign_in_at?: string | null }[] = [];
+        for (let p = 1; p <= 10; p += 1) {
+          const { data, error } = await db.auth.admin.listUsers({ page: p, perPage: 1000 });
+          if (error) throw error;
+          users.push(...data.users.map(item => ({ id: item.id, email: item.email, last_sign_in_at: item.last_sign_in_at })));
+          if (data.users.length < 1000) break;
+        }
+        const [onboarding, aiUsage, lineLinks] = await Promise.all([
+          page<{ user_id: string; onboarding: unknown }>((a, b) => db.from('cashflow_documents').select('user_id,onboarding:data->onboarding').eq('id', 'settings').order('user_id').range(a, b) as never),
+          page<{ user_id: string }>((a, b) => db.from('cashflow_ai_usage').select('user_id').gte('created_at', since).order('created_at').range(a, b) as never),
+          page<{ user_id: string }>((a, b) => db.from('cashflow_line_links').select('user_id').order('user_id').range(a, b) as never),
+        ]);
+        res.json({ range, accounts: regularExtras({ users, onboarding, aiUsage, lineLinks }) });
         return;
       }
       if (req.query.action === 'token-grants') {
