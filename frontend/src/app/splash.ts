@@ -1,4 +1,5 @@
-// The logo the app shows while it opens (phones, owner 2026-10-22) and whenever it has to wait (every device, 2026-11-02).
+// The logo the app shows while it opens (phones since 2026-10-22, computers and iPads since 2026-11-11) and whenever it has
+// to wait (every device, 2026-11-02).
 // Look A (owner, 2026-11-11, after the Dime clip: "อยากได้แบบนั้น", "เอาแบบ A ไม่รอข้อมูล"):
 // 1. A small mark breathes in the middle: boot-skeleton.js draws it before the app's code arrives, showSplash() when
 //    the app has to wait later.
@@ -9,12 +10,13 @@
 //    the logo goes. Still waiting long after it assembled: three dots show under it.
 const MIN_WAIT_MS = 350;
 const FONT_WAIT_MS = 1200;
-export const ASSEMBLED_MS = 1150;
+export const ASSEMBLED_MS = 1300;
+const LETTER_STEPS = 12;
 const STATIC_MIN_MS = 1100;
 const LONG_WAIT_MS = 1900;
 const MAX_WAIT_MS = 2500;
 const GIVE_UP_MS = 4000;
-const LEAVE_MS = 600;
+const LEAVE_MS = 650;
 
 // The logo mark, the same drawing boot-skeleton.js uses (public/kv/symbol.svg).
 const MARK = 'M462.2891 71.133 C634.9705 58.7986 816.0986 143.1701 886.4971 307.4335 C897.3079 332.6583 907.1436 358.7126 912.5548 385.7689 C920.9325 427.6565 923.5996 472.9793 918.867 515.5722 C905.5484 635.4416 835.3596 739.1615 746.659 816.7746 C668.3074 885.3322 565.9157 929.422 461.1561 929.422 C418.5151 929.422 358.5401 922.7653 350.4509 870.185 C349.3618 863.1059 350.0229 855.8166 351.422 848.8208 C361.2645 799.6082 414.5101 798.9129 453.8728 791.0405 C474.4152 786.932 494.9066 778.0173 512.9479 767.5722 C591.6984 721.9798 619.9668 620.2117 584.9711 538.5549 C565.5644 493.2728 518.8689 458.1077 474.2659 440.474 C407.4458 414.0567 327.7454 408.613 262.0809 441.4451 C228.6948 458.1383 197.2659 488.8157 205.4336 529.6531 C212.2983 563.9768 251.1019 578.0934 280.6937 585.4912 C296.1002 589.3431 311.9956 590.6752 327.792 591.8034 C338.9737 592.6021 350.4064 591.9653 361.6185 591.9653 C414.9505 591.9653 497.7971 591.2465 514.4045 657.6764 C516.8075 667.2878 518.5276 675.9879 518.1272 685.9999 C517.8095 693.9399 515.3149 701.5834 512.6243 708.9827 C494.0358 760.101 438.9823 761.9075 393.1792 761.9075 C375.1886 761.9075 353.6752 764.9772 336.6936 757.6995 C312.0255 747.1274 308.624 709.7501 329.7342 693.607 C341.905 684.2998 356.6295 684.2197 371.3295 684.2197 C386.7051 684.2197 402.081 684.2197 417.4566 684.2197 C429.6845 684.2197 446.2587 685.7037 455.977 676.6128 C473.0076 660.6807 453.9532 640.108 438.1733 634.37 C419.1027 627.4352 398.5829 628.3815 378.6127 628.3815 C357.4386 628.3815 336.6086 627.4621 315.4913 625.9538 C288.8679 624.0521 262.3965 620.1388 236.8324 612.3584 C167.6326 591.2977 109.5945 536.6032 88.4163 467.0173 C82.513 447.621 80 427.7057 80 407.4566 C80 276.3183 181.9107 173.2064 292.8325 117.7457 C316.3862 105.9688 340.4711 96.2803 365.6648 88.6128 C396.8589 79.1189 429.8085 73.453 462.2891 71.133 Z';
@@ -107,17 +109,22 @@ function nameFont(): Promise<void> {
 function assemble(el: HTMLElement, stage: HTMLElement): void {
   el.dataset.morphAt = String(Date.now());
   window.setTimeout(() => { if (!el.classList.contains('is-leaving')) el.classList.add('is-long'); }, LONG_WAIT_MS);
+  // Smooth (owner, 2026-11-11: "อยากได้แบบสมูทสมูท"): only transform and opacity move, so the screen's compositor plays it
+  // at full speed while the app is still starting; every path is one continuous curve with one easing.
   const play = (node: Element | null, frames: Keyframe[], at: number, duration: number, easing: string, fill: FillMode = 'forwards') =>
     node?.animate(frames, { delay: at, duration, easing, fill });
   const q = (selector: string) => stage.querySelector(selector);
 
   // The breathing mark folds away.
-  play(q('.splash-wait'), [{ transform: 'scale(1) rotate(0deg)', opacity: 1 }, { transform: 'scale(.1) rotate(-150deg)', opacity: 0 }], 0, 280, 'cubic-bezier(.55,0,.75,.2)');
+  play(q('.splash-wait'), [{ transform: 'scale(1) rotate(0deg)', opacity: 1 }, { transform: 'scale(.15) rotate(-140deg)', opacity: 0 }], 0, 320, 'cubic-bezier(.5,0,.75,0)');
   // An orange arc sweeps round a tilted ring.
-  const sweep = 'cubic-bezier(.3,.55,.35,1)';
-  play(q('.splash-arc'), [{ opacity: 0, transform: 'rotateX(62deg) rotateZ(-70deg)' }, { opacity: 1, offset: .15 }, { opacity: 1, offset: .7 }, { opacity: 0, transform: 'rotateX(62deg) rotateZ(320deg)' }], 40, 920, sweep, 'both');
-  play(q('.splash-arc circle'), [{ strokeDasharray: '0 100' }, { strokeDasharray: '40 60', offset: .45 }, { strokeDasharray: '3 97' }], 40, 920, sweep, 'both');
-  // The letters swing round the same ring, flipping, and land in their place one after another.
+  play(q('.splash-arc'), [
+    { opacity: 0, transform: 'rotateX(62deg) rotateZ(-90deg) scale(.8)' },
+    { opacity: 1, offset: .2 },
+    { opacity: 1, offset: .6 },
+    { opacity: 0, transform: 'rotateX(62deg) rotateZ(290deg) scale(1.06)' },
+  ], 40, 1000, 'cubic-bezier(.33,0,.2,1)', 'both');
+  // The letters swing round the same ring, turning, and rise into their place one after another.
   const box = stage.getBoundingClientRect();
   const cx = box.width / 2, cy = box.height / 2;
   const ringX = (a: number) => cx + 84 * Math.cos(a), ringY = (a: number) => cy + 38 * Math.sin(a);
@@ -126,24 +133,28 @@ function assemble(el: HTMLElement, stage: HTMLElement): void {
     const r = letter.getBoundingClientRect();
     const x = r.left - box.left + r.width / 2, y = r.top - box.top + r.height / 2;
     const end = Math.acos(Math.max(-1, Math.min(1, (x - cx) / 84)));
-    const at = (f: number) => end - 2.4 * (1 - f);
-    const move = (f: number, turn: number, z: number, size: number) =>
-      `translate(${(ringX(at(f)) - x).toFixed(1)}px,${(ringY(at(f)) - y).toFixed(1)}px) rotateY(${turn}deg) rotateZ(${z.toFixed(1)}deg) scale(${size})`;
     const z = tilt[i % tilt.length];
-    play(letter, [
-      { transform: move(0, 180, z, .7), opacity: 0, filter: 'blur(3px)', easing: 'cubic-bezier(.4,0,1,1)' },
-      { transform: move(.34, 135, z * .75, .8), opacity: 1, filter: 'blur(2.5px)', offset: .2, easing: 'linear' },
-      { transform: move(.67, 90, z * .5, .9), filter: 'blur(2px)', offset: .38, easing: 'linear' },
-      { transform: move(1, 45, z * .25, .95), filter: 'blur(1px)', offset: .56, easing: 'cubic-bezier(.2,.8,.3,1)' },
-      { transform: 'translate(0px,0px) rotateY(0deg) rotateZ(0deg) scale(1)', opacity: 1, filter: 'blur(0px)' },
-    ], 150 + i * 30, 680, 'linear', 'both');
+    const frames: Keyframe[] = [];
+    for (let k = 0; k <= LETTER_STEPS; k++) {
+      const f = k / LETTER_STEPS;
+      const a = end - 2.4 * (1 - f);
+      const t = Math.max(0, (f - .5) / .5);
+      const settle = t * t * (3 - 2 * t);
+      const dx = (ringX(a) - x) * (1 - settle), dy = (ringY(a) - y) * (1 - settle);
+      frames.push({
+        transform: `translate(${dx.toFixed(1)}px,${dy.toFixed(1)}px) rotateY(${(180 * (1 - f)).toFixed(1)}deg) rotateZ(${(z * (1 - f)).toFixed(1)}deg) scale(${(.7 + .3 * f).toFixed(3)})`,
+        opacity: Math.min(1, f / .15),
+      });
+    }
+    play(letter, frames, 120 + i * 32, 900, 'cubic-bezier(.22,.9,.3,1)', 'both');
   });
-  // A dot drops in, squashes, and swells into the mark.
+  // A dot drops in and swells into the mark.
   const dot = q('.splash-dot');
-  play(dot, [{ transform: 'translateY(-190px) scale(.5)', opacity: 0 }, { opacity: 1, offset: .25 }, { transform: 'translateY(0px) scale(1)', opacity: 1 }], 560, 300, 'cubic-bezier(.5,0,.85,.35)', 'both');
-  play(dot, [{ transform: 'translateY(0px) scale(1.35,.65)' }, { transform: 'translateY(0px) scale(1,1)' }], 860, 110, 'ease-out');
-  play(dot, [{ transform: 'translateY(0px) scale(1)', opacity: 1 }, { transform: 'translateY(0px) scale(3.4)', opacity: 0 }], 930, 260, 'cubic-bezier(.2,.8,.2,1)');
-  play(q('.splash-mark'), [{ transform: 'scale(.2) rotate(-30deg)', opacity: 0 }, { opacity: 1, offset: .2 }, { transform: 'scale(1.12) rotate(5deg)', offset: .6 }, { transform: 'scale(1) rotate(0deg)', opacity: 1 }], 900, 440, 'cubic-bezier(.25,.8,.3,1)', 'both');
+  play(dot, [{ transform: 'translateY(-200px) scale(.6)', opacity: 0 }, { opacity: 1, offset: .3 }, { transform: 'translateY(0px) scale(1)', opacity: 1 }], 520, 360, 'cubic-bezier(.55,0,.9,.45)', 'both');
+  play(dot, [{ transform: 'translateY(0px) scale(1)', opacity: 1 }, { transform: 'translateY(0px) scale(3.2)', opacity: 0 }], 880, 320, 'cubic-bezier(.2,.7,.3,1)');
+  const mark = q('.splash-mark');
+  play(mark, [{ opacity: 0 }, { opacity: 1 }], 870, 220, 'ease-out', 'both');
+  play(mark, [{ transform: 'scale(.3) rotate(-24deg)' }, { transform: 'scale(1) rotate(0deg)' }], 870, 620, 'cubic-bezier(.34,1.45,.64,1)', 'both');
 }
 
 /**

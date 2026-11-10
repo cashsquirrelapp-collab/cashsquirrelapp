@@ -1,8 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
 
-// Phones: opening the app shows the logo instead of the grey skeleton (owner, 2026-10-22). Look A since 2026-11-11
-// (after the Dime clip): a small mark breathes, the logo assembles as soon as the app's code is here (not waiting for
-// the data), and it hands over once the page under it is ready. Computers keep the skeleton at the start.
+// Opening the app shows the logo (phones since 2026-10-22, computers and iPads since 2026-11-11: "ในคอมไม่เห็นขึ้นเลย").
+// Look A since 2026-11-11 (after the Dime clip): a small mark breathes, the logo assembles as soon as the app's code is
+// here (not waiting for the data), and it hands over once the page under it is ready.
 
 test.use({ serviceWorkers: 'block' });
 
@@ -83,7 +83,7 @@ test.describe('phone', () => {
     const shownAt = Number(await splash.getAttribute('data-shown-at'));
     await expect(splash).toHaveCount(0, { timeout: 8000 });
     const gone = await page.evaluate(() => Date.now());
-    expect(gone - shownAt).toBeGreaterThanOrEqual(350 + 1150);
+    expect(gone - shownAt).toBeGreaterThanOrEqual(350 + 1300);
   });
 
   test('dark mode: the logo on the dark background', async ({ page }) => {
@@ -100,8 +100,29 @@ test.describe('phone', () => {
   });
 });
 
-test('computers keep the skeleton at the start and never show the opening logo screen', async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 800 });
-  await open(page);
-  await expect(page.locator('#app-splash')).toHaveCount(0);
+for (const [label, width, height] of [['computer', 1280, 800], ['iPad', 1024, 768]] as const) {
+  test(`${label}: the same opening logo, assembling, then handing over to the page (no grey skeleton)`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await open(page, { dataDelay: 3000, motion: true });
+    const splash = page.locator('#app-splash');
+    await expect(splash).toBeVisible();
+    await expect(page.locator('#root .boot')).toHaveCount(0);
+    await expect(splash.locator('.splash-name')).toHaveText('กระรอกตุนเงิน');
+    await expect.poll(() => splash.evaluate(el => [...el.querySelectorAll('.splash-name span, .splash-mark')].every(node => getComputedStyle(node).opacity === '1')), { timeout: 4000 }).toBe(true);
+    await expect(splash).toHaveCount(0, { timeout: 8000 });
+    await expect(page.getByText('มูลค่างานเดือนนี้').first()).toBeVisible();
+  });
+}
+
+test('only transform and opacity move, so it stays smooth while the app starts', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await open(page, { dataDelay: 4000, motion: true });
+  const splash = page.locator('#app-splash');
+  await expect(splash.locator('.splash-name span')).toHaveCount(11);
+  await expect.poll(() => splash.getAttribute('data-morph-at'), { timeout: 4000 }).not.toBeNull();
+  const moved = await page.evaluate(() => [...new Set(document.getAnimations()
+    .filter(a => (a.effect as KeyframeEffect | null)?.target?.closest('#app-splash'))
+    .flatMap(a => (a.effect as KeyframeEffect).getKeyframes().flatMap(frame => Object.keys(frame)))
+    .filter(key => !['offset', 'computedOffset', 'easing', 'composite'].includes(key)))].sort());
+  expect(moved).toEqual(['opacity', 'transform']);
 });

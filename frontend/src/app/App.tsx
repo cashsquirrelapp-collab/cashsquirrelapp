@@ -1650,7 +1650,7 @@ export default function App() {
       birthPreviewRef.current = true;
     }
     if (!birthPreviewRef.current) return;
-    // On a fresh load phones still show the opening logo (splash.ts); the squirrel waits until it has gone.
+    // On a fresh load the opening logo still shows (splash.ts); the squirrel waits until it has gone.
     let timer: number | undefined;
     const started = Date.now();
     const play = () => {
@@ -3120,7 +3120,7 @@ export default function App() {
     }
   };
 
-  // Phones: the opening logo (boot-skeleton.js) hands over once the page under it is ready: the session
+  // The opening logo (boot-skeleton.js, every device) hands over once the page under it is ready: the session
   // is known and a signed-in account's data has loaded, failed, or is not needed for the page.
   const pageReady = !loadingSession && (!session?.user?.id || session.isGuest || session.user.accountPaused
     || loadedFinanceOwner === financeOwner || cloudSyncStatus === 'failed' || pathname === '/recover'
