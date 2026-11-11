@@ -89,6 +89,23 @@ test('a request where Claude is out of credit still answers with Gemini, and the
   } finally { console.warn = warn; }
 });
 
+test('Gemini out of quota: Claude answers instead, and the owner still hears about the quota (owner, 2026-11-12)', async () => {
+  const warn = console.warn; console.warn = () => undefined;
+  const asked: string[] = [];
+  const fetchImpl = (async (input: RequestInfo | URL) => {
+    const url = String(input);
+    asked.push(url.includes('anthropic') ? 'claude' : 'gemini');
+    if (url.includes('anthropic')) return new Response(JSON.stringify({ id: 'msg', type: 'message', role: 'assistant', model: 'claude-sonnet-5-5', content: [{ type: 'text', text: 'อธิบายให้แล้วครับ' }], stop_reason: 'end_turn', stop_sequence: null, usage: { input_tokens: 10, output_tokens: 5 } }), { status: 200, headers: { 'content-type': 'application/json', 'request-id': 'req' } });
+    return new Response(JSON.stringify({ error: { code: 429, message: 'You exceeded your current quota, please check your plan and billing details.', status: 'RESOURCE_EXHAUSTED' } }), { status: 429, headers: { 'content-type': 'application/json' } });
+  }) as unknown as typeof fetch;
+  try {
+    const reply = await runAssistant({ user: account(), plan: 'pro', text: 'ช่วยอธิบายวิธีเพิ่มโปรเจกต์' }, { config: aiConfig(env), ...memoryStores(), fetchImpl });
+    assert.equal(reply.text, 'อธิบายให้แล้วครับ');
+    assert.deepEqual(reply.routing?.billing, ['gemini_quota']);
+    assert.ok(asked.includes('gemini') && asked.at(-1) === 'claude', asked.join(','));
+  } finally { console.warn = warn; }
+});
+
 test('the database: spend per provider per Bangkok day from the per-call log or the row, and billing answers of the last day', async () => {
   const db = new PGlite();
   const A = '11111111-1111-4111-8111-111111111111';

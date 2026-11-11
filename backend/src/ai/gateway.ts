@@ -617,7 +617,21 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
   // proposals expire unconfirmed after 30 minutes. Version 2 holds back a document, delete, important edit or complex
   // change instead (the light model must not make those for Sonnet), and anything after a saved proposal or memory.
   const attempt = async (route: Route, handoff?: string): Promise<ProviderResult> => {
-    if (!smart) return run(route, handoff);
+    if (!smart) {
+      try { return await run(route, handoff); }
+      catch (error) {
+        // The other way round (owner, 2026-11-12: "ถ้าจิมินายหมด ให้ไปดึงโทเค็นของคอร์สมาคุยเลย"): the light model out of
+        // credit or quota, or busy (429/5xx) after its own retry, and Sonnet answers while it has credit. The owner is
+        // still told about the light model's billing problem (routing.billing). Without Sonnet's key it stays paused.
+        if (!(error instanceof ProviderError) || error.provider === providerFor(config.smartModel ?? '') || signal.aborted
+          || !smartReady || !(billingIssueOf(error) || error.retryable)) throw error;
+        console.warn('ai: light model failed, Sonnet answers', { status: error.status });
+        noteFailed(route, error);
+        escalations.push(billingIssueOf(error) ? 'light_billing' : 'light_failed');
+        smart = config.smartModel;
+        return run(route, handoff);
+      }
+    }
     try { return await run(route, handoff); }
     catch (error) {
       if (!(error instanceof ProviderError) || signal.aborted) throw error;
