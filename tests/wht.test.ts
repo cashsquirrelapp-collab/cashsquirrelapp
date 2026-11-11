@@ -39,6 +39,9 @@ test('job saves reject zero or out-of-range contract values', () => {
   assert.throws(() => validateChanges(job(0)));
   assert.doesNotThrow(() => validateChanges(job(0.01)));
   assert.throws(() => validateChanges(job(1_000_000_000_001)));
+  // A job saved before the rule may be worth 0: saving it again (marked paid, moved) is still accepted.
+  const saved = job(0).map(change => ({ ...change, version: 3 }));
+  assert.doesNotThrow(() => validateChanges(saved));
 });
 
 test('only the 1% rate is treated as e-Withholding Tax', () => {

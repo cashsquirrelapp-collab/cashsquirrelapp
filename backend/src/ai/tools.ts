@@ -384,7 +384,8 @@ export function createToolbox(context: ToolContext) {
       // Older jobs can lack fields the app now requires; fill them the way the app's job form does.
       record.type ??= 'ยังไม่ระบุ';
       record.note ??= '';
-      try { validateChanges([{ table: 'cashflow_jobs', id: job.id, op: 'set', version: null, data: record }]); }
+      // Only a new job is checked as new: a saved job from before the above-0 rule may be worth 0.
+      try { validateChanges([{ table: 'cashflow_jobs', id: job.id, op: 'set', version: kind === 'add_job' ? null : 1, data: record }]); }
       catch (error) {
         const fields = Array.isArray((error as any)?.issues) ? (error as any).issues.map((issue: any) => (issue.path || []).join('.')).filter(Boolean) : [];
         return fail(`ข้อมูลไม่ผ่านการตรวจของแอป${fields.length ? ` (${[...new Set(fields)].join(', ')})` : ''}`);

@@ -87,9 +87,11 @@ function validated(result: LineQuickDraftResult, context: LineQuickDraftContext)
       const status = result.jobPaymentStatus ?? previous?.paymentStatus;
       if (status === 'partial' && value !== undefined && received !== undefined
         && received >= roundMoney(value - whtAmountFor(value, previous?.whtRate || 0))) return null;
+      // A job's value must be above 0 (6b8e474); a card whose amount is not said yet asks for it in the form,
+      // so an unknown amount is checked with a stand-in of 1. A said amount of 0 is still refused.
       validateChanges([{ table: 'cashflow_jobs', id: 'line-draft-check', op: 'set', version: null, data: {
         id: 'line-draft-check', name: result.jobName ?? previous?.name ?? '',
-        value: result.jobValue ?? previous?.value ?? 0, received: 0, pending: 0,
+        value: result.jobValue ?? previous?.value ?? 1, received: 0, pending: 0,
         client: result.jobClient ?? previous?.client ?? '', type: '', status: '',
         creditTerm: previous?.creditTerm ?? 0, note: '', payDate: null,
       } }]);
