@@ -72,6 +72,14 @@ test('tax: wages only file ภ.ง.ด.91; performers, insurance, RMF and donati
   assert.equal(wages.minimum_tax.applies, false);
   const performer = estimate({ taxYear: 2568, status: 'single', incomes: [{ type: '40(8)', amount: 1_000_000, kind: 'performer' }] });
   assert.equal(performer.expenses, 460_000); // 60% of 300,000 + 40% of 700,000
+  // ประณีตศิลปกรรม deducts 60% from tax year 2568 (cabinet 19 Aug 2568); other 40(6) professions stay at 30%.
+  const fineArt = estimate({ taxYear: 2568, status: 'single', incomes: [{ type: '40(6)', amount: 400_000, kind: 'fine_art' }] });
+  assert.equal(fineArt.expenses, 240_000);
+  const lawyer = estimate({ taxYear: 2568, status: 'single', incomes: [{ type: '40(6)', amount: 400_000, kind: 'other' }] });
+  assert.equal(lawyer.expenses, 120_000);
+  const unnamed = estimate({ taxYear: 2568, status: 'single', incomes: [{ type: '40(6)', amount: 400_000 }] });
+  assert.equal(unnamed.expenses, 120_000);
+  assert.ok(unnamed.assumptions.some(note => note.includes('ประณีตศิลปกรรม')), 'asks whether the work is fine art');
   const insured = estimate({ taxYear: 2568, status: 'single', incomes: [{ type: '40(8)', amount: 500_000 }],
     allowances: [{ id: 'life_insurance', amount: 90_000 }, { id: 'health_insurance', amount: 25_000 }, { id: 'rmf', amount: 200_000 }] });
   const allowed = Object.fromEntries(insured.allowances.map(row => [row.id, row.allowed]));

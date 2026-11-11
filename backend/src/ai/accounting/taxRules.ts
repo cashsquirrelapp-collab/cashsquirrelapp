@@ -11,7 +11,7 @@ export const INCOME_TYPES: readonly IncomeType[] = ['40(1)', '40(2)', '40(3)', '
 
 /** How a type of income may deduct its expenses: a flat rate, actual costs, or either. */
 export interface ExpenseRule {
-  /** Flat rates by kind (40(5) per kind of property, 40(6) medicine vs other professions); `default` when one rate. */
+  /** Flat rates by kind (40(5) per kind of property, 40(6) medicine and fine arts vs other professions); `default` when one rate. */
   flat: Record<string, number>;
   /** Cap on the flat deduction in baht, if any. */
   cap?: number;
@@ -65,7 +65,8 @@ const EXPENSES: Record<IncomeType, ExpenseRule> = {
   '40(4)': { flat: { default: 0 }, actualAllowed: false, note: 'ดอกเบี้ย เงินปันผล ไม่ให้หักค่าใช้จ่าย' },
   '40(5)': { flat: { building: 0.3, farm_land: 0.2, other_land: 0.15, vehicle: 0.3, other: 0.1, hire_purchase_breach: 0.2 }, actualAllowed: true,
     note: 'ค่าเช่า: บ้าน โรงเรือน แพ 30%, ที่ดินเกษตร 20%, ที่ดินอื่น 15%, ยานพาหนะ 30%, ทรัพย์สินอื่น 10% หรือหักตามจริง (ผิดสัญญาเช่าซื้อหักเหมา 20% วิธีเดียว)' },
-  '40(6)': { flat: { medicine: 0.6, other: 0.3 }, actualAllowed: true, note: 'วิชาชีพอิสระ: การประกอบโรคศิลปะ 60%, กฎหมาย วิศวกรรม สถาปัตยกรรม การบัญชี ประณีตศิลปกรรม 30% หรือหักตามจริง' },
+  // ประณีตศิลปกรรม moved from 30% to 60% from tax year 2568, permanently (cabinet 19 Aug 2568; the RD's 2568 ภ.ง.ด.90 guide).
+  '40(6)': { flat: { medicine: 0.6, fine_art: 0.6, other: 0.3 }, actualAllowed: true, note: 'วิชาชีพอิสระ: การประกอบโรคศิลปะและประณีตศิลปกรรม 60% (ประณีตศิลปกรรมตั้งแต่ปีภาษี 2568), กฎหมาย วิศวกรรม สถาปัตยกรรม การบัญชี 30% หรือหักตามจริง' },
   '40(7)': { flat: { default: 0.6 }, actualAllowed: true, note: 'รับเหมาที่ผู้รับเหมาจัดหาสัมภาระสำคัญเอง หักเหมา 60% หรือหักตามจริง' },
   '40(8)': { flat: { default: 0.6, performer: 0.6 }, actualAllowed: true,
     note: 'ธุรกิจ การค้า และเงินได้อื่น: หักเหมา 60% สำหรับ 43 ประเภทในตารางของกรมสรรพากร หรือหักตามจริง; ประเภทที่ไม่อยู่ในตารางหักตามจริงเท่านั้น; นักแสดงและนักกีฬาอาชีพ 60% ของ 300,000 บาทแรก 40% ส่วนที่เกิน รวมไม่เกิน 600,000 บาท' },

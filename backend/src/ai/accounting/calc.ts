@@ -20,7 +20,7 @@ export interface IncomeInput {
   /** Flat-rate or actual expenses (where the law allows both). Defaults to flat. */
   method?: 'flat' | 'actual';
   actualExpense?: number;
-  /** 40(5): building | farm_land | other_land | vehicle | other | hire_purchase_breach; 40(6): medicine | other;
+  /** 40(5): building | farm_land | other_land | vehicle | other | hire_purchase_breach; 40(6): medicine | fine_art | other;
    *  40(8): listed (the 43 types, 60%) | performer | unlisted (actual only). */
   kind?: string;
   /** Part received January to June (for the half-year ภ.ง.ด.94 check). */
@@ -104,7 +104,7 @@ function expenseFor(rules: TaxYearRules, type: IncomeType, items: IncomeInput[],
     if (item.method === 'actual' && rule.actualAllowed && item.kind !== 'hire_purchase_breach') { total += Math.min(satang(nonNegative(item.actualExpense)), amount); continue; }
     const rate = rule.flat[item.kind ?? ''] ?? rule.flat.default ?? rule.flat.other ?? 0;
     if ((type === '40(5)' || type === '40(6)') && !(item.kind && item.kind in rule.flat)) {
-      notes.push(type === '40(5)' ? 'ไม่ได้ระบุชนิดทรัพย์สินที่ให้เช่า จึงใช้อัตราทรัพย์สินอื่น 10%' : 'ไม่ได้ระบุว่าเป็นการประกอบโรคศิลปะหรือไม่ จึงใช้อัตราวิชาชีพอิสระอื่น 30%');
+      notes.push(type === '40(5)' ? 'ไม่ได้ระบุชนิดทรัพย์สินที่ให้เช่า จึงใช้อัตราทรัพย์สินอื่น 10%' : 'ไม่ได้ระบุว่าเป็นการประกอบโรคศิลปะหรือประณีตศิลปกรรมหรือไม่ จึงใช้อัตราวิชาชีพอิสระอื่น 30%');
     }
     total += pct(amount, rate);
   }

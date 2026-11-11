@@ -23,7 +23,7 @@ export const ACCOUNTING_TOOLS: ToolSpec[] = [
         type: { type: 'string', enum: [...INCOME_TYPES] }, amount: num('Gross amount for the year, baht'),
         method: { type: 'string', enum: ['flat', 'actual'], description: 'Flat-rate (default) or actual expenses' },
         actual_expense: num('Actual expenses, baht (method actual)'),
-        kind: { type: 'string', description: '40(5): building | farm_land | other_land | vehicle | other | hire_purchase_breach; 40(6): medicine | other; 40(8): listed | performer | unlisted' },
+        kind: { type: 'string', description: '40(5): building | farm_land | other_land | vehicle | other | hire_purchase_breach; 40(6): medicine | fine_art | other; 40(8): listed | performer | unlisted' },
         first_half: num('Part received January to June, baht (half-year return check)'),
       }, required: ['type', 'amount'] } },
       allowances: { type: 'array', description: 'Allowances the user has (personal is added automatically)', items: { type: 'object', properties: {
