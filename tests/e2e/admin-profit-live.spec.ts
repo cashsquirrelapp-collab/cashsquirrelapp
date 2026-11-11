@@ -161,3 +161,33 @@ test('AI credit: days left and what to top up per provider; a recorded balance c
   expect(server.saved).toEqual([{ provider: 'anthropic', balanceUsd: 40, note: 'เติม $35' }]);
   await expect(page.getByRole('alert').filter({ hasText: 'เหลือใช้ได้อีกราว' })).toHaveCount(1, { timeout: 1000 }).catch(() => undefined);
 });
+
+// The owner's button (2026-11-12: "ถ้ากูไม่กด มึงห้ามสลับนะ แต่ถ้ากูกด มึงสามารถสลับต่อเนื่องได้เลย"): Gemini out, the
+// owner switches เลขา to Claude from the strip, and back. Nothing is sent until a button is pressed.
+for (const width of [1440, 820]) test(`Gemini out (${width}px): the owner switches เลขา to Claude and back; nothing switches by itself`, async ({ page }) => {
+  await open(page, width);
+  const state = { on: false, posts: [] as unknown[] };
+  const geminiOut = () => ({ ...credit(35), providers: [credit(35).providers[0], creditStatus('google', { status: 'out', issues: [{ issue: 'gemini_quota', times: 3, lastAt: new Date().toISOString() }] })],
+    smartSwitch: { on: state.on, at: state.on ? '2026-11-12T02:30:00.000Z' : null, ready: true, read: true } });
+  await page.route('**/api/admin-ai-credit', route => {
+    if (route.request().method() === 'POST') { const body = route.request().postDataJSON(); state.posts.push(body); state.on = body.smartForLight; }
+    return route.fulfill({ json: geminiOut() });
+  });
+  await page.reload();
+  const alert = page.getByRole('alert').filter({ hasText: 'Gemini (Google) แจ้งว่าเครดิตหรือโควตาไม่พอแล้ว' });
+  const turnOn = alert.getByRole('button', { name: 'ใช้ Claude แทนชั่วคราว' });
+  await expect(turnOn).toBeVisible();
+  await expect(alert).toContainText('กดปุ่มนี้แล้วเลขาจะใช้ Claude ตอบทุกข้อความจนกว่าจะกดกลับ');
+  expect(state.posts).toEqual([]);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await turnOn.click();
+  await expect.poll(() => state.posts).toEqual([{ smartForLight: true }]);
+  const strip = page.getByRole('status').filter({ hasText: 'เลขากำลังใช้ Claude ตอบแทน Gemini ทุกข้อความ' });
+  await expect(strip).toBeVisible();
+  await expect(turnOn).toHaveCount(0);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await strip.getByRole('button', { name: 'กลับไปใช้ Gemini' }).click();
+  await expect.poll(() => state.posts).toEqual([{ smartForLight: true }, { smartForLight: false }]);
+  await expect(strip).toHaveCount(0);
+  await expect(turnOn).toBeVisible();
+});

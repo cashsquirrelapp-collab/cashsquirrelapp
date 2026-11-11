@@ -11,6 +11,9 @@ export interface AiConfig {
   chatModel: string;
   /** The smart model for hard requests (difficulty.ts), e.g. claude-sonnet-5-5; off when unset or its key is missing. */
   smartModel?: string;
+  /** The owner's button (repositories/aiSwitch.ts), set per message, never from env: the smart model answers every
+   * message instead of the light one (Gemini out of credit, not topped up yet). Needs the smart model's key. */
+  smartForLight?: boolean;
   actionModel: string;
   /** Dictation (transcription.ts): a Gemini model that hears Thai well; AI_VOICE_MODEL changes it. */
   voiceModel: string;

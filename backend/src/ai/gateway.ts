@@ -13,6 +13,7 @@ import { founderStoryLine, founderStoryReference } from './knowledgeAdditions/fo
 import { detectSignals, lookupSignal, type KnowledgeSignal } from './signals.js';
 import { knowledgeSnippets, lookupKnowledge } from './knowledge.js';
 import { PROMPT_VERSION, bangkokNow, buildSystemPrompt, type PromptSlots } from './prompt.js';
+import { LIGHT_STYLE } from './lightStyle.js';
 import { geminiProvider } from './providers/gemini.js';
 import { openaiProvider } from './providers/openai.js';
 import { anthropicProvider } from './providers/anthropic.js';
@@ -272,9 +273,14 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
   // up from Gemini, and analysis or a long text that Sonnet would only do better stays light. Documents, deletes and
   // important edits still go to Sonnet; the cap itself stops everything (cashflow_ai_reserve).
   const soft = Boolean(request.budget && request.budget.capUsd > 0 && request.budget.spentTodayUsd >= request.budget.capUsd * (config.softBudgetShare ?? 0.8));
+  // The owner's button (repositories/aiSwitch.ts; owner, 2026-11-12: "สลับรางรถไฟเฉยๆ"): Gemini out of credit, so Claude
+  // runs on Gemini's track. Every request the light model would take goes to Claude in the light model's place, with
+  // the light model's effort, no web search and its answer style (LIGHT_STYLE), so the user notices no change. What
+  // goes to the smart model anyway (documents, deletes, files, web questions) stays exactly as before.
+  const ownerSwitch = Boolean(config.smartForLight && smartReady);
   let smart = smartReady && decision.tier === 'smart' && !(soft && !decision.smartRequired) ? config.smartModel : undefined;
   let required = decision.smartRequired;
-  const lightModel = (route: Route) => route === 'chat' ? config.chatModel : config.actionModel;
+  const lightModel = (route: Route) => ownerSwitch ? config.smartModel! : route === 'chat' ? config.chatModel : config.actionModel;
   const modelFor = (route: Route) => smart ?? lightModel(route);
   const firstRoute = request.forceRoute ?? decision.tools;
   // Both keys are checked up front: a chat request can hand over to the action model mid-request. The light
@@ -297,7 +303,7 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
   const calls: ModelCall[] = [];
   const cards: AssistantCard[] = [];
   // For the routing log: what happened besides the first model's answer.
-  const escalations: string[] = [];
+  const escalations: string[] = ownerSwitch ? ['owner_switch'] : [];
   const toolNames: string[] = [];
   let fallback: 'light' | 'blocked' | null = null;
   let providerRetries = 0;
@@ -565,9 +571,11 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
     };
     const model = modelFor(route);
     const name = providerFor(model);
+    // Claude standing in for the light model (the owner's button): the light model's settings and style.
+    const asLight = ownerSwitch && !smart;
     // Outside facts (routingPolicy.webResearch): Claude's own web search on the conversation route, one search in LINE
     // (its answer has a 20-second deadline), two in the app.
-    const web = Boolean(decision.web && route === 'chat' && name === 'anthropic' && config.webSearchMaxUses > 0);
+    const web = Boolean(decision.web && route === 'chat' && name === 'anthropic' && !asLight && config.webSearchMaxUses > 0);
     const system = buildSystemPrompt({
       route, plan: request.plan, trialLeft: request.trialLeft, tokensLeft: request.tokensLeft,
       accountName: request.accountName, communicationProfile: request.communicationProfile, memories: request.memories,
@@ -576,10 +584,10 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
       ...(route === 'action' ? { files, documents: docs, pastWork: pastWorkFor(handoff), ...(docs ? { issuer: issuerContext(request.user) } : {}) } : {}),
       ...(short ? { shortTools: true } : {}),
       ...(web ? { web: true } : {}),
-    }) + (handoff ? `\n\nHANDOVER FROM THE CONVERSATION ASSISTANT: ${handoff}` : '');
+    }) + (handoff ? `\n\nHANDOVER FROM THE CONVERSATION ASSISTANT: ${handoff}` : '') + (asLight ? `\n\n${LIGHT_STYLE}` : '');
     // Gemini Flash-Lite thinks least by default; the action model reasons a little before changing data.
     // Claude reasons more on changes (medium) and answers questions at low effort.
-    const effort: Effort = name === 'anthropic' ? (route === 'chat' ? 'low' : 'medium') : route === 'chat' && name === 'gemini' ? 'minimal' : 'low';
+    const effort: Effort = name === 'anthropic' ? (asLight || route === 'chat' ? 'low' : 'medium') : route === 'chat' && name === 'gemini' ? 'minimal' : 'low';
     // The next round is estimated from the last one with its cache writes priced as reads: the shared rules are
     // written once (the first request of an hour) and read on every round after it.
     let previous = emptyUsage();
@@ -617,21 +625,7 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
   // proposals expire unconfirmed after 30 minutes. Version 2 holds back a document, delete, important edit or complex
   // change instead (the light model must not make those for Sonnet), and anything after a saved proposal or memory.
   const attempt = async (route: Route, handoff?: string): Promise<ProviderResult> => {
-    if (!smart) {
-      try { return await run(route, handoff); }
-      catch (error) {
-        // The other way round (owner, 2026-11-12: "ถ้าจิมินายหมด ให้ไปดึงโทเค็นของคอร์สมาคุยเลย"): the light model out of
-        // credit or quota, or busy (429/5xx) after its own retry, and Sonnet answers while it has credit. The owner is
-        // still told about the light model's billing problem (routing.billing). Without Sonnet's key it stays paused.
-        if (!(error instanceof ProviderError) || error.provider === providerFor(config.smartModel ?? '') || signal.aborted
-          || !smartReady || !(billingIssueOf(error) || error.retryable)) throw error;
-        console.warn('ai: light model failed, Sonnet answers', { status: error.status });
-        noteFailed(route, error);
-        escalations.push(billingIssueOf(error) ? 'light_billing' : 'light_failed');
-        smart = config.smartModel;
-        return run(route, handoff);
-      }
-    }
+    if (!smart) return run(route, handoff);
     try { return await run(route, handoff); }
     catch (error) {
       if (!(error instanceof ProviderError) || signal.aborted) throw error;

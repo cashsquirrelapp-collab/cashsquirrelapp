@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { AlertTriangle, CircleAlert, ExternalLink, Save } from 'lucide-react';
+import { AlertTriangle, ArrowLeftRight, CircleAlert, ExternalLink, Save } from 'lucide-react';
 import type { AiCreditSnapshot, CreditProvider, CreditStatus } from '../../../../shared/aiCredit';
 import { uiSurface } from '../../components/ui/uiStyles';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { adminAiCreditApi } from '../../services/adminAiCredit';
-import { secondary } from './groupUi';
+import { primary, secondary } from './groupUi';
 
 // เครดิต AI และเงินสำรอง (owner, 2026-10-25: "ต้องมีเงินสำรองประมาณนี้เพื่อไปเติม API ของตัวนี้ ... ให้มันบาลานซ์ ไม่ใช่ว่า
 // หมดแล้วค่อยเติม"). Each provider's estimated credit left (the balance the owner recorded − what the app measured
@@ -44,14 +44,48 @@ export function AiCreditBanner({ userId, onOpen }: { userId: string; onOpen: () 
     const timer = window.setInterval(load, REFRESH_MS);
     return () => { controller.abort(); window.clearInterval(timer); };
   }, [userId]);
+  const [busy, setBusy] = useState(false);
+  const [turnError, setTurnError] = useState('');
   const urgent = snapshot?.providers.filter(status => status.status === 'low' || status.status === 'out') ?? [];
-  if (!urgent.length) return null;
-  return <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-300/60 bg-red-50 px-4 py-3 text-sm text-red-800 dark:bg-red-950/20 dark:text-red-200">
+  // The owner's button (2026-11-12): only the owner turns it on, and it stays on until turned off (nothing switches by
+  // itself). Offered while Gemini is low or out and Claude's key is set and Claude itself is not out.
+  const smart = snapshot?.smartSwitch;
+  const geminiShort = urgent.some(status => status.provider === 'google');
+  const claudeOut = snapshot?.providers.some(status => status.provider === 'anthropic' && status.status === 'out') ?? false;
+  const turn = async (on: boolean) => {
+    setBusy(true); setTurnError('');
+    try { setSnapshot(await adminAiCreditApi.setSmartForLight(userId, on)); }
+    catch (cause) { setTurnError((cause as Error).message || copy('สลับไม่สำเร็จ กรุณาลองใหม่', 'Could not switch, please try again')); }
+    finally { setBusy(false); }
+  };
+  const since = smart?.at ? new Date(smart.at).toLocaleString(language === 'th' ? 'th-TH' : 'en-US', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+  const switchStrip = smart?.on ? <div role="status" className="grid gap-2 rounded-2xl border border-amber-300/70 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700/50 dark:bg-amber-950/20 dark:text-amber-200">
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <p className="flex min-w-0 items-start gap-2 leading-relaxed"><ArrowLeftRight size={17} className="mt-0.5 shrink-0" aria-hidden="true" />
+        <span>{copy(`เลขากำลังใช้ Claude ตอบแทน Gemini ทุกข้อความ ทั้งในแอปและ LINE${since ? ` ตั้งแต่ ${since}` : ''} ค่าใช้จ่ายต่อข้อความสูงกว่าปกติ เติมเครดิต Gemini แล้วกดกลับได้เลย`,
+          `เลขา is answering every message with Claude instead of Gemini, in the app and LINE${since ? ` since ${since}` : ''}. Each message costs more than usual. Switch back once Gemini is topped up.`)}</span></p>
+      <button type="button" className={secondary} onClick={() => void turn(false)} disabled={busy}>{copy('กลับไปใช้ Gemini', 'Back to Gemini')}</button>
+    </div>
+    {turnError && <p role="alert" className="text-xs text-red-700 dark:text-red-300">{turnError}</p>}
+  </div> : null;
+  if (!urgent.length) return switchStrip;
+  const offer = !smart?.on && geminiShort && smart?.ready === true && !claudeOut;
+  return <div className="grid gap-2">
+  {switchStrip}
+  <div role="alert" className="grid gap-2 rounded-2xl border border-red-300/60 bg-red-50 px-4 py-3 text-sm text-red-800 dark:bg-red-950/20 dark:text-red-200">
+  <div className="flex flex-wrap items-center justify-between gap-3">
     <p className="flex min-w-0 items-start gap-2 leading-relaxed"><AlertTriangle size={17} className="mt-0.5 shrink-0" aria-hidden="true" /><span>{urgent.map(status => status.issues.length
       ? copy(`${NAME[status.provider]} แจ้งว่าเครดิตหรือโควตาไม่พอแล้ว`, `${NAME[status.provider]} says its credit or quota has run out`)
       : status.status === 'out' ? copy(`${NAME[status.provider]} เครดิตน่าจะหมดแล้ว`, `${NAME[status.provider]} credit is probably used up`)
         : copy(`${NAME[status.provider]} เหลือใช้ได้อีกราว ${status.runwayDays} วัน`, `${NAME[status.provider]} lasts about ${status.runwayDays} more days`)).join(' · ')}</span></p>
-    <button type="button" className={secondary} onClick={onOpen}>{copy('ดูและบันทึกยอด', 'View and record')}</button>
+    <div className="flex flex-wrap items-center gap-2">
+      {offer && <button type="button" className={primary} onClick={() => void turn(true)} disabled={busy}><ArrowLeftRight size={15} aria-hidden="true" />{copy('ใช้ Claude แทนชั่วคราว', 'Use Claude for now')}</button>}
+      <button type="button" className={secondary} onClick={onOpen}>{copy('ดูและบันทึกยอด', 'View and record')}</button>
+    </div>
+  </div>
+  {offer && <p className="text-xs leading-relaxed">{copy('ระหว่างนี้ลูกค้าที่ถามเลขาจะเห็นว่าเลขาพักให้บริการ กดปุ่มนี้แล้วเลขาจะใช้ Claude ตอบทุกข้อความจนกว่าจะกดกลับ', 'Meanwhile customers see that เลขา is paused. Press this and เลขา answers every message with Claude until you switch back.')}</p>}
+  {!smart?.on && turnError && <p role="alert" className="text-xs text-red-700 dark:text-red-300">{turnError}</p>}
+  </div>
   </div>;
 }
 

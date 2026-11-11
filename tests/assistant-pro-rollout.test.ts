@@ -112,6 +112,8 @@ beforeEach(() => {
     if (url.pathname.endsWith('/cashflow_ai_memories')) return json([]);
     // The name เลขา calls the user by (2026-10-27), read for the signed-in account only.
     if (url.pathname.endsWith('/cashflow_profiles') && (owner === A || owner === B)) return json({ display_name: 'ผู้ใช้ทดสอบ' });
+    // The owner's button (2026-11-12): one app-wide switch, read as that value only. Off here: Gemini answers.
+    if (url.pathname.endsWith('/cashflow_private_state') && url.searchParams.get('select') === 'value:data->aiSmartForLight') return json([]);
     // Tokens the owner gave (2026-11-04), read for the signed-in account only.
     if (url.pathname.endsWith('/cashflow_private_state') && (owner === A || owner === B) && url.searchParams.get('select') === 'grants:data->aiTokenGrants') return json({ grants: owner === A ? given : null });
     // The account's consent to เลขากระรอก (2026-11-05), read for the signed-in account only.

@@ -38,6 +38,8 @@ export interface AssistantDb {
   loadAccount(userId: string): Promise<{ user: UserRow; versions: Record<string, number>; absentRecords?: string[] }>;
   /** Read metadata only. Called lazily with the authenticated ID, never a model-supplied scope. */
   listVaultFiles?(userId: string): Promise<VaultFile[]>;
+  /** The owner's button: Claude answers every message instead of Gemini (repositories/aiSwitch.ts). Absent means off. */
+  smartForLight?(): Promise<boolean>;
   reserve(input: { userId: string; cycle: string; requestId: string; tokens: number; tokenLimit: number | null; requestLimit: number | null; dailyCapUsd: number }): Promise<ReserveResult>;
   /**
    * Replace the reservation with what the request cost: tokens charged and the real spend (also when released, so the
@@ -367,6 +369,8 @@ export async function handleMessage(db: AssistantDb, deps: MessageDeps, userId: 
         routing: routingRecord(decideRoute({ text: input.text }, config.routingPolicy ?? 'v2'), { tier: 'direct', reason: `quick_${kind}`, outcome: 'direct' }) };
     } else {
     const tokensLeft = limits.tokenLimit === null ? undefined : Math.max(0, limits.tokenLimit - reserved.usedTokens + RESERVE_TOKENS);
+    // Off unless the owner pressed the button; a read error counts as off.
+    const smartForLight = (await db.smartForLight?.().catch(() => false)) === true;
     reply = await runAssistant({
       user, plan, text: input.text, history, pageName: input.pageName, channel: input.channel, attachments: turnFiles(input),
       // The account's name, never a remembered nickname: an old "เรียกผมว่า…" kept winning over a newer one.
@@ -378,7 +382,7 @@ export async function handleMessage(db: AssistantDb, deps: MessageDeps, userId: 
       // The 1-hour cache for the shared rules pays off only when Sonnet answers twice or more an hour (cost brief,
       // 2026-10-25): the last hour's count picks it; while Sonnet is quiet, the 5-minute cache costs less.
       ...(reserved.smartLastHour !== undefined ? { cacheHint: reserved.smartLastHour >= 2 ? '1h' as const : '5m' as const } : {}),
-    }, { config, proposals, memory, providers: deps.providers, fetchImpl: deps.fetchImpl, now: deps.now, signal: deps.signal,
+    }, { config: smartForLight ? { ...config, smartForLight: true } : config, proposals, memory, providers: deps.providers, fetchImpl: deps.fetchImpl, now: deps.now, signal: deps.signal,
       loadVaultFiles: db.listVaultFiles ? () => db.listVaultFiles!(userId) : undefined, onProgress: deps.onProgress });
     if (carried && reply.routing) reply.routing = { ...reply.routing, continued_from: carried.from };
     }

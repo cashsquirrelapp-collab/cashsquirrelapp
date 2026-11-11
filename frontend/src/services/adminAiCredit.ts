@@ -13,4 +13,8 @@ export const adminAiCreditApi = {
   save(account: string, body: { provider: CreditProvider; balanceUsd: number; note?: string }) {
     return apiJson<AiCreditSnapshot>('/api/admin-ai-credit', { method: 'POST', body: JSON.stringify(body), headers: { 'X-Account-ID': account } }).then(checked);
   },
+  /** The owner's button: Claude answers every เลขา message instead of Gemini (on), or Gemini again (off). */
+  setSmartForLight(account: string, on: boolean) {
+    return apiJson<AiCreditSnapshot>('/api/admin-ai-credit', { method: 'POST', body: JSON.stringify({ smartForLight: on }), headers: { 'X-Account-ID': account } }).then(checked);
+  },
 };

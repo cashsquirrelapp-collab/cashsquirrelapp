@@ -89,21 +89,66 @@ test('a request where Claude is out of credit still answers with Gemini, and the
   } finally { console.warn = warn; }
 });
 
-test('Gemini out of quota: Claude answers instead, and the owner still hears about the quota (owner, 2026-11-12)', async () => {
+// The owner's button (2026-11-12: "ถ้ากูไม่กด มึงห้ามสลับนะ แต่ถ้ากูกด มึงสามารถสลับต่อเนื่องได้เลย").
+const quotaThenClaude = (asked: string[], bodies: any[] = []) => (async (input: RequestInfo | URL, init?: RequestInit) => {
+  const url = String(input);
+  asked.push(url.includes('anthropic') ? 'claude' : 'gemini');
+  if (url.includes('anthropic')) bodies.push(JSON.parse(String(init?.body ?? '{}')));
+  if (url.includes('anthropic')) return new Response(JSON.stringify({ id: 'msg', type: 'message', role: 'assistant', model: 'claude-sonnet-5-5', content: [{ type: 'text', text: 'อธิบายให้แล้วครับ' }], stop_reason: 'end_turn', stop_sequence: null, usage: { input_tokens: 10, output_tokens: 5 } }), { status: 200, headers: { 'content-type': 'application/json', 'request-id': 'req' } });
+  return new Response(JSON.stringify({ error: { code: 429, message: 'You exceeded your current quota, please check your plan and billing details.', status: 'RESOURCE_EXHAUSTED' } }), { status: 429, headers: { 'content-type': 'application/json' } });
+}) as unknown as typeof fetch;
+const serviceDb = (switchOn?: boolean): any => ({
+  async loadAccount() { return { user: account(), versions: {} }; },
+  async reserve() { return { ok: true, usedTokens: 5, usedRequests: 1 }; },
+  async settle() {}, async usage() { return { tokens: 0, requests: 0 }; },
+  async saveProposal() {}, async claimProposal() { return null; }, async finishProposal() {}, async cancelProposal() { return false; },
+  async applyChanges() { return true; }, async memories() { return []; }, async remember() {}, async saveRouting() {},
+  ...(switchOn === undefined ? {} : { async smartForLight() { return switchOn; } }),
+});
+
+test('Gemini out of quota and the owner has not pressed the button: nothing switches, เลขา says it is paused', async () => {
+  const { handleMessage } = await import('../backend/src/ai/service');
   const warn = console.warn; console.warn = () => undefined;
-  const asked: string[] = [];
-  const fetchImpl = (async (input: RequestInfo | URL) => {
-    const url = String(input);
-    asked.push(url.includes('anthropic') ? 'claude' : 'gemini');
-    if (url.includes('anthropic')) return new Response(JSON.stringify({ id: 'msg', type: 'message', role: 'assistant', model: 'claude-sonnet-5-5', content: [{ type: 'text', text: 'อธิบายให้แล้วครับ' }], stop_reason: 'end_turn', stop_sequence: null, usage: { input_tokens: 10, output_tokens: 5 } }), { status: 200, headers: { 'content-type': 'application/json', 'request-id': 'req' } });
-    return new Response(JSON.stringify({ error: { code: 429, message: 'You exceeded your current quota, please check your plan and billing details.', status: 'RESOURCE_EXHAUSTED' } }), { status: 429, headers: { 'content-type': 'application/json' } });
-  }) as unknown as typeof fetch;
   try {
-    const reply = await runAssistant({ user: account(), plan: 'pro', text: 'ช่วยอธิบายวิธีเพิ่มโปรเจกต์' }, { config: aiConfig(env), ...memoryStores(), fetchImpl });
-    assert.equal(reply.text, 'อธิบายให้แล้วครับ');
-    assert.deepEqual(reply.routing?.billing, ['gemini_quota']);
-    assert.ok(asked.includes('gemini') && asked.at(-1) === 'claude', asked.join(','));
+    for (const db of [serviceDb(), serviceDb(false)]) {
+      const asked: string[] = [];
+      await assert.rejects(handleMessage(db, { config: aiConfig(env), fetchImpl: quotaThenClaude(asked) }, account().user_id, 'pro', { text: 'ช่วยอธิบายวิธีเพิ่มโปรเจกต์' }),
+        (error: any) => error.status === 503 && error.code === 'ai_paused');
+      assert.ok(asked.length > 0 && !asked.includes('claude'), asked.join(','));
+    }
   } finally { console.warn = warn; }
+});
+
+test('the owner pressed the button: Claude answers every message on Gemini\'s track, and Gemini is not asked at all', async () => {
+  const { handleMessage } = await import('../backend/src/ai/service');
+  const asked: string[] = [];
+  const bodies: any[] = [];
+  const reply = await handleMessage(serviceDb(true), { config: aiConfig(env), fetchImpl: quotaThenClaude(asked, bodies) }, account().user_id, 'pro', { text: 'ช่วยอธิบายวิธีเพิ่มโปรเจกต์' });
+  assert.equal(reply.text, 'อธิบายให้แล้วครับ');
+  assert.ok(asked.length > 0 && asked.every(name => name === 'claude'), asked.join(','));
+  // "สลับรางรถไฟเฉยๆ": the light model's effort, no web search, and its answer style.
+  const system = (body: any) => JSON.stringify(body.system);
+  assert.ok(bodies.every(body => system(body).includes('STYLE FOR THIS ANSWER')), 'every call has the light style');
+  assert.ok(bodies.every(body => body.output_config?.effort === 'low'));
+  assert.ok(bodies.every(body => !(body.tools || []).some((tool: any) => /web_search/.test(tool.type || ''))));
+  // What goes to Claude anyway (a document) stays as it always was: no light style.
+  const smartBodies: any[] = [];
+  await handleMessage(serviceDb(true), { config: aiConfig(env), fetchImpl: quotaThenClaude([], smartBodies) }, account().user_id, 'pro', { text: 'ออกใบเสนอราคาให้ร้านบี 5,000 บาท' });
+  assert.ok(smartBodies.length > 0 && smartBodies.every(body => !system(body).includes('STYLE FOR THIS ANSWER')), 'a document keeps the usual Claude rules');
+  // Without Claude's key the button does nothing: Gemini answers or the paused message stays.
+  const warn = console.warn; console.warn = () => undefined;
+  try {
+    const geminiOnly: string[] = [];
+    await assert.rejects(handleMessage(serviceDb(true), { config: aiConfig({ AI_ENABLED: 'true', GEMINI_API_KEY: 'g' }), fetchImpl: quotaThenClaude(geminiOnly) }, account().user_id, 'pro', { text: 'สวัสดีครับ' }),
+      (error: any) => error.code === 'ai_paused');
+    assert.ok(!geminiOnly.includes('claude'));
+  } finally { console.warn = warn; }
+});
+
+test('the switch kept in private state: only a well-formed value counts', async () => {
+  const { readSmartSwitch } = await import('../backend/src/repositories/aiSwitch');
+  assert.deepEqual(readSmartSwitch({ on: true, at: '2026-11-12T02:30:00.000Z' }), { on: true, at: '2026-11-12T02:30:00.000Z' });
+  for (const bad of [null, 'on', { on: 'yes', at: '2026-11-12T02:30:00Z' }, { on: true }, { on: true, at: 'soon' }]) assert.equal(readSmartSwitch(bad), null, JSON.stringify(bad));
 });
 
 test('the database: spend per provider per Bangkok day from the per-call log or the row, and billing answers of the last day', async () => {

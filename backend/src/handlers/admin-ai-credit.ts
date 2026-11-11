@@ -8,17 +8,20 @@ import { rateLimit } from '../security/rateLimit.js';
 import { requireUser } from '../security/session.js';
 import { loadCostSettings } from '../services/adminProfitReportRun.js';
 import { loadCreditSnapshot } from '../services/aiCredit.js';
+import { loadSmartSwitch, saveSmartSwitch } from '../repositories/aiSwitch.js';
 import { proTokenLimits } from '../services/proTokens.js';
 
 // The admin page's AI credit and reserve (owner, 2026-10-25). GET: each provider's estimated credit left, days left at
 // the recent pace, the reserve for 30 days and what to top up. POST: the owner records the balance the provider's
-// console shows now (after a top-up). Owner-only; nothing else is written.
+// console shows now (after a top-up), or turns the owner's button on or off (2026-11-12: Claude answers every message
+// while Gemini is out of credit; repositories/aiSwitch.ts). Owner-only; nothing else is written.
 
 const bodySchema = z.object({
   provider: z.enum(['anthropic', 'google']),
   balanceUsd: z.number().finite().min(0).max(999_999),
   note: z.string().trim().max(200).optional(),
 }).strict();
+const switchSchema = z.object({ smartForLight: z.boolean() }).strict();
 
 export default withGuard(async (req, res) => {
   if (req.method !== 'GET' && req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
@@ -27,7 +30,15 @@ export default withGuard(async (req, res) => {
   if (!canViewAdminAnalytics(user, await systemRole(user.id))) throw new HttpError(403, 'หน้านี้เข้าถึงได้เฉพาะเจ้าของระบบเท่านั้น');
   await rateLimit(req.method === 'POST' ? 'admin-ai-credit-save' : 'admin-ai-credit', user.id, req.method === 'POST' ? 10 : 30, 60);
   const db = getSupabaseAdmin();
-  if (req.method === 'POST') {
+  const settings = aiConfig(process.env);
+  const smartReady = Boolean(settings.smartModel && settings.anthropicKey);
+  const turned = req.method === 'POST' ? switchSchema.safeParse(req.body) : null;
+  if (turned?.success) {
+    // Turning it on needs Claude's key; turning it off always works.
+    if (turned.data.smartForLight && !smartReady) throw new HttpError(409, 'ยังไม่ได้ตั้งคีย์ของ Claude จึงสลับไม่ได้');
+    try { await saveSmartSwitch(user.id, turned.data.smartForLight); }
+    catch { throw new HttpError(503, 'บันทึกการสลับไม่สำเร็จ กรุณาลองใหม่'); }
+  } else if (req.method === 'POST') {
     const parsed = bodySchema.safeParse(req.body);
     if (!parsed.success) throw new HttpError(400, 'ยอดเครดิตไม่ถูกต้อง');
     const saved = await db.from('cashflow_admin_ai_credit').insert({
@@ -35,18 +46,19 @@ export default withGuard(async (req, res) => {
     });
     if (saved.error) throw new HttpError(503, saved.error.code === '42P01' || saved.error.code === 'PGRST205' ? 'ยังไม่ได้รัน SQL ของส่วนเครดิต AI' : 'บันทึกยอดเครดิตไม่สำเร็จ');
   }
-  const settings = aiConfig(process.env);
   const rate4 = (await loadCostSettings(db).catch(() => null))?.settings.rate4 ?? null;
   try {
     const now = new Date();
-    const [snapshot, limits] = await Promise.all([
+    const [snapshot, limits, smartSwitch] = await Promise.all([
       loadCreditSnapshot(db, now, { rate4, dailyCapUsd: settings.dailyCostCapUsd, payingMembers: null, proTokens: settings.proTokensPerCycle, tokenUsd: settings.tokenUsd }),
       proTokenLimits(db, now).catch(() => null),
+      loadSmartSwitch(true).catch(() => null),
     ]);
     // Members on a paid plan have that plan's tokens (shared/proTokens.ts); everyone else the default allowance.
     const planned = limits ? { planTokens: [...limits.values()].reduce((sum, tokens) => sum + tokens, 0), planAccounts: limits.size } : {};
     res.setHeader('Cache-Control', 'no-store');
-    res.status(200).json({ ...snapshot, allowance: { proTokens: settings.proTokensPerCycle, tokenUsd: settings.tokenUsd, ...planned } });
+    res.status(200).json({ ...snapshot, allowance: { proTokens: settings.proTokensPerCycle, tokenUsd: settings.tokenUsd, ...planned },
+      smartSwitch: { on: smartSwitch?.on === true, at: smartSwitch?.at ?? null, ready: smartReady, read: smartSwitch !== null } });
   } catch (error) {
     throw new HttpError(503, (error as Error).message === 'sql_not_run' ? 'ยังไม่ได้รัน SQL ของส่วนเครดิต AI' : 'อ่านข้อมูลเครดิต AI ไม่ได้ในตอนนี้');
   }

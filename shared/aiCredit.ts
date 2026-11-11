@@ -39,4 +39,7 @@ export interface AiCreditSnapshot {
   /** The Pro token allowance, for the page's worst case (the API adds it): the default one, and the sum of the paid
    * plans' allowances with how many accounts it covers (shared/proTokens.ts), when the orders could be read. */
   allowance?: { proTokens: number; tokenUsd: number; planTokens?: number; planAccounts?: number };
+  /** The owner's button (2026-11-12): Claude answers every เลขา message instead of Gemini. ready = Claude's key is set;
+   * read = false when the setting could not be read. */
+  smartSwitch?: { on: boolean; at: string | null; ready: boolean; read: boolean };
 }

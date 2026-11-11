@@ -177,6 +177,11 @@ beforeEach(() => {
       assert.ok(owners.includes(owner!), 'given tokens must be read with an authenticated owner filter');
       return json({ grants: null });
     }
+    // The owner's button (2026-11-12): one app-wide switch, read as that value only, never any account's own data.
+    if (url.pathname.endsWith('/cashflow_private_state') && url.searchParams.get('select') === 'value:data->aiSmartForLight') {
+      assert.equal(url.searchParams.get('data->aiSmartForLight'), 'not.is.null');
+      return json([]);
+    }
     // The name เลขา calls the user by (2026-10-27): the account's own profile, read with the authenticated owner only.
     if (url.pathname.endsWith('/cashflow_profiles')) {
       assert.ok(owners.includes(owner!), 'the account name must be read with an authenticated owner filter');
