@@ -24,15 +24,16 @@ function formatDisplay(raw: string): string {
 // Keeps at most one leading minus and one decimal point, strips everything else (including the
 // commas formatDisplay adds) back out -- this is what callers' existing parseFloat/setState
 // logic actually receives.
-function stripToRaw(display: string, maxDecimals?: number, allowNegative = true): string {
+function stripToRaw(display: string, maxDecimals: number, maxIntegerDigits: number, allowNegative = true): string {
   const negative = allowNegative && display.trim().startsWith('-');
   let s = display.replace(/[^\d.]/g, '');
   const firstDot = s.indexOf('.');
   if (firstDot !== -1) {
     let decimals = s.slice(firstDot + 1).replace(/\./g, '');
-    // Money fields stop at satang: a third decimal is simply not taken.
-    if (maxDecimals !== undefined) decimals = decimals.slice(0, maxDecimals);
-    s = s.slice(0, firstDot + 1) + decimals;
+    decimals = decimals.slice(0, maxDecimals);
+    s = `${s.slice(0, firstDot).slice(0, maxIntegerDigits)}.${decimals}`;
+  } else {
+    s = s.slice(0, maxIntegerDigits);
   }
   return (negative ? '-' : '') + s;
 }
@@ -40,13 +41,15 @@ function stripToRaw(display: string, maxDecimals?: number, allowNegative = true)
 interface NumberInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'type'> {
   value: string | number | undefined;
   onChange: (raw: string) => void;
-  /** Most digits accepted after the decimal point; unlimited when left out. */
+  /** Maximum digits accepted after the decimal point. */
   maxDecimals?: number;
+  /** Maximum whole-number digits, to keep monetary values within supported bounds. */
+  maxIntegerDigits?: number;
   /** Set to false for amounts that can never be negative. */
   allowNegative?: boolean;
 }
 
-export default function NumberInput({ value, onChange, maxDecimals, allowNegative = true, ...rest }: NumberInputProps) {
+export default function NumberInput({ value, onChange, maxDecimals = 2, maxIntegerDigits = 12, allowNegative = true, ...rest }: NumberInputProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const pendingCursorDigits = useRef<number | null>(null);
 
@@ -81,7 +84,7 @@ export default function NumberInput({ value, onChange, maxDecimals, allowNegativ
     const el = e.target;
     const cursor = el.selectionStart ?? el.value.length;
     pendingCursorDigits.current = el.value.slice(0, cursor).replace(/[^\d.]/g, '').length;
-    onChange(stripToRaw(el.value, maxDecimals, allowNegative));
+    onChange(stripToRaw(el.value, maxDecimals, maxIntegerDigits, allowNegative));
   };
 
   return (

@@ -51,12 +51,14 @@ export const formatNumberWithCommas = (raw: string): string => {
   return decPart !== undefined ? `${withCommas}.${decPart}` : withCommas;
 };
 
-// Strip commas/invalid characters from a formatted number input, keeping digits and a single decimal point
+// Strip commas/invalid characters from an onboarding money input, capped at 12 whole digits and satang.
 export const stripNumberInput = (input: string): string => {
   const cleaned = input.replace(/,/g, '').replace(/[^\d.]/g, '');
   const firstDotIndex = cleaned.indexOf('.');
-  if (firstDotIndex === -1) return cleaned;
-  return cleaned.slice(0, firstDotIndex + 1) + cleaned.slice(firstDotIndex + 1).replace(/\./g, '');
+  if (firstDotIndex === -1) return cleaned.slice(0, 12);
+  const integer = cleaned.slice(0, firstDotIndex).slice(0, 12);
+  const decimals = cleaned.slice(firstDotIndex + 1).replace(/\./g, '').slice(0, 2);
+  return `${integer}.${decimals}`;
 };
 
 export { calculatePayDate, isThaiPublicHoliday, formatLocalDate } from '../../shared/calendar';

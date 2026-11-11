@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Job } from '../../../../shared/types';
 import { jobNetReceivable, roundMoney } from '../../../../shared/wht';
 import { formatCurrency } from '../../utils';
+import NumberInput from '../../components/ui/NumberInput';
 
 import { tr } from '../../i18n/tr';
 export type PaymentMode = 'full' | 'partial';
@@ -134,12 +135,12 @@ export default function JobPaymentDialog({ job, initialMode, allowPartial, allow
         ) : (
           <label className="block">
             <span className="mb-1.5 block text-xs font-medium text-brand-text">{tr("ยอดที่ได้รับ (บาท)")}</span>
-            <input
-              type="text"
-              inputMode="decimal"
+            <NumberInput
               autoFocus
               value={amount}
-              onChange={(event) => setAmount(event.target.value.replace(/[^\d.,]/g, ''))}
+              onChange={setAmount}
+              maxDecimals={2}
+              allowNegative={false}
               placeholder="0"
               className="h-11 w-full rounded-[10px] border border-brand-border bg-brand-white px-3 font-mono text-sm text-brand-text outline-none focus:border-[#E65F2B] dark:bg-neutral-950"
             />

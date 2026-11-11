@@ -610,6 +610,7 @@ function RecurringManager({ settings, onUpdateSettings, onClose }: { settings: A
   const items = settings.fixedExpenseItems || [];
   const [newName, setNewName] = React.useState('');
   const [newAmount, setNewAmount] = React.useState('');
+  const [amountDrafts, setAmountDrafts] = React.useState<Record<string, string>>({});
   const save = (updated: FixedExpenseItem[]) => onUpdateSettings({ ...settings, fixedExpenseItems: updated, monthlyExpense: sumFixedExpenseItems(updated) });
   // An account that only has the old lump-sum total keeps it as its own editable item.
   const lumpSum = ownMonthlyExpense(settings.monthlyExpense, items);
@@ -618,7 +619,7 @@ function RecurringManager({ settings, onUpdateSettings, onClose }: { settings: A
     : items;
   const add = () => {
     const amount = parseFloat(newAmount);
-    if (!newName.trim() || Number.isNaN(amount) || amount < 0) return;
+    if (!newName.trim() || !Number.isFinite(amount) || amount <= 0) return;
     save([...base(), { id: crypto.randomUUID(), name: newName.trim(), amount }]);
     setNewName(''); setNewAmount('');
   };
@@ -640,7 +641,20 @@ function RecurringManager({ settings, onUpdateSettings, onClose }: { settings: A
             <input aria-label={tr("ชื่อรายจ่ายประจำ")} defaultValue={item.name} onBlur={(e) => { const name = e.target.value.trim(); if (name && name !== item.name) update(item.id, { name }); }} className={`${input} min-w-0 flex-1`} />
             <div className="relative w-28 shrink-0">
               <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-brand-muted">{tr("฿")}</span>
-              <NumberInput aria-label={tr("ยอดของ {0}", item.name)} value={String(item.amount)} onChange={(raw) => update(item.id, { amount: parseFloat(raw) || 0 })} className={`${input} w-full pl-6 font-mono`} />
+              <NumberInput
+                aria-label={tr("ยอดของ {0}", item.name)}
+                value={amountDrafts[item.id] ?? String(item.amount)}
+                onChange={(raw) => setAmountDrafts(current => ({ ...current, [item.id]: raw }))}
+                onBlur={() => {
+                  const raw = amountDrafts[item.id];
+                  if (raw !== undefined) {
+                    const next = Number(raw);
+                    if (Number.isFinite(next) && next > 0) update(item.id, { amount: next });
+                    setAmountDrafts(current => { const nextDrafts = { ...current }; delete nextDrafts[item.id]; return nextDrafts; });
+                  }
+                }}
+                className={`${input} w-full pl-6 font-mono`}
+              />
             </div>
             <button type="button" onClick={() => save(items.filter(i => i.id !== item.id))} aria-label={tr("เอา {0} ออก", item.name)} className="rounded-lg p-2 text-brand-muted hover:bg-[#FFF0F0] hover:text-[#C43A3A] cursor-pointer dark:hover:bg-rose-950/40"><Trash2 className="h-4 w-4" /></button>
           </li>
@@ -653,7 +667,7 @@ function RecurringManager({ settings, onUpdateSettings, onClose }: { settings: A
           <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-brand-muted">{tr("฿")}</span>
           <NumberInput aria-label={tr("ยอดรายจ่ายประจำใหม่")} value={newAmount} onChange={setNewAmount} placeholder="0" className={`${input} w-full pl-6 font-mono`} />
         </div>
-        <button type="button" onClick={add} disabled={!newName.trim() || !newAmount} className="h-10 shrink-0 rounded-[10px] bg-[#E65F2B] px-3 text-xs font-semibold text-white disabled:opacity-40 cursor-pointer">{tr("เพิ่ม")}</button>
+        <button type="button" onClick={add} disabled={!newName.trim() || !(Number(newAmount) > 0)} className="h-10 shrink-0 rounded-[10px] bg-[#E65F2B] px-3 text-xs font-semibold text-white disabled:opacity-40 cursor-pointer">{tr("เพิ่ม")}</button>
       </div>
       <div className="mt-4 flex justify-between rounded-[10px] bg-brand-faint px-3 py-2.5 text-[13px]">
         <span className="text-brand-muted">{tr("รวมต่อเดือน")}</span>

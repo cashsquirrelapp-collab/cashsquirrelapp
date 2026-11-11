@@ -206,7 +206,8 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
     event.preventDefault();
     const next: Partial<Record<FieldKey, string>> = {};
     if (!name.trim()) next.name = tr("กรุณาระบุชื่องาน");
-    if (!value.trim() || Number.isNaN(parseFloat(value)) || parseFloat(value) < 0) next.value = tr("กรุณาระบุมูลค่างาน");
+    const jobValue = Number(value);
+    if (!value.trim() || !Number.isFinite(jobValue) || jobValue <= 0) next.value = tr("กรุณาระบุมูลค่างาน");
     // Phones ask the delivery date of delivered work; computers show no calendar for ส่งงานแล้ว, so it is today.
     if (isPosted && !postDate && mobile) next.postDate = tr("กรุณาเลือกวันที่ส่งงาน");
     const deliveredOn = isPosted && !postDate ? todayStr() : postDate;

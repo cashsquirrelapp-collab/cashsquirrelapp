@@ -101,7 +101,7 @@ export const ProfileSetupWizard: React.FC<ProfileSetupWizardProps> = ({
 
   const handleAddExpenseItem = () => {
     const amount = parseFloat(newExpenseAmount);
-    if (!newExpenseName.trim() || isNaN(amount) || amount < 0) return;
+    if (!newExpenseName.trim() || !Number.isFinite(amount) || amount <= 0) return;
     setFixedExpenseItems(prev => [...prev, { id: crypto.randomUUID(), name: newExpenseName.trim(), amount }]);
     setNewExpenseName('');
     setNewExpenseAmount('');

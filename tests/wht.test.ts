@@ -31,6 +31,16 @@ test('job saves accept custom rates and reject more than two decimals', () => {
   assert.throws(() => validateChanges(job(101)));
 });
 
+test('job saves reject zero or out-of-range contract values', () => {
+  const job = (value: number) => [{
+    table: 'cashflow_jobs', id: 'j1', op: 'set', version: null,
+    data: { id: 'j1', name: 'งาน', value, received: 0, pending: value, client: '', type: 'ยังไม่ระบุ', status: 'pending', creditTerm: 0, note: '', payDate: null },
+  }];
+  assert.throws(() => validateChanges(job(0)));
+  assert.doesNotThrow(() => validateChanges(job(0.01)));
+  assert.throws(() => validateChanges(job(1_000_000_000_001)));
+});
+
 test('only the 1% rate is treated as e-Withholding Tax', () => {
   assert.equal(isEWhtJob({ whtRate: 1 }), true);
   for (const whtRate of [undefined, 0, 1.5, 2, 3, 5]) assert.equal(isEWhtJob({ whtRate }), false, String(whtRate));

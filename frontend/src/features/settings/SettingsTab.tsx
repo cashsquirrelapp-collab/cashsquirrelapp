@@ -493,7 +493,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
   const handleAddFixedExpenseItem = () => {
     const amount = parseFloat(newFixedExpenseAmount);
-    if (!newFixedExpenseName.trim() || isNaN(amount) || amount < 0) return;
+    if (!newFixedExpenseName.trim() || !Number.isFinite(amount) || amount <= 0) return;
 
     // First item ever added: carry the existing lump-sum value forward so nothing is lost
     let baseItems = fixedExpenseItems;
