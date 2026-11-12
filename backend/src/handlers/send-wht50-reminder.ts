@@ -10,6 +10,7 @@ import { claimDelivery, releaseDelivery } from '../repositories/deliveries.js';
 import { patchPrivate } from '../repositories/accounts.js';
 import { hasProAccess, listVaultFiles } from '../services/vault.js';
 import type { LineMessage } from '../services/line.js';
+import { toneLineMessage } from '../services/lineTone.js';
 import { checkLinkedAccountWriteAccess, type LinkedAccountWriteAccess } from '../services/linkedAccountAccess.js';
 import { buildWht50ReminderMessage, findWaitingWht50Jobs, isWht50ReminderDay, wht50ReminderMonth, type WaitingWht50Job } from '../services/lineWht50Reminders.js';
 import { wht50ReminderOn } from '../../../shared/notifDefaults.js';
@@ -63,7 +64,7 @@ export async function sendWht50ReminderPayload(
   const token = options.token ?? process.env.LINE_CHANNEL_ACCESS_TOKEN;
   if (!token) return 'rejected';
   const fetcher = options.fetcher ?? fetch;
-  const body = JSON.stringify({ to: lineUserId, messages: [message] });
+  const body = JSON.stringify({ to: lineUserId, messages: [toneLineMessage(message)] });
   let uncertain = false;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {

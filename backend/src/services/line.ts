@@ -1,5 +1,6 @@
 import { stagingLineAllowed } from '../security/staging.js';
 import { neverSent, type DeliveryOutcome } from './notificationOutcome.js';
+import { toneLineMessages } from './lineTone.js';
 const LINE_PUSH_URL = 'https://api.line.me/v2/bot/message/push';
 
 export interface LineQuickReply {
@@ -59,7 +60,7 @@ export async function sendLineMessagesOutcome(lineUserId: string, messages: Line
         ...(retryKey ? { 'X-Line-Retry-Key': retryKey } : {}),
       },
       signal: AbortSignal.timeout(10000),
-      body: JSON.stringify({ to: lineUserId, messages }),
+      body: JSON.stringify({ to: lineUserId, messages: toneLineMessages(messages) }),
     });
     const accepted = res.ok || (res.status === 409 && res.headers.has('x-line-accepted-request-id'));
     // The status already establishes acceptance/rejection; a body-read error cannot change it.

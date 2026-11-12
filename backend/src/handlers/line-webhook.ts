@@ -7,6 +7,7 @@ import { supabaseAdmin } from '../config/supabase.js';
 import { findUserByLineId, getQuickReply, handleAssistantMessage, isProUser, prefetchLinkedContext } from '../services/lineAssistant.js';
 import { buildLineWelcome } from '../services/lineLinkCards.js';
 import type { LineMessage } from '../services/line.js';
+import { toneLineMessages } from '../services/lineTone.js';
 import { decodeLineDraftAction } from '../services/lineDraftReview.js';
 import { decodeLineDocumentAction } from '../services/lineDocumentDraft.js';
 import { decodeVaultAction, handleLineFileMessage, handleLineImageSetPart, handleLineVaultAction } from '../services/lineVaultChat.js';
@@ -82,7 +83,7 @@ async function reply(accessToken: string, replyToken: string, messages: LineMess
     signal: AbortSignal.timeout(10000),
     body: JSON.stringify({
       replyToken,
-      messages,
+      messages: toneLineMessages(messages),
     }),
   });
   // LINE rejects an invalid payload (e.g. malformed Flex JSON) with a 4xx and a body explaining
