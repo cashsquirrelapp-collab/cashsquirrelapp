@@ -34,7 +34,7 @@ const FAKE_PICKER = `window.gapi = { load: function (name, options) {
   function Builder() {} ['addView','setDeveloperKey','setAppId','setLocale','setTitle'].forEach(function (m) { Builder.prototype[m] = function () { return this; }; });
   Builder.prototype.setOAuthToken = function (t) { window.__pickerToken = t; return this; };
   Builder.prototype.setCallback = function (cb) { this.cb = cb; return this; };
-  Builder.prototype.build = function () { var cb = this.cb; return { setVisible: function () { setTimeout(function () { cb({ action: 'picked', docs: [{ id: '${FILE.id}', name: '${FILE.name}' }] }); }, 30); }, dispose: function () {} }; };
+  Builder.prototype.build = function () { var cb = this.cb; return { setVisible: function () { var meta = document.querySelector('meta[name="referrer"]'); window.__referrerAtPick = meta ? meta.content : 'none'; setTimeout(function () { cb({ action: 'picked', docs: [{ id: '${FILE.id}', name: '${FILE.name}' }] }); }, 30); }, dispose: function () {} }; };
   window.google.picker = { ViewId: { SPREADSHEETS: 's' }, DocsViewMode: { LIST: 'l' }, Action: { PICKED: 'picked', CANCEL: 'cancel' }, Response: { ACTION: 'action', DOCUMENTS: 'docs' }, Document: { ID: 'id', NAME: 'name' }, DocsView: View, PickerBuilder: Builder };
   options.callback();
 } };`;
@@ -109,6 +109,9 @@ for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'p
     await expect(panel).toContainText(FILE.name);
     expect(posts.find(post => post.action === 'pick')).toEqual({ action: 'pick', fileId: FILE.id });
     expect(await page.evaluate(() => (window as unknown as { __pickerToken?: string }).__pickerToken)).toBe('ya29.test');
+    // Google checks the picker key against the site's address: the origin is sent only while the picker is open.
+    expect(await page.evaluate(() => (window as unknown as { __referrerAtPick?: string }).__referrerAtPick)).toBe('strict-origin');
+    expect(await page.evaluate(() => document.querySelector<HTMLMetaElement>('meta[name="referrer"]')?.content)).toBe('no-referrer');
 
     const table = device.name === 'phone' ? panel.getByTestId('sheet-map-list') : panel.getByTestId('sheet-map-table');
     await expect(table).toBeVisible();

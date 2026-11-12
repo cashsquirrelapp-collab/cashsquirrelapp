@@ -44,9 +44,32 @@ function loadPicker(): Promise<PickerApi> {
 
 export const SHEET_MIME = 'application/vnd.google-apps.spreadsheet';
 
-/** Opens Google's picker on the person's Google Sheets. The chosen file, or null when they close it. */
+/**
+ * The site sends no referrer anywhere (Referrer-Policy: no-referrer). Google checks the picker's browser key against the
+ * address of the page that opens it (the key only works from krarok.com and staging.krarok.com), and with no address it
+ * answers "the developer key is invalid" (owner's staging test, 2026-11-12). While the picker is open the page sends its
+ * origin only (https://staging.krarok.com/, never the path, which can hold an account name); when it closes, nothing
+ * again. A meta referrer element changes the page's policy as soon as it is added or its content changes.
+ */
+function sendOriginWhilePicking(): () => void {
+  // index.html carries <meta name="referrer" content="no-referrer">; that tag is switched and switched back.
+  let meta = document.querySelector<HTMLMetaElement>('meta[name="referrer"]');
+  if (!meta) {
+    meta = document.createElement('meta');
+    meta.name = 'referrer';
+    meta.content = 'no-referrer';
+    document.head.appendChild(meta);
+  }
+  const element = meta;
+  const before = element.content || 'no-referrer';
+  element.content = 'strict-origin';
+  return () => { element.content = before; };
+}
+
 export async function pickSheet(options: { token: string; apiKey: string; appId: string; locale: string; title: string }): Promise<{ id: string; name: string } | null> {
-  const api = await loadPicker();
+  const restore = sendOriginWhilePicking();
+  let api: PickerApi;
+  try { api = await loadPicker(); } catch (error) { restore(); throw error; }
   return new Promise(resolve => {
     const view = new api.DocsView(api.ViewId.SPREADSHEETS);
     view.setMimeTypes(SHEET_MIME);
@@ -66,9 +89,11 @@ export async function pickSheet(options: { token: string; apiKey: string; appId:
           const id = doc?.[api.Document.ID];
           resolve(typeof id === 'string' ? { id, name: String(doc?.[api.Document.NAME] ?? '') } : null);
           picker.dispose?.();
+          restore();
         } else if (action === api.Action.CANCEL) {
           resolve(null);
           picker.dispose?.();
+          restore();
         }
       })
       .build();
