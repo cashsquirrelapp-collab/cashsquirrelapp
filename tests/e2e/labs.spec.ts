@@ -33,7 +33,7 @@ async function open(page: Page, labs: unknown, size = { width: 1440, height: 900
 }
 
 for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'phone', width: 390, height: 844 }]) {
-  test(`a tester sees ฟีเจอร์ทดลอง in Settings on the ${device.name}; every feature is listed, the unfinished ones locked`, async ({ page }) => {
+  test(`a tester sees ฟีเจอร์ทดลอง in Settings on the ${device.name}; every feature is listed, the unfinished ones locked, the built ones switchable`, async ({ page }) => {
     await open(page, { labs: { tester: true, on: [] } }, device);
     const row = page.getByRole('button', { name: /^ฟีเจอร์ทดลอง/ });
     await expect(row).toBeVisible();
@@ -45,8 +45,9 @@ for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'p
     for (const name of ['เชื่อม Google Sheets', 'แผนที่ชีต', 'บันทึกลงชีตของคุณ', 'สร้างชีตตามประเภทธุรกิจ', 'ปฏิทินยื่นภาษี', 'โปรเจกต์และเงินทดรอง', 'สำนักงานบัญชี']) {
       await expect(list).toContainText(name);
     }
-    await expect(list.getByText('กำลังสร้าง')).toHaveCount(7);
-    await expect(list.getByRole('switch')).toHaveCount(0);
+    // Phase 1 (2026-11-12): the template download and the filing calendar are built; the other five are still locked.
+    await expect(list.getByText('กำลังสร้าง')).toHaveCount(5);
+    await expect(list.getByRole('switch')).toHaveCount(2);
     expect(await textOverlapIssues(page)).toEqual([]);
     await page.screenshot({ path: `test-results/labs-settings-${device.name}.png` });
   });

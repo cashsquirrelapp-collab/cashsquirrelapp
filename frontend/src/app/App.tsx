@@ -3822,6 +3822,8 @@ export default function App() {
                   initialDateKey={calendarFocusDate}
                   linkedView={calendarLinkView}
                   onInitialDateHandled={() => setCalendarFocusDate(null)}
+                  labsAccount={session && !session.isGuest && !financeGroupId ? session.user?.id : null}
+                  onUpdateSettings={handleUpdateSettings}
                 />
               )}
               {activeTab === 'plans' && (
@@ -3846,6 +3848,8 @@ export default function App() {
 
               {activeTab === 'settings' && (
                 <SettingsTab
+                  jobs={jobs}
+                  expenses={expenses}
                   onMobileBack={openPhoneMenu}
                   onPreviewAfterPay={fullFeatureAccess && showProGuide ? () => {
                     setAssistantFollowing(false);

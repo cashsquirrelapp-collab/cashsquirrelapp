@@ -3,7 +3,7 @@ import type { SystemRole } from '../../../shared/groups.js';
 import type { AdminLevel } from '../../../shared/adminLevel.js';
 
 /** The owner's own account (ผู้ดูแล): the only one that sees money and gives admin rights or tokens. */
-const OWNER_EMAIL = 'heidnsko1234@gmail.com';
+export const OWNER_EMAIL = 'heidnsko1234@gmail.com';
 
 /** Whether this provider-verified user is the owner's account, whatever its role. */
 export function isOwnerAccount(user: Pick<User, 'email' | 'email_confirmed_at'>): boolean {

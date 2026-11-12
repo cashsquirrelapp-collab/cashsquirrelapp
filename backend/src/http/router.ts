@@ -25,6 +25,7 @@ import adminProfitReport from '../handlers/send-admin-profit-report.js';
 import advanceCardRenewals from '../handlers/advance-card-renewals.js';
 import wht50Reminder from '../handlers/send-wht50-reminder.js';
 import taxSeasonReminder from '../handlers/send-tax-season-reminder.js';
+import filingReminder from '../handlers/send-filing-reminder.js';
 import setup from '../handlers/setup-line-richmenu.js';
 import stripe from '../handlers/stripe-webhook.js';
 import billing from '../handlers/billing.js';
@@ -61,6 +62,7 @@ routes['admin-ai-credit'] = adminAiCredit;
 routes['check-ai-credit'] = checkAiCredit;
 routes['send-wht50-reminder'] = wht50Reminder;
 routes['send-tax-season-reminder'] = taxSeasonReminder;
+routes['send-filing-reminder'] = filingReminder;
 // The admin page's ผู้ใช้งาน view, and the team's message to everyone with its answers (owner, 2026-11-03).
 routes['admin-activity'] = adminActivity;
 routes.broadcast = broadcast;

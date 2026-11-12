@@ -9,8 +9,12 @@ import { uiSurface } from '../../components/ui/uiStyles';
 // sheet-assistant direction is listed here; a built one has a switch the tester turns on for itself, one still being built
 // says so and its switch stays locked.
 
-export function LabsSettings({ account, labs, triggerAlert }: {
+/** Features that have their own screen once they are on: a เปิด button beside the switch. */
+const OPENS: LabFeatureId[] = ['filingCalendar', 'templates'];
+
+export function LabsSettings({ account, labs, triggerAlert, onOpen }: {
   account: string; labs: LabState; triggerAlert: (title: string, message: string) => void;
+  onOpen?: (id: LabFeatureId) => void;
 }) {
   const [busy, setBusy] = React.useState<LabFeatureId | null>(null);
   const toggle = async (id: LabFeatureId, on: boolean) => {
@@ -28,6 +32,10 @@ export function LabsSettings({ account, labs, triggerAlert }: {
           return (
             <div key={feature.id} className={rowShell} data-testid={`lab-${feature.id}`}>
               <RowText title={tr(feature.th)} desc={tr(feature.desc)} />
+              {feature.ready && on && onOpen && OPENS.includes(feature.id) && (
+                <button type="button" onClick={() => onOpen(feature.id)} data-testid={`lab-open-${feature.id}`}
+                  className="shrink-0 whitespace-nowrap rounded-full border border-brand-border bg-brand-white px-3.5 py-1.5 text-[13px] font-semibold leading-[1.5] text-brand-text hover:bg-brand-faint">{tr("เปิด")}</button>
+              )}
               {feature.ready
                 ? <Switch on={on} label={tr(feature.th)} disabled={busy !== null} onClick={() => void toggle(feature.id, !on)} />
                 : <span className="shrink-0 whitespace-nowrap rounded-full bg-brand-faint px-2.5 py-1 text-[12px] font-medium leading-[1.5] text-brand-muted">{tr("กำลังสร้าง")}</span>}

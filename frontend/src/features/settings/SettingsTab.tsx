@@ -4,13 +4,14 @@ import { uiInput, uiPrimaryButton, uiSecondaryButton } from '../../components/ui
 import PageHeader from '../../components/ui/PageHeader';
 import React, { useState, useEffect } from 'react';
 import { isPhaseOneFeatureAvailable } from '../../../../shared/featureAvailability';
-import { AppSettings, FixedExpenseItem, NotifSettings, Invoice, InvoiceProfile } from '../../../../shared/types';
+import { AppSettings, Expense, FixedExpenseItem, Job, NotifSettings, Invoice, InvoiceProfile } from '../../../../shared/types';
 import { formatCurrency, sumFixedExpenseItems, dateLocale } from '../../utils';
 import NumberInput from '../../components/ui/NumberInput';
 import { apiFetch, apiJson } from '../../services/api';
 import { giveConsent, lineDisconnected } from '../../services/consent';
 import { ConsentSettings } from './ConsentSettings';
 import { LabsSettings } from './LabsSettings';
+import { TemplateDialog } from '../labs/TemplateDialog';
 import { useLabs } from '../../services/labs';
 import { wht50ReminderOn } from '../../../../shared/notifDefaults';
 import { authClient } from '../../services/auth';
@@ -77,6 +78,9 @@ export type SettingsView = 'home' | 'profile' | 'security' | 'business' | 'fixed
 
 interface SettingsTabProps {
   fullFeatureAccess?: boolean;
+  /** The account's records, for the ฟีเจอร์ทดลอง template download (its rows can replace the examples). */
+  jobs?: Job[];
+  expenses?: Expense[];
   /** Welcome Onboarding V1: change the first-sign-in answers (personal account only). */
   onOpenOnboarding?: () => void;
   /** Excel import (computer and iPad): open it, and the imports that can still be undone. */
@@ -143,6 +147,8 @@ interface SettingsTabProps {
 }
 
 export const SettingsTab: React.FC<SettingsTabProps> = ({
+  jobs,
+  expenses,
   fullFeatureAccess = false,
   onOpenOnboarding,
   onOpenImport,
@@ -614,6 +620,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const isAccount = Boolean(session && !session.isGuest && !isGroupFinance);
   // ฟีเจอร์ทดลอง (shared/labs.ts): only testers see the section; everyone else sees Settings exactly as before.
   const labs = useLabs(isAccount ? session?.user?.id : null);
+  const [templateOpen, setTemplateOpen] = React.useState(false);
 
   const openView = (next: SettingsView) => {
     setView(!lineAccess && next === 'line' ? 'home' : next);
@@ -1015,8 +1022,15 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       case 'labs': return (
         <div className="max-w-2xl space-y-6">
           <DetailHeader onBack={() => openView('home')} title={tr("ฟีเจอร์ทดลอง")} subtitle={tr("ลองฟีเจอร์ใหม่ก่อนเปิดให้ทุกคน")} />
-          {isAccount && labs.tester ? <LabsSettings account={session.user.id} labs={labs} triggerAlert={triggerAlert} />
+          {isAccount && labs.tester ? <LabsSettings account={session.user.id} labs={labs} triggerAlert={triggerAlert} onOpen={id => {
+            if (id === 'templates') { setTemplateOpen(true); return; }
+            // The calendar opens on its ยื่นภาษี view (CalendarTab reads the kept view).
+            try { localStorage.setItem('cashsquirrel_calendar_view', 'tax'); } catch { /* the calendar opens on its default view */ }
+            onSwitchTab('calendar');
+          }} />
             : <Note>{tr("ฟีเจอร์ทดลองเปิดให้เฉพาะบัญชีทดสอบ")}</Note>}
+          {isAccount && labs.tester && <TemplateDialog open={templateOpen} onClose={() => setTemplateOpen(false)} settings={settings}
+            onSaveProfile={profile => onUpdateSettings({ ...settings, business: profile })} jobs={jobs} expenses={expenses} />}
         </div>
       );
 

@@ -24,6 +24,11 @@ export function safeLineDestination(value: unknown): string | undefined {
     const attach = url.searchParams.get('attach');
     if (attach && /^[A-Za-z0-9_.-]{1,128}$/.test(attach) && !['__proto__', 'constructor', 'prototype'].includes(attach)) query.set('attach', attach);
   }
+  // The calendar's view (the filing reminder opens ยื่นภาษี; the page shows it only to test accounts with it on).
+  if (url.pathname === '/calendar') {
+    const view = url.searchParams.get('view');
+    if (view === 'calendar' || view === 'timeline' || view === 'tax') query.set('view', view);
+  }
   if (url.pathname === '/invoice') {
     const type = url.searchParams.get('type');
     const id = url.searchParams.get('document');

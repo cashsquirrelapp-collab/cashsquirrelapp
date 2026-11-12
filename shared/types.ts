@@ -1,4 +1,5 @@
 import type { OnboardingRecord } from './onboarding.js';
+import type { BusinessProfile } from './businessProfile.js';
 export interface StatusOption {
   id: string;
   label: string;
@@ -160,6 +161,10 @@ export interface AppSettings {
   profileSetupCompleted?: boolean; // whether the first-time account setup wizard has been completed
   /** Welcome Onboarding V1 (2026-10-28): the four first-sign-in answers with stable IDs (shared/onboarding.ts). */
   onboarding?: OnboardingRecord;
+  /** The six business questions (2026-11-12, shared/businessProfile.ts): pick the bookkeeping template and the filing calendar. */
+  business?: BusinessProfile;
+  /** Returns marked ยื่นแล้ว on the filing calendar (shared/filingCalendar.ts): key (form:period) → when it was marked. */
+  filed?: Record<string, string>;
   profileJobTypes?: string[]; // selected job type tags from the setup wizard (profile info only)
   profileJobTypeOther?: string; // free-text entry when 'other' job type is selected
   // Who the account is for -- drives which nav items default to the always-visible "core"

@@ -37,14 +37,16 @@ test('five triggers: the digest, the AI credit check with the 50 ทวิ remin
   // The credit check once a day at 08:05; the 50 ทวิ reminder hourly 08:05–17:05 on the 1st–3rd only.
   assert.deepEqual(scheduledPaths(CREDIT, Date.parse('2026-11-01T01:05:00Z')), CREDIT_AND_WHT50);
   for (const date of ['2026-11-01', '2026-11-02', '2026-11-03'])
-    for (const hour of ['02', '06', '10']) assert.deepEqual(scheduledPaths(CREDIT, Date.parse(`${date}T${hour}:05:00Z`)), ['/api/send-wht50-reminder']);
+    for (const hour of ['02', '06']) assert.deepEqual(scheduledPaths(CREDIT, Date.parse(`${date}T${hour}:05:00Z`)), ['/api/send-wht50-reminder']);
+  // The filing-calendar reminder (ฟีเจอร์ทดลอง): 17:05 on the 1st–3rd, after the 50 ทวิ reminder has had the day.
+  for (const date of ['2026-11-01', '2026-11-02', '2026-11-03']) assert.deepEqual(scheduledPaths(CREDIT, Date.parse(`${date}T10:05:00Z`)), ['/api/send-wht50-reminder', '/api/send-filing-reminder']);
   for (const hour of ['02', '10']) assert.deepEqual(scheduledPaths(CREDIT, Date.parse(`2026-11-04T${hour}:05:00Z`)), []);
   // The owner's profit report alone at 08:02 on the 1st (2026-11-01: at 13:00 it failed sharing the monthly jobs' 50).
   assert.deepEqual(scheduledPaths(PROFIT, Date.parse('2026-11-01T01:02:00Z')), ['/api/send-admin-profit-report']);
   assert.deepEqual(scheduledPaths(PROFIT, Date.parse('2026-11-04T01:02:00Z')), []);
   for (const date of ['2026-10-31', '2026-11-01', '2026-11-04', '2028-02-29']) {
     assert.deepEqual(scheduledPaths('0 1 * * *', Date.parse(`${date}T01:00:00Z`)), ['/api/send-overdue-digest']);
-    if (!['2026-11-01'].includes(date)) assert.deepEqual(scheduledPaths(CREDIT, Date.parse(`${date}T01:05:00Z`)), ['/api/check-ai-credit']);
+    if (!['2026-11-01'].includes(date)) assert.deepEqual(scheduledPaths(CREDIT, Date.parse(`${date}T01:05:00Z`)), ['/api/check-ai-credit', '/api/send-filing-reminder']);
     assert.deepEqual(scheduledPaths('0 2 * * *', Date.parse(`${date}T02:00:00Z`)), ['/api/close-expired-accounts', '/api/setup-line-richmenu', '/api/advance-card-renewals']);
   }
   // The monthly jobs: 08:00 Bangkok on the 1st, then hourly to 17:00 and on the 2nd–3rd only for what did not go out

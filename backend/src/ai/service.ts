@@ -8,6 +8,7 @@ import { decideRoute, routingRecord, type RoutingRecord } from './routingPolicy.
 import { CARD_AGAIN, CONTINUE_WINDOW_MS, continuationTurns, EXPLICIT_GO_AHEAD, GO_AHEAD, goAheadFits, mentionsCard, PENDING_WINDOW_MS, type ChannelTurn } from './crossChannel.js';
 import { PROMPT_VERSION } from './prompt.js';
 import { quickAnswer, quickKind } from './quickAnswers.js';
+import type { LabFeatureId } from '../../../shared/labs.js';
 import { SAVE_AT_ONCE, autoSaveCards, autoSaveText, wantsSaveNow } from './autoSave.js';
 import type { PromptSlots } from './prompt.js';
 import { applyCardEdit, cardForStoredProposal, cardValue, createToolbox, EDITABLE_FIELDS, type MemoryStore, type Proposal, type ProposalStore } from './tools.js';
@@ -40,6 +41,8 @@ export interface AssistantDb {
   listVaultFiles?(userId: string): Promise<VaultFile[]>;
   /** The owner's button: Claude answers every message instead of Gemini (repositories/aiSwitch.ts). Absent means off. */
   smartForLight?(): Promise<boolean>;
+  /** ฟีเจอร์ทดลอง: whether this account has the feature on (shared/labs.ts). Absent or failing means off. */
+  labOn?(userId: string, feature: LabFeatureId): Promise<boolean>;
   reserve(input: { userId: string; cycle: string; requestId: string; tokens: number; tokenLimit: number | null; requestLimit: number | null; dailyCapUsd: number }): Promise<ReserveResult>;
   /**
    * Replace the reservation with what the request cost: tokens charged and the real spend (also when released, so the
@@ -360,7 +363,13 @@ export async function handleMessage(db: AssistantDb, deps: MessageDeps, userId: 
         text: done ? `ทำรายการให้แล้ว ${done} รายการครับ${list}${failed ? `\nอีก ${failed} รายการยังทำไม่ได้ ตรวจรายละเอียดบนการ์ดแล้วกดยืนยันได้เลย` : ''}`
           : 'รายการที่รอยืนยันทำต่อไม่ได้แล้วครับ ขอให้เลขาเตรียมใหม่ได้เลย',
         routing: routingRecord(decideRoute({ text: input.text }, config.routingPolicy ?? 'v2'), { tier: 'direct', reason: 'go_ahead_applied', outcome: 'direct', proposal_ids: cards.map(card => (card as { id: string }).id) }) };
-    } else if (channel === 'app' && !turnFiles(input).length && quickKind(input.text, input.history)) {
+    } else if (!turnFiles(input).length && quickKind(input.text, input.history) === 'filing' && (await db.labOn?.(userId, 'filingCalendar').catch(() => false)) === true) {
+      // "เดือนนี้ต้องยื่นอะไรบ้าง" (ฟีเจอร์ทดลอง ปฏิทินยื่นภาษี): the next 30 days from the filing calendar, in the app and LINE,
+      // no model, no tokens. Without the lab the question goes to the AI as before.
+      reply = { route: 'chat', handedOff: false, cards: [], calls: [], costUsd: 0, billableUsd: 0, overheadUsd: 0, tokens: 0, promptVersion: PROMPT_VERSION,
+        text: quickAnswer('filing', user),
+        routing: routingRecord(decideRoute({ text: input.text }, config.routingPolicy ?? 'v2'), { tier: 'direct', reason: 'quick_filing', outcome: 'direct' }) };
+    } else if (channel === 'app' && !turnFiles(input).length && quickKind(input.text, input.history) && quickKind(input.text, input.history) !== 'filing') {
       // "กำลังดำเนินการ" / "รอรับเงิน" (the window's buttons, or typed in the app; LINE has its own quick replies): the
       // list from the account's jobs, no model, no tokens.
       const kind = quickKind(input.text, input.history)!;

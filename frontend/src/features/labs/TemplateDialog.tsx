@@ -1,0 +1,100 @@
+import React from 'react';
+import { Download } from 'lucide-react';
+import type { AppSettings, Expense, Job } from '../../../../shared/types';
+import { readBusinessProfile, templateFor, type BusinessProfile } from '../../../../shared/businessProfile';
+import { TEMPLATE_INFO, buildBookTemplate, type TemplateData } from '../../../../shared/bookTemplates';
+import { buildXlsx } from '../../../../shared/xlsxWriter';
+import { incomeRowsForYear } from '../../../../shared/incomeExport';
+import { Modal } from '../../components/ui/Modal';
+import { tr } from '../../i18n/tr';
+import { BusinessQuestions } from './BusinessQuestions';
+import './labs.css';
+
+// สร้างชีตตามประเภทธุรกิจ (ฟีเจอร์ทดลอง, plan phase 1): the six answers pick one of the five workbooks
+// (shared/bookTemplates.ts), shown with its tabs before the download. The app's own records for the year can go in instead
+// of the examples. The file is made in the browser: nothing is sent anywhere. Google Drive comes with phase 2.
+
+/** The year's money received and spent, in the template's rows. */
+export function templateData(jobs: Job[], expenses: Expense[], year: number): TemplateData {
+  return {
+    income: incomeRowsForYear(jobs, year).map(row => ({
+      date: row.date, payer: row.client, item: row.label && row.label !== 'รับเงิน' ? `${row.jobName} (${row.label})` : row.jobName,
+      gross: row.gross, whtRate: (row.whtRate || 0) / 100, received: true,
+    })),
+    expenses: expenses.filter(expense => expense.date?.startsWith(`${year}-`)).sort((a, b) => a.date.localeCompare(b.date))
+      .map(expense => ({ date: expense.date, vendor: '', item: expense.name, category: expense.category, amount: Number(expense.amount) || 0 })),
+  };
+}
+
+function download(bytes: Uint8Array, fileName: string) {
+  const blob = new Blob([bytes as BlobPart], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url; link.download = fileName; link.rel = 'noopener';
+  document.body.appendChild(link); link.click(); link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+export function TemplateDialog({ open, onClose, settings, onSaveProfile, jobs, expenses }: {
+  open: boolean;
+  onClose: () => void;
+  settings: AppSettings;
+  onSaveProfile: (profile: BusinessProfile) => void;
+  jobs?: Job[];
+  expenses?: Expense[];
+}) {
+  const profile = readBusinessProfile(settings.business);
+  const [editing, setEditing] = React.useState(false);
+  const thisYear = new Date().getFullYear();
+  const [year, setYear] = React.useState(thisYear);
+  const [withData, setWithData] = React.useState(false);
+  const [done, setDone] = React.useState<string | null>(null);
+  React.useEffect(() => { if (!open) { setEditing(false); setDone(null); } }, [open]);
+  const id = profile ? templateFor(profile) : null;
+  const data = React.useMemo(() => (jobs && expenses ? templateData(jobs, expenses, year) : null), [jobs, expenses, year]);
+  const canFill = Boolean(data && id !== 'office' && (data.income.length || data.expenses.length));
+  const make = () => {
+    if (!profile) return;
+    const built = buildBookTemplate(profile, { year, data: withData && canFill ? data : null });
+    download(buildXlsx(built.sheets, { title: TEMPLATE_INFO[built.id].title }), built.fileName);
+    setDone(built.fileName);
+  };
+  const asking = !profile || editing;
+  return (
+    <Modal open={open} onClose={onClose} label={tr("สร้างชีตตามประเภทธุรกิจ")} width={asking ? 640 : 520}>
+      {asking ? (
+        <BusinessQuestions profile={profile} title={profile ? undefined : tr("ตอบ 6 ข้อ แล้วได้ชีตบัญชีของคุณ")}
+          onSave={next => { onSaveProfile(next); setEditing(false); }} />
+      ) : (
+        <div className="lab lab-tpl" data-testid="template-dialog">
+          <h2>{tr("ชีตบัญชีสำหรับธุรกิจของคุณ")}</h2>
+          <div className="lab-tpl-card">
+            <span className="lab-chip is-ink">{tr("เทมเพลต")}</span>
+            <h3 style={{ marginTop: 8 }}>{tr(TEMPLATE_INFO[id!].title)}</h3>
+            <p className="lab-small lab-muted" style={{ marginTop: 2 }}>{tr(TEMPLATE_INFO[id!].who)}</p>
+            <div className="lab-tpl-tabs" aria-label={tr("แท็บในไฟล์")}>{TEMPLATE_INFO[id!].tabs.map(tab => <span key={tab} className="lab-chip">{tr(tab)}</span>)}</div>
+          </div>
+          <label className="lab-field">
+            <span>{tr("ปี")}</span>
+            <select className="ui-input" style={{ width: 'auto', minHeight: 40 }} value={year} onChange={event => setYear(Number(event.target.value))}>
+              {[thisYear, thisYear - 1].map(value => <option key={value} value={value}>{tr("ปี {0}", value + 543)}</option>)}
+            </select>
+          </label>
+          {canFill && (
+            <label className="lab-check">
+              <input type="checkbox" checked={withData} onChange={event => setWithData(event.target.checked)} />
+              <span>{tr("ใส่รายการเดิมในแอปลงไฟล์แทนแถวตัวอย่าง")}<br />
+                <small className="lab-muted">{tr("รับเงิน {0} รายการ · รายจ่าย {1} รายการ ของปี {2}", data!.income.length, data!.expenses.length, year + 543)}</small></span>
+            </label>
+          )}
+          <div className="lab-tpl-foot">
+            <button type="button" className="lab-btn is-primary" onClick={make}><Download className="h-4 w-4" />{tr("ดาวน์โหลดไฟล์ Excel")}</button>
+            <button type="button" className="lab-btn" onClick={() => setEditing(true)}>{tr("แก้คำตอบ")}</button>
+          </div>
+          {done && <p role="status" className="lab-note is-brick" style={{ marginTop: 12 }}>{tr("ดาวน์โหลดแล้ว: {0}", done)}</p>}
+          <p className="lab-small lab-muted" style={{ marginTop: 12 }}>{tr("เปิดใน Google Sheets ได้: ไฟล์ › นำเข้า › อัปโหลด ชีตนี้ช่วยจดและสรุปตัวเลข ไม่ได้ยื่นแบบแทนคุณ")}</p>
+        </div>
+      )}
+    </Modal>
+  );
+}

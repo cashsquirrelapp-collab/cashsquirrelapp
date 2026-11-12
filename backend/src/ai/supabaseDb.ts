@@ -9,6 +9,8 @@ import { isOwnerUserId, systemRole } from '../repositories/roles.js';
 import { isOwnerAccount } from '../security/adminAnalyticsAccess.js';
 import { loadTokenGrants } from '../repositories/tokenGrants.js';
 import { loadSmartSwitch } from '../repositories/aiSwitch.js';
+import { loadLabs } from '../repositories/labs.js';
+import { labState } from '../../../shared/labs.js';
 import type { UserRow } from '../services/lineAssistant.js';
 import { listVaultFiles, hasProAccess } from '../services/vault.js';
 import type { AssistantDb, PlanInfo, StoredProposal } from './service.js';
@@ -134,6 +136,10 @@ const fromRow = (row: ProposalRow): StoredProposal => ({
 export const supabaseAssistantDb: AssistantDb = {
   listVaultFiles: userId => listVaultFiles({ kind: 'user', id: userId }),
   smartForLight: async () => (await loadSmartSwitch()).on,
+  labOn: async (userId, feature) => {
+    const [record, owner] = await Promise.all([loadLabs(userId), isOwnerUserId(userId)]);
+    return labState(record, owner).on.includes(feature);
+  },
   async loadAccount(userId) {
     const snapshot = await accountSnapshot(userId);
     const versions = { ...(snapshot.versions?.cashflow_jobs || {}) } as Record<string, number>;

@@ -36,11 +36,13 @@ import { vault } from './vault';
 import { documentsPhone } from './documentsPhone';
 import { consent } from './consent';
 import { referral } from './referral';
+import { labs } from './labs';
 
 export const EN: Record<string, string> = {
   ...documentsPhone,
   ...consent,
   ...referral,
+  ...labs,
   ...admin,
   ...assistant,
   ...briefing,

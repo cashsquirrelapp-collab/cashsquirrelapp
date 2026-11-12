@@ -17,6 +17,8 @@
 //                      promotion-month card renewals moved to ฿271 before their first December renewal
 // The tax-season reminder (owner, 2026-11-02) rides on 08:02 on 2 January and 2 March: by the 2nd the profit report has
 // gone out (it only retries what the 1st missed), so the invocation has room; the hourly runs retry what 08:02 missed.
+// The filing-calendar reminder (ฟีเจอร์ทดลอง, owner, 2026-11-12; test accounts only, a few requests) rides 08:05: alone
+// beside the AI credit check on the 4th–31st, and at 17:05 on the 1st–3rd, when the 50 ทวิ reminder has had the day.
 // The 50 ทวิ reminder is back since the owner launched the page (2026-10-31: "ใบ 50 ทวิ แจ้งเตือนได้ด้วย"): to Pro
 // accounts with LINE linked, on unless turned off in Settings (owner, 2026-11-03; before that only when turned on).
 export const CRONS = ['0 1 * * *', '5 1-10 * * *', '0 1-10 1-3 * *', '2 1-10 1-3 * *', '0 2 * * *'] as const;
@@ -32,6 +34,7 @@ export function scheduledPaths(cron: string, scheduledTime: number): string[] {
     case '5 1-10 * * *': return [
       ...(scheduledAt.getUTCHours() === 1 ? ['/api/check-ai-credit'] : []),
       ...(scheduledAt.getUTCDate() <= MONTHLY_DAYS ? ['/api/send-wht50-reminder'] : []),
+      ...((scheduledAt.getUTCDate() > MONTHLY_DAYS ? scheduledAt.getUTCHours() === 1 : scheduledAt.getUTCHours() === 10) ? ['/api/send-filing-reminder'] : []),
     ];
     case '0 1-10 1-3 * *': return scheduledAt.getUTCDate() <= MONTHLY_DAYS ? ['/api/send-monthly-report'] : [];
     case '2 1-10 1-3 * *': return scheduledAt.getUTCDate() <= MONTHLY_DAYS ? ['/api/send-admin-profit-report',

@@ -17,8 +17,8 @@ export const LAB_FEATURES = [
   { id: 'sheets', th: 'เชื่อม Google Sheets', desc: 'เลือกไฟล์บัญชีจาก Google Drive ของคุณให้เลขากระรอกอ่าน', ready: false },
   { id: 'sheetMap', th: 'แผนที่ชีต', desc: 'เลขากระรอกบอกว่าแต่ละคอลัมน์ในชีตคืออะไร ให้ตรวจก่อนนำไปใช้', ready: false },
   { id: 'sheetWrite', th: 'บันทึกลงชีตของคุณ', desc: 'เลขากระรอกเพิ่มแถวในชีตของคุณ เมื่อกดยืนยันเท่านั้น', ready: false },
-  { id: 'templates', th: 'สร้างชีตตามประเภทธุรกิจ', desc: 'ตอบคำถามสั้น ๆ แล้วได้ชีตบัญชีใน Google Drive ของคุณ', ready: false },
-  { id: 'filingCalendar', th: 'ปฏิทินยื่นภาษี', desc: 'วันยื่น ภ.ง.ด.1, 3, 53 ภ.พ.30 และประกันสังคม ตามประเภทกิจการของคุณ', ready: false },
+  { id: 'templates', th: 'สร้างชีตตามประเภทธุรกิจ', desc: 'ตอบคำถาม 6 ข้อ แล้วได้ไฟล์ Excel บัญชีที่ตรงกับธุรกิจของคุณ เปิดใน Google Sheets ได้', ready: true },
+  { id: 'filingCalendar', th: 'ปฏิทินยื่นภาษี', desc: 'วันยื่น ภ.ง.ด. ภ.พ.30 และประกันสังคม ตามประเภทกิจการของคุณ พร้อมเตือนใน LINE', ready: true },
   { id: 'projects', th: 'โปรเจกต์และเงินทดรอง', desc: 'งบเทียบจ่ายจริงรายโปรเจกต์ เงินทดรอง และหัก ณ ที่จ่ายของทีมงาน', ready: false },
   { id: 'accountant', th: 'สำนักงานบัญชี', desc: 'ดูลูกค้าหลายรายในหน้าเดียว และรับเอกสารจากกลุ่ม LINE ของลูกค้า', ready: false },
 ] as const satisfies readonly LabFeature[];

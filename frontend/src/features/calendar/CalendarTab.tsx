@@ -4,7 +4,7 @@ import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AppSettings, Expense, Job } from '../../../../shared/types';
 import { dateLocale, formatCurrency } from '../../utils';
-import { CalendarDays, ChevronLeft, ChevronRight, List } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, Landmark, List } from 'lucide-react';
 import { TimelineView } from './TimelineView';
 import { MonthMoneySummary } from './MonthMoneySummary';
 import { buildCalendarEvents, type CalendarDayEvent, type CalendarEventKind } from './calendarEvents';
@@ -15,16 +15,23 @@ import { useMobileLayout } from '../mobile/useMobileLayout';
 import { MobilePageHero } from '../mobile/MobilePageHero';
 
 import { tr, T } from '../../i18n/tr';
-type PageView = 'calendar' | 'timeline';
+import { TAX_VIEW_LABEL, TaxFilingView } from '../labs/TaxFilingView';
+import { useLabs } from '../../services/labs';
+import { labOn } from '../../../../shared/labs';
+type PageView = 'calendar' | 'timeline' | 'tax';
 const VIEW_STORAGE_KEY = 'cashsquirrel_calendar_view';
 
 // ?view= wins (shareable link), then the last view used on this device, then the calendar.
-const initialPageView = (forceCalendar: boolean, linkedView?: PageView | null): PageView => {
+// ยื่นภาษี (the filing calendar) exists only for test accounts with that ฟีเจอร์ทดลอง on.
+const initialPageView = (forceCalendar: boolean, linkedView?: PageView | null, taxOn = false): PageView => {
   if (forceCalendar) return 'calendar';
   if (linkedView) return linkedView;
   const fromUrl = new URLSearchParams(window.location.search).get('view');
-  if (fromUrl === 'timeline' || fromUrl === 'calendar') return fromUrl;
-  try { return localStorage.getItem(VIEW_STORAGE_KEY) === 'timeline' ? 'timeline' : 'calendar'; } catch { return 'calendar'; }
+  if (fromUrl === 'timeline' || fromUrl === 'calendar' || (fromUrl === 'tax' && taxOn)) return fromUrl;
+  try {
+    const kept = localStorage.getItem(VIEW_STORAGE_KEY);
+    return kept === 'timeline' ? 'timeline' : kept === 'tax' && taxOn ? 'tax' : 'calendar';
+  } catch { return 'calendar'; }
 };
 
 interface CalendarTabProps {
@@ -45,6 +52,11 @@ interface CalendarTabProps {
   onInitialDateHandled?: () => void;
   /** View requested by the link the app was opened with (e.g. the retired /timeline URL). */
   linkedView?: PageView | null;
+  /** ฟีเจอร์ทดลอง: the account whose labs decide the filing calendar view and the template download (null: none). Read
+   *  here, so only opening the calendar asks /api/labs, never every page. */
+  labsAccount?: string | null;
+  /** Saves the business answers and the ยื่นแล้ว marks (settings.business / settings.filed). */
+  onUpdateSettings?: (settings: AppSettings) => void;
 }
 
 type CalendarView = 'month' | 'week';
@@ -86,10 +98,23 @@ function addDays(date: Date, amount: number): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate() + amount);
 }
 
-export default function CalendarTab({ fullFeatureAccess = false, receivablesAccess = fullFeatureAccess, jobs, expenses, settings, onSwitchTab, onViewJob, onEditJob, onDeleteJob, onAddJob, initialDateKey, onInitialDateHandled, linkedView }: CalendarTabProps) {
+export default function CalendarTab({ fullFeatureAccess = false, receivablesAccess = fullFeatureAccess, jobs, expenses, settings, onSwitchTab, onViewJob, onEditJob, onDeleteJob, onAddJob, initialDateKey, onInitialDateHandled, linkedView, labsAccount = null, onUpdateSettings }: CalendarTabProps) {
+  const labs = useLabs(labsAccount);
+  const taxOn = labOn(labs, 'filingCalendar');
+  const templatesOn = labOn(labs, 'templates');
   const startKey = initialDateKey && /^\d{4}-\d{2}-\d{2}$/.test(initialDateKey) ? initialDateKey : null;
   // A specific day was requested (dashboard mini calendar), so that always opens the calendar.
-  const [pageView, setPageView] = useState<PageView>(() => initialPageView(Boolean(startKey), linkedView));
+  const [pageView, setPageView] = useState<PageView>(() => initialPageView(Boolean(startKey), linkedView, taxOn));
+  // The lab state arrives after the first paint: open ยื่นแล้ว's view once it does, and leave it if the lab is turned off.
+  React.useEffect(() => {
+    if (taxOn && !startKey && !linkedView) {
+      const fromUrl = new URLSearchParams(window.location.search).get('view');
+      let kept: string | null = null;
+      try { kept = localStorage.getItem(VIEW_STORAGE_KEY); } catch { /* private mode */ }
+      if (fromUrl === 'tax' || (!fromUrl && kept === 'tax')) setPageView('tax');
+    }
+    if (!taxOn) setPageView(view => (view === 'tax' ? 'calendar' : view));
+  }, [taxOn]); // eslint-disable-line react-hooks/exhaustive-deps
   const [timelineMonth, setTimelineMonth] = useState<string | undefined>(undefined);
   const switchView = (next: PageView) => {
     setPageView(next);
@@ -104,6 +129,9 @@ export default function CalendarTab({ fullFeatureAccess = false, receivablesAcce
   React.useEffect(() => { if (initialDateKey) onInitialDateHandled?.(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [calendarView, setCalendarView] = useState<CalendarView>('month');
   const mobile = useMobileLayout();
+  const taxView = taxOn && onUpdateSettings && pageView === 'tax'
+    ? <TaxFilingView settings={settings} onUpdateSettings={onUpdateSettings} templatesOn={templatesOn} jobs={jobs} expenses={expenses} phone={mobile} />
+    : null;
   // Phones: the job a timeline row was tapped for (same peek card the desktop timeline opens).
   const [peekId, setPeekId] = useState<string | null>(null);
   const todayKey = toDateKey(new Date());
@@ -226,13 +254,14 @@ export default function CalendarTab({ fullFeatureAccess = false, receivablesAcce
       <div className="ksm-viewswitch" role="group" aria-label={tr("มุมมอง")}>
         <button type="button" aria-pressed={pageView === 'calendar'} onClick={() => switchView('calendar')}>{tr("ปฏิทิน")}</button>
         <button type="button" aria-pressed={pageView === 'timeline'} onClick={() => switchView('timeline')}>{tr("ไทม์ไลน์")}</button>
+        {taxOn && onUpdateSettings && <button type="button" aria-pressed={pageView === 'tax'} onClick={() => switchView('tax')}>{tr(TAX_VIEW_LABEL)}</button>}
       </div>
     );
     return (
       <div className="page-content ksm ksm-screen">
         {/* The same header as the overview, งาน and every page (owner, 2026-10-20): scrolling fades the title and
             leaves only the เงินรอรับ box pinned under the top bar. */}
-        <MobilePageHero title={pageView === 'timeline' ? tr("ไทม์ไลน์") : tr("ปฏิทิน")} actions={viewSwitch} box={{
+        <MobilePageHero title={pageView === 'tax' ? tr(TAX_VIEW_LABEL) : pageView === 'timeline' ? tr("ไทม์ไลน์") : tr("ปฏิทิน")} actions={viewSwitch} box={{
           label: tr("เงินรอรับ · {0}", monthLabelShort),
           icon: 'calendar',
           amount: formatCurrency(mobileOwed),
@@ -240,7 +269,7 @@ export default function CalendarTab({ fullFeatureAccess = false, receivablesAcce
           openLabel: tr("เงินรอรับ {0} {1} · ดูรายการ", monthLabelShort, formatCurrency(mobileOwed)),
         }} />
 
-        {pageView === 'calendar' ? (
+        {pageView === 'tax' && taxView ? taxView : pageView === 'calendar' ? (
           <>
             <div className="ksm-row-between">
               <DashboardPeriodPicker monthKey={monthKey} onChange={setMonth} compact />
@@ -323,11 +352,19 @@ export default function CalendarTab({ fullFeatureAccess = false, receivablesAcce
             <CalendarDays className="h-4 w-4" /> {tr("ปฏิทิน")}</button>
           <button type="button" role="tab" aria-selected={pageView === 'timeline'} onClick={() => { setTimelineMonth(undefined); switchView('timeline'); }} className={segment(pageView === 'timeline')}>
             <List className="h-4 w-4" /> {tr("ไทม์ไลน์")}</button>
+          {taxOn && onUpdateSettings && (
+            <button type="button" role="tab" aria-selected={pageView === 'tax'} onClick={() => switchView('tax')} className={segment(pageView === 'tax')}>
+              <Landmark className="h-4 w-4" /> {tr(TAX_VIEW_LABEL)}</button>
+          )}
         </div>
       </PageHeader>
 
       <AnimatePresence mode="wait" initial={false}>
-      {pageView === 'timeline' ? (
+      {pageView === 'tax' && taxView ? (
+        <motion.div key="tax" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }} transition={{ duration: 0.18 }}>
+          {taxView}
+        </motion.div>
+      ) : pageView === 'timeline' ? (
         <motion.div key="timeline" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }} transition={{ duration: 0.18 }}>
           <TimelineView jobs={jobs} expenses={expenses} settings={settings} onViewJob={onViewJob} onEditJob={onEditJob} onDeleteJob={onDeleteJob} onAddJob={onAddJob} initialMonth={timelineMonth} />
         </motion.div>
