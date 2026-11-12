@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { textOverlapIssues } from './textOverlap';
 import { loadLayoutFonts } from './testFonts';
+import { buildXlsx } from '../../shared/xlsxWriter';
 
 // ฟีเจอร์ทดลอง, phase 2 (owner, 2026-11-12): Settings › ฟีเจอร์ทดลอง › เชื่อม Google Sheets. Connect (Google's sign-in comes
 // back to /settings?google=connected), pick a sheet in Google's picker (a stand-in script here), see the sheet map on
@@ -39,7 +40,7 @@ const FAKE_PICKER = `window.gapi = { load: function (name, options) {
   options.callback();
 } };`;
 
-async function open(page: Page, size: { width: number; height: number }, start: { connected: boolean; file?: boolean } = { connected: false }) {
+async function open(page: Page, size: { width: number; height: number }, start: { connected: boolean; file?: boolean; labsOn?: string[] } = { connected: false }) {
   const google = { connected: start.connected, file: start.file ? FILE : null as typeof FILE | null, map: null as unknown };
   const posts: Record<string, unknown>[] = [];
   const status = () => ({ google: { configured: true, connected: google.connected, ...(google.connected ? { email: 'shop@example.com' } : {}), file: google.file, map: google.map } });
@@ -52,19 +53,21 @@ async function open(page: Page, size: { width: number; height: number }, start: 
   }, user.id);
   await page.route('**/*', route => (['127.0.0.1', 'localhost'].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort()));
   await page.route('https://apis.google.com/js/api.js', route => route.fulfill({ contentType: 'text/javascript', body: FAKE_PICKER }));
-  await page.route('**/api/**', route => route.fulfill({ json: {} }));
+  const bodies: string[] = [];
+  await page.route('**/api/**', route => { bodies.push(route.request().postData() ?? ''); return route.fulfill({ json: {} }); });
   await page.route('**/api/auth*', route => route.fulfill({ json: { session: { user } } }));
   await page.route('**/api/profile', route => route.fulfill({ json: { userId: user.id, publicId: 'SQ-4444444444', displayName: 'ผู้ทดสอบ' } }));
   await page.route('**/api/groups?*', route => route.fulfill({ json: { systemRole: 'user', groups: [], invitations: [], total: 0, page: 0 } }));
   await page.route('**/api/data*', route => {
-    if (route.request().method() === 'POST') return route.fulfill({ json: { ok: true, versions } });
+    if (route.request().method() === 'POST') { bodies.push(route.request().postData() ?? ''); return route.fulfill({ json: { ok: true, versions } }); }
     return route.fulfill({ json: { snapshot: { jobs: [], expenses: [], goals: [], invoices: [], settings: baseSettings, statuses: [], jobTypes: [], notifSettings: {} }, versions, subscription: { status: 'active', plan: 'pro_monthly', current_period_end: '2099-01-01T00:00:00Z' } } });
   });
-  await page.route('**/api/labs', route => route.fulfill({ json: { labs: { tester: true, on: ['sheets', 'sheetMap', 'templates'] } } }));
+  await page.route('**/api/labs', route => route.fulfill({ json: { labs: { tester: true, on: start.labsOn ?? ['sheets', 'sheetMap', 'templates'] } } }));
   await page.route('**/api/google', async route => {
     if (route.request().method() === 'GET') return route.fulfill({ json: status() });
     const body = route.request().postDataJSON() as Record<string, unknown>;
     posts.push(body);
+    bodies.push(route.request().postData() ?? '');
     // Google's sign-in and the callback are skipped: the account is connected when the page comes back.
     if (body.action === 'start') { const reply = { ...status(), url: `${new URL(page.url()).origin}/settings?google=connected` }; google.connected = true; return route.fulfill({ json: reply }); }
     if (body.action === 'token') return route.fulfill({ json: { token: 'ya29.test', expiresIn: 3600, apiKey: 'picker-key', appId: '875278739350' } });
@@ -79,7 +82,7 @@ async function open(page: Page, size: { width: number; height: number }, start: 
   await page.setViewportSize(size);
   await page.goto('/settings');
   await loadLayoutFonts(page);
-  return { posts, google };
+  return { posts, google, bodies };
 }
 
 async function openPanel(page: Page) {
@@ -174,4 +177,72 @@ test('Google refused or a server without its Google keys: the panel says so plai
   await page.route('**/api/google', route => route.fulfill({ json: { google: { configured: false, connected: false, file: null, map: null } } }));
   await page.getByTestId('lab-open-sheets').click();
   await expect(page.getByTestId('sheets-panel')).toContainText('ระบบเชื่อม Google ยังไม่พร้อม');
+});
+
+// เชื่อมไฟล์ Excel (owner, 2026-11-12: "อยากให้สามารถเชื่อมกับ Excel ได้ด้วย"): an Excel file on the device, read there.
+const WORKBOOK = Buffer.from(buildXlsx([
+  { name: 'รายรับ', rows: [
+    ['วันที่', 'ลูกค้า', 'รายละเอียด', 'ยอดเงิน', 'สถานะ', 'หัก ณ ที่จ่าย'],
+    [{ date: '2026-10-03' }, 'บริษัท ก', 'ถ่ายรูปสินค้า', 10000, 'ได้รับเงินแล้ว', { f: 'D2*3%' }],
+    [{ date: '2026-10-20' }, 'บริษัท ข', 'ตัดต่อวิดีโอ', 5000, 'ยังไม่จ่าย', { f: 'D3*3%' }],
+  ] },
+  { name: 'รายจ่าย', rows: [['วันที่', 'รายการ', 'หมวดหมู่', 'ยอดเงิน'], [{ date: '2026-10-05' }, 'ค่าเช่ากล้อง', 'อุปกรณ์', 1200]] },
+]));
+const EXCEL_FILE = { name: 'บัญชีร้าน ต.ค.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: WORKBOOK };
+
+for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'phone', width: 390, height: 844 }]) {
+  test(`an Excel file on the ${device.name}: read on the device, the sheet map, kept on the device, the overview`, async ({ page }) => {
+    const { bodies } = await open(page, device, { connected: false, labsOn: ['sheets', 'excel', 'sheetMap', 'templates'] });
+    await page.getByRole('button', { name: /^ฟีเจอร์ทดลอง/ }).click();
+    await page.getByTestId('lab-open-excel').click();
+    const panel = page.getByTestId('sheets-panel');
+    await expect(panel.getByRole('tab', { name: 'ไฟล์ Excel' })).toHaveAttribute('aria-selected', 'true');
+    await expect(panel).toContainText('อ่านในเครื่องของคุณ ไม่ส่งไฟล์ขึ้นเซิร์ฟเวอร์');
+    await page.waitForFunction(() => { const dialog = document.querySelector('[role="dialog"]'); return Boolean(dialog && getComputedStyle(dialog).opacity === '1' && getComputedStyle(dialog.parentElement!).opacity === '1'); });
+    expect(await textOverlapIssues(page)).toEqual([]);
+    await page.screenshot({ path: `test-results/labs-excel-start-${device.name}.png` });
+
+    await panel.getByTestId('excel-input').setInputFiles(EXCEL_FILE);
+    await expect(panel).toContainText(EXCEL_FILE.name);
+    const table = device.name === 'phone' ? panel.getByTestId('sheet-map-list') : panel.getByTestId('sheet-map-table');
+    await expect(table).toBeVisible();
+    await expect(table).toContainText('สูตร ห้ามเขียนทับ');
+    await table.getByRole('combobox', { name: 'คอลัมน์ C คือ' }).selectOption('note');
+    expect(await textOverlapIssues(page)).toEqual([]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+    await page.screenshot({ path: `test-results/labs-excel-map-${device.name}.png` });
+
+    await panel.getByTestId('sheets-save-map').click();
+    await expect(panel.getByRole('status')).toContainText('บันทึกแผนที่ไว้ในเครื่องนี้แล้ว');
+    const kept = await page.evaluate(() => JSON.parse(localStorage.getItem('krarok_excel_maps') || '[]'));
+    expect(kept[0].name).toBe(EXCEL_FILE.name);
+    expect(kept[0].map.tabs[0].columns.find((column: { index: number }) => column.index === 2).target).toBe('note');
+
+    await panel.getByRole('tab', { name: 'ภาพรวม' }).click();
+    await expect(panel.getByTestId('sheet-overview')).toContainText('1,200');
+    expect(await textOverlapIssues(page)).toEqual([]);
+
+    // Switching to Google Sheets and back keeps the file; choosing it again reads it with the kept map.
+    await panel.getByRole('tab', { name: 'Google Sheets' }).click();
+    await expect(panel.getByRole('button', { name: 'เชื่อมบัญชี Google' })).toBeVisible();
+    await panel.getByRole('tab', { name: 'ไฟล์ Excel' }).click();
+    await expect(panel).toContainText(EXCEL_FILE.name);
+    await panel.getByTestId('excel-input').setInputFiles(EXCEL_FILE);
+    await panel.getByRole('tab', { name: 'แผนที่ชีต' }).click();
+    await expect(panel).toContainText('แผนที่ที่บันทึกไว้');
+    await expect(table.getByRole('combobox', { name: 'คอลัมน์ C คือ' })).toHaveValue('note');
+
+    // The file never left the device: no request carried anything from it.
+    expect(bodies.filter(body => body.includes('ค่าเช่ากล้อง') || body.includes('ถ่ายรูปสินค้า'))).toEqual([]);
+  });
+}
+
+test('a file that is not a spreadsheet is refused plainly', async ({ page }) => {
+  await open(page, { width: 1440, height: 900 }, { connected: false, labsOn: ['excel', 'sheetMap'] });
+  await page.getByRole('button', { name: /^ฟีเจอร์ทดลอง/ }).click();
+  await page.getByTestId('lab-open-excel').click();
+  const panel = page.getByTestId('sheets-panel');
+  await expect(panel.getByRole('tab', { name: 'Google Sheets' })).toHaveCount(0);
+  await panel.getByTestId('excel-input').setInputFiles({ name: 'photo.xlsx', mimeType: 'application/octet-stream', buffer: Buffer.from('not a workbook') });
+  await expect(panel.getByRole('alert')).toContainText('รองรับไฟล์ Excel');
 });

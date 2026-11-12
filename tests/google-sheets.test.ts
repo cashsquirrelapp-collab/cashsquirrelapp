@@ -227,3 +227,45 @@ test('sheet map: the overview counts the tabs ticked, money received by the mont
   assert.equal(withoutExpenses.expenses, 0);
   assert.equal(withoutExpenses.expenseAmount, 0);
 });
+
+test('excel: a workbook is read on the device into the same tabs a Google Sheet gives, formula cells marked', async () => {
+  const XLSX = await import('xlsx');
+  const { buildXlsx } = await import('../shared/xlsxWriter');
+  const { excelTabs, ExcelReadError } = await import('../frontend/src/features/labs/excelSource');
+  const bytes = buildXlsx([
+    { name: 'รายรับ', rows: [['วันที่', 'ลูกค้า', 'ยอดเงิน', 'หัก ณ ที่จ่าย'], [{ date: '2026-10-03' }, 'บริษัท ก', 10000, { f: 'C2*3%' }], [{ date: '2026-10-20' }, 'บริษัท ข', 5000, { f: 'C3*3%' }]] },
+    { name: 'ว่าง', rows: [] },
+  ]);
+  const data = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+  const tabs = excelTabs(XLSX, data, 'บัญชี.xlsx');
+  assert.deepEqual(tabs.map(tab => tab.name), ['รายรับ'], 'the empty tab is left out');
+  assert.equal(tabs[0].rows.length, 3);
+  assert.equal(tabs[0].rows[1][0].date, '2026-10-03');
+  assert.equal(tabs[0].rows[1][2].raw, 10000);
+  assert.equal(tabs[0].rows[1][3].formula, true);
+  assert.equal(tabs[0].rows[0][3].formula, undefined);
+  const [reading] = readTabs(tabs);
+  assert.deepEqual([...reading.formulas], [3]);
+
+  const csv = new TextEncoder().encode('วันที่,รายการ,ยอดเงิน\n5/10/2569,ค่าเช่ากล้อง,1200\n');
+  const csvTabs = excelTabs(XLSX, csv.buffer as ArrayBuffer, 'รายจ่าย.csv');
+  assert.equal(csvTabs[0].name, 'รายจ่าย');
+  assert.equal(csvTabs[0].rows[1][1].text, 'ค่าเช่ากล้อง');
+
+  assert.throws(() => excelTabs(XLSX, new TextEncoder().encode('MZ not a workbook').buffer as ArrayBuffer, 'virus.xlsx'), (error: unknown) => error instanceof ExcelReadError && error.code === 'type');
+  const empty = buildXlsx([{ name: 'A', rows: [] }]);
+  assert.throws(() => excelTabs(XLSX, empty.buffer.slice(empty.byteOffset, empty.byteOffset + empty.byteLength) as ArrayBuffer, 'empty.xlsx'), (error: unknown) => error instanceof ExcelReadError && error.code === 'empty');
+});
+
+test('excel: a confirmed map is kept on the device by file name, or found by the same tabs under a new name', async () => {
+  const store = new Map<string, string>();
+  (globalThis as { localStorage?: unknown }).localStorage = { getItem: (key: string) => store.get(key) ?? null, setItem: (key: string, value: string) => { store.set(key, value); } };
+  const { excelMapFor, keepExcelMap } = await import('../frontend/src/features/labs/excelSource');
+  const map = mapOf('excel-local-file', readTabs([SHEET, EXPENSES]));
+  assert.equal(excelMapFor('บัญชี ต.ค.xlsx', [SHEET, EXPENSES]), null);
+  assert.equal(keepExcelMap('บัญชี ต.ค.xlsx', map), true);
+  assert.deepEqual(excelMapFor('บัญชี ต.ค.xlsx', [SHEET]), map, 'by name');
+  assert.deepEqual(excelMapFor('บัญชี พ.ย.xlsx', [EXPENSES, SHEET]), map, 'same tabs, new name');
+  assert.equal(excelMapFor('อื่น.xlsx', [SHEET]), null);
+  delete (globalThis as { localStorage?: unknown }).localStorage;
+});

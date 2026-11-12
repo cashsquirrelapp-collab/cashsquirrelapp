@@ -15,6 +15,7 @@ export interface LabFeature {
 
 export const LAB_FEATURES = [
   { id: 'sheets', th: 'เชื่อม Google Sheets', desc: 'เลือกไฟล์บัญชีจาก Google Drive ของคุณให้เลขากระรอกอ่าน', ready: true },
+  { id: 'excel', th: 'เชื่อมไฟล์ Excel', desc: 'เลือกไฟล์ Excel จากเครื่องให้เลขากระรอกอ่าน บอกว่าแต่ละคอลัมน์คืออะไร และสรุปตัวเลข ไฟล์อ่านในเครื่องของคุณ ไม่ส่งขึ้นเซิร์ฟเวอร์', ready: true },
   { id: 'sheetMap', th: 'แผนที่ชีต', desc: 'เลขากระรอกบอกว่าแต่ละคอลัมน์ในชีตคืออะไร ให้ตรวจก่อนนำไปใช้', ready: true },
   { id: 'sheetWrite', th: 'บันทึกลงชีตของคุณ', desc: 'เลขากระรอกเพิ่มแถวในชีตของคุณ เมื่อกดยืนยันเท่านั้น', ready: false },
   { id: 'templates', th: 'สร้างชีตตามประเภทธุรกิจ', desc: 'ตอบคำถาม 6 ข้อ แล้วได้ไฟล์ Excel บัญชีที่ตรงกับธุรกิจของคุณ เปิดใน Google Sheets ได้', ready: true },

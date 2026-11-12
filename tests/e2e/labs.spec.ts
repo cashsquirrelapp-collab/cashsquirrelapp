@@ -42,13 +42,13 @@ for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'p
     const list = page.getByTestId('labs-list');
     await expect(list).toBeVisible();
     await expect(page.getByText('เห็นเฉพาะบัญชีทดสอบ ลูกค้าทั่วไปไม่เห็น', { exact: false })).toBeVisible();
-    for (const name of ['เชื่อม Google Sheets', 'แผนที่ชีต', 'บันทึกลงชีตของคุณ', 'สร้างชีตตามประเภทธุรกิจ', 'ปฏิทินยื่นภาษี', 'โปรเจกต์และเงินทดรอง', 'สำนักงานบัญชี']) {
+    for (const name of ['เชื่อม Google Sheets', 'เชื่อมไฟล์ Excel', 'แผนที่ชีต', 'บันทึกลงชีตของคุณ', 'สร้างชีตตามประเภทธุรกิจ', 'ปฏิทินยื่นภาษี', 'โปรเจกต์และเงินทดรอง', 'สำนักงานบัญชี']) {
       await expect(list).toContainText(name);
     }
     // Phase 1 (2026-11-12): the template download and the filing calendar are built; phase 2: the Google Sheets
-    // connection and the sheet map. The other three are still locked.
+    // connection, the Excel file and the sheet map. The other three are still locked.
     await expect(list.getByText('กำลังสร้าง')).toHaveCount(3);
-    await expect(list.getByRole('switch')).toHaveCount(4);
+    await expect(list.getByRole('switch')).toHaveCount(5);
     expect(await textOverlapIssues(page)).toEqual([]);
     await page.screenshot({ path: `test-results/labs-settings-${device.name}.png` });
   });

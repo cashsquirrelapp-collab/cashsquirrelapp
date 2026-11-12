@@ -121,6 +121,8 @@
 
 /* Google Sheets ของคุณ (phase 2): connect, pick, sheet map, overview. Computer and iPad first; phones below. */
 .lab-gs { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.lab-gs-pane { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.lab-gs-pane[hidden] { display: none; }
 .lab-gs-body { padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; min-height: 0; flex: 1 1 auto; }
 .lab-gs-head { display: flex; align-items: center; gap: 12px; padding-right: 40px; }
 .lab-gs-head h2 { font-size: 20px; font-weight: 700; }
@@ -193,6 +195,17 @@
 .lab-gs-foot { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 20px 16px; border-top: 1px solid var(--border); }
 .lab-gs-disconnect { margin-left: auto; color: var(--muted); }
 
+/* เชื่อมไฟล์ Excel: the source switch and the file drop area. */
+.lab-gs-source { align-self: stretch; }
+.lab-gs-source button { flex: 1; }
+.lab-gs-drop { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; width: 100%; min-height: 128px; margin-top: 18px; padding: 18px; border: 1.5px dashed color-mix(in srgb, var(--lab-brick) 55%, var(--border)); border-radius: 16px; background: var(--white); color: var(--text); cursor: pointer; line-height: 1.5; text-align: center; }
+.lab-gs-drop:hover:not(:disabled), .lab-gs-drop.is-dragging { border-color: var(--lab-brick); background: var(--lab-tint); }
+.lab-gs-drop:disabled { opacity: 0.6; cursor: default; }
+.lab-gs-drop svg { color: var(--lab-brick-ink); }
+.lab-gs-drop b { font-size: 15px; font-weight: 700; }
+.lab-gs-drop small { font-size: 13px; color: var(--muted); }
+.lab-gs-template-link { margin-top: 10px; }
+
 /* Phones: the column cards instead of the wide table, two tiles a row, the actions stacked. */
 @media (max-width: 743px) {
   .lab-gs-body { padding: 18px 16px; }
@@ -216,6 +229,8 @@
   .lab-gs-foot { padding: 10px 16px calc(12px + env(safe-area-inset-bottom)); flex-direction: column; align-items: stretch; gap: 8px; }
   .lab-gs-foot .lab-btn { width: 100%; }
   .lab-gs-disconnect { margin-left: 0; }
+  .lab-gs-drop { min-height: 104px; }
+  .lab-gs-drop-hint { display: none; }
 }
 @media (min-width: 744px) { .lab-gs-cols { display: none !important; } }
 .lab-tpl-created { margin-top: 12px; flex-direction: column; gap: 8px; }

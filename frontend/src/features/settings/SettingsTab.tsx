@@ -623,6 +623,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const labs = useLabs(isAccount ? session?.user?.id : null);
   const [templateOpen, setTemplateOpen] = React.useState(false);
   const [sheetsOpen, setSheetsOpen] = React.useState(false);
+  const [sheetsSource, setSheetsSource] = React.useState<'google' | 'excel'>('google');
   // Google's sign-in comes back to /settings?google=connected|cancelled|scope|signin|failed: the panel opens with it once.
   const [googleResult, setGoogleResult] = React.useState<string | null>(() => {
     try { return new URLSearchParams(window.location.search).get('google'); } catch { return null; }
@@ -630,7 +631,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   React.useEffect(() => {
     if (!googleResult || !labs.tester) return;
     try { const url = new URL(window.location.href); url.searchParams.delete('google'); window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash); } catch { /* the address keeps its query */ }
-    if (labs.on.includes('sheets')) { setView('labs'); setSheetsOpen(true); }
+    if (labs.on.includes('sheets')) { setView('labs'); setSheetsSource('google'); setSheetsOpen(true); }
     else setGoogleResult(null);
   }, [googleResult, labs.tester, labs.on]);
 
@@ -1036,7 +1037,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           <DetailHeader onBack={() => openView('home')} title={tr("ฟีเจอร์ทดลอง")} subtitle={tr("ลองฟีเจอร์ใหม่ก่อนเปิดให้ทุกคน")} />
           {isAccount && labs.tester ? <LabsSettings account={session.user.id} labs={labs} triggerAlert={triggerAlert} onOpen={id => {
             if (id === 'templates') { setTemplateOpen(true); return; }
-            if (id === 'sheets') { setSheetsOpen(true); return; }
+            if (id === 'sheets' || id === 'excel') { setSheetsSource(id === 'excel' ? 'excel' : 'google'); setSheetsOpen(true); return; }
             // The calendar opens on its ยื่นภาษี view (CalendarTab reads the kept view).
             try { localStorage.setItem('cashsquirrel_calendar_view', 'tax'); } catch { /* the calendar opens on its default view */ }
             onSwitchTab('calendar');
@@ -1044,9 +1045,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             : <Note>{tr("ฟีเจอร์ทดลองเปิดให้เฉพาะบัญชีทดสอบ")}</Note>}
           {isAccount && labs.tester && <TemplateDialog open={templateOpen} onClose={() => setTemplateOpen(false)} settings={settings}
             onSaveProfile={profile => onUpdateSettings({ ...settings, business: profile })} jobs={jobs} expenses={expenses}
-            drive={labs.on.includes('sheets') ? { account: session.user.id, onOpenSheets: () => { setTemplateOpen(false); setSheetsOpen(true); } } : undefined} />}
-          {isAccount && labs.on.includes('sheets') && <SheetsPanel open={sheetsOpen} onClose={() => { setSheetsOpen(false); setGoogleResult(null); }} account={session.user.id} labs={labs}
-            result={googleResult} onCreateTemplate={labs.on.includes('templates') ? () => { setSheetsOpen(false); setTemplateOpen(true); } : undefined} />}
+            drive={labs.on.includes('sheets') ? { account: session.user.id, onOpenSheets: () => { setTemplateOpen(false); setSheetsSource('google'); setSheetsOpen(true); } } : undefined} />}
+          {isAccount && (labs.on.includes('sheets') || labs.on.includes('excel')) && <SheetsPanel open={sheetsOpen} onClose={() => { setSheetsOpen(false); setGoogleResult(null); }} account={session.user.id} labs={labs}
+            result={googleResult} initialSource={sheetsSource} onCreateTemplate={labs.on.includes('templates') ? () => { setSheetsOpen(false); setTemplateOpen(true); } : undefined} />}
         </div>
       );
 
