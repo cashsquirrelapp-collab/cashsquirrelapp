@@ -164,3 +164,12 @@ test('the เริ่มใช้งาน card opens the sign-up page inside L
   assert.equal(card.contents.footer.contents[0].action.label, 'เริ่มใช้งาน');
   assert.match(card.altText, /เริ่มใช้งาน/);
 });
+
+test('a link code sent from a chat that is already linked gets a plain answer, never a guess from เลขา', async () => {
+  const { linkCodeWhileLinked } = await import('../backend/src/handlers/line-webhook.js');
+  const deps = (current: string | null, owner: string | null) => ({ linkedTo: async () => current, codeOwner: async () => owner, limit: async () => undefined });
+  assert.equal(await linkCodeWhileLinked(LINE_ID, 'EC5A3A69C7504381', deps(null, 'web-user')), null, 'not linked: the usual linking runs');
+  assert.match((await linkCodeWhileLinked(LINE_ID, 'ec5a3a69c7504381', deps('a', null)))!, /^ไม่พบรหัสนี้ หรือรหัสหมดอายุแล้ว/);
+  assert.match((await linkCodeWhileLinked(LINE_ID, 'EC5A3A69C7504381', deps('a', 'a')))!, /เชื่อมกับบัญชีนี้อยู่แล้ว/);
+  assert.match((await linkCodeWhileLinked(LINE_ID, 'EC5A3A69C7504381', deps('a', 'b')))!, /ยกเลิกการเชื่อมต่อในบัญชีเดิมก่อน/);
+});

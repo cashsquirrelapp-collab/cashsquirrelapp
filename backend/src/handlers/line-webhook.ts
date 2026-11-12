@@ -113,9 +113,46 @@ async function syncMenu(lineUserId: string): Promise<void> {
   catch (error) { console.error('line-menu: chat sync failed', { type: error instanceof Error ? error.message.slice(0, 80) : 'unknown' }); }
 }
 
+const LINK_CODE = /^[A-F0-9]{16}$/;
+
+/**
+ * What a link code means when this LINE chat is already linked: the same account (nothing to do), another account (the
+ * old one has to let go first: moving the chat could strand an account made in LINE), or no live code at all. Null when
+ * the chat is not linked, so the usual linking runs. The code is only looked at, never used up.
+ */
+export interface LinkCodeDeps {
+  linkedTo(lineUserId: string): Promise<string | null>;
+  codeOwner(code: string): Promise<string | null>;
+  limit(lineUserId: string): Promise<void>;
+}
+const linkCodeDeps: LinkCodeDeps = {
+  async linkedTo(lineUserId) {
+    const linked = await supabaseAdmin.from('cashflow_line_links').select('user_id').eq('line_user_id', lineUserId).maybeSingle();
+    if (linked.error) throw linked.error;
+    return (linked.data as { user_id?: string } | null)?.user_id ?? null;
+  },
+  async codeOwner(code) {
+    const challenge = await supabaseAdmin.from('cashflow_challenges').select('user_id').eq('purpose', 'link')
+      .eq('code_hash', challengeHash(code)).gt('expires_at', new Date().toISOString()).maybeSingle();
+    if (challenge.error) throw challenge.error;
+    return (challenge.data as { user_id?: string } | null)?.user_id ?? null;
+  },
+  limit: async lineUserId => { await rateLimit('line-claim', lineUserId, 5, 900); },
+};
+
+export async function linkCodeWhileLinked(lineUserId: string, messageText: string, deps: LinkCodeDeps = linkCodeDeps): Promise<string | null> {
+  const current = await deps.linkedTo(lineUserId);
+  if (!current) return null;
+  await deps.limit(lineUserId);
+  const owner = await deps.codeOwner(messageText.trim().toUpperCase());
+  if (!owner) return 'ไม่พบรหัสนี้ หรือรหัสหมดอายุแล้วครับ รหัสใช้ได้ 5 นาที และต้องขอจากเว็บเดียวกับ LINE นี้ ขอรหัสใหม่ได้ที่ ตั้งค่า › เชื่อมต่อ LINE';
+  if (owner === current) return 'LINE นี้เชื่อมกับบัญชีนี้อยู่แล้วครับ พิมพ์บอกเลขาได้เลย';
+  return 'LINE นี้เชื่อมกับอีกบัญชีหนึ่งอยู่ครับ ถ้าจะย้ายมาใช้บัญชีที่ขอรหัสนี้ ให้ยกเลิกการเชื่อมต่อในบัญชีเดิมก่อน (กดเมนูเปิดแอป › ตั้งค่า › เชื่อมต่อ LINE › ยกเลิกการเชื่อมต่อ) แล้วขอรหัสใหม่และส่งมาอีกครั้ง';
+}
+
 async function tryLinkAccount(userId: string, messageText: string): Promise<boolean> {
   const code = messageText.trim().toUpperCase();
-  if (!/^[A-F0-9]{16}$/.test(code)) return false;
+  if (!LINK_CODE.test(code)) return false;
   await rateLimit('line-claim', userId, 5, 900);
   const result = await supabaseAdmin.rpc('cashflow_claim_line', { p_hash: challengeHash(code), p_line_user_id: userId });
   if (result.error) throw result.error;
@@ -218,6 +255,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           await complete();
           return;
         }
+        // A 16-character link code from a chat that is already linked (owner, 2026-11-13: the code went to เลขา, which
+        // could only guess): say plainly what the code means here instead.
+        if (event.type === 'message' && LINK_CODE.test(messageText.trim().toUpperCase())) {
+          const answer = await linkCodeWhileLinked(lineUserId, messageText);
+          if (answer) { await send([{ type: 'text', text: answer }]); await complete(); return; }
+        }
         const assistantReply = await handleAssistantMessage(lineUserId, messageText, event.webhookEventId, undefined, linkedContext);
         if (assistantReply !== null) {
           // An empty answer is a linked message that needs no reply (an unrecognised message).
@@ -242,7 +285,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const replyText = 'ไม่พบรหัสเชื่อมต่อที่ตรงกันครับ ไปที่หน้าตั้งค่าในแอปกระรอกตุนเงิน > เชื่อมต่อ LINE เพื่อรับรหัสใหม่ แล้วส่งรหัสนั้นมาที่นี่ครับ';
         // With sign-up in LINE on, anything else from a chat without an account gets the เริ่มใช้งาน card; a code that did
         // not match still gets the code answer.
-        const looksLikeCode = /^[A-F0-9]{16}$/.test(messageText.trim().toUpperCase());
+        const looksLikeCode = LINK_CODE.test(messageText.trim().toUpperCase());
 
         await send([lineSignupOn() && !looksLikeCode ? buildLineStart(process.env.LIFF_ID) : { type: 'text', text: replyText }]);
         await complete();
