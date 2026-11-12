@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft, Bell, Building2, CalendarClock, ChevronRight, FileJson, Globe, Link2, Mail, Moon, PiggyBank, ShieldCheck, Sun, Target, User } from 'lucide-react';
+import { ArrowLeft, Bell, Building2, CalendarClock, ChevronRight, FileJson, FlaskConical, Globe, Link2, Mail, Moon, PiggyBank, ShieldCheck, Sun, Target, User } from 'lucide-react';
 import { uiSurface } from '../../components/ui/uiStyles';
 
 import { tr } from '../../i18n/tr';
@@ -46,7 +46,7 @@ export function RowText({ title, desc, descId }: { title: React.ReactNode; desc?
 const TILES = new Map<IconType, string>([
   [User, '#E65F2B'], [ShieldCheck, '#18A66A'], [Globe, '#C17817'], [Moon, '#57524D'], [Sun, '#57524D'],
   [Building2, '#A63F1B'], [CalendarClock, '#D64545'], [Target, '#18A66A'], [Bell, '#E65F2B'],
-  [Mail, '#C17817'], [Link2, '#18A66A'], [PiggyBank, '#E65F2B'], [FileJson, '#8E8A85'],
+  [Mail, '#C17817'], [Link2, '#18A66A'], [PiggyBank, '#E65F2B'], [FileJson, '#8E8A85'], [FlaskConical, '#E65F2B'],
 ]);
 export const RowIcon = ({ icon: Icon }: { icon: IconType }) => (
   <span className="ui-row-icon is-tile inline-flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[8px] text-white"

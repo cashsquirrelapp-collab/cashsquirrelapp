@@ -16,6 +16,7 @@ import { accountTarget, GRANT_MAX_TOKENS, GRANT_NOTE_MAX, grantedTotal, type Tok
 import type { AdminLookup, AdminTokenGrantLog } from '../../../shared/adminTeam.js';
 import { adminLevel, isOwnerAccount } from '../security/adminAnalyticsAccess.js';
 import { addTokenGrant, loadTokenGrants, recentTokenGrants } from '../repositories/tokenGrants.js';
+import { loadLabs, setLabTester } from '../repositories/labs.js';
 import { assistantPlan, supabaseAssistantDb } from '../ai/supabaseDb.js';
 import { aiConfig, aiConfigFor } from '../ai/config.js';
 import { usageStatus } from '../ai/service.js';
@@ -36,6 +37,7 @@ const grantTokensSchema = z.object({
   note: z.string().trim().max(GRANT_NOTE_MAX).optional(),
   requestId: z.string().regex(/^[A-Za-z0-9_-]{8,64}$/),
 }).strict();
+const setTesterSchema = z.object({ action: z.literal('set-tester'), userId: z.uuid(), on: z.boolean() }).strict();
 const dashboardDetailsQuerySchema = z.object({
   action: z.literal('dashboard-details'),
   section: z.enum(['accounts', 'admins', 'groups', 'pro', 'invitations', 'paused', 'deletions']),
@@ -75,7 +77,7 @@ async function lookupAccount(db: Db, text: string): Promise<AdminLookup> {
   if (profile.error) throw profile.error;
   if (!profile.data) throw new HttpError(404, 'ไม่พบบัญชีที่มี UID นี้');
   const userId = profile.data.user_id as string;
-  const [role, account, grants] = await Promise.all([systemRole(userId), db.auth.admin.getUserById(userId), loadTokenGrants(userId)]);
+  const [role, account, grants, labs] = await Promise.all([systemRole(userId), db.auth.admin.getUserById(userId), loadTokenGrants(userId), loadLabs(userId)]);
   if (account.error || !account.data.user) throw new HttpError(404, 'ไม่พบบัญชีที่มี UID นี้');
   // The tokens left are context: the owner can still give tokens if they cannot be read.
   let tokens: AdminLookup['tokens'] = null;
@@ -88,6 +90,7 @@ async function lookupAccount(db: Db, text: string): Promise<AdminLookup> {
     userId, publicId: profile.data.public_id || '—', displayName: profile.data.display_name || 'Unknown account',
     createdAt: profile.data.created_at || '', role, isOwner: isOwnerAccount(account.data.user),
     granted: grantedTotal(grants), grants: grants.slice(-10).reverse(), tokens,
+    labsTester: labs.tester || isOwnerAccount(account.data.user),
   };
 }
 
@@ -452,6 +455,18 @@ export default withGuard(
       const grant: TokenGrant = { id: requestId, tokens, at: new Date().toISOString(), ...(note ? { note } : {}) };
       const saved = await addTokenGrant(userId, grant);
       res.json({ ok: true, added: saved.added, account: await lookupAccount(db, userId) });
+      return;
+    }
+    // ฟีเจอร์ทดลอง (shared/labs.ts): the owner makes an account a tester, or not.
+    if (req.body?.action === 'set-tester') {
+      const parsed = setTesterSchema.safeParse(req.body);
+      if (!parsed.success) throw new HttpError(400, 'ข้อมูลไม่ถูกต้อง');
+      const profile = await db.from('cashflow_profiles').select('user_id').eq('user_id', parsed.data.userId).maybeSingle();
+      if (profile.error) throw profile.error;
+      if (!profile.data) throw new HttpError(404, 'ไม่พบบัญชีนี้');
+      await rateLimit('admin-set-tester', user.id, 30, 3600);
+      await setLabTester(parsed.data.userId, parsed.data.on);
+      res.json({ ok: true, account: await lookupAccount(db, parsed.data.userId) });
       return;
     }
     if (req.body?.action === 'set-pro-access') {

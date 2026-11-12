@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Coins, Search, ShieldCheck, ShieldOff } from 'lucide-react';
+import { Coins, FlaskConical, Search, ShieldCheck, ShieldOff } from 'lucide-react';
 import type { AdminLookup, AdminTokenGrantLog } from '../../../../shared/adminTeam';
 import type { AdminDashboardAccountDetail } from '../../../../shared/groups';
 import { GRANT_MAX_TOKENS, GRANT_NOTE_MAX, accountTarget } from '../../../../shared/tokenGrants';
@@ -153,6 +153,31 @@ export default function AdminTeamTokens({ userId, triggerConfirm, language, mobi
     );
   };
 
+  // ฟีเจอร์ทดลอง (shared/labs.ts; owner, 2026-11-12): a tester sees Settings › ฟีเจอร์ทดลอง and turns new features on there.
+  const setTester = (account: AdminLookup, on: boolean) => {
+    if (busy) return;
+    const label = `${account.displayName} (${account.publicId})`;
+    triggerConfirm(
+      on ? copy('ตั้งเป็นบัญชีทดสอบ', 'Make a tester') : copy('เลิกเป็นบัญชีทดสอบ', 'Stop testing'),
+      on
+        ? copy(`${label} จะเห็นส่วนฟีเจอร์ทดลองในหน้าตั้งค่า และเปิดลองฟีเจอร์ใหม่ที่สร้างเสร็จแล้วได้เอง`, `${label} will see ฟีเจอร์ทดลอง in Settings and can turn on new features that are ready.`)
+        : copy(`${label} จะไม่เห็นส่วนฟีเจอร์ทดลอง และฟีเจอร์ทดลองที่เปิดไว้จะปิดทั้งหมด ข้อมูลในแอปยังอยู่ครบ`, `${label} will no longer see ฟีเจอร์ทดลอง and every experimental feature turns off. Data in the app stays.`),
+      async () => {
+        setBusy(true); setNotice(''); setError('');
+        try {
+          const result = await groupApi.setTester(userId, account.userId, on);
+          if (getCurrentAccount() !== userId) return;
+          setFound(result.account);
+          setNotice(on ? copy(`ตั้ง ${account.displayName} เป็นบัญชีทดสอบแล้ว`, `${account.displayName} is now a tester`) : copy(`${account.displayName} เลิกเป็นบัญชีทดสอบแล้ว`, `${account.displayName} is no longer a tester`));
+        } catch (cause) {
+          setError((cause as Error).message);
+        } finally {
+          setBusy(false);
+        }
+      },
+    );
+  };
+
   // ── Parts ─────────────────────────────────────────────────────────────────────────────────────
   const section = (key: string, title: string, sub: string | null, children: ReactNode) => (mobile ? (
     <div key={key} className="atk-mobile-part">
@@ -230,6 +255,20 @@ export default function AdminTeamTokens({ userId, triggerConfirm, language, mobi
           </div>
           <button type="button" className="ui-button ui-button-secondary" disabled={busy} onClick={() => setRole(found, found.role === 'admin' ? 'user' : 'admin')} data-testid="team-role">
             {found.role === 'admin' ? <><ShieldOff size={16} aria-hidden="true" />{copy('ถอดสิทธิ์แอดมิน', 'Remove admin')}</> : <><ShieldCheck size={16} aria-hidden="true" />{copy('ให้สิทธิ์แอดมิน', 'Make admin')}</>}
+          </button>
+        </div>
+      )}
+
+      {!found.isOwner && (
+        <div className="atk-rights">
+          <div className="atk-grow atk-min">
+            <h3 className="atk-subhead"><FlaskConical size={16} aria-hidden="true" />{copy('บัญชีทดสอบ (ฟีเจอร์ทดลอง)', 'Tester (experimental features)')}</h3>
+            <p className="atk-hint">{found.labsTester
+              ? copy('เป็นบัญชีทดสอบอยู่: เห็นส่วนฟีเจอร์ทดลองในหน้าตั้งค่า และเปิดลองฟีเจอร์ใหม่ได้เอง', 'A tester: sees ฟีเจอร์ทดลอง in Settings and turns new features on there.')
+              : copy('ให้บัญชีนี้ลองฟีเจอร์ใหม่ก่อนเปิดให้ทุกคน ลูกค้าทั่วไปจะไม่เห็นส่วนนี้', 'Lets this account try new features before everyone. Other customers never see them.')}</p>
+          </div>
+          <button type="button" className="ui-button ui-button-secondary" disabled={busy} onClick={() => setTester(found, !found.labsTester)} data-testid="team-tester">
+            <FlaskConical size={16} aria-hidden="true" />{found.labsTester ? copy('เลิกเป็นบัญชีทดสอบ', 'Stop testing') : copy('ตั้งเป็นบัญชีทดสอบ', 'Make a tester')}
           </button>
         </div>
       )}

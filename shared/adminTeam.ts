@@ -16,6 +16,8 @@ export interface AdminLookup {
   grants: TokenGrant[];
   /** เลขา now: its plan and tokens left in the running cycle (null when unreadable). */
   tokens: { plan: 'pro' | 'trial' | 'admin' | 'lapsed' | 'none'; left: number | null; limit: number | null; resetsAt: string | null } | null;
+  /** A tester of ฟีเจอร์ทดลอง (shared/labs.ts); the owner's own account always is. */
+  labsTester: boolean;
 }
 
 /** A grant in the owner's log, with the account it went to. */

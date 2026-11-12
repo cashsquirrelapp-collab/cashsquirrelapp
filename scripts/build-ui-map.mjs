@@ -21,11 +21,12 @@ const RULES = [
   [/^assistant\/(AssistantChat|VoiceComposer|ChatUploadViews|ChatCards)\.tsx$/, 'assistant'],
   [/^goals\//, 'split'], [/^report\//, 'report'], [/^tax\//, 'tax'],
 ];
-// Admin screens, samples and tests are never a customer's screen.
-const SKIP = /admin|mock|sample|\.test\.|\.css$/i;
+// Admin screens, samples and tests are never a customer's screen; nor are the testers' ฟีเจอร์ทดลอง (shared/labs.ts):
+// เลขา never tells a customer about a feature that is not open to everyone.
+const SKIP = /admin|mock|sample|labs|\.test\.|\.css$/i;
 const THAI = /[\u0E00-\u0E7F]/;
 // Lines meant for admins, and the word AI (เลขา never calls itself that), stay out even on a customer's screen.
-const DROP = /แอดมิน|ผู้ดูแล|admin|\bAI\b/i;
+const DROP = /แอดมิน|ผู้ดูแล|admin|\bAI\b|ฟีเจอร์ทดลอง|ฟีเจอร์ใหม่ก่อนเปิดให้ทุกคน|บัญชีทดสอบ/i;
 
 function files(dir) {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {

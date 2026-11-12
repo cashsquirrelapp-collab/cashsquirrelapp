@@ -48,6 +48,7 @@ const friend = (granted: number, role: 'admin' | 'user' = 'user'): AdminLookup =
   userId: FRIEND_ID, publicId: 'SQ-6735AB827F', displayName: 'มินตรา ดีไซน์', createdAt: '2026-08-11T09:00:00Z', role, isOwner: false, granted,
   grants: granted ? [{ id: 'grant-1', tokens: granted, at: '2026-11-04T05:00:00Z', note: 'รางวัลกิจกรรม' }] : [],
   tokens: { plan: 'pro', left: 1200 + granted, limit: 1650 + granted, resetsAt: '2026-12-01T00:00:00+07:00' },
+  labsTester: false,
 });
 
 // Owner's rule (2026-10-23): no overlapping text. Where the owner's checker is on this machine, it runs on these pages.
@@ -83,10 +84,11 @@ async function open(page: Page, user: typeof owner, posts: unknown[] = [], money
   let lookups = 0;
   let granted = 0;
   let role: 'admin' | 'user' = 'user';
+  let tester = false;
   await page.route('**/api/admin-users?*', route => {
     const url = new URL(route.request().url());
     const action = url.searchParams.get('action');
-    if (action === 'lookup') { lookups++; return route.fulfill({ json: friend(granted, role) }); }
+    if (action === 'lookup') { lookups++; return route.fulfill({ json: { ...friend(granted, role), labsTester: tester } }); }
     if (action === 'token-grants') return route.fulfill({ json: { grants: granted ? [{ ...friend(granted).grants[0], userId: FRIEND_ID, publicId: 'SQ-6735AB827F', displayName: 'มินตรา ดีไซน์' }] : [] } });
     if (action === 'dashboard-details') return route.fulfill({ json: { section: 'admins', total: 1, page: 0, pageSize: 25, accounts: [{ userId: OWNER_ID, publicId: 'SQ-0000000001', displayName: 'Krarok team', role: 'admin', createdAt: '2026-01-01T00:00:00Z', isOnline: true, lastSeenAt: null }] } });
     return route.fulfill({ json: { users: [], total: 0, page: 0 } });
@@ -96,6 +98,7 @@ async function open(page: Page, user: typeof owner, posts: unknown[] = [], money
     posts.push(body);
     if (body.action === 'grant-tokens') { granted += Number(body.tokens); return route.fulfill({ json: { ok: true, added: true, account: friend(granted, role) } }); }
     if (body.role) { role = body.role as 'admin' | 'user'; return route.fulfill({ json: { ok: true } }); }
+    if (body.action === 'set-tester') { tester = body.on === true; return route.fulfill({ json: { ok: true, account: { ...friend(granted, role), labsTester: tester } } }); }
     return route.fulfill({ status: 400, json: { error: 'unexpected' } });
   });
   await page.goto('/adminDashboard/team');
@@ -172,6 +175,14 @@ for (const size of [{ name: 'computer', width: 1440, height: 900 }, { name: 'iPa
     await expect(page.getByTestId('team-notice')).toContainText('ให้สิทธิ์แอดมินแก่ มินตรา ดีไซน์ แล้ว');
     expect(posts.at(-1)).toEqual({ userId: FRIEND_ID, role: 'admin' });
     await expect(page.getByTestId('team-role')).toHaveText(/ถอดสิทธิ์แอดมิน/);
+    // ฟีเจอร์ทดลอง (owner, 2026-11-12): the owner makes the account a tester from the same card.
+    await expect(card).toContainText('บัญชีทดสอบ (ฟีเจอร์ทดลอง)');
+    await page.getByTestId('team-tester').click();
+    await expect(page.getByRole('dialog')).toContainText('จะเห็นส่วนฟีเจอร์ทดลองในหน้าตั้งค่า');
+    await page.getByRole('button', { name: 'ยืนยัน', exact: true }).click();
+    await expect(page.getByTestId('team-notice')).toContainText('ตั้ง มินตรา ดีไซน์ เป็นบัญชีทดสอบแล้ว');
+    expect(posts.at(-1)).toEqual({ action: 'set-tester', userId: FRIEND_ID, on: true });
+    await expect(page.getByTestId('team-tester')).toHaveText(/เลิกเป็นบัญชีทดสอบ/);
     await noOverlap(page, `owner after grant ${size.name}`);
     await page.screenshot({ path: testInfo.outputPath(`owner-team-${size.name}.png`), fullPage: true });
   });

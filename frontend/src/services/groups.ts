@@ -125,6 +125,14 @@ export const groupApi = {
       headers: { 'X-Account-ID': account },
     });
   },
+  /** ฟีเจอร์ทดลอง: make one account a tester, or not (the owner only). */
+  setTester(account: string, userId: string, on: boolean) {
+    return apiJson<{ ok: true; account: AdminLookup }>('/api/admin-users', {
+      method: 'POST',
+      headers: { 'X-Account-ID': account },
+      body: JSON.stringify({ action: 'set-tester', userId, on }),
+    });
+  },
   grantTokens(account: string, userId: string, tokens: number, note: string, requestId: string) {
     return apiJson<{ ok: true; added: boolean; account: AdminLookup }>('/api/admin-users', {
       method: 'POST',

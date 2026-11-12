@@ -10,6 +10,8 @@ import NumberInput from '../../components/ui/NumberInput';
 import { apiFetch, apiJson } from '../../services/api';
 import { giveConsent, lineDisconnected } from '../../services/consent';
 import { ConsentSettings } from './ConsentSettings';
+import { LabsSettings } from './LabsSettings';
+import { useLabs } from '../../services/labs';
 import { wht50ReminderOn } from '../../../../shared/notifDefaults';
 import { authClient } from '../../services/auth';
 import { saveNotificationPatch, readInvoices, saveCloud } from '../../services/cloud';
@@ -21,7 +23,7 @@ import {
   ArrowLeft, Bell, Building2, FileSpreadsheet, CalendarClock, Clock3, Copy, Database, Download, ExternalLink, FileJson, FileText,
   Globe, Link2, LogOut, Mail, Monitor, Moon, PenLine, PiggyBank, Plus, RefreshCw, ShieldCheck, Sun, Target, Trash2,
   Upload, User, UserRound,
-  BriefcaseBusiness, Sparkles, FileCheck2,
+  BriefcaseBusiness, Sparkles, FileCheck2, FlaskConical,
 } from 'lucide-react';
 import { Drawer } from '../../components/ui/Drawer';
 import { LineLogo } from '../../components/ui/LineLogo';
@@ -71,7 +73,7 @@ async function prepareAvatarDataUrl(file: File): Promise<string> {
   }
 }
 
-export type SettingsView = 'home' | 'profile' | 'security' | 'business' | 'fixed' | 'notif' | 'line' | 'backup' | 'consent';
+export type SettingsView = 'home' | 'profile' | 'security' | 'business' | 'fixed' | 'notif' | 'line' | 'backup' | 'consent' | 'labs';
 
 interface SettingsTabProps {
   fullFeatureAccess?: boolean;
@@ -610,6 +612,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
   // ---------- layout pieces (display only; every change still goes through the handlers above) ----------
   const isAccount = Boolean(session && !session.isGuest && !isGroupFinance);
+  // ฟีเจอร์ทดลอง (shared/labs.ts): only testers see the section; everyone else sees Settings exactly as before.
+  const labs = useLabs(isAccount ? session?.user?.id : null);
 
   const openView = (next: SettingsView) => {
     setView(!lineAccess && next === 'line' ? 'home' : next);
@@ -1008,6 +1012,14 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         </div>
       );
 
+      case 'labs': return (
+        <div className="max-w-2xl space-y-6">
+          <DetailHeader onBack={() => openView('home')} title={tr("ฟีเจอร์ทดลอง")} subtitle={tr("ลองฟีเจอร์ใหม่ก่อนเปิดให้ทุกคน")} />
+          {isAccount && labs.tester ? <LabsSettings account={session.user.id} labs={labs} triggerAlert={triggerAlert} />
+            : <Note>{tr("ฟีเจอร์ทดลองเปิดให้เฉพาะบัญชีทดสอบ")}</Note>}
+        </div>
+      );
+
       case 'consent': return (
         <div className="max-w-2xl space-y-6">
           <DetailHeader onBack={() => openView('home')} title={tr("ความยินยอม")} subtitle={tr("สิ่งที่คุณยอมรับหรือยินยอมไว้ วันที่บันทึก และการถอน")} />
@@ -1199,6 +1211,10 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       customer sees after paying, with nothing charged and the account's own guide untouched. */}
                   {onPreviewAfterPay && <Section icon={Sparkles} title={tr("สำหรับแอดมิน")} id="settings-admin">
                     <NavRow icon={Sparkles} title={tr("ตัวอย่างหลังชำระ Pro")} desc={tr("น้องเลขามาหาหลังชำระเงิน แล้วเปิดคู่มือ 4 ขั้นแบบทดลอง ไม่มีการชำระเงินจริง")} onClick={onPreviewAfterPay} />
+                  </Section>}
+
+                  {isAccount && labs.tester && <Section icon={FlaskConical} title={tr("ฟีเจอร์ทดลอง")} id="settings-labs">
+                    <NavRow icon={FlaskConical} title={tr("ฟีเจอร์ทดลอง")} desc={tr("ลองฟีเจอร์ใหม่ก่อนเปิดให้ทุกคน เห็นเฉพาะบัญชีทดสอบ")} value={labs.on.length ? tr("เปิดอยู่ {0}", labs.on.length) : undefined} onClick={() => openView('labs')} />
                   </Section>}
 
                   <Section icon={Database} title={tr("ข้อมูล")} id="settings-data">
