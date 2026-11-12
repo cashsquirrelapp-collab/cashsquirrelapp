@@ -104,4 +104,7 @@ export const onboarding: Record<string, string> = {
   "เริ่มใช้งานไม่สำเร็จ กรุณาลองอีกครั้ง": "Could not start. Please try again",
   "เปิดหน้านี้จากแชท LINE": "Open this page from the LINE chat",
   "กดปุ่มเริ่มใช้งานในแชทกระรอกตุนเงินอีกครั้งครับ": "Tap Get started in the Krarok chat again",
+  "จบหน้าตัวอย่าง": "End of the preview",
+  "ของจริงจะปิดหน้านี้และกลับไปที่แชท LINE พร้อมการ์ดต้อนรับ ไม่มีการสร้างบัญชีจากหน้าตัวอย่าง": "The real page closes and goes back to the LINE chat with a welcome card. The preview makes no account",
+  "ดูอีกครั้ง": "See it again",
 };

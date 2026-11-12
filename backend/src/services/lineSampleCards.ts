@@ -3,7 +3,8 @@
 import type { Job } from '../../../shared/types.js';
 import { formatMonthKey } from '../../../shared/calendar.js';
 import type { LineMessage } from './line.js';
-import { buildLineWelcome } from './lineLinkCards.js';
+import { buildLineStart, buildLineWelcome } from './lineLinkCards.js';
+import { lineSignupOn } from './lineFirst.js';
 import { buildDigestFlexMessage, buildInsightFlexMessage, findJobsNeedingAttention, todayInBangkok, type JobRow } from './lineReminders.js';
 import { handleDueAction, type DuePaymentDependencies } from './lineDuePayments.js';
 import { buildWht50ReminderMessage, findWaitingWht50Jobs } from './lineWht50Reminders.js';
@@ -67,5 +68,7 @@ export async function buildLineSampleCards(now = new Date()): Promise<LineMessag
   return [
     { type: 'text', text: LINE_SAMPLE_INTRO },
     buildLineWelcome({ pro: true }), digest, paid, insightOnly, wht50, report, tax,
+    // While sign-up in LINE is on (services/lineFirst.ts): the card a new friend without an account gets.
+    ...(lineSignupOn() ? [{ type: 'text', text: 'การ์ดสำหรับคนที่แอด LINE แต่ยังไม่มีบัญชี (กดเริ่มใช้งานแล้วจะเปิดหน้าสมัคร)' } as LineMessage, buildLineStart(process.env.LIFF_ID)] : []),
   ];
 }

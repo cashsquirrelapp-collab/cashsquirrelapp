@@ -22,6 +22,10 @@ export function readLineHandoff(now = Date.now()): Handoff | null {
 
 export default function LineStartPage() {
   const [handoff] = React.useState(() => readLineHandoff());
+  // /line-start?preview=1: the same screens to look at (owner, 2026-11-13: "กูจะดู ... UI ตรงที่แบบกรอกข้อมูลเบื้องต้น"),
+  // nothing is sent and no account is made.
+  const [preview] = React.useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('preview'));
+  const [previewDone, setPreviewDone] = React.useState(false);
   const mobile = typeof window !== 'undefined' && window.innerWidth < 744;
 
   const finish = async (result: OnboardingResult) => {
@@ -41,6 +45,18 @@ export default function LineStartPage() {
     window.location.replace(target && target.origin === window.location.origin && !target.hash ? target.href : '/liff-add.html?done=1');
   };
 
+  if (preview) {
+    if (previewDone) return (
+      <main style={{ minHeight: '100svh', display: 'grid', placeItems: 'center', padding: 24, background: '#FFFFFF', color: '#1C1917', textAlign: 'center' }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 600, lineHeight: 1.45, margin: '0 0 8px' }}>{tr("จบหน้าตัวอย่าง")}</h1>
+          <p style={{ fontSize: 15, lineHeight: 1.6, color: '#6B645F', margin: '0 0 20px' }}>{tr("ของจริงจะปิดหน้านี้และกลับไปที่แชท LINE พร้อมการ์ดต้อนรับ ไม่มีการสร้างบัญชีจากหน้าตัวอย่าง")}</p>
+          <button type="button" onClick={() => window.location.reload()} style={{ minHeight: 44, padding: '0 22px', border: 0, borderRadius: 999, background: '#E65F2B', color: '#FFFFFF', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>{tr("ดูอีกครั้ง")}</button>
+        </div>
+      </main>
+    );
+    return <WelcomeOnboarding mode="line" mobile={mobile} accountName="" onFinish={async () => { setPreviewDone(true); }} onSkip={async () => undefined} onClose={() => undefined} />;
+  }
   if (!handoff) {
     return (
       <main style={{ minHeight: '100svh', display: 'grid', placeItems: 'center', padding: 24, background: '#FFFFFF', color: '#1C1917', textAlign: 'center' }}>

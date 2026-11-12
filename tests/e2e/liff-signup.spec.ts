@@ -119,3 +119,19 @@ test('with sign-up switched off, a chat without an account is sent to the websit
   await expect(page.getByRole('heading', { name: 'เปิดบัญชีไม่ได้' })).toBeVisible();
   await expect(page).toHaveURL(/liff-add\.html/);
 });
+
+test('/line-start?preview=1 shows the same three screens and sends nothing', async ({ page }) => {
+  const posts: string[] = [];
+  page.on('request', request => { if (request.method() === 'POST' && request.url().includes('/api/line-signup')) posts.push(request.url()); });
+  await page.route('**/api/auth*', route => route.fulfill({ json: { session: null } }));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/line-start?preview=1');
+  await page.locator('#wob-name').fill('ปาร์ค');
+  await page.locator('.wob-go').click();
+  await page.getByText('ฟรีแลนซ์ / อาชีพอิสระ').click();
+  await page.locator('.wob-next').click();
+  await page.getByText('ยอมรับเงื่อนไขการใช้งานและนโยบายความเป็นส่วนตัว').click();
+  await page.locator('.wob-next').click();
+  await expect(page.getByRole('heading', { name: 'จบหน้าตัวอย่าง' })).toBeVisible({ timeout: 10_000 });
+  expect(posts).toEqual([]);
+});
