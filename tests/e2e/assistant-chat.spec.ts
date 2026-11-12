@@ -216,7 +216,7 @@ async function checkTopFace(page: Page) {
   const chat = chatOf(page);
   const perch = chat.locator('.asx-perch');
   // In its headset since 2026-10-29 (owner: "เวลาที่น้องเกาะแชทแบบนี้ก็ให้น้องใส่หูฟังเหมือนกัน"), the headset alone.
-  await expect(perch.locator('.mpg-headset')).toHaveCount(1);
+  await expect(perch.locator('svg.mochi')).toHaveCount(1); // โมจิ (owner, 2026-11-12)
   await expect(perch.locator('.mpg-back, .mpg-spark, .mpg-pin')).toHaveCount(0);
   await expect(chat.locator('.asx-bar-mascot')).toHaveCount(0);
   await expect(chat.locator('.asx-perch-name')).toHaveText('เลขากระรอก');

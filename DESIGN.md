@@ -125,6 +125,18 @@ The CSS tokens kept older names: `--blue-acc` is the CI **orange**, `--pink-acc`
 **caramel**, `--purple-acc` is a brown. Use the role, not the name, when choosing one. Chat surfaces use the
 `--asx-*` set in `frontend/src/features/assistant/assistant.css`.
 
+## 2b. เลขา's character: โมจิ
+
+- Since 2026-11-12 (owner: "เอาแบบ 1 โมจิ ใส่ในแอปเลย") เลขากระรอก is drawn as โมจิ (`components/mascot/Mochi.tsx`): a soft
+  brick-red blob, round squirrel ears, a dark face window with white LED eyes, pink cheeks, the logo's curled tail. Flat
+  colours, no gradients; only the eyes glow. Faces: idle, listen, think, talk, happy, worried, sleepy (`mochiFace` maps the
+  old moods). `MochiPeek` takes MascotPeek's box on the chat's perch and the floating window.
+- Where เลขา is the one talking (the chat page, its avatars and the notifications thread, the corner, the floating
+  window and its folded form, the arrival, the Pro guide's chat step, its menu icon), it is โมจิ. Everywhere else
+  (landing, onboarding, plans, LINE card pictures, loading, Credit Radar) the app's squirrel (`Mascot.tsx`) stays as it is
+  and is still never redrawn, until the owner moves those too.
+- The white egg design is kept for a future Pro "advanced" เลขา (artifacts/sheet-assistant-ui/mini-final), not used yet.
+
 ## 3. Typography
 
 - UI: IBM Plex Sans Thai (with IBM Plex Sans for Latin and digits), the CI type. Brand: Prompt, for the wordmark only.

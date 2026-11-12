@@ -1,0 +1,17 @@
+/* น้องเลขา "โมจิ" (Mochi.tsx): a slow float and a blink now and then. Off with reduced motion. */
+.mochi { display: block; overflow: visible; }
+.mochi.is-animated .mochi-body { animation: mochiFloat 3.6s ease-in-out infinite; transform-box: view-box; transform-origin: 50% 85%; }
+.mochi.is-animated[data-face='idle'] .mochi-eyes,
+.mochi.is-animated[data-face='listen'] .mochi-eyes,
+.mochi.is-animated[data-face='talk'] .mochi-eyes { animation: mochiBlink 4.8s linear infinite; transform-box: fill-box; transform-origin: 50% 40%; }
+@keyframes mochiFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+@keyframes mochiBlink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(0.12); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mochi.is-animated .mochi-body, .mochi.is-animated .mochi-eyes { animation: none; }
+}

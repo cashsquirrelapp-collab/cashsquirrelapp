@@ -1,4 +1,5 @@
 import { trialEndsAt as trialEndsOn } from '../../../shared/trial';
+import { Mochi } from '../components/mascot/Mochi';
 import { CardPaymentModal, PreparingCardModal } from '../features/billing/CardPaymentModal';
 import type { AssistantTransport } from '../features/assistant/assistantApi';
 import { safeAssistantPath } from '../features/assistant/assistantNavigation';
@@ -668,7 +669,7 @@ export default function App() {
       line: [
         // เลขากระรอก wears the squirrel itself, like LINE wears its logo.
         ...tool('assistant', tr("เลขากระรอก"), tr("นักบัญชีส่วนตัวในแชท · ตัวอย่างหน้าจอ"), 'chat', "ai แชท ผู้ช่วย กระรอก bot เลขา นักบัญชี").map(item => ({ ...item, mark: (
-          <span className="grid h-[30px] w-[30px] place-items-center overflow-hidden rounded-[8px] bg-[#FFF1E8] dark:bg-[#E65F2B]/15" aria-hidden="true"><Mascot mood="happy" animated={false} size={30} viewBox="12 8 76 76" /></span>
+          <span className="grid h-[30px] w-[30px] place-items-center overflow-hidden rounded-[8px] bg-[#FFF1E8] dark:bg-[#E65F2B]/15" aria-hidden="true"><Mochi mood="happy" face animated={false} size={30} /></span>
         ) })),
         lineAvailable
           ? { key: 'line', title: tr("เชื่อมต่อ LINE"), description: tr("ผู้ช่วยการเงินผ่าน LINE"), icon: 'chat', mark: <LineLogo size={30} />, search: "line ไลน์ ผู้ช่วย ai", value: !hasPro ? tr("ต้องใช้ Pro") : lineLinked ? tr("เชื่อมต่อแล้ว") : tr("ยังไม่เชื่อมต่อ"), onOpen: openSettings('line') }

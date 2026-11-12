@@ -314,6 +314,8 @@
 .asx-dot { position: absolute; top: 7px; right: 7px; width: 9px; height: 9px; border-radius: 50%; background: #E5484D; box-shadow: 0 0 0 2px var(--white); }
 .asx-side-item.is-line { min-height: 54px; gap: 10px; }
 .asx-line-avatar { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #8F3416, #E2672F); }
+/* The notifications thread is เลขา talking too (owner, 2026-11-12): โมจิ's face on cream, no blend. */
+.asx-line-avatar.is-mochi { overflow: hidden; background: var(--asx-cream); }
 .asx-side-stack { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
 .asx-side-preview { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; line-height: 1.5; color: var(--muted); }
 .asx-quick { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }

@@ -1,8 +1,8 @@
 import React from 'react';
+import { Mochi, MochiPeek } from '../../components/mascot/Mochi';
 import { motion } from 'motion/react';
 import { Maximize2, Minus, X } from 'lucide-react';
-import { Mascot, type MascotMood } from '../../components/mascot/Mascot';
-import { MascotPeek } from '../../components/mascot/MascotPeek';
+import type { MascotMood } from '../../components/mascot/Mascot';
 import { tr } from '../../i18n/tr';
 import { bubbleSide, clampRect, clearRect, clearSpot, defaultRect, EDGE, footprint, intersects, mascotSizeFor, MIN_SIZE, type Rect, type Size } from './floatGeometry';
 
@@ -217,7 +217,7 @@ export function FloatingWindow({ accountId, shown, mood, busy = false, label, no
       {/* The squirrel above the window: it moves with the window, always in the middle, and moves it when dragged. */}
       <span className="kfw-perch" onPointerDown={begin('move')} onDoubleClick={reset} title={tr("ลากเพื่อย้าย · ดับเบิลคลิกเพื่อคืนตำแหน่งเดิม")}>
         {/* In its headset (owner, 2026-10-29: "เวลาที่น้องเกาะแชทแบบนี้ก็ให้น้องใส่หูฟังเหมือนกัน"). */}
-        <MascotPeek size={size} gear="headset" mood={mood} motion={reduce ? 'still' : 'calm'} holo={busy} thoughtDots={false} className="kfw-perch-art" />
+        <MochiPeek size={size} mood={mood} motion={reduce ? 'still' : 'calm'} holo={busy} className="kfw-perch-art" />
       </span>
       <div className="kfw-shell">
         <header className="kfw-head" onPointerDown={begin('move')} onDoubleClick={event => { if (!(event.target as HTMLElement).closest('button')) reset(); }}>
@@ -315,7 +315,7 @@ export function MiniMascot({ accountId, mood, zones, label, onRestore, bubble, b
       <button ref={buttonRef} type="button" className="kfw-mini-btn" onPointerDown={begin} onKeyDown={onKey}
         onClick={event => { if ((event.currentTarget as HTMLElement).dataset.dragged) return; onRestore(); }}
         aria-label={label} title={tr("แตะเพื่อเปิดแชต · ลากเพื่อย้าย")}>
-        <Mascot gear="headset" mood={mood} size={MINI} animated={false} thoughtDots={false} />
+        <Mochi mood={mood} size={MINI} animated={false} />
       </button>
       {bubble && (
         <span ref={bubbleRef} key={bubbleKey} className={`kfw-mini-say lg-glass is-menu is-${side}`} role="status" onClick={onRestore}>
