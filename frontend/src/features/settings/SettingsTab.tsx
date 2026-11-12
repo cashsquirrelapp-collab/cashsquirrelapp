@@ -1,4 +1,5 @@
 import { uiSurface } from '../../components/ui/uiStyles';
+import { isLineOnlyEmail } from '../../../../shared/lineAccount';
 import { ownMonthlyExpense } from '../../../../shared/monthlySummary';
 import { uiInput, uiPrimaryButton, uiSecondaryButton } from '../../components/ui/uiStyles';
 import PageHeader from '../../components/ui/PageHeader';
@@ -708,7 +709,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 </div>
               </Field>
               <Field label={tr("อีเมล")} hint={tr("ใช้สำหรับเข้าสู่ระบบและรับแจ้งเตือน แก้ไขไม่ได้")}>
-                <p className="rounded-[10px] border border-brand-border bg-brand-faint px-3.5 py-2.5 text-[14px] text-brand-text">{session?.user?.email || '—'}</p>
+                <p className="rounded-[10px] border border-brand-border bg-brand-faint px-3.5 py-2.5 text-[14px] text-brand-text">{isLineOnlyEmail(session?.user?.email) ? tr("บัญชี LINE (เข้าใช้ผ่าน LINE)") : session?.user?.email || '—'}</p>
               </Field>
               <Field label="User ID" hint={tr("ใช้สำหรับค้นหาคุณและเชิญเข้ากลุ่ม แก้ไขไม่ได้")}>
                 <div className="flex items-center justify-between gap-3 rounded-[10px] border border-brand-border bg-brand-faint px-3.5 py-2.5">
@@ -1189,7 +1190,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     {avatarImg(68)}
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[17px] font-semibold text-brand-text">{profile?.displayName || (session?.isGuest ? tr("โหมดทดลองใช้งาน") : session?.user?.email?.split('@')[0] || '—')}</p>
-                      {session?.user?.email && <p className="truncate text-[13px] text-brand-muted">{session.user.email}</p>}
+                      {session?.user?.email && <p className="truncate text-[13px] text-brand-muted">{isLineOnlyEmail(session.user.email) ? tr("บัญชี LINE") : session.user.email}</p>}
                       {profile?.publicId && (
                         <p className="mt-0.5 flex items-center gap-1.5 text-[13px] text-brand-muted">
                           <span className="whitespace-nowrap font-mono">{profile.publicId}</span>

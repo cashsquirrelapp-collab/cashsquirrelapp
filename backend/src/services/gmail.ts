@@ -1,3 +1,4 @@
+import { isLineOnlyEmail } from '../../../shared/lineAccount.js';
 import { isStaging, stagingEmailAllowed } from '../security/staging.js';
 import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
@@ -66,6 +67,8 @@ export async function sendGmailEmailOutcome(
   attachments?: { filename: string; content: string }[],
 ): Promise<DeliveryOutcome> {
   if (!stagingEmailAllowed(to)) return 'skipped';
+  // An account made in LINE has no mailbox (shared/lineAccount.ts): nothing is sent to its made-up address.
+  if (isLineOnlyEmail(to)) return 'skipped';
   let sender: Transporter;
   try { sender = getTransporter(); }
   catch { console.error('Email transport configuration failed'); return 'rejected'; }

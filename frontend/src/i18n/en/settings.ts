@@ -112,6 +112,8 @@ export const settings: Record<string, string> = {
   "ยืนยันคำขอลบบัญชี": "Confirm account deletion",
   "ยืนยันต้องการล้างข้อมูลทั้งหมดใช่ไหม?": "Clear all data?",
   "ยืนยันบัญชี LINE อย่างปลอดภัย": "Verify your LINE account securely",
+  "บัญชี LINE (เข้าใช้ผ่าน LINE)": "LINE account (sign in through LINE)",
+  "บัญชี LINE": "LINE account",
   "ยืนยันปิดบัญชี": "Confirm closing the account",
   "ยืนยันพักบัญชี 30 วัน": "Confirm pausing for 30 days",
   "ยืนยันสำเร็จ": "Verified",

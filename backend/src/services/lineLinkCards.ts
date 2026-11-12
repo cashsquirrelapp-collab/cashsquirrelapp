@@ -33,6 +33,27 @@ export function buildLineWelcome(options: { pro: boolean; quickReply?: LineQuick
   return options.pro && options.quickReply ? { ...card, quickReply: options.quickReply } : card;
 }
 
+/**
+ * A new friend of the LINE OA who has no account yet (owner, 2026-11-13: "แอด LINE แล้วใช้ได้เลย"): what เลขา does and
+ * one button that opens the sign-up page inside LINE (LIFF ?start=1, liff-add.js). Someone with a website account can
+ * still send the 16-character code from Settings.
+ */
+export function buildLineStart(liffId: string | undefined): LineMessage {
+  const start = liffId ? { label: 'เริ่มใช้งาน', uri: `https://liff.line.me/${liffId}?start=1` } : lineAppLink('/login', 'เริ่มใช้งาน');
+  return lineCard({
+    title: 'เลขากระรอกพร้อมช่วยครับ', subtitle: 'ดูแลงาน รายรับ รายจ่าย ในแชทนี้', character: 'welcome',
+    altText: 'เลขากระรอกพร้อมช่วยครับ กดเริ่มใช้งานเพื่อเริ่มบันทึกงานและรายจ่ายใน LINE',
+    body: [
+      { type: 'text', text: 'กดเริ่มใช้งาน ใส่ชื่อและประเภทงาน แล้วพิมพ์บอกเลขาได้เลย ไม่ต้องใช้อีเมล', size: 'sm', color: C.text, wrap: true },
+      feature('บันทึกด้วยการพิมพ์', `พิมพ์ “${LINE_JOB_EXAMPLES[0]}” หรือส่งรูปใบเสร็จ เลขาเตรียมให้ตรวจก่อนบันทึก`),
+      feature('ลงชีตของคุณเอง', 'เชื่อม Google Sheets แล้วเลขาเพิ่มแถวให้ทุกครั้งที่บันทึก'),
+      feature('เตือนรับเงิน', 'แจ้งเวลา 08:00 เมื่องานใกล้ถึงกำหนดรับเงิน'),
+    ],
+    note: 'มีบัญชีบนเว็บอยู่แล้ว ไปที่ ตั้งค่า › เชื่อมต่อ LINE แล้วส่งรหัส 16 ตัวมาที่แชทนี้',
+    footer: start,
+  });
+}
+
 export function buildLineDisconnected(): LineMessage {
   return lineCard({
     title: 'ยกเลิกการเชื่อมต่อแล้ว', subtitle: 'LINE นี้ไม่ได้เชื่อมกับบัญชีแล้ว', character: 'disconnected',

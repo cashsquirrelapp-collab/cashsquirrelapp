@@ -143,6 +143,8 @@ export interface PlanInfo {
   granted?: true;
   /** A new account's free tokens (signupTokens.ts). */
   signup?: true;
+  /** An account without Pro on the free monthly allowance (services/lineFirst.ts). */
+  free?: true;
 }
 const asPlan = (value: AssistantPlan | PlanInfo): PlanInfo => (typeof value === 'string' ? { plan: value } : value);
 

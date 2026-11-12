@@ -42,6 +42,7 @@ const policies: Record<string, { group: string; limit: number }> = {
   'feedback-public': { group: 'feedback-public', limit: 10 },
   'public-stats': { group: 'public-stats', limit: 30 },
   'line-session': { group: 'line-session', limit: 20 },
+  'line-signup': { group: 'line-signup', limit: 10 },
   'liff-submit': { group: 'liff', limit: 20 },
   'download-report': { group: 'download', limit: 20 },
   'stripe-webhook': { group: 'stripe-webhook', limit: 300 },

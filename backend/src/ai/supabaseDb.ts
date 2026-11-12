@@ -2,6 +2,7 @@ import { writeRecordToSheet } from '../services/sheetWrite.js';
 import { inFreeTrial } from '../../../shared/trial.js';
 import { isTesterPublicId, TESTER_BUCKET, TESTER_TOKENS } from './testers.js';
 import { signupTokens } from './signupTokens.js';
+import { freeBucket, freeMonthlyTokens } from '../services/lineFirst.js';
 import type { User } from '@supabase/supabase-js';
 import { getSupabaseAdmin } from '../config/supabase.js';
 import { HttpError } from '../http/guard.js';
@@ -76,6 +77,10 @@ export async function assistantPlan(user: User, now = Date.now()): Promise<PlanI
   // tokens (the owner's, or ชวนเพื่อน rewards) are added to it.
   const gift = signupTokens(user.created_at);
   if (gift) return { plan: 'trial', tokens: gift.tokens, bucket: gift.bucket, signup: true, ...(grants ? { grants } : {}) };
+  // Free accounts chat on a monthly allowance when it is switched on (owner, 2026-11-13: 200 tokens a month; services/
+  // lineFirst.ts). The plan stays 'trial' for the app's chat switch; customers never see the word.
+  const free = freeMonthlyTokens();
+  if (free) return { plan: 'trial', tokens: free, bucket: freeBucket(new Date(now)), free: true, ...(grants ? { grants } : {}) };
   return grantedOnly(grants);
 }
 

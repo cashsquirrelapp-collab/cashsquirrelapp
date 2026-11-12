@@ -7,6 +7,8 @@
   var submitting = false;
   var draftReference = null;
   var draftLoaded = false;
+  // Sign-up inside LINE (owner, 2026-11-13): offered when the server says so (/api/liff-config signup).
+  var signupOffered = false;
   var JOB_TIPS = {
     1: 'เริ่มจากชื่องานและลูกค้า แล้วเลือกประเภทงาน',
     2: 'ใส่มูลค่างานเต็ม และเลือกสถานะตามเงินที่ได้รับจริง',
@@ -123,6 +125,7 @@
   }
   function showStatus(title, message, closeButton, reaction) {
     field('form-view').classList.add('hidden');
+    field('signup-view').classList.add('hidden');
     var view = field('status-view'); view.classList.remove('hidden'); view.replaceChildren();
     var image = document.createElement('img'); image.className = 'emoji'; image.src = mascotUrl(reaction || 'guide'); image.alt = '';
     var heading = document.createElement('h2'); heading.textContent = title;
@@ -161,6 +164,8 @@
     });
     var result = await response.json();
     if (!response.ok) {
+      // A LINE chat without an account starts one here instead of being sent to the website.
+      if (result.code === 'line_not_linked' && signupOffered) { showSignup(destination); return; }
       showStatus('เปิดบัญชีไม่ได้', result.error || 'กรุณาลองเปิดใหม่จาก LINE', true, 'urgent');
       if (result.code === 'line_not_linked' || result.code === 'additional_verification_required') {
         var link = document.createElement('a'); link.href = '/login'; link.textContent = 'เข้าสู่เว็บไซต์'; link.className = 'secondary-btn'; field('status-view').append(link);
@@ -170,6 +175,78 @@
     var target = new URL(result.destination, window.location.origin);
     if (target.origin !== window.location.origin || target.hash) throw new Error('ปลายทางไม่ถูกต้อง');
     window.location.replace(target.href);
+  }
+  function startRequested(search) {
+    var params = new URLSearchParams(search);
+    if (params.has('start')) return true;
+    var state = params.get('liff.state');
+    if (!state) return false;
+    var at = state.indexOf('?');
+    return new URLSearchParams(at >= 0 ? state.slice(at + 1) : state.replace(/^\?/, '')).has('start');
+  }
+  function signupError(message) {
+    var box = field('signup-error'); box.textContent = message; box.style.display = message ? 'block' : 'none';
+    if (message) box.focus();
+  }
+  function chosenWork() {
+    var picked = document.querySelector('input[name="signup-work"]:checked');
+    return picked ? picked.value : '';
+  }
+  function showSignup(destination) {
+    field('form-view').classList.add('hidden'); field('status-view').classList.add('hidden');
+    field('signup-view').classList.remove('hidden');
+    var name = field('signup-name');
+    if (!name.value) {
+      try { liff.getProfile().then(function (profile) { if (!name.value && profile && profile.displayName) name.value = profile.displayName.slice(0, 60); }).catch(function () {}); } catch (error) {}
+    }
+    document.querySelectorAll('input[name="signup-work"]').forEach(function (input) {
+      input.onchange = function () { field('signup-other-field').classList.toggle('hidden', chosenWork() !== 'other'); signupError(''); };
+    });
+    var button = field('signup-submit');
+    button.onclick = async function () {
+      var displayName = name.value.trim(); var workType = chosenWork(); var other = field('signup-other').value.trim();
+      if (displayName.length < 2) { signupError('กรุณาใส่ชื่ออย่างน้อย 2 ตัวอักษร'); name.focus(); return; }
+      if (!workType) { signupError('กรุณาเลือกประเภทงาน'); return; }
+      if (!field('signup-agree').checked) { signupError('กรุณากดยอมรับเงื่อนไขก่อนเริ่มใช้งาน'); return; }
+      signupError(''); button.disabled = true; button.textContent = 'กำลังเตรียมบัญชี…';
+      try {
+        var idToken = liff.getIDToken();
+        if (!idToken) throw new Error('ไม่พบข้อมูลยืนยันตัวตน กรุณาเปิดใหม่จาก LINE');
+        var body = { idToken: idToken, name: displayName, workType: workType, agreed: true };
+        if (workType === 'other' && other) body.workTypeOther = other;
+        if (destination) body.destination = destination;
+        var response = await fetch('/api/line-signup', {
+          method: 'POST', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Protection': '1' },
+          body: JSON.stringify(body)
+        });
+        var result = await response.json().catch(function () { return {}; });
+        if (!response.ok) throw new Error(result.error || 'เริ่มใช้งานไม่สำเร็จ กรุณาลองอีกครั้ง');
+        if (result.destination) {
+          var target = new URL(result.destination, window.location.origin);
+          if (target.origin === window.location.origin && !target.hash) { window.location.replace(target.href); return; }
+        }
+        showStatus(result.created ? 'พร้อมแล้วครับ' : 'บัญชีนี้พร้อมใช้อยู่แล้ว',
+          'กลับไปที่แชทแล้วพิมพ์บอกเลขาได้เลย เช่น “ค่ากาแฟ 60” หรือ “เพิ่มงาน ออกแบบโลโก้ 5000”', true, 'review');
+      } catch (error) {
+        signupError(error && error.message ? error.message : 'เริ่มใช้งานไม่สำเร็จ กรุณาลองอีกครั้ง');
+        button.disabled = false; button.textContent = 'เริ่มใช้งาน';
+      }
+    };
+  }
+  async function openStart() {
+    // Someone already linked who taps เริ่มใช้งาน again is told so; a chat without an account gets the sign-up form.
+    var idToken = liff.getIDToken();
+    if (!idToken) throw new Error('missing id token');
+    var response = await fetch('/api/line-session', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Protection': '1' },
+      body: JSON.stringify({ idToken: idToken, destination: '/assistant' })
+    });
+    var result = await response.json().catch(function () { return {}; });
+    if (response.ok) { showStatus('บัญชีนี้พร้อมใช้อยู่แล้ว', 'กลับไปที่แชทแล้วพิมพ์บอกเลขาได้เลยครับ', true, 'review'); return; }
+    if (result.code === 'line_not_linked') { showSignup(null); return; }
+    showStatus('เปิดหน้านี้ไม่ได้', result.error || 'กรุณาลองเปิดใหม่จาก LINE', true, 'urgent');
   }
   function draftParams(search) {
     var params = new URLSearchParams(search);
@@ -282,8 +359,10 @@
     try {
       var configResponse = await fetch('/api/liff-config'); var config = await configResponse.json();
       if (!configResponse.ok || !config.liffId || !window.liff) { showStatus('ยังไม่พร้อมใช้งาน', 'ลองเปิดฟอร์มใหม่จากแชท LINE อีกครั้งครับ', true, 'urgent'); return; }
+      signupOffered = config.signup === true;
       await liff.init({ liffId: config.liffId });
       if (!liff.isLoggedIn()) { if (!liff.isInClient()) { liff.login(); return; } showStatus('ยืนยันบัญชีไม่ได้', 'กรุณาเปิดฟอร์มใหม่จากแชท LINE อีกครั้งครับ', true, 'urgent'); return; }
+      if (signupOffered && (startRequested(window.location.search) || startRequested(originalSearch))) { await openStart(); return; }
       var openPath = appDestination(window.location.search);
       if (openPath === null) openPath = appDestination(originalSearch);
       if (openPath !== null) { await openLinkedApp(openPath); return; }

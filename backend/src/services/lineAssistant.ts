@@ -28,6 +28,7 @@ import { checkLinkedAccountWriteAccess } from './linkedAccountAccess.js';
 import { decodeDueAction, handleDueAction, handleDuePartialText } from './lineDuePayments.js';
 import { decodeWht50Action, handleWht50Action } from './lineWht50Reminders.js';
 import { stagingUnlocked } from '../security/stagingUnlock.js';
+import { freeMonthlyTokens } from './lineFirst.js';
 import {
   JobRow,
   ExpenseRow,
@@ -1281,7 +1282,9 @@ async function handleAssistantMessageInner(
   // LINE chat is a Pro-only feature (per PlansTab's feature list) -- once the free trial and any
   // paid period have both lapsed, every message gets this renewal prompt instead of being
   // processed, so the bot never keeps working indefinitely for an expired account.
-  if (!(linked?.pro ? settledValue(linked.pro) : await dependencies.isProUser(user.user_id))) {
+  // With the free monthly allowance on (owner, 2026-11-13), accounts without Pro chat too; เลขา's own token check stops
+  // them when the month's tokens run out.
+  if (!freeMonthlyTokens() && !(linked?.pro ? settledValue(linked.pro) : await dependencies.isProUser(user.user_id))) {
     return buildRenewalMessage(user);
   }
 

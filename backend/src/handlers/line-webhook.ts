@@ -5,7 +5,8 @@ import type { VercelRequest, VercelResponse } from '../http/types.js';
 import crypto from 'crypto';
 import { supabaseAdmin } from '../config/supabase.js';
 import { findUserByLineId, getQuickReply, handleAssistantMessage, isProUser, prefetchLinkedContext } from '../services/lineAssistant.js';
-import { buildLineWelcome } from '../services/lineLinkCards.js';
+import { buildLineStart, buildLineWelcome } from '../services/lineLinkCards.js';
+import { freeMonthlyTokens, lineSignupOn } from '../services/lineFirst.js';
 import type { LineMessage } from '../services/line.js';
 import { toneLineMessages } from '../services/lineTone.js';
 import { decodeLineDraftAction } from '../services/lineDraftReview.js';
@@ -121,12 +122,27 @@ async function tryLinkAccount(userId: string, messageText: string): Promise<bool
   return !!result.data;
 }
 
+/** A follow (someone added the OA): with sign-up in LINE on, the เริ่มใช้งาน card for a chat without an account. */
+async function answerFollow(event: LineEvent, accessToken: string): Promise<void> {
+  const lineUserId = event.source?.userId;
+  if (!lineSignupOn() || event.source?.type !== 'user' || !lineUserId || !event.replyToken || !stagingLineAllowed(lineUserId)) return;
+  if (!event.webhookEventId) throw new Error('LINE event is missing its ID');
+  const claim = await supabaseAdmin.rpc('cashflow_claim_webhook', { p_key: event.webhookEventId });
+  if (claim.error) throw claim.error;
+  if (claim.data === 'done') return;
+  if (claim.data !== 'claimed') throw new Error('LINE event is still processing');
+  if (!(await findUserByLineId(lineUserId))) await reply(accessToken, event.replyToken, [buildLineStart(process.env.LIFF_ID)]);
+  const done = await supabaseAdmin.from('cashflow_webhook_events').update({ status: 'done' }).eq('key', event.webhookEventId);
+  if (done.error) throw done.error;
+}
+
 /** The card sent right after a LINE chat is linked: the Pro or the plain welcome for that account. */
 export async function welcomeAfterLink(lineUserId: string, deps = { findUserByLineId, isProUser, getQuickReply }): Promise<LineMessage> {
   let pro = false;
   try {
     const user = await deps.findUserByLineId(lineUserId);
-    pro = !!user && await deps.isProUser(user.user_id);
+    // With the free monthly allowance on (services/lineFirst.ts), an account without Pro chats too: same welcome.
+    pro = !!user && (freeMonthlyTokens() > 0 || await deps.isProUser(user.user_id));
   } catch {
     console.error('line-webhook: plan lookup for the welcome failed');
   }
@@ -160,6 +176,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     await Promise.all(
       events.map(async (event) => {
+        // A new friend (LINE_SIGNUP on): the เริ่มใช้งาน card, once per follow; someone already linked gets nothing extra.
+        if (event.type === 'follow') { await answerFollow(event, accessToken); return; }
         const messageText = lineEventCommand(event);
         if (messageText === null || !event.replyToken) return;
         const lineUserId = event.source?.userId;
@@ -222,8 +240,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return;
         }
         const replyText = 'ไม่พบรหัสเชื่อมต่อที่ตรงกันครับ ไปที่หน้าตั้งค่าในแอปกระรอกตุนเงิน > เชื่อมต่อ LINE เพื่อรับรหัสใหม่ แล้วส่งรหัสนั้นมาที่นี่ครับ';
+        // With sign-up in LINE on, anything else from a chat without an account gets the เริ่มใช้งาน card; a code that did
+        // not match still gets the code answer.
+        const looksLikeCode = /^[A-F0-9]{16}$/.test(messageText.trim().toUpperCase());
 
-        await send([{ type: 'text', text: replyText }]);
+        await send([lineSignupOn() && !looksLikeCode ? buildLineStart(process.env.LIFF_ID) : { type: 'text', text: replyText }]);
         await complete();
       })
     );
