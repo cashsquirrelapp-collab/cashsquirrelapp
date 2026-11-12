@@ -32,6 +32,11 @@ export function useLabs(account: string | null | undefined): LabState {
   return React.useSyncExternalStore(subscribe, () => (account ? states.get(account) ?? NO_LABS : NO_LABS), () => NO_LABS);
 }
 
+/** Whether this account's ฟีเจอร์ทดลอง have been read yet (a page can wait instead of saying "not open"). */
+export function useLabsLoaded(account: string | null | undefined): boolean {
+  return React.useSyncExternalStore(subscribe, () => Boolean(account && states.has(account)), () => false);
+}
+
 /** A tester turns one built feature on or off for itself; the server's answer replaces the state. */
 export async function setLabFeature(account: string, feature: LabFeatureId, on: boolean): Promise<LabState> {
   const reply = await apiJson<unknown>('/api/labs', { method: 'POST', headers: { 'X-Account-ID': account }, body: JSON.stringify({ feature, on }) });

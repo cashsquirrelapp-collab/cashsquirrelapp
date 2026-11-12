@@ -264,3 +264,12 @@
 .lab-sr-done > p svg { flex: none; margin-top: 3px; }
 .lab-sr-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .lab-sr-actions .lab-btn { min-height: 34px; padding: 0 12px; font-size: 13px; text-decoration: none; }
+
+/* ── /connect-sheets: เชื่อมชีตจาก LINE, in the phone's own browser ──────────────────────────────────────────────── */
+.lab-connect { min-height: 100svh; display: grid; place-items: center; padding: 24px 16px; background: var(--faint, #F3F2F0); box-sizing: border-box; }
+.lab-connect-card { width: 100%; max-width: 420px; padding: 28px 22px; border-radius: 20px; background: #FFFFFF; border: 1px solid var(--border, #E5E3DF); text-align: center; }
+.lab-connect-icon { display: inline-grid; place-items: center; width: 56px; height: 56px; border-radius: 16px; background: #FFF1E8; color: #C24A16; }
+.lab-connect h1 { margin: 14px 0 6px; font-size: 20px; font-weight: 600; line-height: 1.45; color: #1C1917; }
+.lab-connect p { margin: 0 0 20px; font-size: 14.5px; line-height: 1.6; color: #6B6560; }
+.lab-connect-go { min-height: 46px; padding: 0 22px; text-decoration: none; }
+.lab-connect-row { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }

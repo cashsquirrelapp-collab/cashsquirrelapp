@@ -17,6 +17,7 @@ import liffConfig from '../handlers/liff-config.js';
 import liffSubmit from '../handlers/liff-submit.js';
 import lineLink from '../handlers/line-link-code.js';
 import lineSignup from '../handlers/line-signup.js';
+import lineHandoff from '../handlers/line-handoff.js';
 import lineWebhook from '../handlers/line-webhook.js';
 import notify from '../handlers/notify.js';
 import reset from '../handlers/password-reset-line.js';
@@ -49,7 +50,7 @@ import consent from '../handlers/consent.js';
 import referral from '../handlers/referral.js';
 import labs from '../handlers/labs.js';
 import google, { googleCallback } from '../handlers/google.js';
-const routes:Record<string,Handler>={auth,data,groups,profile,account,billing,'recover-account':recoverAccount,'close-expired-accounts':closeExpiredAccounts,'admin-users':adminUsers,'admin-analytics':adminAnalytics,'confirm-email':confirmEmail,'usage-analytics':usageAnalytics,vault,'vault-upload':vaultUpload,'vault-file':vaultFile,'download-report':download,'line-session':lineSession,'liff-config':liffConfig,'liff-submit':liffSubmit,'line-link-code':lineLink,'line-signup':lineSignup,'line-webhook':lineWebhook,notify,'password-reset-email':reset,'password-reset-line':reset,'send-monthly-report':report,'send-overdue-digest':digest,'send-admin-profit-report':adminProfitReport,'advance-card-renewals':advanceCardRenewals,'setup-line-richmenu':setup,'stripe-webhook':stripe};
+const routes:Record<string,Handler>={auth,data,groups,profile,account,billing,'recover-account':recoverAccount,'close-expired-accounts':closeExpiredAccounts,'admin-users':adminUsers,'admin-analytics':adminAnalytics,'confirm-email':confirmEmail,'usage-analytics':usageAnalytics,vault,'vault-upload':vaultUpload,'vault-file':vaultFile,'download-report':download,'line-session':lineSession,'liff-config':liffConfig,'liff-submit':liffSubmit,'line-link-code':lineLink,'line-signup':lineSignup,'line-handoff':lineHandoff,'line-webhook':lineWebhook,notify,'password-reset-email':reset,'password-reset-line':reset,'send-monthly-report':report,'send-overdue-digest':digest,'send-admin-profit-report':adminProfitReport,'advance-card-renewals':advanceCardRenewals,'setup-line-richmenu':setup,'stripe-webhook':stripe};
 const rawRoutes=new Set(['stripe-webhook','line-webhook','vault-upload']);
 routes.feedback = feedback;
 // Reports from the public landing page (signed out), into the same แจ้งปัญหา system.
@@ -86,7 +87,7 @@ export function routeHandler(route:string):Handler {
    try{req.body=raw.length?JSON.parse(raw.toString()):{};}catch{throw new HttpError(400,'Invalid JSON');}
   }
   await handler(req,res);
- },{csrf:['line-session','line-signup','auth','data','groups','profile','account','billing','recover-account','admin-users','admin-analytics','admin-stripe-finance','admin-payment-readiness','admin-profit-live','admin-ai-credit','admin-activity','broadcast','usage-analytics','line-link-code','password-reset-email','password-reset-line','notify','vault','vault-upload','feedback','feedback-public','assistant','consent','referral','labs','google'].includes(route)});
+ },{csrf:['line-session','line-signup','line-handoff','auth','data','groups','profile','account','billing','recover-account','admin-users','admin-analytics','admin-stripe-finance','admin-payment-readiness','admin-profit-live','admin-ai-credit','admin-activity','broadcast','usage-analytics','line-link-code','password-reset-email','password-reset-line','notify','vault','vault-upload','feedback','feedback-public','assistant','consent','referral','labs','google'].includes(route)});
 }
 export default withGuard(async(req:VercelRequest,res:VercelResponse)=>{
  const route=req.query.route;

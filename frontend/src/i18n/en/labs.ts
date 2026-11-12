@@ -160,4 +160,17 @@ export const labs: Record<string, string> = {
   'แผนที่ชีตยังไม่มีแท็บรายจ่าย': 'The sheet map has no expenses tab yet.',
   'แผนที่ชีตยังไม่มีแท็บรายรับหรืองาน': 'The sheet map has no income or jobs tab yet.',
   'ยังไม่ได้บันทึกแผนที่ชีต กรุณาตรวจและบันทึกแผนที่ที่ ตั้งค่า › ฟีเจอร์ทดลอง': 'The sheet map is not saved yet. Please check and save it in Settings › Labs.',
+  // /connect-sheets (เชื่อมชีตจาก LINE, 2026-11-13)
+  "กลับไปที่ LINE": "Back to LINE",
+  "กลับไปบันทึกผ่านแชท LINE ได้ตามปกติครับ": "You can keep recording in the LINE chat as usual",
+  "การเชื่อมชีตยังไม่เปิดให้บัญชีนี้": "Connecting a sheet is not open to this account yet",
+  "กำลังเปิด…": "Opening…",
+  "ทำต่อ": "Continue",
+  "ยังไม่ได้บันทึกแผนที่ชีต": "The sheet map is not saved yet",
+  "ลิงก์นี้ใช้ไม่ได้แล้ว": "This link no longer works",
+  "ลิงก์เชื่อมชีตใช้ได้ครั้งเดียวภายใน 5 นาที กลับไปที่ LINE แล้วกด เชื่อมชีต ในการ์ดอีกครั้ง": "The link works once, within 5 minutes. Go back to LINE and tap Connect sheet in the card again",
+  "เชื่อมชีตแล้ว": "Sheet connected",
+  "เชื่อมต่อได้ทุกเมื่อ พิมพ์ เชื่อมชีต ในแชท LINE แล้วกดปุ่มในการ์ด": "Connect any time: type \"connect sheet\" in the LINE chat and tap the button in the card",
+  "เลขาส่งการ์ดยืนยันไว้ในแชท LINE แล้ว ต่อไปบันทึกผ่านแชทแล้วกดยืนยัน เลขาจะเพิ่มแถวในชีตให้": "The assistant left a card in your LINE chat. Record in the chat and confirm, and a row is added to your sheet",
+  "รอสักครู่ครับ": "One moment",
 };

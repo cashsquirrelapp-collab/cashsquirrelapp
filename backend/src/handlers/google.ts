@@ -10,8 +10,7 @@ import { rateLimit } from '../security/rateLimit.js';
 import { requireUser } from '../security/session.js';
 import {
   GoogleError, accessToken, authUrl, createSpreadsheet, decryptToken, driveFile, googleConfigured, readSpreadsheet, readState,
-  encryptToken, exchangeCode, revokeToken,
-} from '../services/googleSheets.js';
+  encryptToken, exchangeCode, revokeToken, stateBack } from '../services/googleSheets.js';
 import { appOrigin } from '../config/env.js';
 import { supabaseAssistantDb } from '../ai/supabaseDb.js';
 import { planRow, previewOf, sheetContext, undoWrite, writeFor } from '../services/sheetWrite.js';
@@ -25,7 +24,7 @@ import { planRow, previewOf, sheetContext, undoWrite, writeFor } from '../servic
 
 const fileId = z.string().regex(/^[A-Za-z0-9_-]{10,200}$/);
 const actionSchema = z.discriminatedUnion('action', [
-  z.object({ action: z.literal('start') }).strict(),
+  z.object({ action: z.literal('start'), back: z.literal('connect').optional() }).strict(),
   z.object({ action: z.literal('token') }).strict(),
   z.object({ action: z.literal('pick'), fileId }).strict(),
   z.object({ action: z.literal('read') }).strict(),
@@ -130,7 +129,7 @@ export default withGuard(async (req, res) => {
   try {
     if (body.action === 'start') {
       await rateLimit('google-start', user.id, 10, 600);
-      reply(record, { url: authUrl(user.id) });
+      reply(record, { url: authUrl(user.id, body.back) });
       return;
     }
     const refresh = refreshTokenOf(record);
@@ -166,6 +165,11 @@ export default withGuard(async (req, res) => {
       if (!record!.file || body.map.fileId !== record!.file.id) throw new HttpError(409, 'ไฟล์ชีตเปลี่ยนไปแล้ว กรุณาโหลดใหม่');
       const next: GoogleRecord = { ...record!, map: { ...body.map, at: new Date().toISOString() } };
       await saveGoogle(user.id, next);
+      // The first map of this file (connected from LINE or not): the done card in the account's LINE chat, if any.
+      if (!record!.map || record!.map.fileId !== body.map.fileId) {
+        try { await (await import('../services/lineSheetCards.js')).tellLineSheetConnected(user.id, record!.file!, next.map!); }
+        catch { console.error('google: the LINE card for a connected sheet was not sent'); }
+      }
       reply(next);
       return;
     }
@@ -196,8 +200,10 @@ export const googleCallback = withGuard(async (req, res) => {
   if (req.method !== 'GET') throw new HttpError(405, 'Method not allowed');
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('Referrer-Policy', 'no-referrer');
-  const back = (result: string) => { res.status(302); res.setHeader('Location', `${appOrigin()}/settings?google=${result}`); res.end(); };
   const { code, state, error } = req.query as Record<string, unknown>;
+  // Opened from LINE (/connect-sheets) goes back there; otherwise Settings. The page is read only from a signed state.
+  const page = typeof state === 'string' && readState(state) && stateBack(state) === 'connect' ? '/connect-sheets' : '/settings';
+  const back = (result: string) => { res.status(302); res.setHeader('Location', `${appOrigin()}${page}?google=${result}`); res.end(); };
   if (typeof error === 'string') { back('cancelled'); return; }
   if (!googleConfigured() || typeof code !== 'string' || typeof state !== 'string' || code.length > 2000) { back('failed'); return; }
   const stateUser = readState(state);

@@ -22,14 +22,16 @@ export interface LineSignupHandlerDeps {
   store: typeof storeSession;
   revoke: (session: Session) => Promise<void>;
   /** The welcome card in the chat and the account's LINE menu; best effort, never fails the sign-up. */
-  welcome: (lineUserId: string, userId: string) => Promise<void>;
+  welcome: (lineUserId: string, userId: string, recordsIn?: string | null) => Promise<void>;
 }
 
-async function sendWelcome(lineUserId: string, userId: string): Promise<void> {
-  const [{ welcomeAfterLink }, { sendLineMessagePayload }, menus] = await Promise.all([
-    import('./line-webhook.js'), import('../services/line.js'), import('../services/lineRichMenus.js'),
+async function sendWelcome(lineUserId: string, userId: string, recordsIn?: string | null): Promise<void> {
+  const [{ welcomeAfterLink }, { sendLineMessagePayload }, menus, sheets] = await Promise.all([
+    import('./line-webhook.js'), import('../services/line.js'), import('../services/lineRichMenus.js'), import('../services/lineSheetCards.js'),
   ]);
   await sendLineMessagePayload(lineUserId, await welcomeAfterLink(lineUserId));
+  // Records kept in Google Sheets (question 5): the card to connect that sheet, where the feature is open to the account.
+  if (recordsIn === 'google_sheets' && await sheets.sheetsOpenFor(userId)) await sendLineMessagePayload(lineUserId, sheets.buildLineConnectSheet(process.env.LIFF_ID));
   menus.forgetLineMenu(lineUserId);
   const menuDeps = menus.lineMenuDeps();
   if (menuDeps) await menus.syncLineMenuFor(lineUserId, menuDeps);
@@ -69,7 +71,7 @@ export function createLineSignupHandler(deps: LineSignupHandlerDeps = defaults()
       deps.store(res, session);
     } catch (error) { await deps.revoke(session); throw error; }
     if (created) {
-      try { await deps.welcome(lineId, userId); }
+      try { await deps.welcome(lineId, userId, parsed.data.recordsIn ?? null); }
       catch { console.error('line-signup: welcome card was not sent'); }
     }
     // Navigation only: never tokens, emails or IDs.

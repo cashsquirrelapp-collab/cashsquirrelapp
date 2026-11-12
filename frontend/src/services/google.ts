@@ -24,7 +24,7 @@ const post = <T extends object = Reply>(account: string, body: Record<string, un
 export const googleApi = {
   status: (account: string) => apiJson<Reply>('/api/google', { headers: { 'X-Account-ID': account } }).then(reply => reply.google),
   /** Google's sign-in address; the page goes there and comes back to /settings?google=… */
-  start: (account: string) => post<{ url: string }>(account, { action: 'start' }).then(reply => reply.url),
+  start: (account: string, back?: 'connect') => post<{ url: string }>(account, back ? { action: 'start', back } : { action: 'start' }).then(reply => reply.url),
   token: (account: string) => apiJson<{ token: string; expiresIn: number; apiKey: string; appId: string }>('/api/google', {
     method: 'POST', headers: { 'X-Account-ID': account }, body: JSON.stringify({ action: 'token' }),
   }),

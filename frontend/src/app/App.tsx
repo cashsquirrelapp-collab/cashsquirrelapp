@@ -132,6 +132,8 @@ const FounderStory = lazy(() => import('../features/marketing/v5/FounderStory'))
 const Guides = lazy(() => import('../features/marketing/v5/Guides'));
 // Signing up inside LINE with the website's welcome screens (owner, 2026-11-13); opened by the LINE page, signed out.
 const LineStartPage = lazy(() => import('../features/onboarding/LineStartPage'));
+// เชื่อมชีตจาก LINE: the page the one-use link opens in the phone's own browser (2026-11-13).
+const ConnectSheetsPage = lazy(() => import('../features/labs/ConnectSheetsPage'));
 import { fireMascot } from '../mascotBus';
 import { enterReferral, forgetSharedCode, readReferral, rememberSharedCode, sharedCodeFor, TOKENS_GRANTED_EVENT } from '../services/referral';
 import type { ReferralStatus } from '../../../shared/referral';
@@ -248,7 +250,7 @@ function isConfirmedCheckoutSubscription(subscription: BillingSubscription, now 
 
 const TAB_KEYS: TabKey[] = ['dashboard', 'adminDashboard', 'jobs', 'tax', 'split', 'report', 'settings', 'invoice', 'insight', 'plans', 'groups', 'calendar', 'receivables', 'incomeExpense', 'vault', 'wht50', 'feedback', 'assistant'];
 // line-start: signing up in LINE (LineStartPage), never a workspace name.
-const ROOT_RESERVED_SLUGS = new Set(['login', 'app', 'privacy', 'terms', 'api', 'line-documents', 'line-start']);
+const ROOT_RESERVED_SLUGS = new Set(['login', 'app', 'privacy', 'terms', 'api', 'line-documents', 'line-start', 'connect-sheets']);
 // The ลูกค้า page was removed; its per-client numbers live in รายงาน › ลูกค้า (the insight alias).
 const RETIRED_TAB_ALIASES: Record<string, TabKey> = { timeline: 'calendar', summary: 'incomeExpense', clients: 'insight' };
 /** The account's light / dark choice kept on the device, and the stretch of the clock last applied (themeSchedule). */
@@ -2053,7 +2055,7 @@ export default function App() {
   useEffect(() => {
     if (!session?.user?.id) return;
     // Signing up in LINE (and its preview) stays put even when this browser is already signed in to an account.
-    if (pathname === '/line-start') return;
+    if (pathname === '/line-start' || pathname === '/connect-sheets') return;
     // LINE's document inbox is a focused personal-account screen, outside the app navigation.
     if (pathname === '/line-documents') {
       // Open to every account since the vault opened to all (2026-10-31); until 2026-11-04 this still sent everyone but
@@ -3159,6 +3161,9 @@ export default function App() {
   useEffect(() => { if (isPro && proKvOpen) setProKvOpen(false); }, [isPro, proKvOpen]);
 
   if (MotionStudy && pathname === '/motion-study') return <Suspense fallback={null}><MotionStudy /></Suspense>;
+  if (pathname === '/connect-sheets') return loadingSession
+    ? <div style={{ minHeight: '100svh', background: '#F3F2F0' }} />
+    : <Suspense fallback={<div style={{ minHeight: '100svh', background: '#F3F2F0' }} />}><ConnectSheetsPage account={session && !session.isGuest ? session.user.id : null} /></Suspense>;
   if (pathname === '/line-start') return <Suspense fallback={<div style={{ minHeight: '100svh', background: '#FFFFFF' }} />}><LineStartPage /></Suspense>;
   if (pathname === '/founder') return <Suspense fallback={<div style={{ minHeight: '100svh', background: '#FFFFFF' }} />}><FounderStory /></Suspense>;
   if (pathname === '/guides' || pathname.startsWith('/guides/')) return <Suspense fallback={<div style={{ minHeight: '100svh', background: '#FFFFFF' }} />}><Guides /></Suspense>;

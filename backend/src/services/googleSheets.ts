@@ -62,8 +62,10 @@ export const redirectUri = () => `${appOrigin()}/api/google/callback`;
 
 const STATE_MS = 10 * 60_000;
 /** Signed, for this account, ten minutes: Google's answer is taken only for the account that asked. */
-export function makeState(userId: string, now = Date.now()): string {
-  const body = Buffer.from(JSON.stringify({ u: userId, e: now + STATE_MS, n: randomBytes(9).toString('base64url') })).toString('base64url');
+/** Where Google's sign-in comes back to: Settings, or the page opened from LINE (/connect-sheets). */
+export type GoogleBack = 'connect';
+export function makeState(userId: string, now = Date.now(), back?: GoogleBack): string {
+  const body = Buffer.from(JSON.stringify({ u: userId, e: now + STATE_MS, n: randomBytes(9).toString('base64url'), ...(back ? { b: back } : {}) })).toString('base64url');
   return `${body}.${createHmac('sha256', keyFor('oauth-state')).update(body).digest('base64url')}`;
 }
 /** The account a state was made for, or null when it is forged, changed or old. */
@@ -79,7 +81,15 @@ export function readState(state: string, now = Date.now()): string | null {
   } catch { return null; }
 }
 
-export function authUrl(userId: string): string {
+/** The page a checked state asks to come back to (call after readState accepted it). */
+export function stateBack(state: string): GoogleBack | null {
+  try {
+    const value = JSON.parse(Buffer.from(state.split('.')[0] ?? '', 'base64url').toString('utf8')) as { b?: unknown };
+    return value.b === 'connect' ? 'connect' : null;
+  } catch { return null; }
+}
+
+export function authUrl(userId: string, back?: GoogleBack): string {
   const params = new URLSearchParams({
     client_id: required('GOOGLE_CLIENT_ID'),
     redirect_uri: redirectUri(),
@@ -87,7 +97,7 @@ export function authUrl(userId: string): string {
     scope: GOOGLE_SCOPES.join(' '),
     access_type: 'offline',
     prompt: 'consent',
-    state: makeState(userId),
+    state: makeState(userId, Date.now(), back),
   });
   return `${AUTH_URL}?${params}`;
 }

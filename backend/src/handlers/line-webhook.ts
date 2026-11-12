@@ -114,6 +114,7 @@ async function syncMenu(lineUserId: string): Promise<void> {
 }
 
 const LINK_CODE = /^[A-F0-9]{16}$/;
+const CONNECT_SHEET = /^(เชื่อม\s*(ชีต|ชีท|google\s*sheets?|กูเกิ้?ลชีท|กูเกิ้?ลชีต)\s*(ของ(ฉัน|ผม|เรา|กู))?|connect\s*(my\s*)?(google\s*)?sheets?)$/i;
 
 /**
  * What a link code means when this LINE chat is already linked: the same account (nothing to do), another account (the
@@ -260,6 +261,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (event.type === 'message' && LINK_CODE.test(messageText.trim().toUpperCase())) {
           const answer = await linkCodeWhileLinked(lineUserId, messageText);
           if (answer) { await send([{ type: 'text', text: answer }]); await complete(); return; }
+        }
+        // "เชื่อมชีต" (owner, 2026-11-13): the card that connects the person's Google Sheet, where the feature is open to them.
+        if (event.type === 'message' && CONNECT_SHEET.test(messageText.trim())) {
+          const card = await (await import('../services/lineSheetCards.js')).connectSheetCardFor(lineUserId);
+          if (card) { await send([card]); await complete(); return; }
         }
         const assistantReply = await handleAssistantMessage(lineUserId, messageText, event.webhookEventId, undefined, linkedContext);
         if (assistantReply !== null) {

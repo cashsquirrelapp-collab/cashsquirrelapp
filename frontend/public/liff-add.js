@@ -196,6 +196,34 @@
     try { liff.getProfile().then(function (profile) { go(profile && profile.displayName); }).catch(function () { go(''); }); }
     catch (error) { go(''); }
   }
+  function connectRequested(search) {
+    var params = new URLSearchParams(search);
+    if (params.get('connect') === 'sheets') return true;
+    var state = params.get('liff.state');
+    if (!state) return false;
+    var at = state.indexOf('?');
+    return new URLSearchParams(at >= 0 ? state.slice(at + 1) : state.replace(/^\?/, '')).get('connect') === 'sheets';
+  }
+  async function openConnect() {
+    // Google refuses sign-in inside LINE: a one-use link opens the phone's own browser, already signed in.
+    showStatus('กำลังเปิดเบราว์เซอร์', 'รอสักครู่ครับ', false, 'working');
+    var idToken = liff.getIDToken();
+    if (!idToken) throw new Error('missing id token');
+    var response = await fetch('/api/line-handoff', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Protection': '1' },
+      body: JSON.stringify({ idToken: idToken, purpose: 'sheets' })
+    });
+    var result = await response.json().catch(function () { return {}; });
+    if (!response.ok || !result.url) {
+      if (result.code === 'line_not_linked' && signupOffered) { showSignup(null); return; }
+      showStatus('เปิดหน้าเชื่อมชีตไม่ได้', result.error || 'กรุณาลองใหม่จากแชท LINE', true, 'urgent');
+      return;
+    }
+    try { liff.openWindow({ url: result.url, external: true }); }
+    catch (error) { window.location.href = result.url; return; }
+    showStatus('ทำต่อในเบราว์เซอร์ได้เลย', 'ล็อกอิน Google เลือกไฟล์ แล้วตรวจคอลัมน์ เสร็จแล้วกลับมาที่แชทนี้ เลขาจะส่งการ์ดยืนยันให้\nลิงก์ใช้ได้ครั้งเดียวภายใน 5 นาที', true, 'document');
+  }
   async function openStart() {
     // Someone already linked who taps เริ่มใช้งาน again is told so; a chat without an account gets the sign-up form.
     var idToken = liff.getIDToken();
@@ -328,6 +356,7 @@
       // Back from /line-start after signing up: close the window, the welcome card is already in the chat.
       if (new URLSearchParams(originalSearch).has('done')) { showStatus('พร้อมแล้วครับ', 'กลับไปที่แชทแล้วพิมพ์บอกเลขาได้เลย เช่น “ค่ากาแฟ 60”', true, 'review'); closeLiff(); return; }
       if (signupOffered && (startRequested(window.location.search) || startRequested(originalSearch))) { await openStart(); return; }
+      if (connectRequested(window.location.search) || connectRequested(originalSearch)) { await openConnect(); return; }
       var openPath = appDestination(window.location.search);
       if (openPath === null) openPath = appDestination(originalSearch);
       if (openPath !== null) { await openLinkedApp(openPath); return; }

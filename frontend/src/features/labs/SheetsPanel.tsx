@@ -48,7 +48,7 @@ type Tone = 'green' | 'red' | 'plain';
 type Source = 'google' | 'excel';
 type Notice = { tone: Tone; text: string } | null;
 
-export function SheetsPanel({ open, onClose, account, labs, result, onCreateTemplate, initialSource }: {
+export function SheetsPanel({ open, onClose, account, labs, result, onCreateTemplate, initialSource, googleBack, onMapSaved }: {
   open: boolean;
   onClose: () => void;
   account: string;
@@ -59,6 +59,10 @@ export function SheetsPanel({ open, onClose, account, labs, result, onCreateTemp
   onCreateTemplate?: () => void;
   /** Which way in to show first (the เปิด button pressed in ฟีเจอร์ทดลอง). */
   initialSource?: Source;
+  /** Opened from LINE (/connect-sheets): Google's sign-in comes back there, not to Settings. */
+  googleBack?: 'connect';
+  /** After the sheet map is saved (the LINE page shows its done screen). */
+  onMapSaved?: () => void;
 }) {
   const googleOn = labOn(labs, 'sheets');
   const excelOn = labOn(labs, 'excel');
@@ -80,7 +84,7 @@ export function SheetsPanel({ open, onClose, account, labs, result, onCreateTemp
     <Modal open={open} onClose={onClose} label={tr("ชีตบัญชีของคุณ")} width={wide[shown] ? 960 : 600}>
       <div className="lab lab-gs" data-testid="sheets-panel">
         {/* Both stay mounted while the window is open, so switching keeps a file already read. */}
-        {googleOn && <div className="lab-gs-pane" hidden={shown !== 'google'}><GoogleSource open={open} account={account} mapOn={mapOn} result={result} onCreateTemplate={onCreateTemplate} switcher={switcher} onWide={googleWide} /></div>}
+        {googleOn && <div className="lab-gs-pane" hidden={shown !== 'google'}><GoogleSource open={open} account={account} mapOn={mapOn} result={result} onCreateTemplate={onCreateTemplate} googleBack={googleBack} onMapSaved={onMapSaved} switcher={switcher} onWide={googleWide} /></div>}
         {excelOn && <div className="lab-gs-pane" hidden={shown !== 'excel'}><ExcelSource open={open} mapOn={mapOn} onCreateTemplate={onCreateTemplate} switcher={switcher} onWide={excelWide} /></div>}
       </div>
     </Modal>
@@ -158,8 +162,9 @@ function SaveMapButton({ ws, saved, busy, onSave }: { ws: Workspace; saved: bool
   );
 }
 
-function GoogleSource({ open, account, mapOn, result, onCreateTemplate, switcher, onWide }: {
+function GoogleSource({ open, account, mapOn, result, onCreateTemplate, switcher, onWide, googleBack, onMapSaved }: {
   open: boolean; account: string; mapOn: boolean; result?: string | null; onCreateTemplate?: () => void; switcher: React.ReactNode; onWide: (wide: boolean) => void;
+  googleBack?: 'connect'; onMapSaved?: () => void;
 }) {
   const ws = useWorkspace(mapOn);
   const [status, setStatus] = React.useState<GoogleStatus | null>(null);
@@ -199,7 +204,7 @@ function GoogleSource({ open, account, mapOn, result, onCreateTemplate, switcher
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, fileId]);
 
-  const connect = () => run('connect', async () => { window.location.assign(await googleApi.start(account)); });
+  const connect = () => run('connect', async () => { window.location.assign(await googleApi.start(account, googleBack)); });
   const choose = () => run('pick', async () => {
     const picker = await googleApi.token(account);
     let picked: { id: string } | null;
@@ -219,6 +224,7 @@ function GoogleSource({ open, account, mapOn, result, onCreateTemplate, switcher
     setStatus(await googleApi.saveMap(account, mapOf(fileId, ws.readings)));
     ws.setDirty(false);
     setNotice({ tone: 'green', text: tr("บันทึกแผนที่ชีตแล้ว") });
+    onMapSaved?.();
   });
 
   let body: React.ReactNode;

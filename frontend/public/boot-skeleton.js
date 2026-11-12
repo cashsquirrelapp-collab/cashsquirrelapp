@@ -9,7 +9,7 @@
     var dark = localStorage.getItem('cashflow_dark_mode') === 'true';
     var standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
     var signedIn = localStorage.getItem('cashflow_signed_in') === '1';
-    if ((signedIn || standalone) && !/^\/(login|recover|privacy|line-start)/.test(path)) showSplash(dark);
+    if ((signedIn || standalone) && !/^\/(login|recover|privacy|line-start|connect-sheets)/.test(path)) showSplash(dark);
   } catch (e) { /* storage blocked: blank until the app loads */ }
 
   function showSplash(dark) {
