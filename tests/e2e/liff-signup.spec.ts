@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { textOverlapIssues } from './textOverlap';
 import { loadLayoutFonts } from './testFonts';
+import { safeLineDestination } from '../../shared/lineDestination';
 
 // Signing up inside LINE (owner, 2026-11-13: "แอด LINE แล้วใช้ได้เลย", name + work type, then "อยากให้มันเป็น UI
 // ทรานซิชั่นเหมือนที่เราทำในเว็บไซต์ไว้"): the เริ่มใช้งาน card opens /liff-add.html?start=1; a LINE chat without an account
@@ -20,9 +21,12 @@ async function open(page: Page, opts: { linked?: boolean; signup?: boolean; quer
     body: 'window.liff={init:async()=>{},isLoggedIn:()=>true,isInClient:()=>true,getIDToken:()=>"token",getProfile:async()=>({displayName:"Park LINE"}),closeWindow(){window.__closed++},login(){}};' }));
   await page.route('**/api/liff-config', route => route.fulfill({ json: { liffId: 'test-liff', signup: opts.signup ?? true } }));
   await page.route('**/api/line-session', route => {
-    sent.push({ url: 'line-session', body: route.request().postDataJSON() });
+    const body = route.request().postDataJSON();
+    sent.push({ url: 'line-session', body });
+    // As the real server (shared/lineDestination.ts): only the app's own LINE destinations.
+    if (!safeLineDestination(body.destination)) return route.fulfill({ status: 400, json: { error: 'ลิงก์เปิดแอปไม่ถูกต้อง กรุณาเปิดใหม่จาก LINE' } });
     return opts.linked
-      ? route.fulfill({ json: { ok: true, destination: '/assistant' } })
+      ? route.fulfill({ json: { ok: true, destination: '/app?from=line' } })
       : route.fulfill({ status: 403, json: { error: 'LINE นี้ยังไม่ได้ผูกกับบัญชี', code: 'line_not_linked' } });
   });
   await page.route('**/api/line-signup', route => {
@@ -103,9 +107,9 @@ test('someone already linked who taps เริ่มใช้งาน again is
 });
 
 test('a menu button tapped before signing up opens the welcome screens and keeps where it was going', async ({ page }) => {
-  await open(page, { query: '?openPath=%2Fassistant' });
+  await open(page, { query: '?openPath=%2Fjobs' });
   await expect(page).toHaveURL(/\/line-start$/);
-  expect(JSON.parse(await page.evaluate(() => sessionStorage.getItem('krarok_line_signup') || '{}')).destination).toBe('/assistant');
+  expect(JSON.parse(await page.evaluate(() => sessionStorage.getItem('krarok_line_signup') || '{}')).destination).toBe('/jobs');
 });
 
 test('/line-start opened without LINE asks to open it from the chat', async ({ page }) => {
@@ -115,7 +119,7 @@ test('/line-start opened without LINE asks to open it from the chat', async ({ p
 });
 
 test('with sign-up switched off, a chat without an account is sent to the website as before', async ({ page }) => {
-  await open(page, { signup: false, query: '?openPath=%2Fassistant' });
+  await open(page, { signup: false, query: '?openPath=%2Fjobs' });
   await expect(page.getByRole('heading', { name: 'เปิดบัญชีไม่ได้' })).toBeVisible();
   await expect(page).toHaveURL(/liff-add\.html/);
 });

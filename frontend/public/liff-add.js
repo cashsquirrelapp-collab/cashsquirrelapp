@@ -203,7 +203,8 @@
     var response = await fetch('/api/line-session', {
       method: 'POST', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', 'X-CSRF-Protection': '1' },
-      body: JSON.stringify({ idToken: idToken, destination: '/assistant' })
+      // A destination the server accepts (shared/lineDestination.ts); nothing is opened from this answer.
+      body: JSON.stringify({ idToken: idToken, destination: '/app' })
     });
     var result = await response.json().catch(function () { return {}; });
     if (response.ok) { showStatus('บัญชีนี้พร้อมใช้อยู่แล้ว', 'กลับไปที่แชทแล้วพิมพ์บอกเลขาได้เลยครับ', true, 'review'); return; }
