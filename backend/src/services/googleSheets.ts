@@ -239,3 +239,80 @@ export async function createSpreadsheet(token: string, name: string, xlsx: Uint8
   if (!file.id) throw new GoogleError('failed', 'Google made no file');
   return { id: file.id, name: (file.name || name).slice(0, 300), url: file.webViewLink || `https://docs.google.com/spreadsheets/d/${file.id}/edit` };
 }
+
+/** The few operations writing one row needs, for one spreadsheet (sheetWrite.ts uses them; Excel in OneDrive will give
+ *  the same set). Rows are numbered as the sheet shows them (1 = first row); columns from 0. */
+export interface SheetOps {
+  /** The last row with anything in these columns (0 when they are empty). */
+  lastRow(tab: string, columns: number[]): Promise<number>;
+  /** Rows from..to as the sheet shows them, columns A..lastColumn. */
+  readRows(tab: string, from: number, to: number, lastColumn: number): Promise<string[][]>;
+  /** Which of these columns hold a formula in this row. */
+  formulaColumns(tab: string, row: number, columns: number[]): Promise<Set<number>>;
+  /** Types the values into one row (as a person would: numbers, dates, text). Returns the cells written. */
+  write(tab: string, row: number, cells: { index: number; value: string | number }[]): Promise<string[]>;
+  /** Copies the formulas of these columns from one row to another (only formulas, no values). */
+  copyFormulas(tab: string, fromRow: number, toRow: number, columns: number[]): Promise<string[]>;
+  /** Empties these cells (undo). */
+  clear(tab: string, cells: string[]): Promise<void>;
+}
+
+const columnName = (index: number): string => { let s = '', n = index + 1; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
+
+export function googleOps(token: string, fileId: string): SheetOps {
+  const id = encodeURIComponent(fileId);
+  const headers = { ...auth(token), 'Content-Type': 'application/json' };
+  const range = (tab: string, a1: string) => `${quoteTab(tab)}!${a1}`;
+  const get = async <T>(url: string): Promise<T> => { const response = await call(url, { headers: auth(token) }); if (!response.ok) throw failure(response); return json<T>(response); };
+  const post = async <T>(url: string, body: unknown): Promise<T> => { const response = await call(url, { method: 'POST', headers, body: JSON.stringify(body) }); if (!response.ok) throw failure(response); return json<T>(response); };
+  let sheetIds: Map<string, number> | null = null;
+  const sheetId = async (tab: string) => {
+    sheetIds ??= new Map(((await get<{ sheets?: { properties?: { sheetId?: number; title?: string } }[] }>(`${SHEETS}/${id}?fields=sheets.properties(sheetId,title)`)).sheets || [])
+      .map(sheet => [sheet.properties?.title ?? '', sheet.properties?.sheetId ?? 0] as [string, number]));
+    const found = sheetIds.get(tab);
+    if (found === undefined) throw new GoogleError('notFound', 'Tab not found');
+    return found;
+  };
+  return {
+    async lastRow(tab, columns) {
+      if (!columns.length) return 0;
+      const params = new URLSearchParams({ majorDimension: 'COLUMNS', valueRenderOption: 'FORMATTED_VALUE' });
+      for (const column of columns) params.append('ranges', range(tab, `${columnName(column)}:${columnName(column)}`));
+      const reply = await get<{ valueRanges?: { values?: unknown[][] }[] }>(`${SHEETS}/${id}/values:batchGet?${params}`);
+      return Math.max(0, ...(reply.valueRanges || []).map(item => {
+        const values = item.values?.[0] || [];
+        let last = values.length;
+        while (last > 0 && String(values[last - 1] ?? '').trim() === '') last -= 1;
+        return last;
+      }));
+    },
+    async readRows(tab, from, to, lastColumn) {
+      if (to < from) return [];
+      const reply = await get<{ values?: unknown[][] }>(`${SHEETS}/${id}/values/${encodeURIComponent(range(tab, `A${from}:${columnName(lastColumn)}${to}`))}?valueRenderOption=FORMATTED_VALUE`);
+      return Array.from({ length: to - from + 1 }, (_, index) => (reply.values?.[index] || []).map(value => String(value ?? '')));
+    },
+    async formulaColumns(tab, row, columns) {
+      if (!columns.length) return new Set();
+      const last = Math.max(...columns);
+      const reply = await get<{ values?: unknown[][] }>(`${SHEETS}/${id}/values/${encodeURIComponent(range(tab, `A${row}:${columnName(last)}${row}`))}?valueRenderOption=FORMULA`);
+      const cells = reply.values?.[0] || [];
+      return new Set(columns.filter(column => String(cells[column] ?? '').startsWith('=')));
+    },
+    async write(tab, row, cells) {
+      if (!cells.length) return [];
+      const data = cells.map(cell => ({ range: range(tab, `${columnName(cell.index)}${row}`), values: [[cell.value]] }));
+      await post(`${SHEETS}/${id}/values:batchUpdate`, { valueInputOption: 'USER_ENTERED', data });
+      return data.map(item => item.range);
+    },
+    async copyFormulas(tab, fromRow, toRow, columns) {
+      if (!columns.length || fromRow < 1) return [];
+      const sheet = await sheetId(tab);
+      const box = (row: number, column: number) => ({ sheetId: sheet, startRowIndex: row - 1, endRowIndex: row, startColumnIndex: column, endColumnIndex: column + 1 });
+      await post(`${SHEETS}/${id}:batchUpdate`, { requests: columns.map(column => ({ copyPaste: { source: box(fromRow, column), destination: box(toRow, column), pasteType: 'PASTE_FORMULA' } })) });
+      return columns.map(column => range(tab, `${columnName(column)}${toRow}`));
+    },
+    async clear(_tab, cells) {
+      if (cells.length) await post(`${SHEETS}/${id}/values:batchClear`, { ranges: cells });
+    },
+  };
+}

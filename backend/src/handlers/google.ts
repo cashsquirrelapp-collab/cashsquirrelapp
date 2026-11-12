@@ -13,6 +13,8 @@ import {
   encryptToken, exchangeCode, revokeToken,
 } from '../services/googleSheets.js';
 import { appOrigin } from '../config/env.js';
+import { supabaseAssistantDb } from '../ai/supabaseDb.js';
+import { planRow, previewOf, sheetContext, undoWrite, writeFor } from '../services/sheetWrite.js';
 
 // ฟีเจอร์ทดลอง, phase 2 (shared/googleSheets.ts, services/googleSheets.ts). GET: this account's connection (never the
 // token). POST {action}: start (Google's sign-in address), token (an hour's access token for Google's file picker),
@@ -29,6 +31,10 @@ const actionSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('read') }).strict(),
   z.object({ action: z.literal('saveMap'), map: sheetMapSchema }).strict(),
   z.object({ action: z.literal('createTemplate'), name: z.string().trim().min(1).max(150), xlsx: z.string().min(8).max(2_400_000) }).strict(),
+  // บันทึกลงชีตของคุณ (phase 3): the row a waiting card will write, what became of it after ยืนยัน, and ย้อนกลับ.
+  z.object({ action: z.literal('preview'), proposalId: z.string().regex(/^p_[0-9a-f-]{36}$/) }).strict(),
+  z.object({ action: z.literal('written'), proposalId: z.string().regex(/^p_[0-9a-f-]{36}$/) }).strict(),
+  z.object({ action: z.literal('undo'), proposalId: z.string().regex(/^p_[0-9a-f-]{36}$/) }).strict(),
   z.object({ action: z.literal('forget') }).strict(),
   z.object({ action: z.literal('disconnect') }).strict(),
 ]);
@@ -88,6 +94,33 @@ export default withGuard(async (req, res) => {
     const next = { ...record, file: null, map: null };
     await saveGoogle(user.id, next);
     reply(next);
+    return;
+  }
+
+  if (body.action === 'preview' || body.action === 'written' || body.action === 'undo') {
+    need('sheetWrite');
+    await rateLimit('google-row', user.id, 60, 60);
+    if (body.action === 'written') { res.json({ write: writeFor(record, body.proposalId) }); return; }
+    if (body.action === 'undo') {
+      try { res.json({ undone: await undoWrite(user.id, body.proposalId), write: writeFor(await loadGoogle(user.id), body.proposalId) }); }
+      catch (error) { if (error instanceof GoogleError) throw new HttpError(...MESSAGES[error.code]); throw error; }
+      return;
+    }
+    // Only a waiting card that adds a job or an expense, for an account with a sheet ready, has a row to show.
+    const proposal = await supabaseAssistantDb.getProposal?.(user.id, body.proposalId);
+    const kind = proposal?.kind === 'add_job' ? 'job' as const : proposal?.kind === 'add_expense' ? 'expense' as const : null;
+    if (!proposal || !kind || !proposal.record || !record?.file || !record.map || record.map.fileId !== record.file.id) {
+      res.json({ preview: null, reason: record?.file && (!record.map || record.map.fileId !== record.file.id) ? 'noMap' : 'none' });
+      return;
+    }
+    try {
+      const context = await sheetContext(user.id, record);
+      const plan = context ? await planRow(context.ops, record.map, kind, proposal.record) : null;
+      res.json({ preview: plan ? previewOf(plan, record.file) : null, reason: plan ? undefined : 'noTab' });
+    } catch (error) {
+      if (error instanceof GoogleError) throw new HttpError(...MESSAGES[error.code]);
+      throw error;
+    }
     return;
   }
 

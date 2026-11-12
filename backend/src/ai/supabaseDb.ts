@@ -1,3 +1,4 @@
+import { writeRecordToSheet } from '../services/sheetWrite.js';
 import { inFreeTrial } from '../../../shared/trial.js';
 import { isTesterPublicId, TESTER_BUCKET, TESTER_TOKENS } from './testers.js';
 import { signupTokens } from './signupTokens.js';
@@ -139,6 +140,11 @@ export const supabaseAssistantDb: AssistantDb = {
   labOn: async (userId, feature) => {
     const [record, owner] = await Promise.all([loadLabs(userId), isOwnerUserId(userId)]);
     return labState(record, owner).on.includes(feature);
+  },
+  async writeSheet(userId, proposalId, kind, record) {
+    const [labs, owner] = await Promise.all([loadLabs(userId), isOwnerUserId(userId)]);
+    if (!labState(labs, owner).on.includes('sheetWrite')) return null;
+    return writeRecordToSheet(userId, proposalId, kind, record);
   },
   async loadAccount(userId) {
     const snapshot = await accountSnapshot(userId);

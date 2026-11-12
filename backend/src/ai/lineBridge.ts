@@ -138,7 +138,10 @@ export async function lineAssistantCommand(user: UserRow, command: { action: 'co
     }
     return [lineCard({
       title: label.title, subtitle: 'บันทึกในแอปเรียบร้อย', character: label.character, compact: true, altText: label.title,
-      body: [lineValueRow('สถานะ', 'บันทึกแล้ว', { bold: false }), ...(attached ? [lineValueRow('ไฟล์', `แนบกับ ${attached} ในคลังเอกสารแล้ว`, { bold: false })] : [])],
+      body: [lineValueRow('สถานะ', 'บันทึกแล้ว', { bold: false }), ...(attached ? [lineValueRow('ไฟล์', `แนบกับ ${attached} ในคลังเอกสารแล้ว`, { bold: false })] : []),
+        // บันทึกลงชีตของคุณ (ฟีเจอร์ทดลอง): where the same record went in the customer's own sheet, or why it did not.
+        ...(done.sheet?.status === 'written' ? [lineValueRow('ชีต', `ลงแถว ${done.sheet.row} แท็บ ${done.sheet.tab} ใน ${done.sheet.file} แล้ว`, { bold: false })]
+          : done.sheet?.status === 'failed' ? [lineValueRow('ชีต', `ยังไม่ได้ลงชีต: ${done.sheet.error}`, { bold: false })] : [])],
       footer: lineAppLink(done.path || '/jobs', done.path ? 'เปิดรายการในแอป' : 'ดูในหน้างาน'),
     })];
   } catch (error) {

@@ -5,6 +5,7 @@ import { VAULT_ATTACHED_EVENT, VAULT_ATTACH_EVENT, asFile, chatFileFor, type Vau
 import { saveAccountName } from './accountName';
 import { tr, T } from '../../i18n/tr';
 import { partyAnswer, paymentAnswer, thaiDateAnswer, type AskQuestion, type PartyValues } from '../../../../shared/askQuestions';
+import { SheetRowCard } from '../labs/SheetRowCard';
 import { isPendingConfirm, type ChatCard, type ConfirmCard, type DocumentCard, type EditField, type MoneyChartCard, type OfficialLinkCard, type ProjectCard, type QuestionsCard, type RenameCard, type SummaryCard, type AttachCard, type SourcesCard, type MessageDraftCard } from './assistantMock';
 import { formatTHB } from '../../../../shared/thb';
 import { isValidWhtRate } from '../../../../shared/wht';
@@ -524,6 +525,8 @@ function Confirm({ card, state, onConfirm, onCancel, onAsk, confirmedPath, onNav
         </div>
         {problem && <p className="asx-edit-problem" role="alert"><AlertCircle size={14} />{problem}</p>}
       </div> : <ConfirmPreview card={card} onEditParty={canEdit ? startEdit : undefined} />}
+      {/* ฟีเจอร์ทดลอง บันทึกลงชีตของคุณ: the row this card writes into the customer's sheet (nothing for everyone else). */}
+      {live && !editing && <SheetRowCard proposalId={card.id} phase={state === 'pending' || state === 'working' || state === 'done' ? state : 'other'} />}
       {editing ? (
         <div className="asx-rcard-actions">
           <button type="button" className="asx-pill-btn is-primary" onClick={() => void saveEdit()} disabled={saving}>

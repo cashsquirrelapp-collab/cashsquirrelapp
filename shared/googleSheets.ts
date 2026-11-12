@@ -66,14 +66,41 @@ export const googleFileSchema = z.object({
   url: z.string().url().max(500),
 }).strict();
 
+/** The last row เลขา wrote into the sheet (phase 3): shown on the chat card after ยืนยัน, and undone within 30 minutes.
+ *  `cells` are the cells written or given a formula, so undo empties exactly those. */
+export interface SheetWrite {
+  proposalId: string;
+  at: string;
+  ok: boolean;
+  fileId?: string;
+  tab?: string;
+  row?: number;
+  cells?: string[];
+  error?: string;
+  undone?: boolean;
+}
+export const UNDO_MS = 30 * 60_000;
+const sheetWriteSchema = z.object({
+  proposalId: z.string().max(80),
+  at: z.string().max(40),
+  ok: z.boolean(),
+  fileId: z.string().max(200).optional(),
+  tab: z.string().max(120).optional(),
+  row: z.number().int().min(1).max(10_000_000).optional(),
+  cells: z.array(z.string().max(200)).max(LIVE_READ.columns * 2).optional(),
+  error: z.string().max(300).optional(),
+  undone: z.boolean().optional(),
+});
+
 /** The kept record (server only). */
-export interface GoogleRecord { email: string; enc: string; at: string; file?: GoogleFile | null; map?: SheetMap | null }
+export interface GoogleRecord { email: string; enc: string; at: string; file?: GoogleFile | null; map?: SheetMap | null; lastWrite?: SheetWrite | null }
 const recordSchema = z.object({
   email: z.string().max(320),
   enc: z.string().min(20).max(4000),
   at: z.string().max(40),
   file: googleFileSchema.nullable().optional(),
   map: sheetMapSchema.nullable().optional(),
+  lastWrite: sheetWriteSchema.nullable().optional(),
 });
 
 /** A stored record; anything unreadable counts as not connected. */

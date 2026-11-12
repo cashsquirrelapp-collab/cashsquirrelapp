@@ -1,6 +1,19 @@
 import type { GoogleStatus, LiveTab, SheetMap } from '../../../shared/googleSheets';
 import { apiJson } from './api';
 
+/** The row a waiting chat card will write into the sheet (backend sheetWrite.ts previewOf). */
+export interface SheetRowPreview {
+  file: string; url: string; tab: string; row: number;
+  columns: { index: number; letter: string; header: string; formula: boolean }[];
+  before: { row: number; cells: string[] }[];
+  /** The new row's cells as shown; null where the sheet's formula fills it. */
+  cells: (string | null)[];
+}
+/** What became of the sheet write of a confirmed card. */
+export type SheetRowWrite =
+  | { status: 'written' | 'undone'; file: string; url: string; tab: string; row: number; canUndo: boolean }
+  | { status: 'failed'; error: string };
+
 // ฟีเจอร์ทดลอง, phase 2: the account's Google connection (backend/src/handlers/google.ts). The browser never holds the
 // kept Google permission; it gets an hour's access token only to show Google's own file picker.
 
@@ -19,6 +32,15 @@ export const googleApi = {
   read: (account: string) => post<{ tabs: LiveTab[]; readAt: string }>(account, { action: 'read' }),
   saveMap: (account: string, map: SheetMap) => post(account, { action: 'saveMap', map }).then(reply => reply.google),
   createTemplate: (account: string, name: string, xlsx: string) => post<{ created: boolean }>(account, { action: 'createTemplate', name, xlsx }).then(reply => reply.google),
+  preview: (account: string, proposalId: string) => apiJson<{ preview: SheetRowPreview | null; reason?: string }>('/api/google', {
+    method: 'POST', headers: { 'X-Account-ID': account }, body: JSON.stringify({ action: 'preview', proposalId }),
+  }),
+  written: (account: string, proposalId: string) => apiJson<{ write: SheetRowWrite | null }>('/api/google', {
+    method: 'POST', headers: { 'X-Account-ID': account }, body: JSON.stringify({ action: 'written', proposalId }),
+  }).then(reply => reply.write),
+  undo: (account: string, proposalId: string) => apiJson<{ undone: boolean; write: SheetRowWrite | null }>('/api/google', {
+    method: 'POST', headers: { 'X-Account-ID': account }, body: JSON.stringify({ action: 'undo', proposalId }),
+  }),
   forget: (account: string) => post(account, { action: 'forget' }).then(reply => reply.google),
   disconnect: (account: string) => post(account, { action: 'disconnect' }).then(reply => reply.google),
 };

@@ -1,3 +1,4 @@
+import type { SheetWriteResult } from '../services/sheetWrite.js';
 import { randomUUID } from 'node:crypto';
 import type { AssistantProgress } from '../../../shared/assistantProgress.js';
 import { HttpError } from '../http/guard.js';
@@ -43,6 +44,9 @@ export interface AssistantDb {
   smartForLight?(): Promise<boolean>;
   /** ฟีเจอร์ทดลอง: whether this account has the feature on (shared/labs.ts). Absent or failing means off. */
   labOn?(userId: string, feature: LabFeatureId): Promise<boolean>;
+  /** บันทึกลงชีตของคุณ: writes a confirmed job or expense into the account's connected sheet (null: no sheet ready or
+   *  the feature is off). Never throws for a sheet problem; the app's save stands either way. */
+  writeSheet?(userId: string, proposalId: string, kind: 'job' | 'expense', record: Record<string, unknown>): Promise<SheetWriteResult | null>;
   reserve(input: { userId: string; cycle: string; requestId: string; tokens: number; tokenLimit: number | null; requestLimit: number | null; dailyCapUsd: number }): Promise<ReserveResult>;
   /**
    * Replace the reservation with what the request cost: tokens charged and the real spend (also when released, so the
@@ -506,7 +510,9 @@ export async function reviseProposal(db: AssistantDb, userId: string, proposalId
   return { card: outcome.card };
 }
 
-export type ConfirmResult = { status: 'applied'; kind: Proposal['kind']; jobId?: string; recordId?: string; documentId?: string; path?: string; allJobs?: true; count?: number };
+export type ConfirmResult = { status: 'applied'; kind: Proposal['kind']; jobId?: string; recordId?: string; documentId?: string; path?: string; allJobs?: true; count?: number;
+  /** บันทึกลงชีตของคุณ (ฟีเจอร์ทดลอง sheetWrite): the same record written into the account's connected sheet. */
+  sheet?: SheetWriteResult };
 
 /** Where a saved job opens: the jobs page with that job's form (a deleted one has none to open). */
 export const jobPath = (kind: Proposal['kind'], jobId: string) => (proposalTarget(kind).op === 'delete' ? '/jobs' : `/jobs?job=${encodeURIComponent(jobId)}`);
@@ -572,10 +578,14 @@ export async function confirmProposal(db: AssistantDb, userId: string, proposalI
   // A confirmed correction becomes this account's rule (package B); learning never costs the confirmation.
   await learnFromConfirmed(db, userId, proposal, options.channel ?? 'app').catch(() => console.warn('assistant: correction not learned'));
   const target = proposalTarget(proposal.kind);
-  if (target.table === 'cashflow_jobs') return { status: 'applied', kind: proposal.kind, jobId: proposal.jobId, path: jobPath(proposal.kind, proposal.jobId) };
+  // The customer's sheet too (owner, 2026-11-12: "ลงชีต + ในแอปด้วย"): saved in the app already, so the sheet never costs it.
+  const rowKind = proposal.kind === 'add_job' ? 'job' as const : proposal.kind === 'add_expense' ? 'expense' as const : null;
+  const sheet = rowKind && proposal.record && db.writeSheet ? await db.writeSheet(userId, proposalId, rowKind, proposal.record).catch(() => null) : null;
+  const withSheet = sheet ? { sheet } : {};
+  if (target.table === 'cashflow_jobs') return { status: 'applied', kind: proposal.kind, jobId: proposal.jobId, path: jobPath(proposal.kind, proposal.jobId), ...withSheet };
   const path = target.table === 'cashflow_invoices' ? (target.op === 'delete' ? '/invoice' : documentPath({ id: proposal.jobId, documentType: proposal.record!.documentType as 'quotation' | 'invoice' }))
     : target.table === 'cashflow_expenses' ? (target.op === 'delete' ? '/incomeExpense' : `/incomeExpense?expense=${encodeURIComponent(proposal.jobId)}`)
     : target.table === 'cashflow_goals' ? '/split' : proposal.kind === 'edit_issuer_profile' ? '/invoice' : '/settings';
   return { status: 'applied', kind: proposal.kind, recordId: proposal.jobId, path,
-    ...(target.table === 'cashflow_invoices' && target.op !== 'delete' ? { documentId: proposal.jobId } : {}) };
+    ...(target.table === 'cashflow_invoices' && target.op !== 'delete' ? { documentId: proposal.jobId } : {}), ...withSheet };
 }

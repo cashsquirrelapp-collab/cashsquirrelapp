@@ -46,9 +46,9 @@ for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'p
       await expect(list).toContainText(name);
     }
     // Phase 1 (2026-11-12): the template download and the filing calendar are built; phase 2: the Google Sheets
-    // connection, the Excel file and the sheet map. The other three are still locked.
-    await expect(list.getByText('กำลังสร้าง')).toHaveCount(3);
-    await expect(list.getByRole('switch')).toHaveCount(5);
+    // connection, the Excel file and the sheet map; phase 3: writing into the sheet. The other two are still locked.
+    await expect(list.getByText('กำลังสร้าง')).toHaveCount(2);
+    await expect(list.getByRole('switch')).toHaveCount(6);
     expect(await textOverlapIssues(page)).toEqual([]);
     await page.screenshot({ path: `test-results/labs-settings-${device.name}.png` });
   });

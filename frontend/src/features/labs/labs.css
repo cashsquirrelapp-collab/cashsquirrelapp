@@ -236,3 +236,31 @@
 .lab-tpl-created { margin-top: 12px; flex-direction: column; gap: 8px; }
 .lab-tpl-created-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .lab-tpl-created-actions .lab-btn { min-height: 36px; text-decoration: none; }
+
+/* บันทึกลงชีตของคุณ on เลขา's confirmation card (phase 3): the sheet as it is, the new row tinted under it. Flat brick, no
+   gradients; the table scrolls inside the card, never the page. */
+.lab-sr { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.lab-sr-head { display: flex; align-items: flex-start; gap: 6px; font-size: 13px; font-weight: 600; line-height: 1.5; color: var(--text); }
+.lab-sr-head svg { flex: none; margin-top: 3px; color: var(--lab-brick-ink); }
+.lab-sr-head span { min-width: 0; overflow-wrap: anywhere; }
+.lab-sr-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--white); }
+.lab-sr-table { border-collapse: separate; border-spacing: 0; font-size: 12px; line-height: 1.5; min-width: 100%; }
+.lab-sr-table th, .lab-sr-table td { padding: 4px 8px; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis; text-align: left; font-weight: 400; }
+.lab-sr-table tr > :last-child { border-right: 0; }
+.lab-sr-table tbody tr:last-child td { border-bottom: 0; }
+.lab-sr-letter { background: var(--faint); color: var(--muted); text-align: center !important; font-weight: 600 !important; }
+.lab-sr-header th { font-weight: 700 !important; color: var(--text); }
+.lab-sr-num { position: sticky; left: 0; z-index: 1; width: 1%; background: var(--faint); color: var(--muted); text-align: center !important; }
+.lab-sr-old td { color: var(--muted); }
+.lab-sr-new td { background: var(--lab-tint); color: var(--text); font-weight: 600; }
+.lab-sr-new .lab-sr-num { background: var(--lab-brick); color: #fff; }
+.lab-sr-new .lab-sr-num svg { display: inline; margin-right: 2px; vertical-align: -1px; }
+.lab-sr-formula { display: inline-flex; align-items: center; gap: 3px; color: var(--muted); font-weight: 500; }
+.lab-sr-pill { align-self: flex-start; display: inline-flex; align-items: center; min-height: 24px; padding: 2px 10px; border-radius: 999px; background: var(--lab-brick); color: #fff; font-size: 12px; font-weight: 600; line-height: 1.5; }
+.lab-sr-note { margin-top: 10px; padding: 8px 12px; border-radius: 10px; background: var(--faint); color: var(--muted); font-size: 13px; line-height: 1.5; }
+.lab-sr-note.is-red { background: var(--lab-red-bg); color: var(--lab-red); }
+.lab-sr-done { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 12px; background: var(--lab-green-bg); }
+.lab-sr-done > p { display: flex; align-items: flex-start; gap: 6px; font-size: 13px; font-weight: 600; line-height: 1.5; color: var(--lab-green); overflow-wrap: anywhere; }
+.lab-sr-done > p svg { flex: none; margin-top: 3px; }
+.lab-sr-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.lab-sr-actions .lab-btn { min-height: 34px; padding: 0 12px; font-size: 13px; text-decoration: none; }
