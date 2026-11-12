@@ -9,6 +9,8 @@ export function safeLineDestination(value: unknown): string | undefined {
   if (url.origin !== 'https://line-return.invalid' || url.hash || !APP_PATHS.has(url.pathname)) return undefined;
   const query = new URLSearchParams();
   if (url.pathname === '/jobs' && url.searchParams.get('openAddJob') === '1') query.set('openAddJob', '1');
+  // ย้ายข้อมูลเข้าแอป, when signing up in LINE ended on มี ย้ายเข้ามาเลย (owner, 2026-11-13, as the website's first run).
+  if (url.pathname === '/jobs' && url.searchParams.get('import') === '1') query.set('import', '1');
   if (url.pathname === '/line-documents') {
     const view = url.searchParams.get('view');
     const file = url.searchParams.get('file');

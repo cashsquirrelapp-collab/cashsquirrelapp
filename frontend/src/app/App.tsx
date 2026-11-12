@@ -2207,6 +2207,15 @@ export default function App() {
   // Modal Control States
   const [isAddJobOpen, setIsAddJobOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
+  // ?import=1: signing up in LINE ended on "มี ย้ายเข้ามาเลย" (as the website's first run), so the import opens at once.
+  useEffect(() => {
+    if (!session?.user?.id || session.isGuest) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('import') !== '1') return;
+    params.delete('import');
+    window.history.replaceState(window.history.state, '', `${window.location.pathname}${params.toString() ? `?${params}` : ''}`);
+    setIsImportOpen(true);
+  }, [session?.user?.id, session?.isGuest]);
   // A file the เลขากระรอก chat checked, opened in the import window by its "บันทึกทั้งหมด" (2026-11-04).
   const [importFile, setImportFile] = useState<File | null>(null);
   useEffect(() => {

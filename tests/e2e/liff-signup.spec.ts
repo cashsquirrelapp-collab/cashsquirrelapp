@@ -53,20 +53,30 @@ for (const device of [{ name: 'phone', width: 390 }, { name: 'iPad', width: 768 
     await page.locator('#wob-name').fill('ปาร์ค');
     await page.locator('.wob-go').click();
 
-    // Step 2: the work type, required here.
+    // Steps 2-5: the website's own first-run questions, ข้ามก่อน included.
     await expect(page.getByRole('heading', { name: 'ตอนนี้คุณทำงานรูปแบบไหน?' })).toBeVisible();
-    await expect(page.getByText('ข้อ 2 จาก 3')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'ข้ามก่อน' })).toHaveCount(0);
-    await page.locator('.wob-next').click();
-    await expect(page.locator('.wob-error')).toHaveText('กรุณาเลือกประเภทงาน');
+    await expect(page.getByText('ข้อ 2 จาก 6')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'ข้ามก่อน' })).toBeVisible();
     await page.getByText('เจ้าของธุรกิจ / เอเจนซี').click();
     await page.waitForTimeout(1000);
     expect(await textOverlapIssues(page)).toEqual([]);
     await page.screenshot({ path: `test-results/line-start-2-${device.name}.png` });
     await page.locator('.wob-next').click();
+    await expect(page.getByRole('heading', { name: 'คุณทำงานด้านไหนบ้าง?' })).toBeVisible();
+    await page.getByText('ช่างภาพ / วิดีโอ').click();
+    await page.getByText('คอนเทนต์ครีเอเตอร์').click();
+    await page.locator('.wob-next').click();
+    await expect(page.getByRole('heading', { name: 'อยากให้ Krarok ช่วยเรื่องไหนบ้าง?' })).toBeVisible();
+    await page.getByText('ติดตามเงินค้างรับจากลูกค้า').click();
+    await page.locator('.wob-next').click();
+    await expect(page.getByRole('heading', { name: 'มีข้อมูลเดิมอยากย้ายเข้ามาไหม?' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'ข้ามก่อน' })).toHaveCount(0);
+    await page.getByText('ไม่มี เริ่มบันทึกใหม่').click();
+    await page.locator('.wob-next').click();
 
-    // Step 3: the agreements, protections first; nothing is sent until ticked.
+    // Step 6: the agreements, protections first; nothing is sent until ticked.
     await expect(page.getByRole('heading', { name: 'ก่อนเริ่ม อ่านสั้น ๆ ครับ' })).toBeVisible();
+    await expect(page.getByText('ข้อสุดท้าย')).toBeVisible();
     await expect(page.getByText('ไม่ถูกนำไปฝึก AI')).toBeVisible();
     await expect(page.getByRole('link', { name: 'อ่านเงื่อนไขการใช้งาน' })).toHaveAttribute('href', '/terms.html');
     await page.locator('.wob-next').click();
@@ -83,7 +93,8 @@ for (const device of [{ name: 'phone', width: 390 }, { name: 'iPad', width: 768 
     await expect(page.getByText('พร้อมแล้วครับ')).toBeVisible();
     await page.waitForURL(/liff-add\.html\?done=1/, { timeout: 15_000 });
     await expect.poll(() => page.evaluate(() => (window as any).__closed)).toBe(1);
-    expect(sent.find(item => item.url === 'line-signup')?.body).toEqual({ idToken: 'token', name: 'ปาร์ค', workType: 'business_owner', agreed: true });
+    expect(sent.find(item => item.url === 'line-signup')?.body).toEqual({ idToken: 'token', name: 'ปาร์ค', workType: 'business_owner',
+      occupations: ['photo_video', 'content_creator'], goals: ['receivables'], importOld: false, agreed: true });
     expect(await page.evaluate(() => sessionStorage.getItem('krarok_line_signup'))).toBeNull();
   });
 }
@@ -92,8 +103,7 @@ test('the server\'s reason is shown when the sign-up is refused, and the person 
   await open(page, { status: 409, reply: { error: 'LINE นี้เชื่อมกับบัญชีอื่นอยู่แล้ว' } });
   await expect(page).toHaveURL(/\/line-start$/);
   await page.locator('.wob-go').click();
-  await page.getByText('ฟรีแลนซ์ / อาชีพอิสระ').click();
-  await page.locator('.wob-next').click();
+  await page.getByRole('button', { name: 'ข้ามก่อน' }).click();
   await page.getByText('ยอมรับเงื่อนไขการใช้งานและนโยบายความเป็นส่วนตัว').click();
   await page.locator('.wob-next').click();
   await expect(page.locator('.wob-error')).toHaveText('LINE นี้เชื่อมกับบัญชีอื่นอยู่แล้ว', { timeout: 10_000 });
@@ -132,8 +142,7 @@ test('/line-start?preview=1 shows the same three screens and sends nothing', asy
   await page.goto('/line-start?preview=1');
   await page.locator('#wob-name').fill('ปาร์ค');
   await page.locator('.wob-go').click();
-  await page.getByText('ฟรีแลนซ์ / อาชีพอิสระ').click();
-  await page.locator('.wob-next').click();
+  await page.getByRole('button', { name: 'ข้ามก่อน' }).click();
   await page.getByText('ยอมรับเงื่อนไขการใช้งานและนโยบายความเป็นส่วนตัว').click();
   await page.locator('.wob-next').click();
   await expect(page.getByRole('heading', { name: 'จบหน้าตัวอย่าง' })).toBeVisible({ timeout: 10_000 });
@@ -162,4 +171,39 @@ test('a browser already signed in to an account stays on /line-start instead of 
   await page.evaluate(() => { window.history.replaceState({}, '', '/line-start?preview=1'); window.dispatchEvent(new PopStateEvent('popstate')); });
   await page.waitForTimeout(800);
   await expect(page).toHaveURL(/\/line-start\?preview=1$/);
+});
+
+test('ข้ามก่อน in LINE keeps what was picked, goes to the agreements, and ย้อนกลับ returns to the skipped step', async ({ page }) => {
+  const sent = await open(page);
+  await expect(page).toHaveURL(/\/line-start$/);
+  await page.locator('.wob-go').click();
+  await page.getByText('นักเรียน / นักศึกษา').click();
+  await page.locator('.wob-next').click();
+  await expect(page.getByRole('heading', { name: 'คุณทำงานด้านไหนบ้าง?' })).toBeVisible();
+  await page.getByRole('button', { name: 'ข้ามก่อน' }).click();
+  await expect(page.getByRole('heading', { name: 'ก่อนเริ่ม อ่านสั้น ๆ ครับ' })).toBeVisible();
+  await page.getByRole('button', { name: 'ย้อนกลับ' }).click();
+  await expect(page.getByRole('heading', { name: 'คุณทำงานด้านไหนบ้าง?' })).toBeVisible();
+  await page.getByRole('button', { name: 'ข้ามก่อน' }).click();
+  await page.getByText('ยอมรับเงื่อนไขการใช้งานและนโยบายความเป็นส่วนตัว').click();
+  await page.locator('.wob-next').click();
+  await page.waitForURL(/liff-add\.html\?done=1/, { timeout: 15_000 });
+  expect(sent.find(item => item.url === 'line-signup')?.body).toEqual({ idToken: 'token', name: 'Park LINE', workType: 'student', occupations: [], goals: [], skippedAtStep: 3, agreed: true });
+});
+
+test('มี ย้ายเข้ามาเลย opens the import right after signing up, as on the website', async ({ page }) => {
+  const sent = await open(page, { reply: { ok: true, created: true, destination: '/jobs?import=1&from=line' } });
+  await page.route('**/jobs?import=1&from=line', route => route.fulfill({ contentType: 'text/html', body: '<h1>import opens here</h1>' }));
+  await expect(page).toHaveURL(/\/line-start$/);
+  await page.locator('.wob-go').click();
+  await page.getByText('ฟรีแลนซ์ / อาชีพอิสระ').click();
+  for (let at = 0; at < 3; at += 1) await page.locator('.wob-next').click();
+  await page.getByText('มี ย้ายเข้ามาเลย').click();
+  await page.locator('.wob-next').click();
+  await page.getByText('ยอมรับเงื่อนไขการใช้งานและนโยบายความเป็นส่วนตัว').click();
+  await page.locator('.wob-next').click();
+  await expect(page.getByRole('heading', { name: 'import opens here' })).toBeVisible({ timeout: 15_000 });
+  const body = sent.find(item => item.url === 'line-signup')?.body;
+  expect(body.importOld).toBe(true);
+  expect(body.destination).toBe('/jobs?import=1');
 });

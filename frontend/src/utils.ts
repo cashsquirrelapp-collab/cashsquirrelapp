@@ -3,15 +3,8 @@ import { currentLanguage } from './i18n/currentLanguage.js';
 import { tr, trc } from './i18n/tr';
 import { getOutstandingAmount } from '../../shared/installmentPayments';
 
-// The built-in job type chips every account starts with. Anything a user adds via
-// "เขียนประเภทงานเอง..." is a custom type, kept separate in the picker so it can be removed.
-export const DEFAULT_JOB_TYPES = [
-  'Sponsored Post',
-  'Video Production',
-  'Digital Product',
-  'Consulting / Advisory',
-  'งานทั่วไปอื่นๆ'
-];
+// The built-in job type chips every account starts with (shared/jobTypes.ts).
+export { DEFAULT_JOB_TYPES } from '../../shared/jobTypes';
 
 // Sum an itemized fixed-expense list (rent, car, internet, etc.) into the single total
 // that the rest of the app's profit/cashflow math consumes.

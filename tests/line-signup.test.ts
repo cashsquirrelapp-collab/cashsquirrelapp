@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { isLineOnlyEmail, LINE_ONLY_DOMAIN } from '../shared/lineAccount.js';
 import { freeBucket, freeMonthlyTokens, lineOnlyEmail, lineSignupOn } from '../backend/src/services/lineFirst.js';
-import { lineSignupSchema, settingsFor, signUpFromLine, type LineSignupDeps } from '../backend/src/services/lineSignup.js';
+import { jobTypesFor, lineSignupSchema, settingsFor, signUpFromLine, type LineSignupDeps } from '../backend/src/services/lineSignup.js';
 import { createLineSignupHandler, type LineSignupHandlerDeps } from '../backend/src/handlers/line-signup.js';
 import { buildLineStart } from '../backend/src/services/lineLinkCards.js';
 import { validateChanges } from '../shared/validation.js';
@@ -43,15 +43,40 @@ test('a LINE account has a made-up address that can never get mail, the same one
   assert.throws(() => lineOnlyEmail(LINE_ID, ''));
 });
 
-test('the first settings pass the app\'s own checks and record the work type as a finished welcome', () => {
-  const settings = settingsFor({ workType: 'business_owner' }, new Date('2026-11-13T05:00:00Z'));
+test('the first settings are what the website saves after its first run, and pass the app\'s own checks', () => {
+  const settings = settingsFor({ workType: 'business_owner', occupations: ['photo_video', 'content_creator'], goals: ['receivables', 'documents'] }, new Date('2026-11-13T05:00:00Z'));
   assert.doesNotThrow(() => validateChanges([{ table: 'cashflow_documents', id: 'settings', op: 'set', version: null, data: settings }]));
   assert.equal(settings.monthlyExpense, 0);
   assert.equal(settings.profileSetupCompleted, true);
+  assert.equal(settings.userPersona, 'freelance');
   assert.equal(settings.onboarding?.status, 'COMPLETED');
   assert.equal(settings.onboarding?.work_type, 'business_owner');
+  // In the website's order, whatever order they were picked in.
+  assert.deepEqual(settings.onboarding?.occupations, ['content_creator', 'photo_video']);
+  assert.deepEqual(settings.onboarding?.goals, ['receivables', 'documents']);
   assert.equal(settingsFor({ workType: 'other', workTypeOther: 'ร้านขนม' }, new Date()).onboarding?.work_type_other, 'ร้านขนม');
   assert.equal(settingsFor({ workType: 'freelance', workTypeOther: 'ignored' }, new Date()).onboarding?.work_type_other, null);
+});
+
+test('ข้ามก่อน keeps what was picked and the step, as on the website; nothing picked is allowed', () => {
+  const skipped = settingsFor({ workType: 'student', skippedAtStep: 3 }, new Date('2026-11-13T05:00:00Z'));
+  assert.equal(skipped.onboarding?.status, 'SKIPPED');
+  assert.equal(skipped.onboarding?.skipped_at_step, 3);
+  assert.equal(skipped.onboarding?.work_type, 'student');
+  assert.equal(skipped.userPersona, 'university');
+  const empty = settingsFor({ skippedAtStep: 2 }, new Date());
+  assert.equal(empty.onboarding?.work_type, null);
+  assert.equal(empty.userPersona, undefined);
+  assert.doesNotThrow(() => validateChanges([{ table: 'cashflow_documents', id: 'settings', op: 'set', version: null, data: empty }]));
+});
+
+test('the occupations picked add their job types to the built-in ones, as on the website', () => {
+  const types = jobTypesFor({ occupations: ['photo_video', 'teacher_coach', 'content_creator'] })!;
+  assert.ok(types.includes('Sponsored Post') && types.includes('ถ่ายภาพ / วิดีโอ') && types.includes('สอน / โค้ช'));
+  assert.equal(types.filter(type => type === 'Sponsored Post').length, 1);
+  assert.doesNotThrow(() => validateChanges([{ table: 'cashflow_documents', id: 'job_types', op: 'set', version: null, data: types }]));
+  assert.equal(jobTypesFor({ occupations: [] }), null);
+  assert.equal(jobTypesFor({ occupations: ['other'] }), null);
 });
 
 function fakeDeps(over: Partial<LineSignupDeps> = {}) {
@@ -64,6 +89,7 @@ function fakeDeps(over: Partial<LineSignupDeps> = {}) {
     consent: async (userId, key) => { calls.push(`consent:${key}`); },
     profile: async (userId, name) => { calls.push(`profile:${name}`); },
     settings: async (userId, settings) => { calls.push(`settings:${settings.onboarding?.work_type}`); },
+    jobTypes: async (userId, types) => { calls.push(`jobTypes:${types.length}`); },
     key: () => KEY,
     now: () => new Date('2026-11-13T05:00:00Z'),
     ...over,
@@ -73,9 +99,9 @@ function fakeDeps(over: Partial<LineSignupDeps> = {}) {
 
 test('sign-up makes the account, links this LINE, keeps all three agreements, the name and the work type', async () => {
   const { deps, calls } = fakeDeps();
-  const result = await signUpFromLine(LINE_ID, { name: 'ปาร์ค', workType: 'freelance' }, deps);
+  const result = await signUpFromLine(LINE_ID, { name: 'ปาร์ค', workType: 'freelance', occupations: ['photo_video'] }, deps);
   assert.deepEqual(result, { userId: 'user-1', created: true });
-  assert.deepEqual(calls, [`create:${LINE_ONLY_DOMAIN}`, 'link:user-1:true', 'consent:terms', 'consent:ai', 'consent:line', 'profile:ปาร์ค', 'settings:freelance']);
+  assert.deepEqual(calls, [`create:${LINE_ONLY_DOMAIN}`, 'link:user-1:true', 'consent:terms', 'consent:ai', 'consent:line', 'profile:ปาร์ค', 'settings:freelance', 'jobTypes:6']);
 });
 
 test('a LINE chat already linked makes nothing new; a half-finished sign-up is picked up, not doubled', async () => {
@@ -87,11 +113,15 @@ test('a LINE chat already linked makes nothing new; a half-finished sign-up is p
   assert.equal(retry.calls[0], 'find');
 });
 
-test('the form must have a name, a work type and the terms ticked', () => {
+test('the answers must have a name and the terms ticked; the questions may be skipped as on the website', () => {
   const ok = { idToken: 't', name: 'ปาร์ค', workType: 'freelance', agreed: true };
   assert.equal(lineSignupSchema.safeParse(ok).success, true);
+  assert.equal(lineSignupSchema.safeParse({ idToken: 't', name: 'ปาร์ค', workType: null, skippedAtStep: 2, agreed: true }).success, true);
+  assert.equal(lineSignupSchema.safeParse({ ...ok, occupations: ['photo_video'], goals: ['documents'], importOld: true }).success, true);
   assert.equal(lineSignupSchema.safeParse({ ...ok, name: 'ก' }).success, false);
   assert.equal(lineSignupSchema.safeParse({ ...ok, workType: 'astronaut' }).success, false);
+  assert.equal(lineSignupSchema.safeParse({ ...ok, goals: ['world_peace'] }).success, false);
+  assert.equal(lineSignupSchema.safeParse({ ...ok, skippedAtStep: 9 }).success, false);
   assert.equal(lineSignupSchema.safeParse({ ...ok, agreed: false }).success, false);
   assert.equal(lineSignupSchema.safeParse({ ...ok, lineUserId: LINE_ID }).success, false);
 });

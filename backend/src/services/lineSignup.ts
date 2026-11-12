@@ -1,7 +1,8 @@
 import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import { CONSENT_KEYS, type ConsentKey } from '../../../shared/consents.js';
-import { ONBOARDING_VERSION, OTHER_TEXT_MAX, WORK_TYPES, type OnboardingRecord, type WorkTypeId } from '../../../shared/onboarding.js';
+import { GOALS, OCCUPATIONS, ONBOARDING_STEPS, OTHER_TEXT_MAX, WORK_TYPES, jobTypesForOccupations, onboardingRecord, personaForWorkType, type GoalId, type OccupationId, type WorkTypeId } from '../../../shared/onboarding.js';
+import { DEFAULT_JOB_TYPES } from '../../../shared/jobTypes.js';
 import type { AppSettings } from '../../../shared/types.js';
 import { validateChanges } from '../../../shared/validation.js';
 import { getSupabaseAdmin } from '../config/supabase.js';
@@ -16,12 +17,19 @@ import { linkedLineAccount } from './lineSession.js';
 // it, keeps the three agreements (terms, เลขา, LINE) and the answers the web's welcome would have asked, so the website
 // never asks again. No email, no password the person knows: they come back through LINE.
 
-const workTypeIds = WORK_TYPES.map(item => item.id) as [WorkTypeId, ...WorkTypeId[]];
+const ids = <T extends readonly { id: string }[]>(list: T) => list.map(item => item.id) as [T[number]['id'], ...T[number]['id'][]];
+// The website's first-run answers exactly (owner, 2026-11-13: "แบบสอบถาม ... เหมือนใน .com"): each may be left empty
+// when ข้ามก่อน was pressed; the agreements may not.
 export const lineSignupSchema = z.object({
   idToken: z.string().min(1).max(8192),
   name: z.string().trim().min(2).max(60).refine(value => !/[\u0000-\u001f\u007f]/.test(value), 'name'),
-  workType: z.enum(workTypeIds),
+  workType: z.enum(ids(WORK_TYPES)).nullable().optional(),
   workTypeOther: z.string().trim().max(OTHER_TEXT_MAX).optional(),
+  occupations: z.array(z.enum(ids(OCCUPATIONS))).max(OCCUPATIONS.length).optional(),
+  occupationOther: z.string().trim().max(OTHER_TEXT_MAX).optional(),
+  goals: z.array(z.enum(ids(GOALS))).max(GOALS.length).optional(),
+  skippedAtStep: z.number().int().min(2).max(ONBOARDING_STEPS).optional(),
+  importOld: z.boolean().optional(),
   agreed: z.literal(true),
   destination: z.string().max(500).optional(),
 }).strict();
@@ -38,27 +46,33 @@ export interface LineSignupDeps {
   profile(userId: string, name: string): Promise<void>;
   /** Writes the first settings; an account that already has them keeps its own. */
   settings(userId: string, settings: AppSettings): Promise<void>;
+  /** The first job type list; an account that already has one keeps it. */
+  jobTypes(userId: string, types: string[]): Promise<void>;
   key(): string;
   now(): Date;
 }
 
-/** The web's own persona for the work type, so the app opens with the right menu (ProfileSetupWizard). */
-const PERSONA: Record<WorkTypeId, NonNullable<AppSettings['userPersona']>> = {
-  freelance: 'freelance', employee: 'employee', student: 'university', business_owner: 'freelance', other: 'freelance',
-};
+type Answers = Pick<LineSignupInput, 'workType' | 'workTypeOther' | 'occupations' | 'occupationOther' | 'goals' | 'skippedAtStep'>;
 
-export function settingsFor(input: Pick<LineSignupInput, 'workType' | 'workTypeOther'>, now: Date): AppSettings {
-  const at = now.toISOString();
-  const onboarding: OnboardingRecord = {
-    version: ONBOARDING_VERSION, status: 'COMPLETED',
-    work_type: input.workType, work_type_other: input.workType === 'other' && input.workTypeOther ? input.workTypeOther : null,
-    occupations: [], occupation_other: null, goals: [], updated_at: at, completed_at: at,
-  };
+/** What the website saves when its first run ends (App.tsx saveOnboarding), for an account with no settings yet. */
+export function settingsFor(input: Answers, now: Date): AppSettings {
+  const record = onboardingRecord({
+    workType: input.workType ?? null, workTypeOther: input.workTypeOther ?? '',
+    occupations: (input.occupations ?? []) as OccupationId[], occupationOther: input.occupationOther ?? '',
+    goals: (input.goals ?? []) as GoalId[],
+  }, input.skippedAtStep ? 'SKIPPED' : 'COMPLETED', now, null, input.skippedAtStep);
+  const persona = personaForWorkType((input.workType ?? null) as WorkTypeId | null);
   // The app's defaults for a new account (frontend/src/sampleData.ts defaultSettings), no fixed monthly cost.
-  return { monthlyExpense: 0, monthlyRevenueGoal: 35000, savingsPercentage: 40, accumulatedRemainder: 0, profileSetupCompleted: true, userPersona: PERSONA[input.workType], onboarding };
+  return { monthlyExpense: 0, monthlyRevenueGoal: 35000, savingsPercentage: 40, accumulatedRemainder: 0, profileSetupCompleted: true, ...(persona ? { userPersona: persona } : {}), onboarding: record };
 }
 
-export async function signUpFromLine(lineUserId: string, input: Pick<LineSignupInput, 'name' | 'workType' | 'workTypeOther'>, deps: LineSignupDeps): Promise<{ userId: string; created: boolean }> {
+/** The job types to start with: the built-in ones and those of the occupations picked; null when nothing is added. */
+export function jobTypesFor(input: Pick<LineSignupInput, 'occupations'>): string[] | null {
+  const extra = jobTypesForOccupations((input.occupations ?? []) as OccupationId[], DEFAULT_JOB_TYPES);
+  return extra.length ? [...DEFAULT_JOB_TYPES, ...extra] : null;
+}
+
+export async function signUpFromLine(lineUserId: string, input: Answers & Pick<LineSignupInput, 'name'>, deps: LineSignupDeps): Promise<{ userId: string; created: boolean }> {
   // Already linked (an existing web account, or a sign-up that already went through): nothing new is made.
   const existing = await deps.linked(lineUserId);
   if (existing) return { userId: existing, created: false };
@@ -69,6 +83,8 @@ export async function signUpFromLine(lineUserId: string, input: Pick<LineSignupI
   for (const key of CONSENT_KEYS) await deps.consent(userId, key);
   await deps.profile(userId, input.name);
   await deps.settings(userId, settingsFor(input, deps.now()));
+  const jobTypes = jobTypesFor(input);
+  if (jobTypes) await deps.jobTypes(userId, jobTypes);
   return { userId, created: true };
 }
 
@@ -112,6 +128,11 @@ export const lineSignupDeps: LineSignupDeps = {
     const changes = validateChanges([{ table: 'cashflow_documents', id: 'settings', op: 'set', version: null, data: settings }]);
     const { error } = await getSupabaseAdmin().rpc('cashflow_apply_changes', { p_user_id: userId, p_changes: changes });
     // A retry finds the settings already there (version conflict or duplicate): theirs stay.
+    if (error && error.code !== '40001' && error.code !== '23505') throw error;
+  },
+  async jobTypes(userId, types) {
+    const changes = validateChanges([{ table: 'cashflow_documents', id: 'job_types', op: 'set', version: null, data: types }]);
+    const { error } = await getSupabaseAdmin().rpc('cashflow_apply_changes', { p_user_id: userId, p_changes: changes });
     if (error && error.code !== '40001' && error.code !== '23505') throw error;
   },
   key: sessionSecret,
