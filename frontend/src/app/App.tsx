@@ -2051,6 +2051,8 @@ export default function App() {
   // pasted links and browser back/forward restore the same finance workspace after a refresh.
   useEffect(() => {
     if (!session?.user?.id) return;
+    // Signing up in LINE (and its preview) stays put even when this browser is already signed in to an account.
+    if (pathname === '/line-start') return;
     // LINE's document inbox is a focused personal-account screen, outside the app navigation.
     if (pathname === '/line-documents') {
       // Open to every account since the vault opened to all (2026-10-31); until 2026-11-04 this still sent everyone but

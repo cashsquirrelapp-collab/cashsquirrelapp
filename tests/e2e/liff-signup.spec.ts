@@ -135,3 +135,20 @@ test('/line-start?preview=1 shows the same three screens and sends nothing', asy
   await expect(page.getByRole('heading', { name: 'จบหน้าตัวอย่าง' })).toBeVisible({ timeout: 10_000 });
   expect(posts).toEqual([]);
 });
+
+test('a browser already signed in to an account stays on /line-start instead of being taken to the overview', async ({ page }) => {
+  const user = { id: '66666666-6666-4666-8666-666666666666', email: 'signed@example.com', role: 'user', created_at: '2026-01-01T00:00:00Z', user_metadata: {} };
+  await page.addInitScript(id => {
+    localStorage.setItem('krarok_cookie_consent', JSON.stringify({ v: 1, stats: false, at: '2026-11-05T03:00:00.000Z' }));
+    localStorage.setItem('krarok_consent', JSON.stringify({ [id]: { terms: '2026-11-05', ai: '2026-11-05', line: '2026-11-05' } }));
+  }, user.id);
+  await page.route('**/api/**', route => route.fulfill({ json: {} }));
+  await page.route('**/api/auth*', route => route.fulfill({ json: { session: { user } } }));
+  await page.route('**/api/profile', route => route.fulfill({ json: { userId: user.id, publicId: 'SQ-6666666666', displayName: 'ผู้ทดสอบ' } }));
+  await page.route('**/api/groups?*', route => route.fulfill({ json: { systemRole: 'user', groups: [], invitations: [], total: 0, page: 0 } }));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/line-start?preview=1');
+  await expect(page.locator('#wob-name')).toBeVisible();
+  await page.waitForTimeout(1500);
+  await expect(page).toHaveURL(/\/line-start\?preview=1$/);
+});
