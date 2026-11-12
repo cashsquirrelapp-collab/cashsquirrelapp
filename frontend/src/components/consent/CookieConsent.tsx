@@ -16,7 +16,8 @@ export function CookieConsent() {
     window.addEventListener(COOKIE_SETTINGS_EVENT, reopen);
     return () => window.removeEventListener(COOKIE_SETTINGS_EVENT, reopen);
   }, []);
-  if (!open) return null;
+  // The LINE sign-up page has its own agreements step and must not be covered (features/onboarding/LineStartPage.tsx).
+  if (!open || window.location.pathname === '/line-start') return null;
   const choose = (stats: boolean) => { saveCookieConsent(stats); setOpen(false); };
   return (
     <section className="ck-banner" role="dialog" aria-modal="false" aria-labelledby="ck-title" aria-describedby="ck-text">

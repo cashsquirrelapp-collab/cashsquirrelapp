@@ -130,6 +130,8 @@ const MotionStudy = import.meta.env.DEV ? lazy(() => import('../features/marketi
 // The founder's story (owner, 2026-10-31): a public page, signed in or not.
 const FounderStory = lazy(() => import('../features/marketing/v5/FounderStory'));
 const Guides = lazy(() => import('../features/marketing/v5/Guides'));
+// Signing up inside LINE with the website's welcome screens (owner, 2026-11-13); opened by the LINE page, signed out.
+const LineStartPage = lazy(() => import('../features/onboarding/LineStartPage'));
 import { fireMascot } from '../mascotBus';
 import { enterReferral, forgetSharedCode, readReferral, rememberSharedCode, sharedCodeFor, TOKENS_GRANTED_EVENT } from '../services/referral';
 import type { ReferralStatus } from '../../../shared/referral';
@@ -3155,6 +3157,7 @@ export default function App() {
   useEffect(() => { if (isPro && proKvOpen) setProKvOpen(false); }, [isPro, proKvOpen]);
 
   if (MotionStudy && pathname === '/motion-study') return <Suspense fallback={null}><MotionStudy /></Suspense>;
+  if (pathname === '/line-start') return <Suspense fallback={<div style={{ minHeight: '100svh', background: '#FFFFFF' }} />}><LineStartPage /></Suspense>;
   if (pathname === '/founder') return <Suspense fallback={<div style={{ minHeight: '100svh', background: '#FFFFFF' }} />}><FounderStory /></Suspense>;
   if (pathname === '/guides' || pathname.startsWith('/guides/')) return <Suspense fallback={<div style={{ minHeight: '100svh', background: '#FFFFFF' }} />}><Guides /></Suspense>;
   if (loadingSession) {

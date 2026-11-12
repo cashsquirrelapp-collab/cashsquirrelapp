@@ -123,17 +123,6 @@
   .doc-terms { display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
   .doc-terms button { border:1px solid var(--border); background:#fff; color:var(--text); border-radius:999px; padding:7px 13px; font-size:12px; min-height:36px; }
   .doc-terms button[aria-pressed="true"] { background:var(--text); border-color:var(--text); color:#fff; font-weight:600; }
-  .choice-group { border:0; padding:0; margin:17px 0 0; }
-  .choice-group legend { font-size:12px; font-weight:600; margin:0 0 8px; padding:0; }
-  .choice { display:flex; align-items:center; gap:10px; margin:0 0 8px; padding:12px 13px; border:1px solid var(--border); border-radius:12px; background:#FFFEFC; font-size:13px; font-weight:500; line-height:1.5; cursor:pointer; }
-  .choice input { width:18px; height:18px; margin:0; accent-color:var(--accent); flex:none; }
-  .choice:has(input:checked) { border-color:var(--accent); background:var(--accent-soft); }
-  .promises { margin:18px 0 0; padding:13px 14px; border-radius:12px; background:var(--faint); border:1px solid var(--border); }
-  .promises p { margin:0 0 7px; font-size:12px; line-height:1.6; color:var(--text); }
-  .promises p:last-child { margin-bottom:0; }
-  .agree { display:flex; gap:10px; align-items:flex-start; margin:16px 0 0; font-size:12px; font-weight:500; line-height:1.6; cursor:pointer; }
-  .agree input { width:18px; height:18px; margin:2px 0 0; accent-color:var(--accent); flex:none; }
-  .agree a, .promises a { color:#B9441B; font-weight:600; }
   .hidden { display:none!important; }
 </style>
 </head>
@@ -309,39 +298,6 @@
     <p class="save-caption">สร้างเป็นเอกสารในแอป ยังไม่ได้ส่งให้ลูกค้า แก้ไขต่อได้ภายหลัง</p>
   </section>
   <button type="button" class="return-btn hidden" id="return-chat-btn">กลับไปแชท</button>
-</main>
-<main class="page hidden" id="signup-view">
-  <div class="brand"><img src="/brand/logo01-v1/favicon-clear.svg" alt="" />กระรอกตุนเงิน</div>
-  <section class="card" aria-labelledby="signup-title">
-    <div class="card-header"><img class="mascot-peek" src="/line/mascot-v6-review.png" alt="" aria-hidden="true" />
-      <h1 class="card-title" id="signup-title">เริ่มใช้เลขากระรอก</h1>
-      <p class="card-subtitle">ใส่ชื่อกับประเภทงาน แล้วกลับไปพิมพ์บอกเลขาในแชทได้เลย</p>
-    </div>
-    <label for="signup-name">ให้เลขาเรียกคุณว่า</label>
-    <input type="text" id="signup-name" maxlength="60" autocomplete="name" placeholder="เช่น ปาร์ค" />
-    <fieldset class="choice-group" id="signup-work">
-      <legend>ประเภทงานของคุณ</legend>
-      <label class="choice"><input type="radio" name="signup-work" value="freelance" />ฟรีแลนซ์ / อาชีพอิสระ</label>
-      <label class="choice"><input type="radio" name="signup-work" value="business_owner" />เจ้าของธุรกิจ / เอเจนซี</label>
-      <label class="choice"><input type="radio" name="signup-work" value="employee" />พนักงานประจำ</label>
-      <label class="choice"><input type="radio" name="signup-work" value="student" />นักเรียน / นักศึกษา</label>
-      <label class="choice"><input type="radio" name="signup-work" value="other" />อื่น ๆ</label>
-    </fieldset>
-    <div class="hidden" id="signup-other-field">
-      <label for="signup-other">ประเภทงานของคุณ</label>
-      <input type="text" id="signup-other" maxlength="80" placeholder="เช่น ร้านขนม" />
-    </div>
-    <div class="promises" aria-label="วิธีที่เราดูแลข้อมูลของคุณ">
-      <p>ข้อมูลใช้เพื่อตอบคุณเท่านั้น ใช้บริการ AI แบบธุรกิจ และไม่ถูกนำไปฝึก AI</p>
-      <p>เลขาไม่บันทึกเอง จะส่งการ์ดให้คุณตรวจและกดยืนยันก่อนทุกครั้ง</p>
-      <p>เลขาตอบผิดได้บ้าง โปรดตรวจตัวเลขสำคัญ คำตอบไม่ใช่คำปรึกษาทางภาษีหรือกฎหมาย</p>
-      <p>เปลี่ยนใจได้ทุกเมื่อที่ ตั้งค่า › ความยินยอม</p>
-    </div>
-    <label class="agree"><input type="checkbox" id="signup-agree" /><span>ยอมรับ <a href="/terms.html" target="_blank" rel="noopener">เงื่อนไขการใช้งาน</a> และ <a href="/privacy.html" target="_blank" rel="noopener">นโยบายความเป็นส่วนตัว</a> และยินยอมให้เลขากระรอกช่วยดูแลงานผ่าน LINE</span></label>
-    <div class="error" id="signup-error" role="alert" tabindex="-1"></div>
-    <div class="nav-row"><button type="button" class="btn btn-primary" id="signup-submit">เริ่มใช้งาน</button></div>
-    <p class="save-caption">ไม่ต้องใช้อีเมลหรือรหัสผ่าน เข้าใช้ผ่าน LINE ได้ทุกครั้ง</p>
-  </section>
 </main>
 <section id="status-view" class="status" aria-live="polite"><img class="emoji" src="/line/mascot-v6-working.png" alt="" /><h2>กำลังเปิดรายการ</h2><p>รอสักครู่ครับ</p><div class="loading-dot" aria-hidden="true"></div></section>
 <script src="/liff-document.js" defer></script>

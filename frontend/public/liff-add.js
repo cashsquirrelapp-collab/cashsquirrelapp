@@ -125,7 +125,6 @@
   }
   function showStatus(title, message, closeButton, reaction) {
     field('form-view').classList.add('hidden');
-    field('signup-view').classList.add('hidden');
     var view = field('status-view'); view.classList.remove('hidden'); view.replaceChildren();
     var image = document.createElement('img'); image.className = 'emoji'; image.src = mascotUrl(reaction || 'guide'); image.alt = '';
     var heading = document.createElement('h2'); heading.textContent = title;
@@ -184,55 +183,18 @@
     var at = state.indexOf('?');
     return new URLSearchParams(at >= 0 ? state.slice(at + 1) : state.replace(/^\?/, '')).has('start');
   }
-  function signupError(message) {
-    var box = field('signup-error'); box.textContent = message; box.style.display = message ? 'block' : 'none';
-    if (message) box.focus();
-  }
-  function chosenWork() {
-    var picked = document.querySelector('input[name="signup-work"]:checked');
-    return picked ? picked.value : '';
-  }
   function showSignup(destination) {
-    field('form-view').classList.add('hidden'); field('status-view').classList.add('hidden');
-    field('signup-view').classList.remove('hidden');
-    var name = field('signup-name');
-    if (!name.value) {
-      try { liff.getProfile().then(function (profile) { if (!name.value && profile && profile.displayName) name.value = profile.displayName.slice(0, 60); }).catch(function () {}); } catch (error) {}
-    }
-    document.querySelectorAll('input[name="signup-work"]').forEach(function (input) {
-      input.onchange = function () { field('signup-other-field').classList.toggle('hidden', chosenWork() !== 'other'); signupError(''); };
-    });
-    var button = field('signup-submit');
-    button.onclick = async function () {
-      var displayName = name.value.trim(); var workType = chosenWork(); var other = field('signup-other').value.trim();
-      if (displayName.length < 2) { signupError('กรุณาใส่ชื่ออย่างน้อย 2 ตัวอักษร'); name.focus(); return; }
-      if (!workType) { signupError('กรุณาเลือกประเภทงาน'); return; }
-      if (!field('signup-agree').checked) { signupError('กรุณากดยอมรับเงื่อนไขก่อนเริ่มใช้งาน'); return; }
-      signupError(''); button.disabled = true; button.textContent = 'กำลังเตรียมบัญชี…';
+    // The website's own welcome screens (/line-start, WelcomeOnboarding mode 'line'); this tab keeps the LINE ID token
+    // for an hour, and the server checks it again.
+    showStatus('กำลังเปิดหน้าเริ่มใช้งาน', 'รอสักครู่ครับ', false, 'review');
+    var go = function (name) {
       try {
-        var idToken = liff.getIDToken();
-        if (!idToken) throw new Error('ไม่พบข้อมูลยืนยันตัวตน กรุณาเปิดใหม่จาก LINE');
-        var body = { idToken: idToken, name: displayName, workType: workType, agreed: true };
-        if (workType === 'other' && other) body.workTypeOther = other;
-        if (destination) body.destination = destination;
-        var response = await fetch('/api/line-signup', {
-          method: 'POST', credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json', 'X-CSRF-Protection': '1' },
-          body: JSON.stringify(body)
-        });
-        var result = await response.json().catch(function () { return {}; });
-        if (!response.ok) throw new Error(result.error || 'เริ่มใช้งานไม่สำเร็จ กรุณาลองอีกครั้ง');
-        if (result.destination) {
-          var target = new URL(result.destination, window.location.origin);
-          if (target.origin === window.location.origin && !target.hash) { window.location.replace(target.href); return; }
-        }
-        showStatus(result.created ? 'พร้อมแล้วครับ' : 'บัญชีนี้พร้อมใช้อยู่แล้ว',
-          'กลับไปที่แชทแล้วพิมพ์บอกเลขาได้เลย เช่น “ค่ากาแฟ 60” หรือ “เพิ่มงาน ออกแบบโลโก้ 5000”', true, 'review');
-      } catch (error) {
-        signupError(error && error.message ? error.message : 'เริ่มใช้งานไม่สำเร็จ กรุณาลองอีกครั้ง');
-        button.disabled = false; button.textContent = 'เริ่มใช้งาน';
-      }
+        sessionStorage.setItem('krarok_line_signup', JSON.stringify({ idToken: liff.getIDToken(), name: name || '', destination: destination || null, at: Date.now() }));
+      } catch (error) { showStatus('เปิดหน้าเริ่มใช้งานไม่ได้', 'กรุณาลองเปิดใหม่จากแชท LINE', true, 'urgent'); return; }
+      window.location.replace('/line-start');
     };
+    try { liff.getProfile().then(function (profile) { go(profile && profile.displayName); }).catch(function () { go(''); }); }
+    catch (error) { go(''); }
   }
   async function openStart() {
     // Someone already linked who taps เริ่มใช้งาน again is told so; a chat without an account gets the sign-up form.
@@ -362,6 +324,8 @@
       signupOffered = config.signup === true;
       await liff.init({ liffId: config.liffId });
       if (!liff.isLoggedIn()) { if (!liff.isInClient()) { liff.login(); return; } showStatus('ยืนยันบัญชีไม่ได้', 'กรุณาเปิดฟอร์มใหม่จากแชท LINE อีกครั้งครับ', true, 'urgent'); return; }
+      // Back from /line-start after signing up: close the window, the welcome card is already in the chat.
+      if (new URLSearchParams(originalSearch).has('done')) { showStatus('พร้อมแล้วครับ', 'กลับไปที่แชทแล้วพิมพ์บอกเลขาได้เลย เช่น “ค่ากาแฟ 60”', true, 'review'); closeLiff(); return; }
       if (signupOffered && (startRequested(window.location.search) || startRequested(originalSearch))) { await openStart(); return; }
       var openPath = appDestination(window.location.search);
       if (openPath === null) openPath = appDestination(originalSearch);

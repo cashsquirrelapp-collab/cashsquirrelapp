@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
   AlertCircle, ArrowLeft, ArrowRight, BookOpen, Briefcase, Building2, Camera, ChartLine, Check, Code, Compass, FileSpreadsheet, FileText,
-  GraduationCap, Laptop, ListChecks, Megaphone, Mic, PenLine, Plus, Scissors, Store, Wallet, X, type LucideIcon,
+  GraduationCap, Laptop, ListChecks, Megaphone, Mic, PenLine, Plus, Scissors, Settings2, ShieldCheck, Store, Wallet, X, type LucideIcon,
 } from 'lucide-react';
 import { tr, T } from '../../i18n/tr';
 import {
@@ -67,6 +67,16 @@ const QUESTIONS = [
   { title: T("อยากให้ Krarok ช่วยเรื่องไหนบ้าง?"), sub: T("เลือกได้หลายข้อ") },
   { title: T("มีข้อมูลเดิมอยากย้ายเข้ามาไหม?"), sub: T("จาก Excel, Google Sheets หรือ CSV") },
 ];
+// Signing up inside LINE (owner, 2026-11-13: "อยากให้มันเป็น UI ทรานซิชั่นเหมือนที่เราทำในเว็บไซต์"): the same screens, three
+// steps — the name, the work type, then the agreements (shared/consents.ts terms, ai and line, in the reassuring words of
+// AiConsent.tsx, protections first).
+const LINE_AGREE = { title: T("ก่อนเริ่ม อ่านสั้น ๆ ครับ"), sub: T("วิธีที่เราดูแลข้อมูลของคุณ") };
+const LINE_PROMISES: { icon: LucideIcon; text: string }[] = [
+  { icon: ShieldCheck, text: T("ข้อมูลใช้เพื่อตอบคุณเท่านั้น ใช้บริการ AI แบบธุรกิจ และไม่ถูกนำไปฝึก AI") },
+  { icon: ListChecks, text: T("เลขาไม่บันทึกเอง จะส่งการ์ดให้คุณตรวจและกดยืนยันก่อนทุกครั้ง") },
+  { icon: AlertCircle, text: T("เลขาตอบผิดได้บ้าง โปรดตรวจตัวเลขสำคัญ คำตอบไม่ใช่คำปรึกษาทางภาษีหรือกฎหมาย") },
+  { icon: Settings2, text: T("เปลี่ยนใจได้ทุกเมื่อที่ ตั้งค่า › ความยินยอม") },
+];
 // The Thai titles in pieces that rise one after another, the coloured piece marked; other languages rise word by word.
 const TITLE_PARTS: Record<string, [string, boolean?][]> = {
   'สวัสดีครับ': [['สวัสดี'], ['ครับ']],
@@ -74,6 +84,7 @@ const TITLE_PARTS: Record<string, [string, boolean?][]> = {
   'คุณทำงานด้านไหนบ้าง?': [['คุณทำงาน'], ['ด้านไหน', true], ['บ้าง?']],
   'อยากให้ Krarok ช่วยเรื่องไหนบ้าง?': [['อยากให้ '], ['Krarok', true], [' ช่วยเรื่องไหนบ้าง?']],
   'มีข้อมูลเดิมอยากย้ายเข้ามาไหม?': [['มีข้อมูลเดิม'], ['อยากย้ายเข้ามา', true], ['ไหม?']],
+  'ก่อนเริ่ม อ่านสั้น ๆ ครับ': [['ก่อนเริ่ม '], ['อ่านสั้น ๆ', true], [' ครับ']],
 };
 function pieces(text: string, flowLast: boolean): [string, boolean?][] {
   const known = TITLE_PARTS[text];
@@ -107,8 +118,9 @@ const NAME_MAX = 60;
 export type OnboardingResult = { answers: OnboardingAnswers; name: string | null; skippedAtStep?: number; importOld?: boolean };
 
 type Props = {
-  /** 'first': after the first sign-in (ข้ามก่อน from step 2); 'edit': from Settings (ปิด, and the last step saves). */
-  mode: 'first' | 'edit';
+  /** 'first': after the first sign-in (ข้ามก่อน from step 2); 'edit': from Settings (ปิด, and the last step saves);
+   *  'line': signing up inside LINE (name, work type, agreements; nothing skipped; the last step signs up). */
+  mode: 'first' | 'edit' | 'line';
   mobile: boolean;
   /** The account's current name, filled in step 1 when the answers are opened from Settings. */
   accountName?: string;
@@ -123,7 +135,9 @@ export default function WelcomeOnboarding({ mode, mobile, accountName = '', prev
   const reduce = useReducedMotion() ?? false;
   const [step, setStep] = React.useState(0);
   const [answers, setAnswers] = React.useState<OnboardingAnswers>(() => answersOf(previous));
-  const [name, setName] = React.useState(mode === 'edit' ? accountName : '');
+  const [name, setName] = React.useState(mode === 'first' ? '' : accountName);
+  const [agreed, setAgreed] = React.useState(false);
+  const line = mode === 'line';
   const [nameTried, setNameTried] = React.useState(false);
   const [busy, setBusy] = React.useState<'finish' | 'skip' | null>(null);
   const [celebrating, setCelebrating] = React.useState(false);
@@ -140,13 +154,13 @@ export default function WelcomeOnboarding({ mode, mobile, accountName = '', prev
     ? (trimmed ? tr("ชื่อต้องมีอย่างน้อย {0} ตัวอักษร", NAME_MIN) : tr("กรุณาใส่ชื่อที่อยากให้เราเรียก"))
     : '';
   // The first run adds step 5, the question about old records; from Settings there are the four kept answers only.
-  const totalSteps = mode === 'first' ? ONBOARDING_STEPS + 1 : ONBOARDING_STEPS;
-  const importStep = step === ONBOARDING_STEPS;
+  const totalSteps = mode === 'first' ? ONBOARDING_STEPS + 1 : line ? 3 : ONBOARDING_STEPS;
+  const importStep = mode === 'first' && step === ONBOARDING_STEPS;
   const last = step === totalSteps - 1;
   // "คุณ" before the name (none in English), with a space before a name in Latin letters: คุณ CEO Park, not คุณCEO Park.
   const honorific = tr("คุณ{0}", '').trim();
   const gap = honorific && /^[A-Za-z0-9]/.test(trimmed) ? ' ' : '';
-  const lit = React.useMemo(() => new Set<BackdropCard>(step === ONBOARDING_STEPS - 1 && !mobile
+  const lit = React.useMemo(() => new Set<BackdropCard>(!line && step === ONBOARDING_STEPS - 1 && !mobile
     ? answers.goals.map(goal => GOAL_CARDS[goal]).filter((card): card is BackdropCard => Boolean(card)) : []), [step, mobile, answers.goals]);
   const result = (skippedAtStep?: number): OnboardingResult => ({
     answers, name: nameOk ? trimmed : null, ...(skippedAtStep ? { skippedAtStep } : {}),
@@ -167,15 +181,22 @@ export default function WelcomeOnboarding({ mode, mobile, accountName = '', prev
   const next = async () => {
     if (busy) return;
     if (step === 0 && !nameOk) { setNameTried(true); nameRef.current?.focus(); return; }
+    // In LINE the work type is asked for, and the agreements are needed to start.
+    if (line && step === 1 && !answers.workType) { setError(tr("กรุณาเลือกประเภทงาน")); return; }
+    if (line && last && !agreed) { setError(tr("กรุณากดยอมรับเงื่อนไขก่อนเริ่มใช้งาน")); return; }
     if (!last) { setStep(value => value + 1); setError(''); return; }
     setBusy('finish'); setError('');
     // The first run ends on a short "พร้อมแล้วครับ" before the answers are saved and the screen closes.
-    if (mode === 'first') {
+    if (mode === 'first' || line) {
       setCelebrating(true);
       await new Promise(resolve => window.setTimeout(resolve, reduce ? 700 : 1700));
     }
     try { await onFinish(result()); }
-    catch { setCelebrating(false); setError(tr("บันทึกไม่สำเร็จ กรุณาลองอีกครั้ง")); }
+    catch (failure) {
+      setCelebrating(false);
+      // In LINE the server's own reason is shown (it is written for the person: "LINE นี้เชื่อมกับบัญชีอื่นอยู่แล้ว").
+      setError(line && failure instanceof Error && failure.message ? failure.message : tr("บันทึกไม่สำเร็จ กรุณาลองอีกครั้ง"));
+    }
     finally { setBusy(null); }
   };
   const back = () => { if (!busy && step > 0) { setStep(value => value - 1); setError(''); } };
@@ -254,7 +275,21 @@ export default function WelcomeOnboarding({ mode, mobile, accountName = '', prev
     </div>
   );
 
-  const choices = [
+  const agreement = (
+    <div key="agree">
+      <ul className="wob-grid is-rows wob-promises" aria-label={tr(LINE_AGREE.sub)}>
+        {LINE_PROMISES.map(({ icon: Icon, text }) => (
+          <li key={text}><div className="wob-promise"><span className="wob-ico" aria-hidden="true"><Icon size={mobile ? 20 : 18} strokeWidth={1.9} /></span><span className="wob-label">{tr(text)}</span></div></li>
+        ))}
+      </ul>
+      <ul className="wob-grid is-rows wob-agree">
+        {tile('agree', ShieldCheck, tr("ยอมรับเงื่อนไขการใช้งานและนโยบายความเป็นส่วนตัว"), agreed, 'check', () => { setAgreed(value => !value); setError(''); },
+          { note: tr("และยินยอมให้เลขากระรอกช่วยดูแลงานผ่าน LINE"), wide: true })}
+      </ul>
+      <p className="wob-links"><a href="/terms.html" target="_blank" rel="noopener noreferrer">{tr("อ่านเงื่อนไขการใช้งาน")}</a><span aria-hidden="true"> · </span><a href="/privacy.html" target="_blank" rel="noopener noreferrer">{tr("นโยบายความเป็นส่วนตัว")}</a></p>
+    </div>
+  );
+  const choices = line && step === 2 ? agreement : [
     null,
     <div key="work">
       <ul className={`wob-grid${mobile ? ' is-rows' : ''}`} role="radiogroup" aria-labelledby={titleId}>
@@ -292,13 +327,13 @@ export default function WelcomeOnboarding({ mode, mobile, accountName = '', prev
     </span>
   );
   // Step 5 has no ข้ามก่อน: ไม่มี is the way past it, and a skip there would not be one of the four kept steps.
-  const quiet = importStep ? <span className="wob-skip-gap" aria-hidden="true" /> : mode === 'first'
+  const quiet = importStep || line ? <span className="wob-skip-gap" aria-hidden="true" /> : mode === 'first'
     ? <button type="button" className="wob-skip" onClick={() => void skip()} disabled={Boolean(busy)}>{busy === 'skip' ? tr("กำลังบันทึก…") : tr("ข้ามก่อน")}</button>
     : closeButton;
-  const primaryLabel = busy === 'finish' ? tr("กำลังบันทึก…") : !last ? tr("ถัดไป")
-    : mode === 'first' ? (importOld ? tr("ย้ายข้อมูลเข้าแอป") : tr("เริ่มใช้งาน")) : tr("บันทึก");
+  const primaryLabel = busy === 'finish' ? (line ? tr("กำลังเตรียมบัญชี…") : tr("กำลังบันทึก…")) : !last ? tr("ถัดไป")
+    : line ? tr("เริ่มใช้งาน") : mode === 'first' ? (importOld ? tr("ย้ายข้อมูลเข้าแอป") : tr("เริ่มใช้งาน")) : tr("บันทึก");
   const nextButton = <button type="button" className="wob-next" onClick={() => void next()} disabled={Boolean(busy)}>{primaryLabel}</button>;
-  const question = step > 0 ? QUESTIONS[step - 1] : null;
+  const question = step === 0 ? null : line && step === 2 ? LINE_AGREE : QUESTIONS[step - 1];
 
   // Steps 2-4. Phones: back, the bar and ข้ามก่อน on top, ถัดไป at the bottom within reach. Computers and iPads: the
   // bar and ข้ามก่อน on top, the choices in two columns, back and next under them.
@@ -316,8 +351,8 @@ export default function WelcomeOnboarding({ mode, mobile, accountName = '', prev
             <p className="wob-q-num">{last ? tr("ข้อสุดท้าย") : tr("ข้อ {0} จาก {1}", step + 1, totalSteps)}</p>
             <h2 id={titleId} className="wob-q-title" aria-label={tr(question.title)}><Rising text={tr(question.title)} /></h2>
             <p className="wob-q-sub">{tr(question.sub)}
-              {step === 2 && <span className="wob-count">{tr("เลือกแล้ว {0}", answers.occupations.length)}</span>}
-              {step === ONBOARDING_STEPS - 1 && !mobile && <span className="wob-sub-more">{tr("เลือกแล้วจะเห็นว่าแอปช่วยตรงไหน")}</span>}</p>
+              {!line && step === 2 && <span className="wob-count">{tr("เลือกแล้ว {0}", answers.occupations.length)}</span>}
+              {!line && step === ONBOARDING_STEPS - 1 && !mobile && <span className="wob-sub-more">{tr("เลือกแล้วจะเห็นว่าแอปช่วยตรงไหน")}</span>}</p>
             {choices}
           </motion.section>
         </AnimatePresence>
@@ -350,7 +385,7 @@ export default function WelcomeOnboarding({ mode, mobile, accountName = '', prev
           ))}
           <span className="wob-done-mascot" aria-hidden="true"><Mascot mood="celebrate" action="celebrate" gear="headset" animated={!reduce} size={mobile ? 120 : 150} viewBox="10 14 82 82" /></span>
           <p className="wob-done-title">{tr("พร้อมแล้วครับ")}{trimmed && <> <span className="wob-flow">{honorific}{gap}{trimmed}</span></>}</p>
-          <p className="wob-done-sub">{importOld ? tr("ต่อไปเป็นการย้ายข้อมูลเดิมเข้าแอป") : tr("ตั้งค่าเริ่มต้นตามที่คุณตอบให้แล้ว")}</p>
+          <p className="wob-done-sub">{line ? tr("กลับไปที่แชทแล้วพิมพ์บอกเลขาได้เลย") : importOld ? tr("ต่อไปเป็นการย้ายข้อมูลเดิมเข้าแอป") : tr("ตั้งค่าเริ่มต้นตามที่คุณตอบให้แล้ว")}</p>
         </motion.div>
       )}
     </motion.div>,

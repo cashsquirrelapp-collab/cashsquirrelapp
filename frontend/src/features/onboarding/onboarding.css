@@ -268,3 +268,12 @@
 }
 .wob-backdrop.is-still .wob-card-pop { opacity: 1; animation: none; }
 .wob-backdrop.is-still .wob-card-float, .wob-backdrop.is-still .wob-spark path { animation: none; stroke-dashoffset: 0; }
+
+/* ── Signing up inside LINE: the agreements step (mode 'line') ─────────────────────────────────────────────────── */
+.wob-promises { gap: 8px; }
+.wob-promise { display: flex; align-items: center; gap: 14px; min-height: 64px; padding: 10px 16px 10px 12px; border: 1px solid rgba(255, 255, 255, 0.95); border-radius: 20px;
+  background: var(--wob-glass); box-shadow: var(--wob-rim); -webkit-backdrop-filter: blur(18px) saturate(160%); backdrop-filter: blur(18px) saturate(160%); }
+.wob-promise .wob-label { font-size: 15px; font-weight: 400; }
+.wob-agree { margin-top: 14px; }
+.wob-links { margin: 12px 0 0; text-align: center; font-size: 13.5px; line-height: 1.6; color: var(--wob-muted); }
+.wob-links a { color: var(--wob-rust); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
