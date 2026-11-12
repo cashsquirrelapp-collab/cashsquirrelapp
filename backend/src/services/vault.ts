@@ -5,6 +5,7 @@ import type { User } from '@supabase/supabase-js';
 import { getSupabaseAdmin } from '../config/supabase.js';
 import { HttpError } from '../http/guard.js';
 import type { VercelRequest } from '../http/types.js';
+import { stagingUnlocked } from '../security/stagingUnlock.js';
 import { VAULT_EXT, VAULT_FREE_FILES, VAULT_KINDS, VAULT_MAX_BYTES, VAULT_MAX_FILES, cleanVaultFileName, sniffVaultMime, type VaultFile, type VaultKind } from '../../../shared/vault.js';
 
 // Document vault storage. Files sit in a private bucket under the owning workspace's folder
@@ -34,6 +35,7 @@ export function ensureVaultBucket(): Promise<void> {
 
 /** Same rule as the app: active trial, admin grant, or unexpired paid period. Fails closed. */
 export async function hasProAccess(user: User): Promise<boolean> {
+  if (stagingUnlocked(user.id)) return true;
   const { data, error } = await getSupabaseAdmin().from('subscriptions').select('status, plan, current_period_end').eq('user_id', user.id).maybeSingle();
   if (error) throw error;
   if (data?.plan === 'admin_revoked') return false;

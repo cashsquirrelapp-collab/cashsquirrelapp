@@ -27,6 +27,7 @@ import { type LineCardCharacter, lineCard, lineJobItem, lineValueRow, lineSectio
 import { checkLinkedAccountWriteAccess } from './linkedAccountAccess.js';
 import { decodeDueAction, handleDueAction, handleDuePartialText } from './lineDuePayments.js';
 import { decodeWht50Action, handleWht50Action } from './lineWht50Reminders.js';
+import { stagingUnlocked } from '../security/stagingUnlock.js';
 import {
   JobRow,
   ExpenseRow,
@@ -94,6 +95,7 @@ const CHAT_HISTORY_MAX_TURNS = 3;
 // every check uses.
 
 export async function isProUser(userId: string): Promise<boolean> {
+  if (stagingUnlocked(userId)) return true;
   const [{ data: authUser, error: authErr }, { data: sub, error: subErr }] = await Promise.all([
     supabaseAdmin.auth.admin.getUserById(userId),
     supabaseAdmin.from('subscriptions').select('status, plan, current_period_end').eq('user_id', userId).maybeSingle(),
