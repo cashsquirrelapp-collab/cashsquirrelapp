@@ -12,6 +12,7 @@ import {
 } from '../../../../shared/onboarding';
 import { Mascot } from '../../components/mascot/Mascot';
 import { OnboardingBackdrop, type BackdropCard } from './OnboardingBackdrop';
+import { PARTNER_LOGOS } from '../../components/brand/PartnerLogo';
 import './onboarding.css';
 
 // Welcome Onboarding (owner brief, 2026-10-28): four short questions after the first sign-in, on the whole screen of
@@ -261,12 +262,14 @@ export default function WelcomeOnboarding({ mode, mobile, accountName = '', prev
     if (id === 'other' && !answers.occupations.includes('other')) window.setTimeout(() => otherRef.current?.focus(), 30);
   };
 
-  const tile = (key: string, Icon: LucideIcon, label: string, picked: boolean, kind: 'radio' | 'check', onPick: () => void, options: { note?: string; wide?: boolean; name?: string } = {}) => (
+  const tile = (key: string, Icon: LucideIcon, label: string, picked: boolean, kind: 'radio' | 'check', onPick: () => void, options: { note?: string; wide?: boolean; name?: string; logo?: string } = {}) => (
     <li key={key} className={options.wide ? 'is-wide' : undefined}>
       <label className={`wob-tile${picked ? ' is-picked' : ''}`}>
         <input type={kind === 'radio' ? 'radio' : 'checkbox'} className="wob-input" checked={picked} onChange={onPick}
           name={kind === 'radio' ? options.name ?? 'wob-work' : undefined} />
-        <span className="wob-ico" aria-hidden="true"><Icon size={mobile ? 21 : 19} strokeWidth={1.9} /></span>
+        <span className={`wob-ico${options.logo ? ' is-logo' : ''}`} aria-hidden="true">{options.logo
+          ? <img src={options.logo} alt="" width={mobile ? 26 : 24} height={mobile ? 26 : 24} draggable={false} />
+          : <Icon size={mobile ? 21 : 19} strokeWidth={1.9} />}</span>
         <span className="wob-label">{phrased(label)}{options.note && <small>{options.note}</small>}</span>
         <span className={`wob-tick is-${kind}`} aria-hidden="true">{picked && <Check size={13} strokeWidth={3.2} />}</span>
       </label>
@@ -358,7 +361,8 @@ export default function WelcomeOnboarding({ mode, mobile, accountName = '', prev
     <div key="records">
       <ul className={`wob-grid${mobile ? ' is-rows' : ''}`} role="radiogroup" aria-labelledby={titleId}>
         {RECORD_PLACES.map(place => tile(place.id, RECORD_ICONS[place.id], tr(RECORD_LABELS[place.id]), answers.recordsIn === place.id, 'radio',
-          () => setAnswers(value => ({ ...value, recordsIn: value.recordsIn === place.id ? null : place.id })), { name: 'wob-records' }))}
+          () => setAnswers(value => ({ ...value, recordsIn: value.recordsIn === place.id ? null : place.id })),
+          { name: 'wob-records', logo: place.id === 'google_sheets' ? PARTNER_LOGOS.sheets : place.id === 'excel' ? PARTNER_LOGOS.excel : undefined }))}
       </ul>
     </div>,
   ][step];

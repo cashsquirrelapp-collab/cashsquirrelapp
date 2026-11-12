@@ -1,8 +1,9 @@
 import React from 'react';
-import { CheckCircle2, FileSpreadsheet, MessageCircle } from 'lucide-react';
+import { CheckCircle2, MessageCircle } from 'lucide-react';
 import { labOn } from '../../../../shared/labs';
 import { tr } from '../../i18n/tr';
 import { useLabs, useLabsLoaded } from '../../services/labs';
+import { PartnerLogo } from '../../components/brand/PartnerLogo';
 import { SheetsPanel } from './SheetsPanel';
 import './labs.css';
 
@@ -42,14 +43,14 @@ export default function ConnectSheetsPage({ account }: { account: string | null 
   }, [params]);
 
   if (!account || handoff) {
-    return <Screen icon={<FileSpreadsheet className="h-7 w-7" />} title={tr("ลิงก์นี้ใช้ไม่ได้แล้ว")}
+    return <Screen icon={<PartnerLogo kind="sheets" size={34} />} title={tr("ลิงก์นี้ใช้ไม่ได้แล้ว")}
       text={tr("ลิงก์เชื่อมชีตใช้ได้ครั้งเดียวภายใน 5 นาที กลับไปที่ LINE แล้วกด เชื่อมชีต ในการ์ดอีกครั้ง")} action={backToLine} />;
   }
   if (!loaded) {
-    return <Screen icon={<FileSpreadsheet className="h-7 w-7" />} title={tr("กำลังเปิด…")} text={tr("รอสักครู่ครับ")} />;
+    return <Screen icon={<PartnerLogo kind="sheets" size={34} />} title={tr("กำลังเปิด…")} text={tr("รอสักครู่ครับ")} />;
   }
   if (!labOn(labs, 'sheets')) {
-    return <Screen icon={<FileSpreadsheet className="h-7 w-7" />} title={tr("การเชื่อมชีตยังไม่เปิดให้บัญชีนี้")}
+    return <Screen icon={<PartnerLogo kind="sheets" size={34} />} title={tr("การเชื่อมชีตยังไม่เปิดให้บัญชีนี้")}
       text={tr("กลับไปบันทึกผ่านแชท LINE ได้ตามปกติครับ")} action={backToLine} />;
   }
   if (done) {
@@ -57,7 +58,7 @@ export default function ConnectSheetsPage({ account }: { account: string | null 
       text={tr("เลขาส่งการ์ดยืนยันไว้ในแชท LINE แล้ว ต่อไปบันทึกผ่านแชทแล้วกดยืนยัน เลขาจะเพิ่มแถวในชีตให้")} action={backToLine} />;
   }
   if (closed) {
-    return <Screen icon={<FileSpreadsheet className="h-7 w-7" />} title={tr("ยังไม่ได้บันทึกแผนที่ชีต")}
+    return <Screen icon={<PartnerLogo kind="sheets" size={34} />} title={tr("ยังไม่ได้บันทึกแผนที่ชีต")}
       text={tr("เชื่อมต่อได้ทุกเมื่อ พิมพ์ เชื่อมชีต ในแชท LINE แล้วกดปุ่มในการ์ด")}
       action={<div className="lab-connect-row"><button type="button" className="lab-btn" onClick={() => setClosed(false)}>{tr("ทำต่อ")}</button>{backToLine}</div>} />;
   }

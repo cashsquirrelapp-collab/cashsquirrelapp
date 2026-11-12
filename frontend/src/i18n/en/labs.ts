@@ -173,4 +173,5 @@ export const labs: Record<string, string> = {
   "เชื่อมต่อได้ทุกเมื่อ พิมพ์ เชื่อมชีต ในแชท LINE แล้วกดปุ่มในการ์ด": "Connect any time: type \"connect sheet\" in the LINE chat and tap the button in the card",
   "เลขาส่งการ์ดยืนยันไว้ในแชท LINE แล้ว ต่อไปบันทึกผ่านแชทแล้วกดยืนยัน เลขาจะเพิ่มแถวในชีตให้": "The assistant left a card in your LINE chat. Record in the chat and confirm, and a row is added to your sheet",
   "รอสักครู่ครับ": "One moment",
+  "เขียนเฉพาะแถวที่คุณกดยืนยันในการ์ด และย้อนกลับได้ภายใน 30 นาที": "Writes only the rows you confirm on a card, and can be undone within 30 minutes",
 };

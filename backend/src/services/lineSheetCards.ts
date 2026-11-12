@@ -5,7 +5,7 @@ import { getSupabaseAdmin } from '../config/supabase.js';
 import { loadLabs } from '../repositories/labs.js';
 import { isOwnerUserId } from '../repositories/roles.js';
 import type { LineMessage } from './line.js';
-import { LINE_CARD_COLORS as C, lineCard, lineValueRow } from './lineCards.js';
+import { LINE_CARD_COLORS as C, lineAppLink, lineCard, lineValueRow } from './lineCards.js';
 
 // เชื่อมชีตจาก LINE (owner, 2026-11-13): the card that starts it, and the one that says it is done. The first opens the LINE
 // page (?connect=sheets), which hands the person to their phone's own browser, where Google's sign-in works.
@@ -17,11 +17,22 @@ function step(title: string, detail: string) {
   ] };
 }
 
+/** The real Google Sheets icon (frontend/public/brand/partners, as Google publishes it) beside its name. */
+function sheetsBadge() {
+  const logo = lineAppLink('/brand/partners/google-sheets.png')?.uri;
+  return { type: 'box', layout: 'horizontal', spacing: 'md', alignItems: 'center', cornerRadius: '12px', backgroundColor: C.subtle,
+    paddingAll: '10px', contents: [
+      ...(logo ? [{ type: 'image', url: logo, size: '28px', aspectRatio: '1:1', aspectMode: 'fit', flex: 0 }] : []),
+      { type: 'text', text: 'Google Sheets', size: 'sm', weight: 'bold', color: C.text, flex: 1, wrap: false },
+    ] };
+}
+
 export function buildLineConnectSheet(liffId: string | undefined): LineMessage {
   return lineCard({
     title: 'เชื่อมชีตของคุณ', subtitle: 'ให้เลขาลงรายการในไฟล์ที่คุณใช้อยู่', character: 'document',
     altText: 'เชื่อมชีตของคุณ ให้เลขากระรอกลงรายการใน Google Sheets ที่คุณใช้อยู่',
     body: [
+      sheetsBadge(),
       step('1. เปิดในเบราว์เซอร์ของมือถือ', 'Google ให้ล็อกอินนอกแอป LINE เท่านั้น ระบบพาเข้าบัญชีให้เอง'),
       step('2. ล็อกอิน Google แล้วเลือกไฟล์', 'เลขาเห็นเฉพาะไฟล์ที่คุณเลือก'),
       step('3. ตรวจว่าเลขาอ่านคอลัมน์ถูก แล้วกดบันทึก', 'จากนั้นกลับมาบันทึกในแชทนี้ได้เลย'),
@@ -38,6 +49,7 @@ export function buildLineSheetConnected(file: { name: string; url?: string }, ma
     title: 'เชื่อมชีตแล้ว', subtitle: file.name, character: 'document',
     altText: `เชื่อมชีต ${file.name} แล้ว รายการที่บันทึกผ่านแชทจะลงชีตนี้`,
     body: [
+      sheetsBadge(),
       lineValueRow('ไฟล์', file.name, { bold: false }),
       lineValueRow('รายจ่ายลงแท็บ', expenses?.name ?? 'ยังไม่มีแท็บรายจ่าย', { bold: false }),
       lineValueRow('งาน / รายรับลงแท็บ', jobs?.name ?? 'ยังไม่มีแท็บรายรับ', { bold: false }),

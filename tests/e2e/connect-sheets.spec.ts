@@ -102,3 +102,33 @@ test('/connect-sheets for an account the feature is not open to says so, and sho
   await expect(page.getByRole('heading', { name: 'การเชื่อมชีตยังไม่เปิดให้บัญชีนี้' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'เชื่อมบัญชี Google' })).toHaveCount(0);
 });
+
+test('the real Google Sheets and Excel icons show in the panel and on question 5', async ({ page }) => {
+  await openPage(page, '/connect-sheets', { labsOn: ['sheets', 'sheetMap', 'excel'] });
+  const panel = page.getByTestId('sheets-panel');
+  await expect(panel.locator('.lab-gs-icon.is-logo img').first()).toHaveAttribute('src', '/brand/partners/google-sheets.png');
+  await expect(panel.getByRole('tab', { name: 'Google Sheets' }).locator('img')).toHaveAttribute('src', '/brand/partners/google-sheets.png');
+  await expect(panel.getByRole('tab', { name: 'ไฟล์ Excel' }).locator('img')).toHaveAttribute('src', '/brand/partners/excel.svg');
+  for (const src of ['/brand/partners/google-sheets.png', '/brand/partners/excel.svg', '/brand/partners/excel.png']) {
+    expect((await page.request.get(src)).status(), src).toBe(200);
+  }
+  expect(await panel.locator('img[src="/brand/partners/google-sheets.png"]').first().evaluate(img => (img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+  await page.screenshot({ path: 'test-results/connect-sheets-logos-phone.png' });
+  await page.route('**/api/auth*', route => route.fulfill({ json: { session: null } }));
+  await page.goto('/line-start?preview=1');
+  await page.locator('#wob-name').fill('ปาร์ค');
+  await page.locator('.wob-go').click();
+  for (let at = 0; at < 3; at += 1) await page.locator('.wob-next').click();
+  await expect(page.getByRole('heading', { name: 'ตอนนี้คุณจดรายรับรายจ่ายไว้ที่ไหน?' })).toBeVisible();
+  await expect(page.locator('.wob-ico.is-logo img')).toHaveCount(2);
+  await page.getByText('Google Sheets').click();
+  await page.waitForTimeout(900);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await page.screenshot({ path: 'test-results/onboarding-records-logos-phone.png' });
+});
+
+test('the promise says rows are written on confirm where writing is on, and read only where it is not', async ({ page }) => {
+  await openPage(page, '/connect-sheets', { labsOn: ['sheets', 'sheetMap', 'sheetWrite'] });
+  await expect(page.getByTestId('sheets-panel')).toContainText('เขียนเฉพาะแถวที่คุณกดยืนยันในการ์ด');
+  await expect(page.getByTestId('sheets-panel')).not.toContainText('ตอนนี้อ่านอย่างเดียว');
+});

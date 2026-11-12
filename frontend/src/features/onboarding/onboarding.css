@@ -277,3 +277,6 @@
 .wob-agree { margin-top: 14px; }
 .wob-links { margin: 12px 0 0; text-align: center; font-size: 13.5px; line-height: 1.6; color: var(--wob-muted); }
 .wob-links a { color: var(--wob-rust); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+/* The real Google Sheets / Excel icons on question 5: kept on white, never tinted. */
+.wob-ico.is-logo, .wob-tile.is-picked .wob-ico.is-logo { background: #FFFFFF; box-shadow: inset 0 0 0 1px rgba(28, 25, 23, 0.08); }
+.wob-ico.is-logo img { display: block; object-fit: contain; }

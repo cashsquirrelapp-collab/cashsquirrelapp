@@ -126,3 +126,9 @@ test('the LINE cards: เชื่อมชีต opens the LINE page, and the d
   const done = JSON.stringify(buildLineSheetConnected({ name: 'บัญชีร้าน', url: 'https://docs.google.com/x' }, map));
   for (const text of ['เชื่อมชีตแล้ว', 'บัญชีร้าน', 'รายจ่าย', 'รายรับ', 'https://docs.google.com/x']) assert.ok(done.includes(text), text);
 });
+
+test('both cards show the real Google Sheets icon from the site itself', () => {
+  for (const card of [buildLineConnectSheet('x'), buildLineSheetConnected({ name: 'f' }, { fileId: 'f', at: '', tabs: [] } as any)]) {
+    assert.ok(JSON.stringify(card).includes('https://staging.krarok.com/brand/partners/google-sheets.png'));
+  }
+});

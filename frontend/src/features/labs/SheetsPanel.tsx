@@ -12,6 +12,7 @@ import type { ColumnTarget, DataKind } from '../import/sheetImport';
 import { EXCEL_ACCEPT, ExcelReadError, excelMapFor, keepExcelMap, readExcelFile } from './excelSource';
 import { pickSheet } from './googlePicker';
 import { mapOf, overviewOf, readTabs, setKind, setTarget, setUse, type TabReading } from './sheetMap';
+import { PartnerLogo } from '../../components/brand/PartnerLogo';
 import './labs.css';
 
 // ชีตบัญชีของคุณ (ฟีเจอร์ทดลอง; owner, 2026-11-12: "เราไปหาเขา"). Two ways in, each its own switch in ฟีเจอร์ทดลอง:
@@ -67,6 +68,8 @@ export function SheetsPanel({ open, onClose, account, labs, result, onCreateTemp
   const googleOn = labOn(labs, 'sheets');
   const excelOn = labOn(labs, 'excel');
   const mapOn = labOn(labs, 'sheetMap');
+  // บันทึกลงชีตของคุณ on: the promise says rows are written on ยืนยัน, not "read only".
+  const writeOn = labOn(labs, 'sheetWrite');
   const fallback: Source = googleOn ? 'google' : 'excel';
   const [source, setSource] = React.useState<Source>(initialSource ?? fallback);
   const [wide, setWide] = React.useState<Record<Source, boolean>>({ google: false, excel: false });
@@ -76,26 +79,26 @@ export function SheetsPanel({ open, onClose, account, labs, result, onCreateTemp
   const shown: Source = source === 'google' && !googleOn ? 'excel' : source === 'excel' && !excelOn ? 'google' : source;
   const switcher = googleOn && excelOn ? (
     <div className="lab-seg lab-gs-source" role="tablist" aria-label={tr("แหล่งข้อมูล")}>
-      <button type="button" role="tab" aria-selected={shown === 'google'} onClick={() => setSource('google')}>Google Sheets</button>
-      <button type="button" role="tab" aria-selected={shown === 'excel'} onClick={() => setSource('excel')}>{tr("ไฟล์ Excel")}</button>
+      <button type="button" role="tab" aria-selected={shown === 'google'} onClick={() => setSource('google')}><PartnerLogo kind="sheets" size={16} />Google Sheets</button>
+      <button type="button" role="tab" aria-selected={shown === 'excel'} onClick={() => setSource('excel')}><PartnerLogo kind="excel" size={16} />{tr("ไฟล์ Excel")}</button>
     </div>
   ) : null;
   return (
     <Modal open={open} onClose={onClose} label={tr("ชีตบัญชีของคุณ")} width={wide[shown] ? 960 : 600}>
       <div className="lab lab-gs" data-testid="sheets-panel">
         {/* Both stay mounted while the window is open, so switching keeps a file already read. */}
-        {googleOn && <div className="lab-gs-pane" hidden={shown !== 'google'}><GoogleSource open={open} account={account} mapOn={mapOn} result={result} onCreateTemplate={onCreateTemplate} googleBack={googleBack} onMapSaved={onMapSaved} switcher={switcher} onWide={googleWide} /></div>}
+        {googleOn && <div className="lab-gs-pane" hidden={shown !== 'google'}><GoogleSource open={open} account={account} mapOn={mapOn} writeOn={writeOn} result={result} onCreateTemplate={onCreateTemplate} googleBack={googleBack} onMapSaved={onMapSaved} switcher={switcher} onWide={googleWide} /></div>}
         {excelOn && <div className="lab-gs-pane" hidden={shown !== 'excel'}><ExcelSource open={open} mapOn={mapOn} onCreateTemplate={onCreateTemplate} switcher={switcher} onWide={excelWide} /></div>}
       </div>
     </Modal>
   );
 }
 
-function PanelHead({ subtitle, switcher }: { subtitle?: React.ReactNode; switcher: React.ReactNode }) {
+function PanelHead({ subtitle, switcher, logo }: { subtitle?: React.ReactNode; switcher: React.ReactNode; logo?: 'sheets' | 'excel' }) {
   return (
     <>
       <div className="lab-gs-head">
-        <span className="lab-gs-icon" aria-hidden="true"><FileSpreadsheet className="h-5 w-5" /></span>
+        <span className={`lab-gs-icon${logo ? ' is-logo' : ''}`} aria-hidden="true">{logo ? <PartnerLogo kind={logo} size={26} /> : <FileSpreadsheet className="h-5 w-5" />}</span>
         <div style={{ minWidth: 0 }}>
           <h2>{tr("ชีตบัญชีของคุณ")}</h2>
           {subtitle && <p className="lab-small lab-muted lab-gs-email">{subtitle}</p>}
@@ -162,8 +165,8 @@ function SaveMapButton({ ws, saved, busy, onSave }: { ws: Workspace; saved: bool
   );
 }
 
-function GoogleSource({ open, account, mapOn, result, onCreateTemplate, switcher, onWide, googleBack, onMapSaved }: {
-  open: boolean; account: string; mapOn: boolean; result?: string | null; onCreateTemplate?: () => void; switcher: React.ReactNode; onWide: (wide: boolean) => void;
+function GoogleSource({ open, account, mapOn, writeOn = false, result, onCreateTemplate, switcher, onWide, googleBack, onMapSaved }: {
+  open: boolean; account: string; mapOn: boolean; writeOn?: boolean; result?: string | null; onCreateTemplate?: () => void; switcher: React.ReactNode; onWide: (wide: boolean) => void;
   googleBack?: 'connect'; onMapSaved?: () => void;
 }) {
   const ws = useWorkspace(mapOn);
@@ -238,7 +241,9 @@ function GoogleSource({ open, account, mapOn, result, onCreateTemplate, switcher
         <p className="lab-gs-lead">{tr("เลือกไฟล์บัญชีใน Google Drive ของคุณ ให้เลขากระรอกอ่าน บอกว่าแต่ละคอลัมน์คืออะไร และสรุปตัวเลขให้")}</p>
         <ul className="lab-gs-promises">
           <li><ShieldCheck className="h-4 w-4" aria-hidden="true" /><span>{tr("เข้าถึงเฉพาะไฟล์ที่คุณเลือกเอง หรือไฟล์ที่ให้กระรอกตุนเงินสร้างให้เท่านั้น")}</span></li>
-          <li><Lock className="h-4 w-4" aria-hidden="true" /><span>{tr("ตอนนี้อ่านอย่างเดียว ยังไม่เขียนอะไรลงชีตของคุณ")}</span></li>
+          <li><Lock className="h-4 w-4" aria-hidden="true" /><span>{writeOn
+            ? tr("เขียนเฉพาะแถวที่คุณกดยืนยันในการ์ด และย้อนกลับได้ภายใน 30 นาที")
+            : tr("ตอนนี้อ่านอย่างเดียว ยังไม่เขียนอะไรลงชีตของคุณ")}</span></li>
           <li><Unplug className="h-4 w-4" aria-hidden="true" /><span>{tr("ยกเลิกการเชื่อมได้ทุกเมื่อ ที่หน้านี้หรือในบัญชี Google ของคุณ")}</span></li>
         </ul>
         <button type="button" className="lab-btn is-primary lab-gs-wide" disabled={busy !== null} onClick={connect}>{busy === 'connect' ? tr("กำลังไปที่ Google…") : tr("เชื่อมบัญชี Google")}</button>
@@ -281,7 +286,7 @@ function GoogleSource({ open, account, mapOn, result, onCreateTemplate, switcher
   return (
     <>
       <div className="lab-gs-body">
-        <PanelHead switcher={switcher} subtitle={status?.connected ? tr("เชื่อมกับ {0}", status.email || tr("บัญชี Google")) : undefined} />
+        <PanelHead logo="sheets" switcher={switcher} subtitle={status?.connected ? tr("เชื่อมกับ {0}", status.email || tr("บัญชี Google")) : undefined} />
         <Messages notice={notice} error={error} />
         {body}
       </div>
@@ -373,7 +378,7 @@ function ExcelSource({ open, mapOn, onCreateTemplate, switcher, onWide }: {
   return (
     <>
       <div className="lab-gs-body">
-        <PanelHead switcher={switcher} subtitle={tr("ไฟล์ Excel ในเครื่องของคุณ")} />
+        <PanelHead logo="excel" switcher={switcher} subtitle={tr("ไฟล์ Excel ในเครื่องของคุณ")} />
         <Messages notice={notice} error={error} />
         {fileInput}
         {body}
