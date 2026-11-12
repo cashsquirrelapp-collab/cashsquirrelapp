@@ -1,5 +1,5 @@
 import React from 'react';
-import { Download } from 'lucide-react';
+import { CloudUpload, Download, ExternalLink } from 'lucide-react';
 import type { AppSettings, Expense, Job } from '../../../../shared/types';
 import { readBusinessProfile, templateFor, type BusinessProfile } from '../../../../shared/businessProfile';
 import { TEMPLATE_INFO, buildBookTemplate, type TemplateData } from '../../../../shared/bookTemplates';
@@ -7,12 +7,15 @@ import { buildXlsx } from '../../../../shared/xlsxWriter';
 import { incomeRowsForYear } from '../../../../shared/incomeExport';
 import { Modal } from '../../components/ui/Modal';
 import { tr } from '../../i18n/tr';
+import { googleApi, toBase64 } from '../../services/google';
+import type { GoogleFile } from '../../../../shared/googleSheets';
 import { BusinessQuestions } from './BusinessQuestions';
 import './labs.css';
 
 // สร้างชีตตามประเภทธุรกิจ (ฟีเจอร์ทดลอง, plan phase 1): the six answers pick one of the five workbooks
 // (shared/bookTemplates.ts), shown with its tabs before the download. The app's own records for the year can go in instead
-// of the examples. The file is made in the browser: nothing is sent anywhere. Google Drive comes with phase 2.
+// of the examples. The file is made in the browser. With Google connected (phase 2) the same workbook can go straight into
+// the person's Google Drive as a new Google Sheet, which then becomes the sheet เลขากระรอก reads.
 
 /** The year's money received and spent, in the template's rows. */
 export function templateData(jobs: Job[], expenses: Expense[], year: number): TemplateData {
@@ -35,13 +38,15 @@ function download(bytes: Uint8Array, fileName: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
-export function TemplateDialog({ open, onClose, settings, onSaveProfile, jobs, expenses }: {
+export function TemplateDialog({ open, onClose, settings, onSaveProfile, jobs, expenses, drive }: {
   open: boolean;
   onClose: () => void;
   settings: AppSettings;
   onSaveProfile: (profile: BusinessProfile) => void;
   jobs?: Job[];
   expenses?: Expense[];
+  /** เชื่อม Google Sheets is on: offer สร้างใน Google Drive (or the way to connect first). */
+  drive?: { account: string; onOpenSheets: () => void };
 }) {
   const profile = readBusinessProfile(settings.business);
   const [editing, setEditing] = React.useState(false);
@@ -49,15 +54,39 @@ export function TemplateDialog({ open, onClose, settings, onSaveProfile, jobs, e
   const [year, setYear] = React.useState(thisYear);
   const [withData, setWithData] = React.useState(false);
   const [done, setDone] = React.useState<string | null>(null);
-  React.useEffect(() => { if (!open) { setEditing(false); setDone(null); } }, [open]);
+  const [connected, setConnected] = React.useState<boolean | null>(null);
+  const [created, setCreated] = React.useState<GoogleFile | null>(null);
+  const [creating, setCreating] = React.useState(false);
+  const [driveError, setDriveError] = React.useState<string | null>(null);
+  React.useEffect(() => { if (!open) { setEditing(false); setDone(null); setCreated(null); setDriveError(null); } }, [open]);
+  React.useEffect(() => {
+    if (!open || !drive) return;
+    let live = true;
+    googleApi.status(drive.account).then(status => { if (live) setConnected(status.connected && status.configured); }).catch(() => { if (live) setConnected(false); });
+    return () => { live = false; };
+  }, [open, drive?.account]);
   const id = profile ? templateFor(profile) : null;
   const data = React.useMemo(() => (jobs && expenses ? templateData(jobs, expenses, year) : null), [jobs, expenses, year]);
   const canFill = Boolean(data && id !== 'office' && (data.income.length || data.expenses.length));
+  const build = () => {
+    const built = buildBookTemplate(profile!, { year, data: withData && canFill ? data : null });
+    return { built, bytes: buildXlsx(built.sheets, { title: TEMPLATE_INFO[built.id].title }) };
+  };
   const make = () => {
     if (!profile) return;
-    const built = buildBookTemplate(profile, { year, data: withData && canFill ? data : null });
-    download(buildXlsx(built.sheets, { title: TEMPLATE_INFO[built.id].title }), built.fileName);
+    const { built, bytes } = build();
+    download(bytes, built.fileName);
     setDone(built.fileName);
+  };
+  const makeInDrive = async () => {
+    if (!profile || !drive) return;
+    setCreating(true); setDriveError(null);
+    try {
+      const { built, bytes } = build();
+      const status = await googleApi.createTemplate(drive.account, built.fileName.replace(/\.xlsx$/i, ''), toBase64(bytes));
+      setCreated(status.file ?? null);
+    } catch (error) { setDriveError((error as Error).message || tr("กรุณาลองใหม่อีกครั้ง")); }
+    finally { setCreating(false); }
   };
   const asking = !profile || editing;
   return (
@@ -88,9 +117,28 @@ export function TemplateDialog({ open, onClose, settings, onSaveProfile, jobs, e
             </label>
           )}
           <div className="lab-tpl-foot">
-            <button type="button" className="lab-btn is-primary" onClick={make}><Download className="h-4 w-4" />{tr("ดาวน์โหลดไฟล์ Excel")}</button>
+            {drive && connected && (
+              <button type="button" className="lab-btn is-primary" disabled={creating} onClick={() => void makeInDrive()} data-testid="template-drive">
+                <CloudUpload className="h-4 w-4" />{creating ? tr("กำลังสร้างใน Google Drive…") : tr("สร้างใน Google Drive")}
+              </button>
+            )}
+            <button type="button" className={`lab-btn${drive && connected ? '' : ' is-primary'}`} onClick={make}><Download className="h-4 w-4" />{tr("ดาวน์โหลดไฟล์ Excel")}</button>
             <button type="button" className="lab-btn" onClick={() => setEditing(true)}>{tr("แก้คำตอบ")}</button>
           </div>
+          {drive && connected === false && (
+            <p className="lab-small lab-muted" style={{ marginTop: 10 }}>{tr("เชื่อม Google ไว้ จะสร้างไฟล์นี้ลง Google Drive ของคุณได้โดยตรง")}{' '}
+              <button type="button" className="lab-btn is-link" onClick={drive.onOpenSheets}>{tr("เชื่อม Google")}</button></p>
+          )}
+          {created && (
+            <div role="status" className="lab-note is-brick lab-tpl-created">
+              <span>{tr("สร้างใน Google Drive แล้ว: {0}", created.name)}</span>
+              <span className="lab-tpl-created-actions">
+                <a className="lab-btn" href={created.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-4 w-4" />{tr("เปิดในชีต")}</a>
+                {drive && <button type="button" className="lab-btn" onClick={drive.onOpenSheets}>{tr("ดูแผนที่ชีต")}</button>}
+              </span>
+            </div>
+          )}
+          {driveError && <p role="alert" className="lab-note lab-gs-notice is-red" style={{ marginTop: 12 }}>{driveError}</p>}
           {done && <p role="status" className="lab-note is-brick" style={{ marginTop: 12 }}>{tr("ดาวน์โหลดแล้ว: {0}", done)}</p>}
           <p className="lab-small lab-muted" style={{ marginTop: 12 }}>{tr("เปิดใน Google Sheets ได้: ไฟล์ › นำเข้า › อัปโหลด ชีตนี้ช่วยจดและสรุปตัวเลข ไม่ได้ยื่นแบบแทนคุณ")}</p>
         </div>

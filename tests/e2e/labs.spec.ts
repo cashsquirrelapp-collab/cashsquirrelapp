@@ -45,9 +45,10 @@ for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'p
     for (const name of ['เชื่อม Google Sheets', 'แผนที่ชีต', 'บันทึกลงชีตของคุณ', 'สร้างชีตตามประเภทธุรกิจ', 'ปฏิทินยื่นภาษี', 'โปรเจกต์และเงินทดรอง', 'สำนักงานบัญชี']) {
       await expect(list).toContainText(name);
     }
-    // Phase 1 (2026-11-12): the template download and the filing calendar are built; the other five are still locked.
-    await expect(list.getByText('กำลังสร้าง')).toHaveCount(5);
-    await expect(list.getByRole('switch')).toHaveCount(2);
+    // Phase 1 (2026-11-12): the template download and the filing calendar are built; phase 2: the Google Sheets
+    // connection and the sheet map. The other three are still locked.
+    await expect(list.getByText('กำลังสร้าง')).toHaveCount(3);
+    await expect(list.getByRole('switch')).toHaveCount(4);
     expect(await textOverlapIssues(page)).toEqual([]);
     await page.screenshot({ path: `test-results/labs-settings-${device.name}.png` });
   });

@@ -10,7 +10,7 @@ import { uiSurface } from '../../components/ui/uiStyles';
 // says so and its switch stays locked.
 
 /** Features that have their own screen once they are on: a เปิด button beside the switch. */
-const OPENS: LabFeatureId[] = ['filingCalendar', 'templates'];
+const OPENS: LabFeatureId[] = ['sheets', 'filingCalendar', 'templates'];
 
 export function LabsSettings({ account, labs, triggerAlert, onOpen }: {
   account: string; labs: LabState; triggerAlert: (title: string, message: string) => void;

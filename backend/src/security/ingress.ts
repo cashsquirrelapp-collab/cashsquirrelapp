@@ -46,6 +46,7 @@ const policies: Record<string, { group: string; limit: number }> = {
   'download-report': { group: 'download', limit: 20 },
   'stripe-webhook': { group: 'stripe-webhook', limit: 300 },
   billing: { group: 'billing', limit: 30 },
+  'google/callback': { group: 'google-callback', limit: 20 },
   'line-webhook': { group: 'line-webhook', limit: 300 }
 };
 export async function ingressLimit(req: VercelRequest, route: string): Promise<void> {

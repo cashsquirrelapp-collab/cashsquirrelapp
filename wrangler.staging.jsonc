@@ -40,7 +40,12 @@
     "AI_ADMINS_ONLY": "false",
     "AI_SMART_MODEL": "claude-sonnet-5-5",
     "AI_PRO_TOKENS_PER_CYCLE": "1650",
-    "AI_MESSAGE_TOKEN_CAP": "100"
+    "AI_MESSAGE_TOKEN_CAP": "100",
+    // ฟีเจอร์ทดลอง phase 2, Google Sheets (backend/src/services/googleSheets.ts). Public values: the OAuth client and the
+    // Picker's app (Google Cloud project number). Secrets set by the owner: GOOGLE_CLIENT_SECRET, GOOGLE_TOKEN_KEY,
+    // GOOGLE_PICKER_API_KEY (wrangler secret put … -c wrangler.staging.jsonc).
+    "GOOGLE_CLIENT_ID": "875278739350-9uj1dep06e5gsp96dqpnputt1htsse0b.apps.googleusercontent.com",
+    "GOOGLE_PICKER_APP_ID": "875278739350"
   },
   "observability": { "enabled": true }
 }

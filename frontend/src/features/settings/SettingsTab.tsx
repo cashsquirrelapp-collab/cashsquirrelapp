@@ -12,6 +12,7 @@ import { giveConsent, lineDisconnected } from '../../services/consent';
 import { ConsentSettings } from './ConsentSettings';
 import { LabsSettings } from './LabsSettings';
 import { TemplateDialog } from '../labs/TemplateDialog';
+import { SheetsPanel } from '../labs/SheetsPanel';
 import { useLabs } from '../../services/labs';
 import { wht50ReminderOn } from '../../../../shared/notifDefaults';
 import { authClient } from '../../services/auth';
@@ -621,6 +622,17 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   // ฟีเจอร์ทดลอง (shared/labs.ts): only testers see the section; everyone else sees Settings exactly as before.
   const labs = useLabs(isAccount ? session?.user?.id : null);
   const [templateOpen, setTemplateOpen] = React.useState(false);
+  const [sheetsOpen, setSheetsOpen] = React.useState(false);
+  // Google's sign-in comes back to /settings?google=connected|cancelled|scope|signin|failed: the panel opens with it once.
+  const [googleResult, setGoogleResult] = React.useState<string | null>(() => {
+    try { return new URLSearchParams(window.location.search).get('google'); } catch { return null; }
+  });
+  React.useEffect(() => {
+    if (!googleResult || !labs.tester) return;
+    try { const url = new URL(window.location.href); url.searchParams.delete('google'); window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash); } catch { /* the address keeps its query */ }
+    if (labs.on.includes('sheets')) { setView('labs'); setSheetsOpen(true); }
+    else setGoogleResult(null);
+  }, [googleResult, labs.tester, labs.on]);
 
   const openView = (next: SettingsView) => {
     setView(!lineAccess && next === 'line' ? 'home' : next);
@@ -1024,13 +1036,17 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           <DetailHeader onBack={() => openView('home')} title={tr("ฟีเจอร์ทดลอง")} subtitle={tr("ลองฟีเจอร์ใหม่ก่อนเปิดให้ทุกคน")} />
           {isAccount && labs.tester ? <LabsSettings account={session.user.id} labs={labs} triggerAlert={triggerAlert} onOpen={id => {
             if (id === 'templates') { setTemplateOpen(true); return; }
+            if (id === 'sheets') { setSheetsOpen(true); return; }
             // The calendar opens on its ยื่นภาษี view (CalendarTab reads the kept view).
             try { localStorage.setItem('cashsquirrel_calendar_view', 'tax'); } catch { /* the calendar opens on its default view */ }
             onSwitchTab('calendar');
           }} />
             : <Note>{tr("ฟีเจอร์ทดลองเปิดให้เฉพาะบัญชีทดสอบ")}</Note>}
           {isAccount && labs.tester && <TemplateDialog open={templateOpen} onClose={() => setTemplateOpen(false)} settings={settings}
-            onSaveProfile={profile => onUpdateSettings({ ...settings, business: profile })} jobs={jobs} expenses={expenses} />}
+            onSaveProfile={profile => onUpdateSettings({ ...settings, business: profile })} jobs={jobs} expenses={expenses}
+            drive={labs.on.includes('sheets') ? { account: session.user.id, onOpenSheets: () => { setTemplateOpen(false); setSheetsOpen(true); } } : undefined} />}
+          {isAccount && labs.on.includes('sheets') && <SheetsPanel open={sheetsOpen} onClose={() => { setSheetsOpen(false); setGoogleResult(null); }} account={session.user.id} labs={labs}
+            result={googleResult} onCreateTemplate={labs.on.includes('templates') ? () => { setSheetsOpen(false); setTemplateOpen(true); } : undefined} />}
         </div>
       );
 
