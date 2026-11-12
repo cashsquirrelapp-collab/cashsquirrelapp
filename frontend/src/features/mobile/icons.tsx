@@ -76,14 +76,14 @@ export function KsIcon({ name, size = 22, className = '', filled = false }: { na
   );
 }
 
-/** The squirrel's head in silhouette with a plus sign: the centre button of the bottom bar, as drawn in the design. */
 /** The tab bar's middle button: the squirrel's ears on an orange circle, a plus (add a job) or, on the documents page,
  * a document with a plus (owner, 2026-11-03: "เอามาแทนปุ่มเพิ่มงานเวลาเข้าไปในฟีเจอร์เอกสาร"). */
 export function SquirrelAdd({ glyph = 'plus' }: { glyph?: 'plus' | 'document' }) {
   return (
     <svg viewBox="27 17 46 58" fill="currentColor" aria-hidden="true">
-      <path d="M38 35C35 25 39 18 42 18C45 18 45 27 42 35" />
-      <path d="M62 35C65 25 61 18 58 18C55 18 55 27 58 35" />
+      {/* โมจิ's round ears (owner, 2026-11-12: โมจิ everywhere), Mochi.tsx's ears scaled to this circle. */}
+      <ellipse cx="39.4" cy="29" rx="4.9" ry="7.7" transform="rotate(-10 39.4 29)" />
+      <ellipse cx="60.6" cy="29" rx="4.9" ry="7.7" transform="rotate(10 60.6 29)" />
       <circle cx="50" cy="52" r="22" />
       {glyph === 'document'
         ? <g transform="translate(41.6 43.6) scale(0.7)" fill="none" stroke="#FFFFFF" strokeWidth={2.7} strokeLinecap="round" strokeLinejoin="round">

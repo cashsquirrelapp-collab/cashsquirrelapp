@@ -131,10 +131,16 @@ The CSS tokens kept older names: `--blue-acc` is the CI **orange**, `--pink-acc`
   brick-red blob, round squirrel ears, a dark face window with white LED eyes, pink cheeks, the logo's curled tail. Flat
   colours, no gradients; only the eyes glow. Faces: idle, listen, think, talk, happy, worried, sleepy (`mochiFace` maps the
   old moods). `MochiPeek` takes MascotPeek's box on the chat's perch and the floating window.
-- Where เลขา is the one talking (the chat page, its avatars and the notifications thread, the corner, the floating
-  window and its folded form, the arrival, the Pro guide's chat step, its menu icon), it is โมจิ. Everywhere else
-  (landing, onboarding, plans, LINE card pictures, loading, Credit Radar) the app's squirrel (`Mascot.tsx`) stays as it is
-  and is still never redrawn, until the owner moves those too.
+- Since 2026-11-12 (owner: "เปลี่ยนเป็นโมจิให้หมดทุกที่เลย") โมจิ is the app's only character, everywhere: `Mascot.tsx`'s
+  `Mascot` is an adapter that draws โมจิ for every old mood, action and prop (the old drawing is kept, unused, as
+  `SquirrelClassic`), so landing, onboarding, plans, report, Credit Radar and the rest all show โมจิ. Actions: wave, hold
+  coin/baht/calendar/document/phone, celebrate, sleep, typing, walk, jump, glance (`mochi.css`, loaded from main.tsx).
+- Thinking and working look as before (owner: "มีโฮโลแกรมขึ้น ให้มันเหมือนเดิมเลย"): `MascotPeek` draws โมจิ behind the
+  same hologram glass (typing lines, caret, bars, sweep, sparks) with the tapping paws; `MochiPeek` is the same component.
+- LINE card pictures are `/line/mochi-*.png` (512 px, white sticker edge so the brick body reads on the orange band); the
+  rich menu pictures are `richmenu-ci-{5,6}-2026-11-12.jpg` (MENU_VERSION 2026-11-12); the share picture is
+  `og/krarok-share-v2.png`. LINE caches pictures by address, so a changed picture always gets a new file name.
+- The logo, favicons and app icons stay the curled tail; they are not the character.
 - The white egg design is kept for a future Pro "advanced" เลขา (artifacts/sheet-assistant-ui/mini-final), not used yet.
 
 ## 3. Typography

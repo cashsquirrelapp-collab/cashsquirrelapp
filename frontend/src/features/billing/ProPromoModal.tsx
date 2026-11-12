@@ -78,7 +78,7 @@ export const ProPromoModal: React.FC<ProPromoModalProps> = ({ manageSubscription
             <p className="mt-1.5 text-[12.5px] leading-relaxed text-brand-muted" data-testid="promo-fee">{t('plans.feeAdded', { fee: formatBaht(proPriceParts('month').fee) })} · {t('plans.payTotal', { total: formatBaht(proPriceParts('month').total) })}</p>
             <MonthPromoNotice className="mt-2 text-[12.5px] leading-relaxed text-brand-muted" testId="promo-ends" />
           </div>
-          <img src="/pro-promo-hero.png" alt="" className="w-32 sm:w-36 shrink-0" />
+          <img src="/pro-promo-mochi.png" alt="" className="w-32 sm:w-36 shrink-0" />
         </div>
 
         {notice && (

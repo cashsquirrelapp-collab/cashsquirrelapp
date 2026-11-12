@@ -476,7 +476,7 @@ test('LINE: the pinned notifications thread shows the real LINE cards, and their
   // It opens at the latest card, as LINE does.
   await expect(cards.nth(2).getByRole('link', { name: 'ดูรายการรอรับเงิน' })).toBeInViewport();
   // The official mascot pose and the brand symbol come from the app's own files.
-  await expect(cards.nth(2).locator('.lnc-figure img')).toHaveAttribute('src', '/line/mascot-v6-urgent.png');
+  await expect(cards.nth(2).locator('.lnc-figure img')).toHaveAttribute('src', '/line/mochi-urgent.png');
   expect(await textOverlapIssues(page)).toEqual([]);
   await snap(page, 'assistant-line-thread.png');
 

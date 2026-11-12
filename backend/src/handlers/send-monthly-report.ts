@@ -68,7 +68,7 @@ export function buildReportHtml(monthLabel: string, s: MonthlySummary): string {
   const onBand = '#FFFFFF';
   const onBandSoft = '#FBEAE2';
   const symbol = origin ? `<img src="${origin}/brand/logo01-v1/symbol-white.png" alt="" width="18" height="18" style="vertical-align:middle;margin-right:6px;border:0" />` : '';
-  const mascot = origin ? `<td valign="bottom" width="80" bgcolor="${band}" style="width:80px;padding:0;background-color:${band};"><img src="${origin}/line/mascot-v6-report.png" alt="" width="80" height="80" style="display:block;border:0" /></td>` : '';
+  const mascot = origin ? `<td valign="bottom" width="80" bgcolor="${band}" style="width:80px;padding:0;background-color:${band};"><img src="${origin}/line/mochi-report.png" alt="" width="80" height="80" style="display:block;border:0" /></td>` : '';
   const row = (label: string, value: string, color: string, caption?: string) => `
             <tr>
               <td bgcolor="${C.white}" style="padding:8px 0;font-size:14px;line-height:1.5;color:${C.muted};background-color:${C.white};">${label}${caption ? `<div style="font-size:12px;line-height:1.5;color:${C.muted};">${caption}</div>` : ''}</td>

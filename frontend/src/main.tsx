@@ -5,6 +5,7 @@ import App from './app/App.tsx';
 import { LanguageProvider } from './i18n/LanguageContext';
 import { CookieConsent } from './components/consent/CookieConsent';
 import './index.css';
+import './components/mascot/mochi.css';
 import { clearLegacyFinancialCache } from './services/privateCache';
 import { startUpdateWatch } from './app/appUpdate';
 

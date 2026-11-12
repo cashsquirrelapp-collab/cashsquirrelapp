@@ -1,5 +1,6 @@
 import React from 'react';
 import { PRO_GEAR_CSS, ProGearBack, ProGearDefs, ProGearFront } from './MascotProGear';
+import { Mochi } from './Mochi';
 
 export type MascotMood =
   | 'happy'
@@ -202,7 +203,20 @@ export function mascotColors(mood: MascotMood) {
   }
 }
 
-export function Mascot({
+/**
+ * Since 2026-11-12 every squirrel in the app is โมจิ (owner: "เปลี่ยนเป็นโมจิให้หมดทุกที่เลย"). Mascot keeps its props so every
+ * screen moves at once: mood → โมจิ's face, action → its pose (holding a coin, a document, a calendar, a phone or a red cross,
+ * waving, typing, celebrating, sleeping, walking, jumping), a cropped viewBox → its head close-up. The old drawing stays
+ * below as SquirrelClassic, unused, for the record. gear and thoughtDots no longer draw anything.
+ */
+export function Mascot({ mood = 'happy', action = 'idle', prop = 'none', animated = true, className = '', size = 120, viewBox, typingKit = true, glance = false }: MascotProps) {
+  const px = typeof size === 'number' ? size : SIZE_PRESETS[size];
+  const width = viewBox ? Number(viewBox.trim().split(/\s+/)[2]) : 100;
+  // The squirrel's resting mood is "happy": โมจิ keeps its eyes open for it, and closes them in a smile only for real joy.
+  return <Mochi mood={mood === 'happy' ? 'idle' : mood} action={action} prop={prop} size={px} face={width < 90} animated={animated} typingKit={typingKit} glance={glance} className={className} />;
+}
+
+export function SquirrelClassic({
   mood = 'happy',
   action = 'idle',
   prop = 'none',

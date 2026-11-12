@@ -1,5 +1,6 @@
 import React from 'react';
-import { Mochi, MochiPeek } from '../../components/mascot/Mochi';
+import { Mochi } from '../../components/mascot/Mochi';
+import { MochiPeek } from '../../components/mascot/MascotPeek';
 import { motion } from 'motion/react';
 import { Maximize2, Minus, X } from 'lucide-react';
 import type { MascotMood } from '../../components/mascot/Mascot';

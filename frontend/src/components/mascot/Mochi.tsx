@@ -1,6 +1,6 @@
 import React from 'react';
 import type { MascotMood } from './Mascot';
-import './mochi.css';
+// Its motion lives in mochi.css, loaded once by the app's entry (main.tsx), so tests and server code can import this file.
 
 // น้องเลขา "โมจิ" (owner, 2026-11-12: "เอาแบบ 1 โมจิ ใส่ในแอปเลย"): เลขากระรอก's own character. A soft brick-red blob with
 // round squirrel ears, a dark face window with white LED eyes, pink cheeks and the logo's curled tail behind it. Flat
@@ -57,23 +57,50 @@ function Face({ face }: { face: MochiFace }) {
   return <g className="mochi-eyes">{eyes}{mouth}</g>;
 }
 
+export type MochiAction = 'idle' | 'wave' | 'hold-coin' | 'hold-baht' | 'hold-calendar' | 'hold-document' | 'hold-phone' | 'hold-cross'
+  | 'celebrate' | 'sleep' | 'typing' | 'walk' | 'jump';
+export type MochiProp = 'none' | 'coin' | 'calendar' | 'document' | 'phone' | 'clipboard' | 'chart' | 'warning';
+
+/** What โมจิ holds up beside itself (its left paw), on the 200×200 drawing. */
+function Held({ kind }: { kind: MochiProp | 'cross' }) {
+  const arm = <ellipse cx="50" cy="136" rx="9" ry="12" fill={BRICK} transform="rotate(30 50 136)" />;
+  let item: React.ReactNode = null;
+  if (kind === 'coin') item = <g><circle cx="34" cy="122" r="15" fill="#F2B73C" /><circle cx="34" cy="122" r="11" fill="none" stroke="#D99A1E" strokeWidth="2" /><text x="34" y="128.5" textAnchor="middle" fontSize="17" fontWeight="700" fontFamily="IBM Plex Sans Thai, sans-serif" fill="#9A6408">฿</text></g>;
+  if (kind === 'document' || kind === 'clipboard') item = <g><rect x="18" y="104" width="30" height="38" rx="5" fill={WHITE} stroke="#E5E3DF" strokeWidth="2" /><rect x="24" y="113" width="17" height="3.4" rx="1.7" fill={BRICK} /><rect x="24" y="121" width="18" height="2.6" rx="1.3" fill="#D8D3CD" /><rect x="24" y="127" width="13" height="2.6" rx="1.3" fill="#D8D3CD" /></g>;
+  if (kind === 'calendar') item = <g><rect x="17" y="106" width="32" height="32" rx="6" fill={WHITE} stroke="#E5E3DF" strokeWidth="2" /><rect x="17" y="106" width="32" height="10" rx="5" fill={BRICK} /><rect x="23" y="121" width="6" height="5" rx="1.5" fill="#D8D3CD" /><rect x="31" y="121" width="6" height="5" rx="1.5" fill={DEEP} /><rect x="23" y="129" width="6" height="5" rx="1.5" fill="#D8D3CD" /></g>;
+  if (kind === 'phone') item = <g><rect x="22" y="102" width="22" height="38" rx="5" fill={INK} /><rect x="25" y="107" width="16" height="25" rx="2" fill="#FFE3D3" /><circle cx="33" cy="136" r="1.6" fill={WHITE} /></g>;
+  if (kind === 'chart') item = <g><rect x="16" y="106" width="34" height="32" rx="6" fill={WHITE} stroke="#E5E3DF" strokeWidth="2" /><rect x="22" y="124" width="5" height="9" rx="1.5" fill={DEEP} /><rect x="30" y="118" width="5" height="15" rx="1.5" fill={BRICK} /><rect x="38" y="112" width="5" height="21" rx="1.5" fill="#F2B73C" /></g>;
+  if (kind === 'warning') item = <g><path d="M33 104 L51 136 H15 Z" fill="#F2B73C" stroke="#D99A1E" strokeWidth="2" strokeLinejoin="round" /><rect x="31.4" y="114" width="3.2" height="12" rx="1.6" fill={INK} /><circle cx="33" cy="130.5" r="2" fill={INK} /></g>;
+  if (kind === 'cross') item = <g><circle cx="33" cy="120" r="16" fill="#C43A3A" /><path d="M26 113l14 14M40 113l-14 14" stroke={WHITE} strokeWidth="4" strokeLinecap="round" /></g>;
+  return <g className="mochi-held">{item}{arm}</g>;
+}
+
 interface Props {
   mood?: MascotMood | MochiFace;
+  action?: MochiAction;
+  prop?: MochiProp;
   size?: number;
   /** A close-up of the head for round avatars. */
   face?: boolean;
   /** A slow float and a blink now and then (off for small avatars and reduced motion). */
   animated?: boolean;
+  /** The typing pose's little keyboard (off where the page draws its own screen in front). */
+  typingKit?: boolean;
+  /** The eyes look left and right now and then, as if checking something. */
+  glance?: boolean;
   className?: string;
   style?: React.CSSProperties;
 }
 
-export function Mochi({ mood = 'idle', size = 96, face = false, animated = true, className = '', style }: Props) {
+export function Mochi({ mood = 'idle', action = 'idle', prop = 'none', size = 96, face = false, animated = true, typingKit = true, glance = false, className = '', style }: Props) {
   const glow = `mochi${React.useId().replace(/[^a-zA-Z0-9]/g, '')}`;
-  const look = mochiFace(mood);
+  const look = action === 'sleep' ? 'sleepy' : action === 'typing' ? 'think' : action === 'celebrate' ? 'happy' : mochiFace(mood);
+  const held: MochiProp | 'cross' | null = action === 'hold-coin' || action === 'hold-baht' ? 'coin' : action === 'hold-document' ? 'document'
+    : action === 'hold-calendar' ? 'calendar' : action === 'hold-phone' ? 'phone' : action === 'hold-cross' ? 'cross' : prop !== 'none' ? prop : null;
+  const waving = action === 'wave' || (action === 'idle' && mood === 'wave');
   return (
     <svg viewBox={face ? '40 30 120 120' : '0 0 200 200'} width={size} height={size} aria-hidden="true" focusable="false"
-      className={`mochi${animated ? ' is-animated' : ''} ${className}`} style={style} data-face={look}>
+      className={`mochi${animated ? ' is-animated' : ''} act-${waving ? 'wave' : action}${glance ? ' is-glancing' : ''} ${className}`} style={style} data-face={look}>
       <defs>
         <filter id={glow} x="-60%" y="-60%" width="220%" height="220%">
           <feGaussianBlur stdDeviation="1.6" result="b" />
@@ -82,30 +109,23 @@ export function Mochi({ mood = 'idle', size = 96, face = false, animated = true,
       </defs>
       <g className="mochi-body">
         <g transform="translate(118 96) scale(.07) rotate(20 500 500)" fill={DEEP}><path d={TAIL} /></g>
-        <ellipse cx="74" cy="56" rx="12" ry="19" fill={BRICK} transform="rotate(-10 74 56)" />
-        <ellipse cx="126" cy="56" rx="12" ry="19" fill={BRICK} transform="rotate(10 126 56)" />
-        <ellipse cx="74" cy="58" rx="5.5" ry="9.9" fill={CREAM} transform="rotate(-10 74 56)" />
-        <ellipse cx="126" cy="58" rx="5.5" ry="9.9" fill={CREAM} transform="rotate(10 126 56)" />
+        <g className="mochi-ear is-l"><ellipse cx="74" cy="56" rx="12" ry="19" fill={BRICK} transform="rotate(-10 74 56)" /><ellipse cx="74" cy="58" rx="5.5" ry="9.9" fill={CREAM} transform="rotate(-10 74 56)" /></g>
+        <g className="mochi-ear is-r"><ellipse cx="126" cy="56" rx="12" ry="19" fill={BRICK} transform="rotate(10 126 56)" /><ellipse cx="126" cy="58" rx="5.5" ry="9.9" fill={CREAM} transform="rotate(10 126 56)" /></g>
         <rect x="46" y="58" width="108" height="112" rx="52" fill={BRICK} />
         <rect x="62" y="84" width="76" height="48" rx="24" fill={INK} />
         <rect x="66" y="118" width="10" height="5" rx="2.5" fill={PINK} opacity={0.85} />
         <rect x="124" y="118" width="10" height="5" rx="2.5" fill={PINK} opacity={0.85} />
-        <g filter={`url(#${glow})`}><Face face={look} /></g>
+        <g filter={`url(#${glow})`}><g className="mochi-look"><Face face={look} /></g></g>
+        {waving && <g className="mochi-arm-wave"><ellipse cx="156" cy="112" rx="9" ry="14" fill={BRICK} transform="rotate(-28 156 112)" /></g>}
+        {held && <Held kind={held} />}
+        {action === 'typing' && typingKit && <g className="mochi-kit"><rect x="58" y="150" width="84" height="20" rx="7" fill="#2A2725" />
+          {[66, 78, 90, 102, 114, 126].map(x => <rect key={x} x={x} y="155" width="8" height="4" rx="1.5" fill="#5A5450" />)}<rect x="74" y="162" width="52" height="4" rx="2" fill="#5A5450" />
+          <ellipse className="mochi-tap" cx="80" cy="152" rx="8" ry="6" fill={BRICK} /><ellipse className="mochi-tap is-r" cx="120" cy="152" rx="8" ry="6" fill={BRICK} /></g>}
       </g>
+      {action === 'celebrate' && <g className="mochi-sparks" fill="#F2B73C">
+        <path d="M30 60l3 7 7 3-7 3-3 7-3-7-7-3 7-3z" /><path d="M170 52l2.4 5.6 5.6 2.4-5.6 2.4-2.4 5.6-2.4-5.6-5.6-2.4 5.6-2.4z" /><path d="M176 132l2 4.6 4.6 2-4.6 2-2 4.6-2-4.6-4.6-2 4.6-2z" /></g>}
+      {action === 'sleep' && <g className="mochi-zz" fill={DEEP} fontFamily="IBM Plex Sans Thai, sans-serif" fontWeight="700">
+        <text x="150" y="60" fontSize="18">z</text><text x="164" y="44" fontSize="13">z</text></g>}
     </svg>
-  );
-}
-
-/** โมจิ looking over an edge (the chat's perch, the floating window): the same box as MascotPeek (its width by 64% of it,
- *  placed by the caller's class), showing the ears, the face and the top of the body. While it works, it thinks. */
-export function MochiPeek({ size = 104, className = '', mood = 'idle', motion = 'calm', holo = false, style }: {
-  size?: number; className?: string; mood?: MascotMood | MochiFace; motion?: 'peek' | 'calm' | 'still'; holo?: boolean; style?: React.CSSProperties;
-}) {
-  return (
-    <span aria-hidden="true" className={`pointer-events-none absolute block ${className}`} style={{ width: size, height: size * 0.64, ...style }}
-      {...(holo ? { 'data-holo': '' } : {})}>
-      <Mochi mood={holo ? 'think' : mood} animated={motion !== 'still'} size={size}
-        style={{ position: 'absolute', left: 0, top: -size * 0.16, width: size, height: size }} className="mochi-peek" />
-    </span>
   );
 }

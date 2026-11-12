@@ -89,7 +89,7 @@ test('computers: the overdue check opens the fullscreen radar with real figures,
   expect(box).toMatchObject({ x: 0, y: 0, width: 1440, height: 900 });
   // The squirrel (the app's own Mascot, headset, typing) with a blue screen in front of it, typing the real jobs; no laptop.
   await expect(radar.locator('.crh-mascot svg')).toBeVisible();
-  await expect(radar.locator('img[src*="mascot-v6-working"]')).toHaveCount(0);
+  await expect(radar.locator('img[src*="mochi-working"]')).toHaveCount(0);
   await expect(radar.locator('.crh-console .crv')).toContainText('กำลังตรวจเครดิตเทอม');
   await expect(radar.locator('.cr-eyebrow')).toHaveCount(0);
   await expect(radar.locator('.crv')).toContainText('เกินกำหนด 6');
@@ -449,8 +449,9 @@ test('left alone, the squirrel swipes to the next page by itself; it blinks and 
   await page.setViewportSize({ width: 1440, height: 900 });
   const nine = [...sixLate, owed('n7', 'คลิปรีวิวแคมเปญ 2', 'Mellow Living', 7920, 15), owed('n8', 'วิดีโอโปรโมต', 'Urban Motion', 5148, 9), owed('n9', 'แบนเนอร์ 5 ชิ้น', 'Sora Home', 4950, 7)];
   const radar = await open(page, nine);
-  await expect(radar.locator('.crh-mascot .squirrel-glance')).toHaveCount(1);
-  await expect(radar.locator('.crh-mascot .squirrel-blink').first()).toBeAttached();
+  // โมจิ (2026-11-12) glances with .is-glancing and blinks its eyes.
+  await expect(radar.locator('.crh-mascot svg.mochi.is-glancing')).toHaveCount(1);
+  await expect(radar.locator('.crh-mascot .mochi-eyes').first()).toBeAttached();
   const pager = radar.getByTestId('radar-pager');
   await expect(pager).toContainText('1–6 จาก 9');
   await expect(radar.locator('.crh.is-swiping')).toHaveCount(1, { timeout: 15_000 });

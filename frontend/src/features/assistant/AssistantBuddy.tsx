@@ -1,5 +1,6 @@
 import React from 'react';
-import { Mochi, MochiPeek } from '../../components/mascot/Mochi';
+import { Mochi } from '../../components/mascot/Mochi';
+import { MochiPeek } from '../../components/mascot/MascotPeek';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { AlertCircle, ArrowUp, BarChart3, Check, ChevronRight, Clock, FileText, FolderPlus, HelpCircle, ListChecks, Maximize2, Mic, MousePointerClick, Paperclip, Pointer, Sparkles, Wallet, X } from 'lucide-react';

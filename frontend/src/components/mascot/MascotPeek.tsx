@@ -1,5 +1,6 @@
 import React from 'react';
-import { Mascot, mascotColors, type MascotMood } from './Mascot';
+import type { MascotMood } from './Mascot';
+import { Mochi } from './Mochi';
 
 // The mascot holding on to the top edge of a card or banner and peeking over it. The drawing is
 // the unchanged <Mascot/>: everything below its paws is hidden behind the edge, and its two paws
@@ -10,7 +11,8 @@ import { Mascot, mascotColors, type MascotMood } from './Mascot';
 // screen rises from the edge in front of it and its paws tap on it. A prop only; the squirrel is unchanged.
 
 const PAW_Y = 64; // where the idle paws sit in the 100x100 artwork
-const FUR_DARK = '#7A4419';
+// โมจิ's paws (owner, 2026-11-12: โมจิ everywhere): its brick, with darker toe lines.
+const FUR_DARK = '#8F3714';
 
 type Props = {
   size?: number;
@@ -30,7 +32,7 @@ type Props = {
 
 export function MascotPeek({ size = 104, className = '', mood = 'happy', gear = 'none', motion = 'peek', holo = false, thoughtDots = true, style }: Props) {
   const u = size / 100;
-  const fur = mascotColors(mood).body;
+  const fur = '#E65F2B';
   const body = motion === 'peek' ? 'mascot-peek-body' : motion === 'calm' ? 'mascot-perch-body' : '';
   const paw = holo ? 'mascot-tap' : motion === 'peek' ? 'mascot-peek-paw' : '';
   const uid = `mpk${React.useId().replace(/[^a-zA-Z0-9]/g, '')}`;
@@ -92,7 +94,8 @@ export function MascotPeek({ size = 104, className = '', mood = 'happy', gear = 
       {/* Everything below the paws stays hidden behind the edge */}
       <span className="absolute inset-x-0 top-0 block overflow-hidden" style={{ height: PAW_Y * u }}>
         <span className={`${body} block`} style={{ width: size, height: size }}>
-          <Mascot mood={mood} size={size} gear={gear} animated={motion !== 'still'} thoughtDots={thoughtDots} />
+          {/* โมจิ sits a little higher than the old squirrel, so its face window clears the paws on the edge. */}
+          <Mochi mood={mood} size={size} animated={motion !== 'still'} style={{ transform: 'translateY(-10%)' }} />
         </span>
       </span>
       {/* The paws, in front of the edge (and, while it works, the hologram screen under them) */}
@@ -138,3 +141,6 @@ export function MascotPeek({ size = 104, className = '', mood = 'happy', gear = 
     </span>
   );
 }
+
+/** โมจิ's name for the same peek. */
+export const MochiPeek = MascotPeek;

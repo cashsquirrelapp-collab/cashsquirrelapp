@@ -73,7 +73,7 @@ test('admin menu keeps the live 6 tiles; แนบเอกสาร opens ค�
 });
 
 test('both CI pictures (scripts/line-menu/recolor.py) are 2500x1686 JPEGs under LINE\'s 1 MB limit', () => {
-  for (const name of ['richmenu-ci-5-2026-11-03.jpg', 'richmenu-ci-6-2026-11-03.jpg']) {
+  for (const name of ['richmenu-ci-5-2026-11-12.jpg', 'richmenu-ci-6-2026-11-12.jpg']) {
     const image = readFileSync(new URL(`../frontend/public/line/${name}`, import.meta.url));
     assert.deepEqual([...image.subarray(0, 3)], [0xff, 0xd8, 0xff]);
     assert.ok(image.length < 1_000_000);
@@ -89,7 +89,7 @@ test('publishing: both menus once, the 5-tile one becomes the default, then noth
   const ids = await ensureLineMenus(line.deps);
   assert.ok(ids);
   assert.deepEqual(line.calls.filter(call => call === 'POST richmenu').length, 2);
-  assert.deepEqual(line.images, ['/line/richmenu-ci-5-2026-11-03.jpg', '/line/richmenu-ci-6-2026-11-03.jpg']);
+  assert.deepEqual(line.images, ['/line/richmenu-ci-5-2026-11-12.jpg', '/line/richmenu-ci-6-2026-11-12.jpg']);
   assert.equal(line.defaultMenu(), vaultOpen ? ids!.admin : ids!.everyone);
   assert.equal(line.done.length, 1);
   line.calls.length = 0;

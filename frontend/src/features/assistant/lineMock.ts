@@ -17,7 +17,7 @@ export const LINE_THEMES = {
 } as const;
 export type LineTheme = keyof typeof LINE_THEMES;
 
-/** One category per card: chip label, band and the official mascot pose (/line/mascot-v6-*.png). */
+/** One category per card: chip label, band and the official mascot pose (/line/mochi-*.png). */
 export type { LineBlock, LineCardData, LineCategory, LineItem, LineRow, LineTone } from '../../../../shared/lineInbox';
 import type { LineCardData, LineCategory, LineItem } from '../../../../shared/lineInbox';
 export const LINE_CATEGORIES: Record<LineCategory, { label: string; theme: LineTheme; icon: string; pose: string }> = {

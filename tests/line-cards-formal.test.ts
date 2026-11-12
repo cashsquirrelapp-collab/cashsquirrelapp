@@ -31,8 +31,8 @@ for (const [name, card] of Object.entries(cards)) {
     assert.ok(json.includes('/brand/logo01-v1/symbol-white.png'), 'white brand symbol in the header');
     assert.ok(json.includes('"กระรอกตุนเงิน"'), 'brand name in the header');
     // The mascot appears once, standing on the header band (no frame).
-    assert.equal(json.match(/mascot-v6-/g)?.length, 1, 'one mascot');
-    assert.ok(JSON.stringify((card as any).contents.header).includes('mascot-v6-'), 'the mascot is in the header');
+    assert.equal(json.match(/mochi-/g)?.length, 1, 'one mascot');
+    assert.ok(JSON.stringify((card as any).contents.header).includes('mochi-'), 'the mascot is in the header');
     assert.ok(/\/line\/icons\/[a-z]+\.png/.test(json), 'the category chip has its icon');
     const header = (card as any).contents.header;
     assert.ok(themeStarts.has(header.background.startColor), 'the header band uses one of the CI themes');

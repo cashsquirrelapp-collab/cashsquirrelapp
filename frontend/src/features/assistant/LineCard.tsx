@@ -78,13 +78,13 @@ export function LineCard({ card, onDue, onOpen }: Props) {
                 <span className={`lnc-metric-value ${amountClass(card.metric.value)}`}>{card.metric.value}</span>
                 {card.metric.note && <span className="lnc-metric-note">{card.metric.note}</span>}
               </div>
-              <span className="lnc-figure" aria-hidden="true"><img src={`/line/mascot-v6-${category.pose}.png`} alt="" width={80} height={80} /></span>
+              <span className="lnc-figure" aria-hidden="true"><img src={`/line/mochi-${category.pose}.png`} alt="" width={80} height={80} /></span>
             </div>
           </>
         ) : (
           <div className="lnc-hero is-title">
             <div className="lnc-metric"><h3 className="lnc-title">{card.title}</h3>{card.subtitle && <p className="lnc-subtitle">{card.subtitle}</p>}</div>
-            <span className="lnc-figure is-small" aria-hidden="true"><img src={`/line/mascot-v6-${category.pose}.png`} alt="" width={72} height={72} /></span>
+            <span className="lnc-figure is-small" aria-hidden="true"><img src={`/line/mochi-${category.pose}.png`} alt="" width={72} height={72} /></span>
           </div>
         )}
       </header>

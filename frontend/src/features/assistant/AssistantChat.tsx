@@ -1,5 +1,6 @@
 import React from 'react';
-import { Mochi, MochiPeek } from '../../components/mascot/Mochi';
+import { Mochi } from '../../components/mascot/Mochi';
+import { MochiPeek } from '../../components/mascot/MascotPeek';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { AlertCircle, Archive, ArchiveRestore, ArrowDown, ArrowLeft, ArrowUp, Bell, BellRing, Check, ChevronDown, ChevronLeft, ChevronRight, FileText, FolderPlus, Gift, Image as ImageIcon, ListChecks, Lock, Mic, MoreHorizontal, PanelLeft, PanelLeftClose, Paperclip, Pencil, Pin, PinOff, RotateCcw, Search, Sparkles, SquarePen, Trash2, Wallet, X } from 'lucide-react';

@@ -143,7 +143,7 @@ export default function LineDocumentsPage({ financeKey, jobs, expenses }: { fina
       </section>}
       <section className="relative mb-5 overflow-hidden rounded-[26px] border border-[#EED8C1] bg-[linear-gradient(115deg,#FFF9F1,#F7E8D6)] px-5 pb-5 pt-6 text-[#4A2D1A]">
         <div className="relative z-10 max-w-[72%]"><p className="mb-1 text-xs font-medium text-[#996C47]">{tr("ไฟล์พร้อม งานก็ไปต่อ")}</p><h1 className="text-[27px] font-bold leading-tight">{tr("เอกสารของฉัน")}</h1><p className="mt-2 text-[13px] leading-relaxed text-[#80634E]">{tr("เลือกงาน แนบไฟล์ เก็บให้ตรงรายการ")}</p></div>
-        <img src="/line/mascot-v6-document.png" alt="" className="pointer-events-none absolute -right-3 top-2 h-36 w-36 object-contain" />
+        <img src="/line/mochi-document.png" alt="" className="pointer-events-none absolute -right-3 top-2 h-36 w-36 object-contain" />
         <button type="button" onClick={() => { setError(''); setNotice(''); if (!vault.isPro) { setError(tr("แนบไฟล์ได้ในช่วงทดลองหรือแพ็กเกจ Pro")); return; } setSelecting(true); setEditing(null); }} disabled={busy || !vault.ready} className={`relative z-10 mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-semibold disabled:opacity-50 ${focusedJobId ? 'border border-[#EED8C1] bg-white/85 text-[#4A2D1A]' : 'bg-[#E65F2B] text-white shadow-[0_5px_15px_#E65F2B25]'}`}>
           {busy ? <LoaderCircle size={19} className="animate-spin" /> : <Plus size={21} />}{busy ? tr("กำลังแนบไฟล์…") : tr("แนบไฟล์ใหม่")}
         </button>
