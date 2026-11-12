@@ -90,7 +90,7 @@ for (const size of [{ name: 'computer', width: 1440, height: 900 }, { name: 'iPa
     await expect(page.getByText('มาครั้งเดียว')).toHaveCount(0);
     await expect(rows.nth(0)).toContainText('mintra.design@example.com');
     await expect(rows.nth(0)).toContainText('12/30');
-    await expect(rows.nth(0)).toContainText('เจ้าของธุรกิจ / เอเจนซี · คอนเทนต์ครีเอเตอร์, การตลาด / โฆษณา');
+    await expect(rows.nth(0)).toContainText('เจ้าของกิจการ / เอเจนซี / โปรดักชัน · คอนเทนต์ครีเอเตอร์, การตลาด / โฆษณา');
     await expect(rows.nth(0)).toContainText('งานและโปรเจกต์');
     await expect(rows.nth(0)).toContainText('เลขา 14 ครั้ง');
     await expect(rows.nth(0)).toContainText('LINE');

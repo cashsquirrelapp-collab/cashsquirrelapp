@@ -56,7 +56,7 @@ async function open(page: Page, options: { user?: typeof NEW_USER; settings?: Re
   await loadLayoutFonts(page);
   return { saved, settings: () => settings };
 }
-const dialog = (page: Page) => page.getByRole('dialog', { name: /อยากให้เราเรียกคุณว่าอะไร|ตอนนี้คุณทำงานรูปแบบไหน|คุณทำงานด้านไหนบ้าง|อยากให้ Krarok ช่วยเรื่องไหนบ้าง|มีข้อมูลเดิมอยากย้ายเข้ามาไหม/ });
+const dialog = (page: Page) => page.getByRole('dialog', { name: /อยากให้เราเรียกคุณว่าอะไร|ตอนนี้คุณทำงานรูปแบบไหน|คุณทำงานด้านไหนบ้าง|อยากให้ Krarok ช่วยเรื่องไหนบ้าง|ตอนนี้คุณจดรายรับรายจ่ายไว้ที่ไหน/ });
 const importChat = (page: Page) => page.getByRole('dialog', { name: 'ย้ายข้อมูลเข้าแอป' });
 const step = (page: Page) => dialog(page).getByRole('progressbar');
 
@@ -93,7 +93,7 @@ test('a new account: four steps in order, "อื่น ๆ" opens a box, the ex
   await expect(step(page)).toHaveAttribute('aria-valuenow', '2');
   await expect(box.getByRole('heading', { name: 'ตอนนี้คุณทำงานรูปแบบไหน?' })).toBeVisible();
   const work = box.getByRole('radiogroup');
-  await expect(work.getByRole('radio')).toHaveCount(5);
+  await expect(work.getByRole('radio')).toHaveCount(6);
   await expect(box.getByPlaceholder('ระบุรูปแบบการทำงานของคุณ')).toHaveCount(0);
   await work.getByText('อื่น ๆ (โปรดระบุ)').click();
   await expect(box.getByPlaceholder('ระบุรูปแบบการทำงานของคุณ')).toBeFocused();
@@ -109,7 +109,7 @@ test('a new account: four steps in order, "อื่น ๆ" opens a box, the ex
 
   await expect(step(page)).toHaveAttribute('aria-valuenow', '3');
   const fields = box.getByRole('group');
-  await expect(fields.getByRole('checkbox')).toHaveCount(8);
+  await expect(fields.getByRole('checkbox')).toHaveCount(9);
   await fields.getByText('คอนเทนต์ครีเอเตอร์').click();
   await fields.getByText('การตลาด / โฆษณา').click();
   await fields.getByText('อื่น ๆ (โปรดระบุ)').click();
@@ -121,12 +121,12 @@ test('a new account: four steps in order, "อื่น ๆ" opens a box, the ex
 
   await expect(step(page)).toHaveAttribute('aria-valuenow', '4');
   const goals = box.getByRole('group');
-  await goals.getByText('ติดตามเงินค้างรับจากลูกค้า').click();
-  await goals.getByText('ทำใบเสนอราคาและเอกสาร').click();
+  await goals.getByText('ตามเงินที่ลูกค้ายังไม่จ่าย').click();
+  await goals.getByText('ออกใบเสนอราคา ใบแจ้งหนี้ ใบเสร็จ').click();
   await goals.getByText('ยังไม่แน่ใจ อยากลองใช้ก่อน').click();
   await expect(goals.getByRole('checkbox', { checked: true })).toHaveCount(1);
-  await goals.getByText('จัดการงานและโปรเจกต์').click();
-  await goals.getByText('ทำใบเสนอราคาและเอกสาร').click();
+  await goals.getByText('เรื่องภาษีและหัก ณ ที่จ่าย').click();
+  await goals.getByText('ออกใบเสนอราคา ใบแจ้งหนี้ ใบเสร็จ').click();
   await expect(goals.getByRole('checkbox', { checked: true })).toHaveCount(2);
   await expect(goals.getByRole('checkbox', { name: /ยังไม่แน่ใจ/ })).not.toBeChecked();
   expect(await textOverlapIssues(page)).toEqual([]);
@@ -134,20 +134,20 @@ test('a new account: four steps in order, "อื่น ๆ" opens a box, the ex
   const barOnStep4 = (await step(page).boundingBox())!.y;
   await box.getByRole('button', { name: 'ถัดไป' }).click();
 
-  // Step 5, first run only (owner, 2026-11-04): old records? No ข้ามก่อน; no answer is ไม่มี.
+  // Step 5 (welcome-v2, owner 2026-11-13): where the records are kept today, one pick, ข้ามก่อน as on the others.
   await expect(step(page)).toHaveAttribute('aria-valuenow', '5');
   await expect(step(page)).toHaveAttribute('aria-valuemax', '5');
   await expect(box.getByText('ข้อสุดท้าย')).toBeVisible();
-  // No ข้ามก่อน here, yet the bar stays where it was.
   expect((await step(page).boundingBox())!.y).toBe(barOnStep4);
-  await expect(box.getByRole('heading', { name: 'มีข้อมูลเดิมอยากย้ายเข้ามาไหม?' })).toBeVisible();
-  await expect(box.getByRole('radiogroup').getByRole('radio')).toHaveCount(2);
-  await expect(box.getByRole('button', { name: 'ข้ามก่อน' })).toHaveCount(0);
+  await expect(box.getByRole('heading', { name: 'ตอนนี้คุณจดรายรับรายจ่ายไว้ที่ไหน?' })).toBeVisible();
+  await expect(box.getByRole('radiogroup').getByRole('radio')).toHaveCount(6);
+  await expect(box.getByRole('button', { name: 'ข้ามก่อน' })).toBeVisible();
+  await box.getByRole('radiogroup').getByText('Excel', { exact: true }).click();
   expect(await textOverlapIssues(page)).toEqual([]);
   await page.screenshot({ path: info.outputPath('onboarding-1280-step5.png') });
   await box.getByRole('button', { name: 'เริ่มใช้งาน' }).click();
   await expect(box).toHaveCount(0);
-  // Not answered is ไม่มี: the import does not open, and the overview has no card for it.
+  // Nothing opens after it (the import was the old step 5), and the overview has no card for it.
   await expect(importChat(page)).toHaveCount(0);
   await expect(page.getByTestId('import-invite')).toHaveCount(0);
 
@@ -155,8 +155,8 @@ test('a new account: four steps in order, "อื่น ๆ" opens a box, the ex
   await expect.poll(() => mock.saved.settings.at(-1)?.onboarding?.status).toBe('COMPLETED');
   const kept = mock.saved.settings.at(-1);
   expect(kept.onboarding).toMatchObject({
-    version: 'welcome-v1', status: 'COMPLETED', work_type: 'other', work_type_other: 'ช่างแต่งหน้า',
-    occupations: ['content_creator', 'marketing', 'other'], occupation_other: 'งานแต่งงาน', goals: ['projects', 'documents'],
+    version: 'welcome-v2', status: 'COMPLETED', work_type: 'other', work_type_other: 'ช่างแต่งหน้า',
+    occupations: ['content_creator', 'marketing', 'other'], occupation_other: 'งานแต่งงาน', goals: ['documents', 'tax'], records_in: 'excel',
   });
   expect(kept.profileSetupCompleted).toBe(true);
   // A reload never asks again.
@@ -224,12 +224,12 @@ test('390px phone: the whole screen, step 1 as few things as possible, ถัด
   expect(await textOverlapIssues(page)).toEqual([]);
   await page.screenshot({ path: info.outputPath('onboarding-390-step3.png') });
   await next.click();
-  await box.getByRole('group').getByText('ดูภาพรวมรายรับรายจ่ายและกระแสเงินสด').click();
+  await box.getByRole('group').getByText('รู้ว่าเดือนนี้ได้กำไรเท่าไร').click();
   expect(await textOverlapIssues(page)).toEqual([]);
   await page.screenshot({ path: info.outputPath('onboarding-390-step4.png') });
   await next.click();
   await expect(step(page)).toHaveAttribute('aria-valuenow', '5');
-  await box.getByRole('radiogroup').getByText('ไม่มี เริ่มบันทึกใหม่').click();
+  await box.getByRole('radiogroup').getByText('Google Sheets').click();
   expect((await box.getByRole('button', { name: 'เริ่มใช้งาน' }).boundingBox())!.y).toBeGreaterThan(740);
   expect(await textOverlapIssues(page)).toEqual([]);
   await page.screenshot({ path: info.outputPath('onboarding-390-step5.png') });
@@ -293,8 +293,8 @@ test('look A: floating cards, the name in the LINE card, the goal cards light up
   await expect(box.locator('.wob-count')).toHaveText('เลือกแล้ว 2');
   await box.getByRole('button', { name: 'ถัดไป' }).click();
   await expect(box.getByText('ข้อ 4 จาก 5')).toBeVisible();
-  await box.getByRole('group').getByText('ติดตามเงินค้างรับจากลูกค้า').click();
-  await box.getByRole('group').getByText('ทำใบเสนอราคาและเอกสาร').click();
+  await box.getByRole('group').getByText('ตามเงินที่ลูกค้ายังไม่จ่าย').click();
+  await box.getByRole('group').getByText('ออกใบเสนอราคา ใบแจ้งหนี้ ใบเสร็จ').click();
   await expect(box.locator('.wob-card.is-lit')).toHaveCount(2);
   await expect(box.locator('.wob-card.is-owed')).toHaveClass(/is-lit/);
   await expect(box.locator('.wob-card.is-quote')).toHaveClass(/is-lit/);
@@ -304,7 +304,7 @@ test('look A: floating cards, the name in the LINE card, the goal cards light up
   await box.getByRole('button', { name: 'ถัดไป' }).click();
   await expect(box.getByText('ข้อสุดท้าย')).toBeVisible();
   await expect(box.locator('.wob-card.is-lit')).toHaveCount(0);
-  await box.getByRole('radiogroup').getByText('ไม่มี เริ่มบันทึกใหม่').click();
+  await box.getByRole('radiogroup').getByText('Google Sheets').click();
   await box.getByRole('button', { name: 'เริ่มใช้งาน' }).click();
   await expect(box.getByText('พร้อมแล้วครับ')).toBeVisible();
   await page.screenshot({ path: info.outputPath('look-a-1280-done.png') });
@@ -336,29 +336,23 @@ for (const [width, height] of [[1024, 768], [768, 1024], [375, 667]] as const) {
   });
 }
 
-// Owner, 2026-11-04: "สมัครเลยว่าแบบต้องการย้ายข้อมูลไหม ... ถ้าเขาไม่ต้องการก็โอเค". มี opens ย้ายข้อมูลเข้าแอป as the screen
-// closes. It is asked only here (owner, 2026-11-05): the overview has no card for it afterwards.
+// Step 5 (welcome-v2, owner 2026-11-13): where the records are kept today replaces "move your old records in?"; the
+// answer is kept and nothing opens after it.
 for (const [width, height] of [[1280, 860], [390, 844]] as const) {
-  test(`step 5 at ${width}px: มี opens ย้ายข้อมูลเข้าแอป right after; the overview has no import card`, async ({ page }, info) => {
+  test(`step 5 at ${width}px: where the records are kept is saved, and nothing opens after it`, async ({ page }, info) => {
     const mock = await open(page, { width, height });
     const box = dialog(page);
     await box.getByLabel('ชื่อที่ให้เลขากระรอกเรียก').fill('มายด์');
     for (let i = 0; i < 4; i += 1) await box.getByRole('button', { name: 'ถัดไป' }).last().click();
-    await expect(box.getByRole('heading', { name: 'มีข้อมูลเดิมอยากย้ายเข้ามาไหม?' })).toBeVisible();
-    await box.getByRole('radiogroup').getByText('มี ย้ายเข้ามาเลย').click();
+    await expect(box.getByRole('heading', { name: 'ตอนนี้คุณจดรายรับรายจ่ายไว้ที่ไหน?' })).toBeVisible();
+    await box.getByRole('radiogroup').getByText('มีนักบัญชีทำให้').click();
     await expect(box.getByRole('radio', { checked: true })).toHaveCount(1);
-    // The button names what happens next.
-    await expect(box.getByRole('button', { name: 'เริ่มใช้งาน' })).toHaveCount(0);
     expect(await textOverlapIssues(page)).toEqual([]);
-    await page.screenshot({ path: info.outputPath(`import-step5-${width}.png`) });
-    await box.getByRole('button', { name: 'ย้ายข้อมูลเข้าแอป' }).click();
+    await page.screenshot({ path: info.outputPath(`records-step5-${width}.png`) });
+    await box.getByRole('button', { name: 'เริ่มใช้งาน' }).last().click();
     await expect(box).toHaveCount(0, { timeout: 8000 });
-    await expect(importChat(page).getByRole('heading', { name: 'ย้ายข้อมูลเข้าแอป' })).toBeVisible();
-    await expect.poll(() => mock.saved.settings.at(-1)?.onboarding?.status).toBe('COMPLETED');
-    await page.screenshot({ path: info.outputPath(`import-opened-${width}.png`) });
-    await importChat(page).getByRole('button', { name: 'ปิด', exact: true }).first().click();
+    await expect.poll(() => mock.saved.settings.at(-1)?.onboarding?.records_in).toBe('by_accountant');
     await expect(importChat(page)).toHaveCount(0);
-    await expect(page.getByTestId('import-invite')).toHaveCount(0);
   });
 }
 
@@ -391,9 +385,11 @@ test('Settings: the answers open again with what was chosen, and saving changes 
   await expect(box.getByRole('checkbox', { name: 'ครู / ติวเตอร์ / โค้ช' })).toBeChecked();
   await box.getByRole('button', { name: 'ถัดไป' }).click();
   await expect(box.getByRole('checkbox', { name: /ยังไม่แน่ใจ/ })).toBeChecked();
-  // From Settings: the four kept answers only, no question about old records.
-  await expect(step(page)).toHaveAttribute('aria-valuemax', '4');
+  // From Settings: the same five steps, ending on where the records are kept (empty for a welcome-v1 answer).
+  await box.getByRole('button', { name: 'ถัดไป' }).click();
+  await expect(step(page)).toHaveAttribute('aria-valuemax', '5');
   await expect(box.getByText('ข้อสุดท้าย')).toBeVisible();
+  await expect(box.getByRole('radio', { checked: true })).toHaveCount(0);
   expect(await textOverlapIssues(page)).toEqual([]);
   await box.getByRole('button', { name: 'บันทึก' }).click();
   await expect(box).toHaveCount(0);

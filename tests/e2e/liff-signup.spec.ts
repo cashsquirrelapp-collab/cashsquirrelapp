@@ -57,7 +57,7 @@ for (const device of [{ name: 'phone', width: 390 }, { name: 'iPad', width: 768 
     await expect(page.getByRole('heading', { name: 'ตอนนี้คุณทำงานรูปแบบไหน?' })).toBeVisible();
     await expect(page.getByText('ข้อ 2 จาก 6')).toBeVisible();
     await expect(page.getByRole('button', { name: 'ข้ามก่อน' })).toBeVisible();
-    await page.getByText('เจ้าของธุรกิจ / เอเจนซี').click();
+    await page.getByText('เจ้าของกิจการ / เอเจนซี / โปรดักชัน').click();
     await page.waitForTimeout(1000);
     expect(await textOverlapIssues(page)).toEqual([]);
     await page.screenshot({ path: `test-results/line-start-2-${device.name}.png` });
@@ -67,11 +67,18 @@ for (const device of [{ name: 'phone', width: 390 }, { name: 'iPad', width: 768 
     await page.getByText('คอนเทนต์ครีเอเตอร์').click();
     await page.locator('.wob-next').click();
     await expect(page.getByRole('heading', { name: 'อยากให้ Krarok ช่วยเรื่องไหนบ้าง?' })).toBeVisible();
-    await page.getByText('ติดตามเงินค้างรับจากลูกค้า').click();
+    await page.getByText('ตามเงินที่ลูกค้ายังไม่จ่าย').click();
+    // Question 4 lists the problems Krarok solves, each with its line; the Sheets one only off the real site.
+    await expect(page.getByText('พิมพ์หรือส่งรูปใบเสร็จ ไม่ต้องจำไปจดทีหลัง')).toBeVisible();
+    await expect(page.getByText('กรอกชีตหรือ Excel ที่ใช้อยู่ให้อัตโนมัติ')).toBeVisible();
+    await page.waitForTimeout(900);
+    expect(await textOverlapIssues(page)).toEqual([]);
+    await page.screenshot({ path: `test-results/line-start-goals-${device.name}.png`, fullPage: true });
     await page.locator('.wob-next').click();
-    await expect(page.getByRole('heading', { name: 'มีข้อมูลเดิมอยากย้ายเข้ามาไหม?' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'ข้ามก่อน' })).toHaveCount(0);
-    await page.getByText('ไม่มี เริ่มบันทึกใหม่').click();
+    // Off the real site the Sheets goal is offered (the test server is not krarok.com).
+    await expect(page.getByRole('heading', { name: 'ตอนนี้คุณจดรายรับรายจ่ายไว้ที่ไหน?' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'ข้ามก่อน' })).toBeVisible();
+    await page.getByText('Google Sheets').click();
     await page.locator('.wob-next').click();
 
     // Step 6: the agreements, protections first; nothing is sent until ticked.
@@ -94,7 +101,7 @@ for (const device of [{ name: 'phone', width: 390 }, { name: 'iPad', width: 768 
     await page.waitForURL(/liff-add\.html\?done=1/, { timeout: 15_000 });
     await expect.poll(() => page.evaluate(() => (window as any).__closed)).toBe(1);
     expect(sent.find(item => item.url === 'line-signup')?.body).toEqual({ idToken: 'token', name: 'ปาร์ค', workType: 'business_owner',
-      occupations: ['photo_video', 'content_creator'], goals: ['receivables'], importOld: false, agreed: true });
+      occupations: ['photo_video', 'content_creator'], goals: ['receivables'], recordsIn: 'google_sheets', agreed: true });
     expect(await page.evaluate(() => sessionStorage.getItem('krarok_line_signup'))).toBeNull();
   });
 }
@@ -189,21 +196,4 @@ test('ข้ามก่อน in LINE keeps what was picked, goes to the agreem
   await page.locator('.wob-next').click();
   await page.waitForURL(/liff-add\.html\?done=1/, { timeout: 15_000 });
   expect(sent.find(item => item.url === 'line-signup')?.body).toEqual({ idToken: 'token', name: 'Park LINE', workType: 'student', occupations: [], goals: [], skippedAtStep: 3, agreed: true });
-});
-
-test('มี ย้ายเข้ามาเลย opens the import right after signing up, as on the website', async ({ page }) => {
-  const sent = await open(page, { reply: { ok: true, created: true, destination: '/jobs?import=1&from=line' } });
-  await page.route('**/jobs?import=1&from=line', route => route.fulfill({ contentType: 'text/html', body: '<h1>import opens here</h1>' }));
-  await expect(page).toHaveURL(/\/line-start$/);
-  await page.locator('.wob-go').click();
-  await page.getByText('ฟรีแลนซ์ / อาชีพอิสระ').click();
-  for (let at = 0; at < 3; at += 1) await page.locator('.wob-next').click();
-  await page.getByText('มี ย้ายเข้ามาเลย').click();
-  await page.locator('.wob-next').click();
-  await page.getByText('ยอมรับเงื่อนไขการใช้งานและนโยบายความเป็นส่วนตัว').click();
-  await page.locator('.wob-next').click();
-  await expect(page.getByRole('heading', { name: 'import opens here' })).toBeVisible({ timeout: 15_000 });
-  const body = sent.find(item => item.url === 'line-signup')?.body;
-  expect(body.importOld).toBe(true);
-  expect(body.destination).toBe('/jobs?import=1');
 });

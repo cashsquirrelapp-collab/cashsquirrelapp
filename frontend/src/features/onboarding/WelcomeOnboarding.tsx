@@ -3,12 +3,12 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
   AlertCircle, ArrowLeft, ArrowRight, BookOpen, Briefcase, Building2, Camera, ChartLine, Check, Code, Compass, FileSpreadsheet, FileText,
-  GraduationCap, Laptop, ListChecks, Megaphone, Mic, PenLine, Plus, Scissors, Settings2, ShieldCheck, Store, Wallet, X, type LucideIcon,
+  Calculator, CircleDashed, GraduationCap, Landmark, Laptop, ListChecks, Megaphone, MessageCircle, Mic, NotebookPen, Plus, Receipt, Scissors, Settings2, Sheet, ShieldCheck, Smartphone, Store, Wallet, X, type LucideIcon,
 } from 'lucide-react';
 import { tr, T } from '../../i18n/tr';
 import {
-  EXCLUSIVE_GOAL, GOALS, OCCUPATIONS, ONBOARDING_STEPS, OTHER_TEXT_MAX, WORK_TYPES, answersOf, toggleGoal, toggleOccupation,
-  type GoalId, type OccupationId, type OnboardingAnswers, type OnboardingRecord, type WorkTypeId,
+  EXCLUSIVE_GOAL, GOALS, OCCUPATIONS, ONBOARDING_STEPS, OTHER_TEXT_MAX, RECORD_PLACES, UNRELEASED_GOALS, WORK_TYPES, answersOf, toggleGoal, toggleOccupation,
+  type GoalId, type OccupationId, type OnboardingAnswers, type OnboardingRecord, type RecordPlaceId, type WorkTypeId,
 } from '../../../../shared/onboarding';
 import { Mascot } from '../../components/mascot/Mascot';
 import { OnboardingBackdrop, type BackdropCard } from './OnboardingBackdrop';
@@ -24,30 +24,48 @@ import './onboarding.css';
 //   สวัสดีครับ as it is typed.
 // - Steps 2-4: glass tiles with an icon, a tick when picked, a progress bar, ข้ามก่อน (keeps what was picked and never
 //   asks again). From Settings the same steps open with a round ปิด instead, and the last step saves.
-// - Step 5, first run only (owner, 2026-11-04: "สมัครเลยว่าแบบต้องการย้ายข้อมูลไหม ... ถ้าเขาไม่ต้องการก็โอเค"): has the
-//   person old records to bring in? มี opens "ย้ายข้อมูลเข้าแอป" right after; ไม่มี (or no answer) just starts. It is not
-//   one of the kept answers (shared/onboarding.ts stays four steps), and it has no ข้ามก่อน: ไม่มี is the way past it.
+// - Step 5 (welcome-v2, owner 2026-11-13: "positioning เราคืออะไร ... มึงรีเช็คดีๆ"): where the person records today
+//   (Google Sheets, Excel, a notebook…), one pick, ข้ามก่อน as on the other questions. It replaced "move your old records
+//   in?", which pulled people to us; Krarok goes to them. Question 4 lists the problems Krarok solves, each with one line.
 
 // The labels again, marked for the English pass (shared/onboarding.ts keeps the stable IDs and the Thai labels).
 const WORK_LABELS: Record<WorkTypeId, string> = {
-  freelance: T("ฟรีแลนซ์ / อาชีพอิสระ"), employee: T("พนักงานประจำ"), student: T("นักเรียน / นักศึกษา"),
-  business_owner: T("เจ้าของธุรกิจ / เอเจนซี"), other: T("อื่น ๆ (โปรดระบุ)"),
+  freelance: T("ฟรีแลนซ์ / อาชีพอิสระ"), business_owner: T("เจ้าของกิจการ / เอเจนซี / โปรดักชัน"),
+  accounting_office: T("สำนักงานบัญชี / รับทำบัญชี"), employee: T("พนักงานประจำ"), student: T("นักเรียน / นักศึกษา"), other: T("อื่น ๆ (โปรดระบุ)"),
 };
 const OCCUPATION_LABELS: Record<OccupationId, string> = {
   content_creator: T("คอนเทนต์ครีเอเตอร์"), video_graphic: T("ตัดต่อวิดีโอ / กราฟิก"), developer_digital: T("โปรแกรมเมอร์ / งานดิจิทัล"),
   marketing: T("การตลาด / โฆษณา"), photo_video: T("ช่างภาพ / วิดีโอ"), teacher_coach: T("ครู / ติวเตอร์ / โค้ช"),
-  trade_owner: T("ค้าขาย / เจ้าของกิจการ"), other: T("อื่น ๆ (โปรดระบุ)"),
+  trade_owner: T("ค้าขาย / เจ้าของกิจการ"), accounting: T("บัญชี / การเงิน"), other: T("อื่น ๆ (โปรดระบุ)"),
 };
+// Question 4: the problem in the person's words, and under it how Krarok takes it off their hands.
 const GOAL_LABELS: Record<GoalId, string> = {
-  cashflow_overview: T("ดูภาพรวมรายรับรายจ่ายและกระแสเงินสด"), receivables: T("ติดตามเงินค้างรับจากลูกค้า"),
-  projects: T("จัดการงานและโปรเจกต์"), documents: T("ทำใบเสนอราคาและเอกสาร"), exploring: T("ยังไม่แน่ใจ อยากลองใช้ก่อน"),
+  record_chat: T("บันทึกรายรับรายจ่ายผ่าน LINE"), receipts: T("เก็บใบเสร็จและเอกสารไว้ที่เดียว"), receivables: T("ตามเงินที่ลูกค้ายังไม่จ่าย"),
+  documents: T("ออกใบเสนอราคา ใบแจ้งหนี้ ใบเสร็จ"), cashflow_overview: T("รู้ว่าเดือนนี้ได้กำไรเท่าไร"), tax: T("เรื่องภาษีและหัก ณ ที่จ่าย"),
+  my_sheet: T("กรอกชีตหรือ Excel ที่ใช้อยู่ให้อัตโนมัติ"), accountant: T("ส่งข้อมูลให้นักบัญชีครบทุกเดือน"), exploring: T("ยังไม่แน่ใจ อยากลองใช้ก่อน"),
 };
-const WORK_ICONS: Record<WorkTypeId, LucideIcon> = { freelance: Laptop, employee: Briefcase, student: BookOpen, business_owner: Building2, other: Plus };
+const GOAL_NOTES: Partial<Record<GoalId, string>> = {
+  record_chat: T("พิมพ์หรือส่งรูปใบเสร็จ ไม่ต้องจำไปจดทีหลัง"), receipts: T("ส่งรูปเข้ามา เลขาอ่านและเก็บให้ หาเจอง่าย"),
+  receivables: T("เตือนวันรับเงิน ไม่ลืมทวง"), documents: T("สั่งในแชท ได้เอกสารในไม่กี่นาที"),
+  cashflow_overview: T("ภาพรวมเงินเข้าออก และกำไรแต่ละงาน"), tax: T("ตามใบ 50 ทวิ และถามเรื่องภาษีได้"),
+  my_sheet: T("ใช้ไฟล์เดิมของคุณ ไม่ต้องย้ายไปไหน"), accountant: T("สรุปเป็น Excel พร้อมเอกสารครบ"),
+};
+const RECORD_LABELS: Record<RecordPlaceId, string> = {
+  google_sheets: T("Google Sheets"), excel: T("Excel"), notebook: T("สมุด / โน้ตในมือถือ"), other_app: T("แอปบัญชีอื่น"),
+  by_accountant: T("มีนักบัญชีทำให้"), none: T("ยังไม่ได้จด"),
+};
+const WORK_ICONS: Record<WorkTypeId, LucideIcon> = { freelance: Laptop, business_owner: Building2, accounting_office: Calculator, employee: Briefcase, student: BookOpen, other: Plus };
 const OCCUPATION_ICONS: Record<OccupationId, LucideIcon> = {
   content_creator: Mic, video_graphic: Scissors, developer_digital: Code, marketing: Megaphone, photo_video: Camera,
-  teacher_coach: GraduationCap, trade_owner: Store, other: Plus,
+  teacher_coach: GraduationCap, trade_owner: Store, accounting: Calculator, other: Plus,
 };
-const GOAL_ICONS: Record<GoalId, LucideIcon> = { cashflow_overview: ChartLine, receivables: Wallet, projects: ListChecks, documents: FileText, exploring: Compass };
+const GOAL_ICONS: Record<GoalId, LucideIcon> = {
+  record_chat: MessageCircle, receipts: Receipt, receivables: Wallet, documents: FileText, cashflow_overview: ChartLine,
+  tax: Landmark, my_sheet: FileSpreadsheet, accountant: Calculator, exploring: Compass,
+};
+const RECORD_ICONS: Record<RecordPlaceId, LucideIcon> = {
+  google_sheets: Sheet, excel: FileSpreadsheet, notebook: NotebookPen, other_app: Smartphone, by_accountant: Briefcase, none: CircleDashed,
+};
 // Where these Thai labels may break on a narrow tile; left alone, the browser splits words such as รายจ่าย or ค้างรับ.
 // The parts join back to the label exactly; English labels are not listed and wrap as usual.
 const LABEL_PARTS: Record<string, string[]> = {
@@ -56,6 +74,18 @@ const LABEL_PARTS: Record<string, string[]> = {
   'ติดตามเงินค้างรับจากลูกค้า': ['ติดตาม', 'เงินค้างรับ', 'จากลูกค้า'],
   'จัดการงานและโปรเจกต์': ['จัดการงาน', 'และโปรเจกต์'],
   'ทำใบเสนอราคาและเอกสาร': ['ทำใบเสนอราคา', 'และเอกสาร'],
+  // welcome-v2 (2026-11-13): never "ใบ / แจ้งหนี้" or "ที่ / ใช้อยู่" on a phone.
+  'บันทึกรายรับรายจ่ายผ่าน LINE': ['บันทึกรายรับรายจ่าย', 'ผ่าน LINE'],
+  'เก็บใบเสร็จและเอกสารไว้ที่เดียว': ['เก็บใบเสร็จ', 'และเอกสาร', 'ไว้ที่เดียว'],
+  'ตามเงินที่ลูกค้ายังไม่จ่าย': ['ตามเงิน', 'ที่ลูกค้ายังไม่จ่าย'],
+  'ออกใบเสนอราคา ใบแจ้งหนี้ ใบเสร็จ': ['ออกใบเสนอราคา ', 'ใบแจ้งหนี้ ', 'ใบเสร็จ'],
+  'รู้ว่าเดือนนี้ได้กำไรเท่าไร': ['รู้ว่าเดือนนี้', 'ได้กำไรเท่าไร'],
+  'เรื่องภาษีและหัก ณ ที่จ่าย': ['เรื่องภาษี', 'และหัก ณ ที่จ่าย'],
+  'กรอกชีตหรือ Excel ที่ใช้อยู่ให้อัตโนมัติ': ['กรอกชีตหรือ Excel ', 'ที่ใช้อยู่', 'ให้อัตโนมัติ'],
+  'ส่งข้อมูลให้นักบัญชีครบทุกเดือน': ['ส่งข้อมูลให้นักบัญชี', 'ครบทุกเดือน'],
+  'เจ้าของกิจการ / เอเจนซี / โปรดักชัน': ['เจ้าของกิจการ / ', 'เอเจนซี / ', 'โปรดักชัน'],
+  'สำนักงานบัญชี / รับทำบัญชี': ['สำนักงานบัญชี / ', 'รับทำบัญชี'],
+  'สมุด / โน้ตในมือถือ': ['สมุด / ', 'โน้ตในมือถือ'],
 };
 const phrased = (label: string): React.ReactNode => LABEL_PARTS[label]
   ? LABEL_PARTS[label].map((part, index) => <React.Fragment key={index}>{index > 0 && <wbr />}<span className="wob-keep">{part}</span></React.Fragment>)
@@ -64,8 +94,8 @@ const phrased = (label: string): React.ReactNode => LABEL_PARTS[label]
 const QUESTIONS = [
   { title: T("ตอนนี้คุณทำงานรูปแบบไหน?"), sub: T("เลือก 1 ข้อ") },
   { title: T("คุณทำงานด้านไหนบ้าง?"), sub: T("เลือกได้มากกว่า 1 ข้อ") },
-  { title: T("อยากให้ Krarok ช่วยเรื่องไหนบ้าง?"), sub: T("เลือกได้หลายข้อ") },
-  { title: T("มีข้อมูลเดิมอยากย้ายเข้ามาไหม?"), sub: T("จาก Excel, Google Sheets หรือ CSV") },
+  { title: T("อยากให้ Krarok ช่วยเรื่องไหนบ้าง?"), sub: T("เลือกเรื่องที่ตอนนี้ยุ่งยากสำหรับคุณ เลือกได้หลายข้อ") },
+  { title: T("ตอนนี้คุณจดรายรับรายจ่ายไว้ที่ไหน?"), sub: T("เลือกที่ใช้เป็นหลัก 1 ข้อ") },
 ];
 // Signing up inside LINE (owner, 2026-11-13: "อยากให้มันเป็น UI ทรานซิชั่นเหมือนที่เราทำในเว็บไซต์", then "แบบสอบถาม ...
 // เหมือนใน .com ... ถามกี่ข้อก็ว่ากันไป"): the first run's own five steps, then one more for the agreements
@@ -83,7 +113,7 @@ const TITLE_PARTS: Record<string, [string, boolean?][]> = {
   'ตอนนี้คุณทำงานรูปแบบไหน?': [['ตอนนี้คุณ'], ['ทำงาน'], ['รูปแบบไหน?', true]],
   'คุณทำงานด้านไหนบ้าง?': [['คุณทำงาน'], ['ด้านไหน', true], ['บ้าง?']],
   'อยากให้ Krarok ช่วยเรื่องไหนบ้าง?': [['อยากให้ '], ['Krarok', true], [' ช่วยเรื่องไหนบ้าง?']],
-  'มีข้อมูลเดิมอยากย้ายเข้ามาไหม?': [['มีข้อมูลเดิม'], ['อยากย้ายเข้ามา', true], ['ไหม?']],
+  'ตอนนี้คุณจดรายรับรายจ่ายไว้ที่ไหน?': [['ตอนนี้คุณ'], ['จดรายรับรายจ่าย', true], ['ไว้ที่ไหน?']],
   'ก่อนเริ่ม อ่านสั้น ๆ ครับ': [['ก่อนเริ่ม '], ['อ่านสั้น ๆ', true], [' ครับ']],
 };
 function pieces(text: string, flowLast: boolean): [string, boolean?][] {
@@ -109,13 +139,17 @@ function Rising({ text, flowLast = true, start = 0.05 }: { text: string; flowLas
   );
 }
 // The last question lights the background card of each goal picked.
-const GOAL_CARDS: Partial<Record<GoalId, BackdropCard>> = { cashflow_overview: 'income', receivables: 'owed', projects: 'work', documents: 'quote' };
+const GOAL_CARDS: Partial<Record<GoalId, BackdropCard>> = {
+  record_chat: 'chat', receipts: 'paid', receivables: 'owed', documents: 'quote', cashflow_overview: 'income', tax: 'alarm', accountant: 'work',
+};
+/** The questions' steps by number: 1 work type, 2 occupations, 3 goals, 4 where the records are (0 is the name). */
+const GOALS_STEP = 3;
+const RECORDS_STEP = 4;
 const COINS = [[-220, -170, 0.2], [230, -150, 0.26], [-260, 60, 0.32], [250, 90, 0.22], [-90, -240, 0.3], [110, -250, 0.36]] as const;
 const NAME_MIN = 2;
 const NAME_MAX = 60;
 
-/** importOld: the answer to step 5 (first run only; absent when it was not reached). */
-export type OnboardingResult = { answers: OnboardingAnswers; name: string | null; skippedAtStep?: number; importOld?: boolean };
+export type OnboardingResult = { answers: OnboardingAnswers; name: string | null; skippedAtStep?: number };
 
 type Props = {
   /** 'first': after the first sign-in (ข้ามก่อน from step 2); 'edit': from Settings (ปิด, and the last step saves);
@@ -130,9 +164,11 @@ type Props = {
   onFinish: (result: OnboardingResult) => Promise<void>;
   onSkip: (result: OnboardingResult) => Promise<void>;
   onClose: () => void;
+  /** Goals of features not open to this account yet (shared/onboarding.ts UNRELEASED_GOALS) are offered only when true. */
+  showUnreleased?: boolean;
 };
 
-export default function WelcomeOnboarding({ mode, mobile, accountName = '', previous, onFinish, onSkip, onClose }: Props) {
+export default function WelcomeOnboarding({ mode, mobile, accountName = '', previous, onFinish, onSkip, onClose, showUnreleased = false }: Props) {
   const reduce = useReducedMotion() ?? false;
   const [step, setStep] = React.useState(0);
   const [answers, setAnswers] = React.useState<OnboardingAnswers>(() => answersOf(previous));
@@ -146,7 +182,6 @@ export default function WelcomeOnboarding({ mode, mobile, accountName = '', prev
   const [busy, setBusy] = React.useState<'finish' | 'skip' | null>(null);
   const [celebrating, setCelebrating] = React.useState(false);
   const [error, setError] = React.useState('');
-  const [importOld, setImportOld] = React.useState<boolean | null>(null);
   const titleId = React.useId();
   const otherRef = React.useRef<HTMLInputElement>(null);
   const nameRef = React.useRef<HTMLInputElement>(null);
@@ -158,18 +193,18 @@ export default function WelcomeOnboarding({ mode, mobile, accountName = '', prev
     ? (trimmed ? tr("ชื่อต้องมีอย่างน้อย {0} ตัวอักษร", NAME_MIN) : tr("กรุณาใส่ชื่อที่อยากให้เราเรียก"))
     : '';
   // The first run adds step 5, the question about old records; from Settings there are the four kept answers only.
-  const totalSteps = mode === 'first' ? ONBOARDING_STEPS + 1 : line ? ONBOARDING_STEPS + 2 : ONBOARDING_STEPS;
-  const importStep = runsFirst && step === ONBOARDING_STEPS;
-  const agreeStep = line && step === ONBOARDING_STEPS + 1;
+  // The name and four questions everywhere; in LINE one more step for the agreements.
+  const totalSteps = line ? ONBOARDING_STEPS + 1 : ONBOARDING_STEPS;
+  const agreeStep = line && step === ONBOARDING_STEPS;
+  const goalChoices = GOALS.filter(goal => showUnreleased || !UNRELEASED_GOALS.includes(goal.id));
   const last = step === totalSteps - 1;
   // "คุณ" before the name (none in English), with a space before a name in Latin letters: คุณ CEO Park, not คุณCEO Park.
   const honorific = tr("คุณ{0}", '').trim();
   const gap = honorific && /^[A-Za-z0-9]/.test(trimmed) ? ' ' : '';
-  const lit = React.useMemo(() => new Set<BackdropCard>(step === ONBOARDING_STEPS - 1 && !mobile
+  const lit = React.useMemo(() => new Set<BackdropCard>(step === GOALS_STEP && !mobile
     ? answers.goals.map(goal => GOAL_CARDS[goal]).filter((card): card is BackdropCard => Boolean(card)) : []), [step, mobile, answers.goals]);
   const result = (skippedAtStep?: number): OnboardingResult => ({
     answers, name: nameOk ? trimmed : null, ...(skippedAtStep ? { skippedAtStep } : {}),
-    ...(!skippedAtStep && runsFirst ? { importOld: importOld === true } : {}),
   });
 
   React.useEffect(() => {
@@ -211,7 +246,7 @@ export default function WelcomeOnboarding({ mode, mobile, accountName = '', prev
   };
   const skip = async () => {
     if (busy) return;
-    if (line) { setSkippedAt(step + 1); setStep(ONBOARDING_STEPS + 1); setError(''); return; }
+    if (line) { setSkippedAt(step + 1); setStep(ONBOARDING_STEPS); setError(''); return; }
     setBusy('skip'); setError('');
     try { await onSkip(result(step + 1)); }
     catch { setError(tr("บันทึกไม่สำเร็จ กรุณาลองอีกครั้ง")); }
@@ -226,11 +261,11 @@ export default function WelcomeOnboarding({ mode, mobile, accountName = '', prev
     if (id === 'other' && !answers.occupations.includes('other')) window.setTimeout(() => otherRef.current?.focus(), 30);
   };
 
-  const tile = (key: string, Icon: LucideIcon, label: string, picked: boolean, kind: 'radio' | 'check', onPick: () => void, options: { note?: string; wide?: boolean } = {}) => (
+  const tile = (key: string, Icon: LucideIcon, label: string, picked: boolean, kind: 'radio' | 'check', onPick: () => void, options: { note?: string; wide?: boolean; name?: string } = {}) => (
     <li key={key} className={options.wide ? 'is-wide' : undefined}>
       <label className={`wob-tile${picked ? ' is-picked' : ''}`}>
         <input type={kind === 'radio' ? 'radio' : 'checkbox'} className="wob-input" checked={picked} onChange={onPick}
-          name={kind === 'radio' ? 'wob-work' : undefined} />
+          name={kind === 'radio' ? options.name ?? 'wob-work' : undefined} />
         <span className="wob-ico" aria-hidden="true"><Icon size={mobile ? 21 : 19} strokeWidth={1.9} /></span>
         <span className="wob-label">{phrased(label)}{options.note && <small>{options.note}</small>}</span>
         <span className={`wob-tick is-${kind}`} aria-hidden="true">{picked && <Check size={13} strokeWidth={3.2} />}</span>
@@ -314,18 +349,16 @@ export default function WelcomeOnboarding({ mode, mobile, accountName = '', prev
       {answers.occupations.includes('other') && otherInput(answers.occupationOther, text => setAnswers(value => ({ ...value, occupationOther: text })), tr("ระบุสายงานของคุณ"))}
     </div>,
     <div key="goals">
-      <ul className={`wob-grid${mobile ? ' is-tiles' : ''}`} role="group" aria-labelledby={titleId}>
-        {GOALS.map(goal => tile(goal.id, GOAL_ICONS[goal.id], tr(GOAL_LABELS[goal.id]), answers.goals.includes(goal.id), 'check',
+      <ul className={`wob-grid${mobile ? ' is-rows' : ''}`} role="group" aria-labelledby={titleId}>
+        {goalChoices.map(goal => tile(goal.id, GOAL_ICONS[goal.id], tr(GOAL_LABELS[goal.id]), answers.goals.includes(goal.id), 'check',
           () => setAnswers(value => ({ ...value, goals: toggleGoal(value.goals, goal.id) })),
-          goal.id === EXCLUSIVE_GOAL ? { note: tr("เลือกข้อนี้แล้ว ข้ออื่นจะถูกเอาออก"), wide: true } : {}))}
+          goal.id === EXCLUSIVE_GOAL ? { note: tr("เลือกข้อนี้แล้ว ข้ออื่นจะถูกเอาออก"), wide: true } : { note: GOAL_NOTES[goal.id] ? tr(GOAL_NOTES[goal.id]!) : undefined }))}
       </ul>
     </div>,
-    <div key="import">
+    <div key="records">
       <ul className={`wob-grid${mobile ? ' is-rows' : ''}`} role="radiogroup" aria-labelledby={titleId}>
-        {tile('import-yes', FileSpreadsheet, tr("มี ย้ายเข้ามาเลย"), importOld === true, 'radio', () => setImportOld(true),
-          { note: tr("เลขากระรอกช่วยจับคอลัมน์ ตรวจทุกรายการก่อนนำเข้า") })}
-        {tile('import-no', PenLine, tr("ไม่มี เริ่มบันทึกใหม่"), importOld === false, 'radio', () => setImportOld(false),
-          { note: tr("ย้ายทีหลังได้ที่หน้างาน › นำเข้าจาก Excel") })}
+        {RECORD_PLACES.map(place => tile(place.id, RECORD_ICONS[place.id], tr(RECORD_LABELS[place.id]), answers.recordsIn === place.id, 'radio',
+          () => setAnswers(value => ({ ...value, recordsIn: value.recordsIn === place.id ? null : place.id })), { name: 'wob-records' }))}
       </ul>
     </div>,
   ][step];
@@ -337,11 +370,11 @@ export default function WelcomeOnboarding({ mode, mobile, accountName = '', prev
     </span>
   );
   // Step 5 has no ข้ามก่อน: ไม่มี is the way past it, and a skip there would not be one of the four kept steps.
-  const quiet = importStep || agreeStep ? <span className="wob-skip-gap" aria-hidden="true" /> : runsFirst
+  const quiet = agreeStep ? <span className="wob-skip-gap" aria-hidden="true" /> : runsFirst
     ? <button type="button" className="wob-skip" onClick={() => void skip()} disabled={Boolean(busy)}>{busy === 'skip' ? tr("กำลังบันทึก…") : tr("ข้ามก่อน")}</button>
     : closeButton;
   const primaryLabel = busy === 'finish' ? (line ? tr("กำลังเตรียมบัญชี…") : tr("กำลังบันทึก…")) : !last ? tr("ถัดไป")
-    : line ? tr("เริ่มใช้งาน") : mode === 'first' ? (importOld ? tr("ย้ายข้อมูลเข้าแอป") : tr("เริ่มใช้งาน")) : tr("บันทึก");
+    : runsFirst ? tr("เริ่มใช้งาน") : tr("บันทึก");
   const nextButton = <button type="button" className="wob-next" onClick={() => void next()} disabled={Boolean(busy)}>{primaryLabel}</button>;
   const question = step === 0 ? null : agreeStep ? LINE_AGREE : QUESTIONS[step - 1];
 
@@ -362,7 +395,7 @@ export default function WelcomeOnboarding({ mode, mobile, accountName = '', prev
             <h2 id={titleId} className="wob-q-title" aria-label={tr(question.title)}><Rising text={tr(question.title)} /></h2>
             <p className="wob-q-sub">{tr(question.sub)}
               {step === 2 && <span className="wob-count">{tr("เลือกแล้ว {0}", answers.occupations.length)}</span>}
-              {step === ONBOARDING_STEPS - 1 && !mobile && <span className="wob-sub-more">{tr("เลือกแล้วจะเห็นว่าแอปช่วยตรงไหน")}</span>}</p>
+              {step === GOALS_STEP && !mobile && <span className="wob-sub-more">{tr("เลือกแล้วจะเห็นว่าแอปช่วยตรงไหน")}</span>}</p>
             {choices}
           </motion.section>
         </AnimatePresence>
@@ -395,7 +428,7 @@ export default function WelcomeOnboarding({ mode, mobile, accountName = '', prev
           ))}
           <span className="wob-done-mascot" aria-hidden="true"><Mascot mood="celebrate" action="celebrate" gear="headset" animated={!reduce} size={mobile ? 120 : 150} viewBox="10 14 82 82" /></span>
           <p className="wob-done-title">{tr("พร้อมแล้วครับ")}{trimmed && <> <span className="wob-flow">{honorific}{gap}{trimmed}</span></>}</p>
-          <p className="wob-done-sub">{line && !importOld ? tr("กลับไปที่แชทแล้วพิมพ์บอกเลขาได้เลย") : importOld ? tr("ต่อไปเป็นการย้ายข้อมูลเดิมเข้าแอป") : tr("ตั้งค่าเริ่มต้นตามที่คุณตอบให้แล้ว")}</p>
+          <p className="wob-done-sub">{line ? tr("กลับไปที่แชทแล้วพิมพ์บอกเลขาได้เลย") : tr("ตั้งค่าเริ่มต้นตามที่คุณตอบให้แล้ว")}</p>
         </motion.div>
       )}
     </motion.div>,

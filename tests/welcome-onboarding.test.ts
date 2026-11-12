@@ -26,19 +26,19 @@ test('who is asked: accounts created since the rollout, once, never guests or a 
 
 test('"ยังไม่แน่ใจ อยากลองใช้ก่อน" stands alone: it clears the other goals, and another goal clears it', () => {
   assert.deepEqual(toggleGoal(['receivables', 'documents'], 'exploring'), ['exploring']);
-  assert.deepEqual(toggleGoal(['exploring'], 'projects'), ['projects']);
-  assert.deepEqual(toggleGoal(['projects'], 'documents'), ['projects', 'documents']);
-  assert.deepEqual(toggleGoal(['projects', 'documents'], 'projects'), ['documents']);
+  assert.deepEqual(toggleGoal(['exploring'], 'tax'), ['tax']);
+  assert.deepEqual(toggleGoal(['tax'], 'documents'), ['tax', 'documents']);
+  assert.deepEqual(toggleGoal(['tax', 'documents'], 'tax'), ['documents']);
 });
 
 test('the record: stable IDs in a fixed order, the "other" text only with อื่น ๆ, trimmed and capped', () => {
   const record = onboardingRecord({
     workType: 'other', workTypeOther: '  ช่างแต่งหน้า   อิสระ  ', occupations: ['other', 'content_creator', 'marketing'],
-    occupationOther: 'x'.repeat(200), goals: ['documents', 'receivables'],
+    occupationOther: 'x'.repeat(200), goals: ['documents', 'receivables'], recordsIn: 'excel',
   }, 'COMPLETED', NOW);
   assert.deepEqual(record, {
-    version: 'welcome-v1', status: 'COMPLETED', work_type: 'other', work_type_other: 'ช่างแต่งหน้า อิสระ',
-    occupations: ['content_creator', 'marketing', 'other'], occupation_other: 'x'.repeat(80), goals: ['receivables', 'documents'],
+    version: 'welcome-v2', status: 'COMPLETED', work_type: 'other', work_type_other: 'ช่างแต่งหน้า อิสระ',
+    occupations: ['content_creator', 'marketing', 'other'], occupation_other: 'x'.repeat(80), goals: ['receivables', 'documents'], records_in: 'excel',
     updated_at: NOW.toISOString(), completed_at: NOW.toISOString(),
   });
   assert.equal(onboardingRecordSchema.safeParse(record).success, true);
@@ -54,7 +54,7 @@ test('skipping keeps what was picked and the step; finishing later keeps the fir
   assert.equal(skipped.skipped_at_step, 2);
   assert.equal(skipped.work_type, 'employee');
   assert.equal(skipped.completed_at, undefined);
-  const first = onboardingRecord({ ...EMPTY_ANSWERS, goals: ['projects'] }, 'COMPLETED', NOW);
+  const first = onboardingRecord({ ...EMPTY_ANSWERS, goals: ['tax'] }, 'COMPLETED', NOW);
   const later = onboardingRecord({ ...EMPTY_ANSWERS, goals: ['documents'] }, 'COMPLETED', new Date('2026-11-02T00:00:00Z'), first);
   assert.equal(later.completed_at, NOW.toISOString());
   assert.equal(later.updated_at, '2026-11-02T00:00:00.000Z');
@@ -66,7 +66,8 @@ test('the saved settings accept a good record and refuse an unknown ID, a mixed 
   const good = onboardingRecord({ ...EMPTY_ANSWERS, workType: 'student', occupations: ['teacher_coach'], goals: ['exploring'] }, 'COMPLETED', NOW);
   assert.deepEqual((validateChanges(settings(good))[0].data as { onboarding: unknown }).onboarding, good);
   assert.throws(() => validateChanges(settings({ ...good, work_type: 'astronaut' })));
-  assert.throws(() => validateChanges(settings({ ...good, goals: ['exploring', 'projects'] })));
+  assert.throws(() => validateChanges(settings({ ...good, goals: ['exploring', 'tax'] })));
+  assert.throws(() => validateChanges(settings({ ...good, records_in: 'carrier_pigeon' })));
   assert.throws(() => validateChanges(settings({ ...good, work_type_other: 'x'.repeat(81) })));
   assert.throws(() => validateChanges(settings({ ...good, extra: true })));
   // Settings without the questionnaire still save as before.
@@ -106,7 +107,32 @@ test('admin: groups from the answers, and what each group did (made, asked, came
   assert.equal(result.goals.find(row => row.id === 'exploring')!.accounts, 1);
   assert.deepEqual(result.otherWorkTypes, [{ text: 'ช่างแต่งหน้า', accounts: 2 }]);
   // Every stable ID has a row, even with nobody in it, so the admin sees the whole list.
-  assert.deepEqual(result.workTypes.map(row => row.id), ['freelance', 'employee', 'student', 'business_owner', 'other']);
-  assert.equal(result.occupations.length, 8);
-  assert.equal(result.goals.length, 5);
+  assert.deepEqual(result.workTypes.map(row => row.id), ['freelance', 'business_owner', 'accounting_office', 'employee', 'student', 'other']);
+  assert.equal(result.occupations.length, 9);
+  assert.equal(result.goals.length, 9);
+  assert.equal(result.recordsIn.length, 6);
+});
+
+
+test('welcome-v1 answers saved before 13 Nov stay valid: their old goal is kept, and answering again picks from today\'s list', async () => {
+  const { answersOf } = await import('../shared/onboarding');
+  const v1 = { version: 'welcome-v1', status: 'COMPLETED', work_type: 'business_owner', work_type_other: null, occupations: ['photo_video'],
+    occupation_other: null, goals: ['projects', 'receivables'], updated_at: NOW.toISOString(), completed_at: NOW.toISOString() };
+  assert.equal(onboardingRecordSchema.safeParse(v1).success, true);
+  assert.doesNotThrow(() => validateChanges([{ table: 'cashflow_documents', id: 'settings', op: 'set', version: 1, data: { monthlyExpense: 0, monthlyRevenueGoal: 0, savingsPercentage: 40, onboarding: v1 } }]));
+  assert.deepEqual(answersOf(v1 as never).goals, ['receivables']);
+  assert.equal(answersOf(v1 as never).recordsIn, null);
+});
+
+test('the admin counts question 5 only among answers that had it, and old goals apart', () => {
+  const behavior: OnboardingBehavior = { project_created: 0, document_created: 0, expense_created: 0, ai_message_sent: 0, pro_subscription_activated: false, active_days: 1 };
+  const v2 = onboardingRecord({ ...EMPTY_ANSWERS, workType: 'accounting_office', goals: ['accountant', 'tax'], recordsIn: 'google_sheets' }, 'COMPLETED', NOW);
+  const v1 = { version: 'welcome-v1', status: 'COMPLETED', work_type: 'freelance', work_type_other: null, occupations: [], occupation_other: null,
+    goals: ['projects'], updated_at: NOW.toISOString(), completed_at: NOW.toISOString() };
+  const data = onboardingAnalytics([{ createdAt: after, onboarding: v2, behavior }, { createdAt: after, onboarding: v1, behavior }]);
+  assert.equal(data.recordsAsked, 1);
+  assert.equal(data.recordsIn.find(row => row.id === 'google_sheets')?.accounts, 1);
+  assert.equal(data.workTypes.find(row => row.id === 'accounting_office')?.accounts, 1);
+  assert.equal(data.goals.find(row => row.id === 'accountant')?.accounts, 1);
+  assert.equal(data.legacyGoals.find(row => row.id === 'projects')?.accounts, 1);
 });

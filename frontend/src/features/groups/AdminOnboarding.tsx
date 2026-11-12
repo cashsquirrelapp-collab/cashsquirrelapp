@@ -1,17 +1,20 @@
 import React from 'react';
 import { uiSurface } from '../../components/ui/uiStyles';
-import { GOALS, OCCUPATIONS, WORK_TYPES, type OnboardingAnalytics, type OnboardingSegment } from '../../../../shared/onboarding';
+import { GOALS, LEGACY_GOALS, OCCUPATIONS, RECORD_PLACES, WORK_TYPES, type OnboardingAnalytics, type OnboardingSegment } from '../../../../shared/onboarding';
 
 // Welcome Onboarding V1 for the admin (owner brief, 2026-10-28): who signs up (work type, occupation), what they want
 // from Krarok, and what each group really does: made a job, a document, an expense, asked เลขา, came back, bought Pro.
 // Groups only, never people; the counts come from each account's own records (how many, not what they hold).
 
 const EN: Record<string, string> = {
-  freelance: 'Freelance / independent', employee: 'Full-time employee', student: 'Student', business_owner: 'Business owner / agency', other: 'Other',
+  freelance: 'Freelance / independent', employee: 'Full-time employee', student: 'Student', business_owner: 'Business owner / agency / production', other: 'Other',
+  accounting_office: 'Accounting office / bookkeeper', accounting: 'Accounting / finance',
   content_creator: 'Content creator', video_graphic: 'Video editing / graphics', developer_digital: 'Developer / digital work', marketing: 'Marketing / ads',
   photo_video: 'Photo / video', teacher_coach: 'Teacher / tutor / coach', trade_owner: 'Trade / shop owner',
-  cashflow_overview: 'Income, spending and cash flow', receivables: 'Money owed by clients', projects: 'Jobs and projects', documents: 'Quotations and documents',
-  exploring: 'Not sure, trying it first',
+  cashflow_overview: 'Profit this month', receivables: 'Money clients still owe', projects: 'Jobs and projects', documents: 'Quotations, invoices, receipts',
+  exploring: 'Not sure, trying it first', record_chat: 'Record income and spending in LINE', receipts: 'Receipts and documents in one place',
+  tax: 'Tax and withholding', my_sheet: 'Fill in the sheet or Excel I use', accountant: 'Send the accountant everything monthly',
+  google_sheets: 'Google Sheets', excel: 'Excel', notebook: 'Notebook / phone notes', other_app: 'Another accounting app', by_accountant: 'An accountant does it', none: 'Not recording yet',
 };
 const label = (list: readonly { id: string; label: string }[], id: string, th: boolean) => (th ? list.find(item => item.id === id)?.label.replace(' (โปรดระบุ)', '') : EN[id]) ?? id;
 const share = (part: number, whole: number) => (whole ? `${Math.round((part / whole) * 100)}%` : '–');
@@ -113,6 +116,14 @@ export default function AdminOnboarding({ data, language, mobile = false }: { da
         rows={data.workTypes} list={WORK_TYPES} total={answered} copy={copy} th={th} />
       <Segments title={copy('สายงาน', 'Occupation')} note={`${copy('เลือกได้หลายข้อ', 'Several per account')} · ${note}`} rows={data.occupations} list={OCCUPATIONS} total={answered} copy={copy} th={th} />
       <Segments title={copy('อยากให้ Krarok ช่วยเรื่องไหน', 'What they want from Krarok')} note={`${copy('เลือกได้หลายข้อ', 'Several per account')} · ${note}`} rows={data.goals} list={GOALS} total={answered} copy={copy} th={th} />
+      {(data.legacyGoals ?? []).some(row => row.accounts > 0) && (
+        <Segments title={copy('คำตอบชุดเก่า (ก่อน 13 พ.ย.)', 'Earlier answers (before 13 Nov)')} note={copy('ตัวเลือกที่ไม่ได้ถามแล้ว รวมไว้ใน "รู้ว่าเดือนนี้ได้กำไรเท่าไร"', 'Options no longer asked, now part of "profit this month"')}
+          rows={data.legacyGoals} list={LEGACY_GOALS} total={answered} copy={copy} th={th} />
+      )}
+      {data.recordsIn && (
+        <Segments title={copy('ตอนนี้จดรายรับรายจ่ายไว้ที่ไหน', 'Where they keep records today')} note={`${copy('เลือก 1 ข้อ · ถามตั้งแต่ 13 พ.ย.', 'One pick · asked since 13 Nov')} · ${copy('จากคนที่ได้คำถามนี้', 'Of those asked')} ${(data.recordsAsked ?? 0).toLocaleString()} ${copy('บัญชี', 'accounts')}`}
+          rows={data.recordsIn} list={RECORD_PLACES} total={data.recordsAsked ?? 0} copy={copy} th={th} />
+      )}
       <div className={`grid gap-3 ${mobile ? '' : 'sm:grid-cols-2'}`}>
         {others.map(group => (
           <section key={group.title} className={`${uiSurface} p-5`} aria-label={group.title}>

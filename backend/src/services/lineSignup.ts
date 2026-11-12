@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import { CONSENT_KEYS, type ConsentKey } from '../../../shared/consents.js';
-import { GOALS, OCCUPATIONS, ONBOARDING_STEPS, OTHER_TEXT_MAX, WORK_TYPES, jobTypesForOccupations, onboardingRecord, personaForWorkType, type GoalId, type OccupationId, type WorkTypeId } from '../../../shared/onboarding.js';
+import { GOALS, OCCUPATIONS, ONBOARDING_STEPS, OTHER_TEXT_MAX, RECORD_PLACES, WORK_TYPES, jobTypesForOccupations, onboardingRecord, personaForWorkType, type GoalId, type OccupationId, type RecordPlaceId, type WorkTypeId } from '../../../shared/onboarding.js';
 import { DEFAULT_JOB_TYPES } from '../../../shared/jobTypes.js';
 import type { AppSettings } from '../../../shared/types.js';
 import { validateChanges } from '../../../shared/validation.js';
@@ -29,7 +29,7 @@ export const lineSignupSchema = z.object({
   occupationOther: z.string().trim().max(OTHER_TEXT_MAX).optional(),
   goals: z.array(z.enum(ids(GOALS))).max(GOALS.length).optional(),
   skippedAtStep: z.number().int().min(2).max(ONBOARDING_STEPS).optional(),
-  importOld: z.boolean().optional(),
+  recordsIn: z.enum(ids(RECORD_PLACES)).nullable().optional(),
   agreed: z.literal(true),
   destination: z.string().max(500).optional(),
 }).strict();
@@ -52,14 +52,14 @@ export interface LineSignupDeps {
   now(): Date;
 }
 
-type Answers = Pick<LineSignupInput, 'workType' | 'workTypeOther' | 'occupations' | 'occupationOther' | 'goals' | 'skippedAtStep'>;
+type Answers = Pick<LineSignupInput, 'workType' | 'workTypeOther' | 'occupations' | 'occupationOther' | 'goals' | 'recordsIn' | 'skippedAtStep'>;
 
 /** What the website saves when its first run ends (App.tsx saveOnboarding), for an account with no settings yet. */
 export function settingsFor(input: Answers, now: Date): AppSettings {
   const record = onboardingRecord({
     workType: input.workType ?? null, workTypeOther: input.workTypeOther ?? '',
     occupations: (input.occupations ?? []) as OccupationId[], occupationOther: input.occupationOther ?? '',
-    goals: (input.goals ?? []) as GoalId[],
+    goals: (input.goals ?? []) as GoalId[], recordsIn: (input.recordsIn ?? null) as RecordPlaceId | null,
   }, input.skippedAtStep ? 'SKIPPED' : 'COMPLETED', now, null, input.skippedAtStep);
   const persona = personaForWorkType((input.workType ?? null) as WorkTypeId | null);
   // The app's defaults for a new account (frontend/src/sampleData.ts defaultSettings), no fixed monthly cost.

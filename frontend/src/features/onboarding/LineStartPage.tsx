@@ -27,6 +27,8 @@ export default function LineStartPage() {
   const [preview] = React.useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('preview'));
   const [previewDone, setPreviewDone] = React.useState(false);
   const mobile = typeof window !== 'undefined' && window.innerWidth < 744;
+  // A new LINE account has no test features: the Sheets goal shows only away from the real site (staging, previews).
+  const showUnreleased = typeof window !== 'undefined' && !/(^|\.)krarok\.com$/.test(window.location.hostname);
 
   const finish = async (result: OnboardingResult) => {
     if (!handoff) throw new Error(tr("กรุณาเปิดหน้านี้ใหม่จากแชท LINE"));
@@ -35,11 +37,10 @@ export default function LineStartPage() {
     const body: Record<string, unknown> = { idToken: handoff.idToken, name: result.name ?? '', workType: answers.workType, occupations: answers.occupations, goals: answers.goals, agreed: true };
     if (answers.workType === 'other' && answers.workTypeOther.trim()) body.workTypeOther = answers.workTypeOther.trim();
     if (answers.occupations.includes('other') && answers.occupationOther.trim()) body.occupationOther = answers.occupationOther.trim();
+    if (answers.recordsIn) body.recordsIn = answers.recordsIn;
     if (result.skippedAtStep) body.skippedAtStep = result.skippedAtStep;
-    if (result.importOld !== undefined) body.importOld = result.importOld;
-    // มี ย้ายเข้ามาเลย opens the import right after, as on the website; otherwise where they were going, or the chat.
-    const destination = result.importOld ? '/jobs?import=1' : handoff.destination;
-    if (destination) body.destination = destination;
+    // Where they were going (a menu button tapped before signing up), otherwise back to the chat.
+    if (handoff.destination) body.destination = handoff.destination;
     const response = await fetch('/api/line-signup', {
       method: 'POST', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', 'X-CSRF-Protection': '1' },
@@ -62,7 +63,7 @@ export default function LineStartPage() {
         </div>
       </main>
     );
-    return <WelcomeOnboarding mode="line" mobile={mobile} accountName="" onFinish={async () => { setPreviewDone(true); }} onSkip={async () => undefined} onClose={() => undefined} />;
+    return <WelcomeOnboarding mode="line" mobile={mobile} accountName="" showUnreleased={showUnreleased} onFinish={async () => { setPreviewDone(true); }} onSkip={async () => undefined} onClose={() => undefined} />;
   }
   if (!handoff) {
     return (
@@ -74,5 +75,5 @@ export default function LineStartPage() {
       </main>
     );
   }
-  return <WelcomeOnboarding mode="line" mobile={mobile} accountName={handoff.name} onFinish={finish} onSkip={async () => undefined} onClose={() => undefined} />;
+  return <WelcomeOnboarding mode="line" mobile={mobile} accountName={handoff.name} showUnreleased={showUnreleased} onFinish={finish} onSkip={async () => undefined} onClose={() => undefined} />;
 }

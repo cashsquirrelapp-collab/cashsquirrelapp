@@ -117,7 +117,7 @@ test('the answers must have a name and the terms ticked; the questions may be sk
   const ok = { idToken: 't', name: 'ปาร์ค', workType: 'freelance', agreed: true };
   assert.equal(lineSignupSchema.safeParse(ok).success, true);
   assert.equal(lineSignupSchema.safeParse({ idToken: 't', name: 'ปาร์ค', workType: null, skippedAtStep: 2, agreed: true }).success, true);
-  assert.equal(lineSignupSchema.safeParse({ ...ok, occupations: ['photo_video'], goals: ['documents'], importOld: true }).success, true);
+  assert.equal(lineSignupSchema.safeParse({ ...ok, occupations: ['photo_video'], goals: ['documents'], recordsIn: 'excel' }).success, true);
   assert.equal(lineSignupSchema.safeParse({ ...ok, name: 'ก' }).success, false);
   assert.equal(lineSignupSchema.safeParse({ ...ok, workType: 'astronaut' }).success, false);
   assert.equal(lineSignupSchema.safeParse({ ...ok, goals: ['world_peace'] }).success, false);
