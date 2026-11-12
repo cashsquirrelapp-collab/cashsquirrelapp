@@ -1,6 +1,6 @@
 import React from 'react';
-import { Mochi } from '../../components/mascot/Mochi';
 import { motion, useReducedMotion } from 'motion/react';
+import { Mascot } from '../../components/mascot/Mascot';
 import { tr } from '../../i18n/tr';
 import './assistant.css';
 
@@ -169,7 +169,7 @@ export default function AssistantBirth({ name, target, onDone, paid = false }: P
                 animate={{ opacity: 1, scale: 1, y: 0, filter: 'brightness(1) blur(0px)' }}
                 // It fades in out of the light while it walks (not all at once): a second to appear, the glow settling as it comes.
                 transition={{ delay: TIMES.walk, duration: TIMES.walkFor, ease: [0.3, 0, 0.3, 1], opacity: { delay: TIMES.walk, duration: 1, ease: [0.4, 0, 0.2, 1] }, filter: { delay: TIMES.walk, duration: 1.3, ease: [0.4, 0, 0.2, 1] } }}>
-                <Mochi mood={ready && phase !== 'fly' ? 'happy' : 'idle'} animated={!reduce} size={168} />
+                <Mascot gear="headset" mood="wave" action={reduce ? 'wave' : phase === 'arrive' ? 'walk' : phase === 'jump' ? 'jump' : ready && phase !== 'fly' ? 'wave' : 'idle'} size={168} />
               </motion.div>
               {/* ติ๊ง ๆ ๆ: little twinkles by the waving paw. */}
               {!reduce && <span className="kb-tings">{[1, 2, 3].map(n => <svg key={n} className={`is-${n}`} viewBox="0 0 24 24"><path d={TWINKLE} /></svg>)}</span>}

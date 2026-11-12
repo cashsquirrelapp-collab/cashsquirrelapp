@@ -139,9 +139,7 @@ test('login and all feature tabs render after separation without browser errors'
  await expect(page.locator('.fixed.inset-0').locator('input[type=text]')).toBeVisible();
  await page.getByRole('button',{name:'ปิดหน้าต่างรับเงินด่วน'}).click();
  const names=await sidebar.locator('nav button').allTextContents();
- // เลขากระรอก opens its own full-screen chat, which has no sidebar to come back through; its pages have their own tests
- // (assistant-chat.spec.ts). Its old icon carried CSS text, so the old name never matched and it was skipped by accident.
- for(const name of names.filter(text=>text.trim()!=='เลขากระรอก')) {
+ for(const name of names) {
   const button=sidebar.locator('nav button').filter({hasText:name.trim()}).first();
   if(await button.isVisible()) { await button.click();await expect(button).toHaveAttribute('aria-current','page');await expect(page.locator('#main-content')).not.toContainText('กำลังโหลด');await expect(page.getByText('โหลดหน้านี้ไม่สำเร็จ',{exact:true})).toHaveCount(0); }
  }

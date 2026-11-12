@@ -1,9 +1,8 @@
 import React from 'react';
-import { Mochi } from '../../components/mascot/Mochi';
-import { MochiPeek } from '../../components/mascot/MascotPeek';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { AlertCircle, Archive, ArchiveRestore, ArrowDown, ArrowLeft, ArrowUp, Bell, BellRing, Check, ChevronDown, ChevronLeft, ChevronRight, FileText, FolderPlus, Gift, Image as ImageIcon, ListChecks, Lock, Mic, MoreHorizontal, PanelLeft, PanelLeftClose, Paperclip, Pencil, Pin, PinOff, RotateCcw, Search, Sparkles, SquarePen, Trash2, Wallet, X } from 'lucide-react';
+import { Mascot } from '../../components/mascot/Mascot';
 import { Modal } from '../../components/ui/Modal';
 import { tr, trc } from '../../i18n/tr';
 import { dateLocale } from '../../utils';
@@ -33,6 +32,7 @@ import { automaticNavigation, safeAssistantPath, savedCards, type NavigationCont
 import { confirmationCommand } from './assistantCommands';
 import type { ChatHandoff } from './chatHandoff';
 import { TokenRing } from './TokenRing';
+import { MascotPeek } from '../../components/mascot/MascotPeek';
 import { BriefingCard } from './BriefingCard';
 import type { Briefing } from '../../../../shared/briefing';
 import { greetingNow, noteQuestion } from './greeting';
@@ -927,7 +927,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
             <ul>
               <li>
                 <button type="button" className={`asx-side-item is-line${currentId === LINE_THREAD_ID ? ' is-active' : ''}`} aria-current={currentId === LINE_THREAD_ID ? 'page' : undefined} onClick={() => openConversation(LINE_THREAD_ID)}>
-                  <span className="asx-line-avatar is-mochi" aria-hidden="true"><Mochi mood="happy" face animated={false} size={34} /></span>
+                  <span className="asx-line-avatar" aria-hidden="true"><img src="/brand/logo01-v1/symbol-white.png" alt="" width={16} height={16} /></span>
                   <span className="asx-side-stack"><span className="asx-side-title">{lineThread.title}</span>{lastNoticeText && <span className="asx-side-preview">{lastNoticeText}</span>}</span>
                   {unread > 0 ? <span className="asx-badge is-inline" aria-label={tr("ยังไม่อ่าน {0}", unread)}>{unread}</span> : lineThread.sample ? <span className="asx-side-tag">{tr("ตัวอย่าง")}</span> : null}
                 </button>
@@ -1047,7 +1047,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                 with its calm motion and its hologram while it works, and its name on the dark capsule under it. */}
             {/* Phones too since 2026-10-27 ("ทำในมือถือด้วยนะ"), smaller. */}
             <span className={`asx-perch${mobile ? ' is-phone' : ''}`} aria-hidden="true" data-mood={perchMood}>
-                  <span className="asx-perch-box"><MochiPeek size={mobile ? 68 : 108} mood={perchMood} motion={reduce ? 'still' : 'calm'} holo={busy || voice.phase === 'transcribing'} className="asx-perch-art" /></span>
+                  <span className="asx-perch-box"><MascotPeek size={mobile ? 68 : 108} gear="headset" mood={perchMood} motion={reduce ? 'still' : 'calm'} holo={busy || voice.phase === 'transcribing'} thoughtDots={false} className="asx-perch-art" /></span>
                   <span className="asx-perch-name">{tr("เลขากระรอก")}</span>
                 </span>
             <div className="asx-bar-text asx-sr">
@@ -1153,7 +1153,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                 </li>
               ) : message.cards?.length && !message.text && message.cards.every(card => card.kind === 'line') ? (
                 <li key={message.id} className="asx-msg is-bot is-line">
-                  <span className="asx-avatar" aria-hidden="true"><Mochi mood="happy" face animated={false} size={30} /></span>
+                  <span className="asx-avatar" aria-hidden="true"><Mascot gear={mobile ? 'pro' : 'none'} mood="happy" animated={false} size={30} viewBox="12 8 76 76" /></span>
                   <div className="asx-line-row">
                     {message.cards.map((card, c) => <ChatCardView key={c} card={card} onConfirm={() => {}} onCancel={() => {}} onNavigate={go} onLineDue={lineDue} />)}
                     <span className="asx-meta is-side"><span>{message.note ?? tr("ตัวอย่าง")}</span><span>{time(message.at)}</span></span>
@@ -1161,7 +1161,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                 </li>
               ) : inLine && !message.failed ? (
                 <li key={message.id} className="asx-msg is-bot is-line">
-                  <span className="asx-avatar" aria-hidden="true"><Mochi mood="happy" face animated={false} size={30} /></span>
+                  <span className="asx-avatar" aria-hidden="true"><Mascot gear={mobile ? 'pro' : 'none'} mood="happy" animated={false} size={30} viewBox="12 8 76 76" /></span>
                   <div className="asx-line-row">
                     <div className="asx-bubble is-bot"><Markdown text={message.text} onNavigate={go} navigationContext={navigationContext} cards={message.cards} />{message.id === streamingId && <i className="asx-caret" aria-hidden="true" />}</div>
                     {message.id !== streamingId && <span className="asx-meta is-side"><span>{message.note ?? tr("ตัวอย่าง")}</span><span>{time(message.at)}</span></span>}
@@ -1169,7 +1169,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                 </li>
               ) : message.failed ? (
                 <li key={message.id} className="asx-msg is-bot">
-                  <span className="asx-avatar" aria-hidden="true"><Mochi mood="worried" face animated={false} size={30} /></span>
+                  <span className="asx-avatar" aria-hidden="true"><Mascot gear="pro" mood="worried" animated={false} size={30} viewBox="12 8 76 76" /></span>
                   <div className="asx-msg-body">
                     <div className="asx-error" role="alert">
                       <AlertCircle size={17} /><span>{tr("ส่งไม่สำเร็จ ตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง")}</span>
@@ -1179,7 +1179,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                 </li>
               ) : (
                 <li key={message.id} className="asx-msg is-bot">
-                  <span className="asx-avatar" aria-hidden="true"><Mochi mood="happy" face animated={false} size={30} /></span>
+                  <span className="asx-avatar" aria-hidden="true"><Mascot gear={mobile ? 'pro' : 'none'} mood="happy" animated={false} size={30} viewBox="12 8 76 76" /></span>
                   <div className="asx-msg-body">
                     {message.work && <WorkDone work={message.work} />}
                     {(message.text || message.id === streamingId) && <Markdown text={message.text} onNavigate={go} navigationContext={navigationContext} cards={message.cards} />}
@@ -1202,13 +1202,13 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
               // A spreadsheet's check is เลขา's report, on its side of the chat (owner, 2026-11-04), right under the file.
               message.from === 'me' && messageFiles(message).some(file => file.check) && (
                 <li key={`check-${message.id}`} className="asx-msg is-bot is-check">
-                  <span className="asx-avatar" aria-hidden="true"><Mochi mood="happy" face animated={false} size={30} /></span>
+                  <span className="asx-avatar" aria-hidden="true"><Mascot gear={mobile ? 'pro' : 'none'} mood="happy" animated={false} size={30} viewBox="12 8 76 76" /></span>
                   <div className="asx-msg-body"><FileChecks files={messageFiles(message)} /></div>
                 </li>
               )])}
               {mode === 'thinking' && (
                 <li className="asx-msg is-bot">
-                  <span className="asx-avatar" aria-hidden="true"><Mochi mood="thinking" face animated={false} size={30} /></span>
+                  <span className="asx-avatar" aria-hidden="true"><Mascot gear="pro" mood="thinking" animated={false} size={30} viewBox="12 8 76 76" /></span>
                   {work.work?.heavy ? <WorkLive work={work.work} /> : <div className="asx-typing" role="img" aria-label={tr("เลขากระรอกกำลังคิด")}><i /><i /><i /></div>}
                 </li>
               )}
@@ -1233,7 +1233,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
           {consentNeeded && accountId ? <AiConsentCard accountId={accountId} compact={floating || mobile} /> : <>
               {gate && upsell && (
                 <div className="asx-upsell lg-glass is-menu" role="region" aria-label={tr("พิมพ์ถามเองได้เมื่อเป็นสมาชิก Pro")}>
-                  <span className="asx-upsell-figure" aria-hidden="true"><Mochi mood="happy" face animated={false} size={48} /></span>
+                  <span className="asx-upsell-figure" aria-hidden="true"><Mascot gear="pro" mood="happy" animated={false} size={48} viewBox="12 8 76 76" /></span>
                   <div className="asx-upsell-body">
                     <b>{gate === 'trial' ? tr("ช่วงทดลองใช้ Pro สิ้นสุดแล้ว") : tr("พิมพ์ถามเองได้เมื่อเป็นสมาชิก Pro")}</b>
                     <p>{gate === 'trial' ? tr("สมัคร Pro เพื่อพิมพ์ถามเลขากระรอกต่อ ประวัติแชตยังอยู่ครบ ระหว่างนี้ลองกดคำถามตัวอย่างได้") : tr("อัปเกรดเป็น Pro เพื่อถามเรื่องงาน เอกสาร และเงินของคุณได้ทุกเรื่อง ระหว่างนี้ลองกดคำถามตัวอย่างได้ฟรี")}</p>

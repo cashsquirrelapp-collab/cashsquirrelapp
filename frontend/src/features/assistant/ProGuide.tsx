@@ -1,7 +1,7 @@
 import React from 'react';
-import { Mochi } from '../../components/mascot/Mochi';
 import { flushSync } from 'react-dom';
 import { ArrowRight, Check, ChevronLeft, ChevronRight, FileText, X } from 'lucide-react';
+import { Mascot } from '../../components/mascot/Mascot';
 import { LineLogo } from '../../components/ui/LineLogo';
 import { GmailLogo } from '../../components/ui/GmailLogo';
 import { tr } from '../../i18n/tr';
@@ -99,12 +99,12 @@ function coachSteps(step: ProGuideStep, target: string): React.ReactNode[] {
 function StepIcon({ step, size = 36 }: { step: ProGuideStep; size?: number }) {
   if (step === 'line') return <LineLogo size={size} />;
   if (step === 'email') return <GmailLogo size={size} className="pg-icon-line" />;
-  if (step === 'chat') return <span className="pg-icon is-chat" style={{ width: size, height: size }}><Mochi mood="happy" face animated={false} size={Math.round(size * 0.84)} /></span>;
+  if (step === 'chat') return <span className="pg-icon is-chat" style={{ width: size, height: size }}><Mascot gear="headset" mood="happy" animated={false} size={Math.round(size * 0.84)} viewBox="12 8 76 76" /></span>;
   return <span className="pg-icon is-docs" style={{ width: size, height: size }}><FileText size={Math.round(size * 0.5)} strokeWidth={2} /></span>;
 }
 
 function Face({ size }: { size: number }) {
-  return <span aria-hidden="true" className="pg-face" style={{ width: size, height: size }}><Mochi mood="happy" face animated={false} size={Math.round(size * 0.7)} /></span>;
+  return <span aria-hidden="true" className="pg-face" style={{ width: size, height: size }}><Mascot gear="headset" mood="happy" animated={false} size={Math.round(size * 0.7)} viewBox="12 8 76 76" /></span>;
 }
 
 type Spot = { name: string; left: number; top: number; width: number; height: number };

@@ -78,7 +78,7 @@ test('the founder page is found by the founder\'s name and shares as their own c
   assert.match(html, /<meta property="og:image:alt" content="นพรัตน์ นาวะบุตร/);
   assert.match(html, /<meta property="profile:first_name" content="นพรัตน์" \/>/);
   // Every other page keeps the site's own share picture.
-  assert.match(withSeoHead(indexHtml, '/login'), /og\/krarok-share-v2\.png/);
+  assert.match(withSeoHead(indexHtml, '/login'), /og\/krarok-share\.png/);
   for (const file of ['og/founder-share.jpg', 'landing-v5/founder/portrait.webp']) assert.ok(fs.existsSync(`frontend/public/${file}`), file);
 });
 

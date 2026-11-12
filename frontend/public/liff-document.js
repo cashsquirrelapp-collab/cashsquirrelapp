@@ -21,7 +21,7 @@
   function status(title, message, reaction, closeButton) {
     field('form-view').classList.add('hidden');
     var view = field('status-view'); view.classList.remove('hidden'); view.replaceChildren();
-    var image = document.createElement('img'); image.className = 'emoji'; image.src = '/line/mochi-' + (reaction || 'guide') + '.png'; image.alt = '';
+    var image = document.createElement('img'); image.className = 'emoji'; image.src = '/line/mascot-v6-' + (reaction || 'guide') + '.png'; image.alt = '';
     var heading = document.createElement('h2'); heading.textContent = title;
     var paragraph = document.createElement('p'); paragraph.textContent = message;
     view.append(image, heading, paragraph);

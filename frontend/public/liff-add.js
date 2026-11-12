@@ -32,7 +32,7 @@
     select.value = selected;
   }
 
-  function mascotUrl(reaction) { return '/line/mochi-' + reaction + '.png'; }
+  function mascotUrl(reaction) { return '/line/mascot-v6-' + reaction + '.png'; }
   function updateFormMascot(kind, reaction) {
     var pose = reaction || (kind === 'expense' ? 'spent' : draftLoaded || jobStep === 3 ? 'review' : 'working');
     field(kind + '-mascot').src = mascotUrl(pose);

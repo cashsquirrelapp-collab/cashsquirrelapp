@@ -756,8 +756,8 @@ export default function CleanLanding() {
               <div className="cl-device">
                 <div className="cl-device-frame">
                   <span className="cl-island" aria-hidden="true" />
-                  <img className="cl-screen is-phone" src="/landing-v5/overview-phone-mochi.webp" width={1170} height={2532} alt={tr('หน้าภาพรวมของแอปบนมือถือ')} />
-                  <img className="cl-screen is-desk" src="/landing-v5/overview-desktop-mochi.webp" width={2400} height={1500} alt={tr('หน้าภาพรวมของแอปบนคอม')} />
+                  <img className="cl-screen is-phone" src="/landing-v5/overview-phone.webp" width={1170} height={2532} alt={tr('หน้าภาพรวมของแอปบนมือถือ')} />
+                  <img className="cl-screen is-desk" src="/landing-v5/overview-desktop.webp" width={2400} height={1500} alt={tr('หน้าภาพรวมของแอปบนคอม')} />
                 </div>
                 <span className="cl-deck" aria-hidden="true" />
                 <span className="cl-lw-probe" aria-hidden="true" />

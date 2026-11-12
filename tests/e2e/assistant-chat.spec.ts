@@ -216,7 +216,7 @@ async function checkTopFace(page: Page) {
   const chat = chatOf(page);
   const perch = chat.locator('.asx-perch');
   // In its headset since 2026-10-29 (owner: "เวลาที่น้องเกาะแชทแบบนี้ก็ให้น้องใส่หูฟังเหมือนกัน"), the headset alone.
-  await expect(perch.locator('svg.mochi')).toHaveCount(1); // โมจิ (owner, 2026-11-12)
+  await expect(perch.locator('.mpg-headset')).toHaveCount(1);
   await expect(perch.locator('.mpg-back, .mpg-spark, .mpg-pin')).toHaveCount(0);
   await expect(chat.locator('.asx-bar-mascot')).toHaveCount(0);
   await expect(chat.locator('.asx-perch-name')).toHaveText('เลขากระรอก');
@@ -476,7 +476,7 @@ test('LINE: the pinned notifications thread shows the real LINE cards, and their
   // It opens at the latest card, as LINE does.
   await expect(cards.nth(2).getByRole('link', { name: 'ดูรายการรอรับเงิน' })).toBeInViewport();
   // The official mascot pose and the brand symbol come from the app's own files.
-  await expect(cards.nth(2).locator('.lnc-figure img')).toHaveAttribute('src', '/line/mochi-urgent.png');
+  await expect(cards.nth(2).locator('.lnc-figure img')).toHaveAttribute('src', '/line/mascot-v6-urgent.png');
   expect(await textOverlapIssues(page)).toEqual([]);
   await snap(page, 'assistant-line-thread.png');
 

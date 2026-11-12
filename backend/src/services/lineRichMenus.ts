@@ -14,12 +14,12 @@ import { isOwnerUserId } from '../repositories/roles.js';
 // cashflow_claim_webhook keeps two Workers from publishing at the same time, and later runs find the menus again
 // by name. It runs on the first LINE message after a release and every day at 09:00 Bangkok.
 
-// 2026-11-12: the เพิ่มงาน tile shows โมจิ instead of the old squirrel (owner: "เปลี่ยนเป็นโมจิให้หมดทุกที่"); only that figure
-// changed, the rest of the picture is the 2026-11-03 menu pixel for pixel.
-export const MENU_VERSION = '2026-11-12';
+// 2026-11-12r: back to the 2026-11-03 pictures (the original squirrel) after a day with โมจิ; a new name, because the
+// 2026-11-03 menus still exist in LINE and a finished version is never made the default again.
+export const MENU_VERSION = '2026-11-12r';
 export type MenuKind = 'everyone' | 'admin';
 const NAME: Record<MenuKind, string> = { everyone: `กระรอกตุนเงิน ทุกบัญชี ${MENU_VERSION}`, admin: `กระรอกตุนเงิน แอดมิน ${MENU_VERSION}` };
-const IMAGE: Record<MenuKind, string> = { everyone: '/line/richmenu-ci-5-2026-11-12.jpg', admin: '/line/richmenu-ci-6-2026-11-12.jpg' };
+const IMAGE: Record<MenuKind, string> = { everyone: '/line/richmenu-ci-5-2026-11-03.jpg', admin: '/line/richmenu-ci-6-2026-11-03.jpg' };
 const BULK = 500;
 
 const vaultOpenToAll = () => isPhaseOneFeatureAvailable('vault', false);

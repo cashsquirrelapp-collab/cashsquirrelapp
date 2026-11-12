@@ -13,8 +13,7 @@ export const SITE_NAME = 'Krarok';
 export const SITE_ALTERNATE_NAMES = ['กระรอกตุนเงิน', 'Krarok Tunngern', 'กระรอก ตุนเงิน', 'Krarok Tun Ngern', 'Kra Rok Tun Ngoen', 'แอปกระรอก'];
 const LOGO = `${SITE_URL}/brand/home-v2/home-icon-512.png`;
 /** The picture LINE, Facebook and others show with a shared link (1200×630, the logo, the owner's line and the mascot). */
-// v2 (2026-11-12): โมจิ in place of the old squirrel, the same words and logo; a new name so LINE and Facebook fetch it again.
-export const SHARE_IMAGE = { url: `${SITE_URL}/og/krarok-share-v2.png`, width: 1200, height: 630 };
+export const SHARE_IMAGE = { url: `${SITE_URL}/og/krarok-share.png`, width: 1200, height: 630 };
 type ShareImage = { url: string; width: number; height: number; alt?: string };
 
 /** The founder, as search engines should know them (owner, 2026-11-01: "เสิร์ชให้เจอกูง่าย ๆ"). The names are the ones

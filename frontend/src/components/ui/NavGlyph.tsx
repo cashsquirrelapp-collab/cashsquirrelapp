@@ -1,5 +1,5 @@
 import React from 'react';
-import { Mochi } from '../mascot/Mochi';
+import { Mascot } from '../mascot/Mascot';
 
 // Filled versions of the sidebar icons, for the page that is open (iOS style, owner 2026-10-23):
 // outline icons for the other pages, a solid one for where you are. Inner details are drawn in
@@ -37,7 +37,7 @@ export function NavGlyph({ tab, active, outline: Outline, className }: {
 }) {
   // เลขากระรอก's icon is the squirrel itself (owner, 2026-10-23), the official drawing at icon size.
   if (tab === 'assistant') {
-    return <span className={`inline-grid place-items-center ${className || ''}`} aria-hidden="true"><Mochi mood="happy" face animated={false} size={22} /></span>;
+    return <span className={`inline-grid place-items-center ${className || ''}`} aria-hidden="true"><Mascot gear="pro" mood="happy" animated={false} size={22} viewBox="12 8 76 76" /></span>;
   }
   const filled = active ? FILLED[tab] : undefined;
   if (!filled) return <Outline className={className} strokeWidth={active ? 2.3 : 1.7} />;

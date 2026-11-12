@@ -138,11 +138,10 @@ export function lineCard(opts: {
   // The official white brand symbol (logo01-v1/symbol-white), on the band with no disc or frame.
   const symbol = lineAppLink('/brand/logo01-v1/symbol-white.png')?.uri;
   const icon = lineAppLink(`/line/icons/${category.icon}.png`)?.uri;
-  // โมจิ in the pose made for this event (/line/mochi-*.png, rendered from Mochi.tsx with a white sticker edge so it
-  // reads on the band; owner, 2026-11-12: โมจิ everywhere). No frame
+  // The official mascot in the pose made for this event (/line/mascot-v6-*.png, never redrawn). No frame
   // (owner: "ไม่ต้องเพิ่มกรอบ ... อยากได้เหมือน Apple"): it stands on the band at the bottom right and the
   // band's edge crops its feet, like a product photo.
-  const mascot = lineAppLink(`/line/mochi-${category.pose || character}.png`)?.uri;
+  const mascot = lineAppLink(`/line/mascot-v6-${category.pose || character}.png`)?.uri;
   const brand = {
     type: 'box', layout: 'horizontal', spacing: 'sm', alignItems: 'center', contents: [
       ...(symbol ? [{ type: 'image', url: symbol, size: '18px', aspectRatio: '1:1', aspectMode: 'fit', flex: 0 }] : []),

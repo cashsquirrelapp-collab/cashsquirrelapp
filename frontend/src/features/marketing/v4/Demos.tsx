@@ -62,8 +62,8 @@ export function PhoneDemo() {
         <div className="gl-linechat">
           <div className="gl-line-bar" aria-hidden="true"><span>‹</span><b>{tr('กระรอกตุนเงิน')}</b><span /></div>
           <div className="gl-line-scroll">
-            <img className="gl-line-card" src="/landing-v4/line-reminder-mochi.webp" alt={tr('การ์ดเตือนรับเงินใน LINE')} />
-            <img className="gl-line-card is-received" src="/landing-v4/line-received-mochi.webp" alt="" aria-hidden="true" />
+            <img className="gl-line-card" src="/landing-v4/line-reminder.webp" alt={tr('การ์ดเตือนรับเงินใน LINE')} />
+            <img className="gl-line-card is-received" src="/landing-v4/line-received.webp" alt="" aria-hidden="true" />
           </div>
           <span className="gl-tap is-tap2" />
         </div>

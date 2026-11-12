@@ -12,7 +12,7 @@ import './linePhone.css';
 // chatBarText). Colours from the screenshot (LINE's dark look). The chat moves up as each message arrives, as LINE does;
 // how far is measured, as it depends on the phone's size.
 
-/** Where ได้รับแล้ว sits on the reminder card picture (line-reminder-mochi.webp, 600 × 1208), as parts of its width and height. */
+/** Where ได้รับแล้ว sits on the reminder card picture (line-reminder.webp, 600 × 1208), as parts of its width and height. */
 const PAID_BUTTON = { x: 0.2, y: 0.599 };
 const TAP = 46;
 
@@ -71,7 +71,7 @@ export function LinePhone() {
                 <span className="lp-day" aria-hidden="true">{tr('วันนี้')}</span>
                 <div className="lp-row is-bot">
                   {avatar}
-                  <img ref={card} className="lp-card" src="/landing-v4/line-reminder-mochi.webp" alt={tr('การ์ดเตือนรับเงินใน LINE')} onLoad={measure} />
+                  <img ref={card} className="lp-card" src="/landing-v4/line-reminder.webp" alt={tr('การ์ดเตือนรับเงินใน LINE')} onLoad={measure} />
                   <time className="lp-time" aria-hidden="true">08:00</time>
                 </div>
                 <div className="lp-row is-me lp-sent" ref={sent} aria-hidden="true">
@@ -80,7 +80,7 @@ export function LinePhone() {
                 </div>
                 <div className="lp-row is-bot lp-reply" ref={reply} aria-hidden="true">
                   {avatar}
-                  <img className="lp-card" src="/landing-v4/line-received-mochi.webp" alt="" onLoad={measure} />
+                  <img className="lp-card" src="/landing-v4/line-received.webp" alt="" onLoad={measure} />
                   <time className="lp-time">08:01</time>
                 </div>
               </div>

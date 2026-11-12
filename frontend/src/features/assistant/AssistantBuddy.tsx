@@ -1,9 +1,8 @@
 import React from 'react';
-import { Mochi } from '../../components/mascot/Mochi';
-import { MochiPeek } from '../../components/mascot/MascotPeek';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { AlertCircle, ArrowUp, BarChart3, Check, ChevronRight, Clock, FileText, FolderPlus, HelpCircle, ListChecks, Maximize2, Mic, MousePointerClick, Paperclip, Pointer, Sparkles, Wallet, X } from 'lucide-react';
+import { Mascot } from '../../components/mascot/Mascot';
 import { Modal } from '../../components/ui/Modal';
 import { tr, T } from '../../i18n/tr';
 import { createSampleTransport, tokenLevel, type AssistantTransport } from './assistantApi';
@@ -13,6 +12,7 @@ import { cardSpeech, climbFor, graphemes, speechPreview, type BuddyNews, type Cl
 import { ChatCardView, type ConfirmState, ConfirmAll } from './ChatCards';
 import { BriefingCard, briefingText } from './BriefingCard';
 import { FloatingWindow, MiniMascot, useAvoidZones } from './FloatingChat';
+import { MascotPeek } from '../../components/mascot/MascotPeek';
 import { useDictation } from './useDictation';
 import type { PreparedFile } from './voice';
 import { rememberChatFile } from './chatFiles';
@@ -566,7 +566,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
           {/* Owner, 2026-10-27: version 2 ("ชอบแบบที่สอง"), then "ทำในมือถือด้วยเลย": the squirrel standing at the corner, waving
               while nothing is going on, its face showing what the chat is doing otherwise; smaller on phones. In its headset since
               2026-10-29 ("อยากได้น้องที่ใส่หูฟังแทน"), like the arrival that lands here and the squirrel on the chat. */}
-          <span className="asx-buddy-stand" data-mood={standMood}><Mochi mood={standMood} animated={!reduce} size={mobile ? STAND_PHONE : STAND} /></span>
+          <span className="asx-buddy-stand" data-mood={standMood}><Mascot gear="headset" thoughtDots={false} mood={standMood} action={standMood === 'wave' ? 'wave' : 'idle'} animated={!reduce} size={mobile ? STAND_PHONE : STAND} /></span>
         </motion.button>
   );
 
@@ -627,14 +627,14 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
                         {/* A spreadsheet's check is เลขา's report, on its side (owner, 2026-11-04). */}
                         {messageFiles(message).some(file => file.check) && (
                           <li className="asx-msg is-bot is-check">
-                            <span className="asx-avatar" aria-hidden="true"><Mochi mood="happy" face animated={false} size={26} /></span>
+                            <span className="asx-avatar" aria-hidden="true"><Mascot gear={mobile ? 'pro' : 'none'} thoughtDots={false} mood="happy" animated={false} size={26} viewBox="12 8 76 76" /></span>
                             <div className="asx-msg-body"><FileChecks files={messageFiles(message)} /></div>
                           </li>
                         )}
                       </React.Fragment>
                     ) : (
                       <li key={message.id} className="asx-msg is-bot">
-                        <span className="asx-avatar" aria-hidden="true"><Mochi mood="happy" face animated={false} size={26} /></span>
+                        <span className="asx-avatar" aria-hidden="true"><Mascot gear={mobile ? 'pro' : 'none'} mood="happy" animated={false} size={26} viewBox="12 8 76 76" /></span>
                         <div className="asx-msg-body">
                           {message.work && <WorkDone work={message.work} />}
                           {message.text && <Markdown text={message.text} onNavigate={go} navigationContext={navigationContext} cards={message.cards} />}
@@ -652,7 +652,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
                     ))}
                     {mode === 'thinking' && (
                       <li className="asx-msg is-bot">
-                        <span className="asx-avatar" aria-hidden="true"><Mochi mood="thinking" face animated={false} size={26} /></span>
+                        <span className="asx-avatar" aria-hidden="true"><Mascot gear={mobile ? 'pro' : 'none'} thoughtDots={mobile} mood="thinking" animated={false} size={26} viewBox="12 8 76 76" /></span>
                         {work.work?.heavy ? <WorkLive work={work.work} /> : <div className="asx-typing" role="img" aria-label={tr("เลขากระรอกกำลังคิด")}><i /><i /><i /></div>}
                       </li>
                     )}
@@ -770,7 +770,7 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
               <header className="asx-buddy-head is-perched">
                 <div className="asx-sheet-side">{tokenCorner}</div>
                 <span className="asx-perch is-sheet" aria-hidden="true" data-mood={poseFor(mode).mood}>
-                  <span className="asx-perch-box"><MochiPeek size={72} mood={poseFor(mode).mood} motion={reduce ? 'still' : 'calm'} holo={busy} className="asx-perch-art" /></span>
+                  <span className="asx-perch-box"><MascotPeek size={72} gear="headset" mood={poseFor(mode).mood} motion={reduce ? 'still' : 'calm'} holo={busy} thoughtDots={false} className="asx-perch-art" /></span>
                   <span className="asx-perch-name">{tr("เลขากระรอก")}</span>
                 </span>
                 <span className="asx-sr">{tr("กำลังดูหน้า{0}", pageName)}</span>

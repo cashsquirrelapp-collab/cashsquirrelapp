@@ -51,9 +51,9 @@ test('Pro: the squirrel stands at the corner of each page and its chat knows the
   const button = page.getByRole('button', { name: 'ถามเลขากระรอกเรื่องหน้างาน' });
   await expect(button).toBeVisible();
   // The corner squirrel wears its headset again (owner, 2026-10-29: "อยากได้น้องที่ใส่หูฟังแทน"), the headset alone.
-  await expect(button.locator('svg.mochi')).toHaveCount(1); // โมจิ (owner, 2026-11-12)
+  await expect(button.locator('.mpg-headset')).toHaveCount(1);
   await expect(button.locator('.mpg-back, .mpg-spark')).toHaveCount(0);
-  await expect(page.locator('aside.app-sidebar').getByRole('button', { name: 'เลขากระรอก', exact: true }).locator('svg.mochi')).toHaveCount(1);
+  await expect(page.locator('aside.app-sidebar').getByRole('button', { name: 'เลขากระรอก', exact: true }).locator('.mpg-headset')).toHaveCount(1);
   const box = (await button.boundingBox())!;
   expect(1280 - (box.x + box.width)).toBeLessThan(40);
   expect(820 - (box.y + box.height)).toBeLessThan(40);
@@ -128,7 +128,7 @@ test('computers: the squirrel stands at the corner and waves; its bubble says he
   // (2026-10-29), no ring; no words or shortcut on a pill any more.
   expect(await button.evaluate(el => getComputedStyle(el, '::after').content)).toBe('none');
   const face = button.locator('.asx-buddy-stand');
-  await expect(face.locator('svg.mochi')).toHaveCount(1); // โมจิ, เลขา's own character (owner, 2026-11-12)
+  await expect(face.locator('.mpg-headset')).toHaveCount(1); // the headset (owner, 2026-10-29)
   await expect(face.locator('.mpg-back')).toHaveCount(0);
   await expect(face).toHaveAttribute('data-mood', 'wave');
   await expect(button.locator('.asx-buddy-label, kbd')).toHaveCount(0);
@@ -170,7 +170,7 @@ test('computers: the squirrel stands at the corner and waves; its bubble says he
   await page.mouse.move(400, 300);
   await expect(typed(page)).toHaveText('กำลังคิด');
   await expect(face).toHaveAttribute('data-mood', 'thinking');
-  await expect(face.locator('svg.mochi')).toHaveCount(1);
+  await expect(face.locator('.mpg-headset')).toHaveCount(1);
   // The squirrel types the answer itself; it stays while the card waits for a yes, with a checking face.
   await expect(typed(page)).toHaveText('นี่คือรายละเอียดที่จะบันทึกครับ ตรวจสอบก่อนกดยืนยันได้เลย', { timeout: 10000 });
   await expect(say(page)).toHaveAttribute('data-kind', 'awaiting');
@@ -248,7 +248,7 @@ for (const dark of [false, true]) {
     expect(perch.y).toBeGreaterThanOrEqual(0);
     // Outside the clipped glass, so nothing cuts it off; the official drawing in its headset alone (2026-10-29), no outfit, no glow.
     expect(await page.locator('.kfw-perch').evaluate(el => el.closest('.kfw-shell') === null && getComputedStyle(el.closest('.kfw')!).overflow === 'visible')).toBe(true);
-    await expect(page.locator('.kfw-perch svg.mochi')).toHaveCount(1);
+    await expect(page.locator('.kfw-perch .mpg-headset')).toHaveCount(1);
     await expect(win(page).locator('.mpg-back, .mpg-spark')).toHaveCount(0);
     await expect(page.locator('.kfw-perch [data-holo]')).toHaveCount(0);
     expect(await page.locator('.kfw-perch').evaluate(el => getComputedStyle(el).filter)).toBe('none');
@@ -351,17 +351,17 @@ test('computers: the window moves and resizes inside the screen, remembers its p
   expect([Math.round(reset.x), Math.round(reset.y), Math.round(reset.w), Math.round(reset.h)]).toEqual([Math.round(start.x), Math.round(start.y), Math.round(start.w), Math.round(start.h)]);
 });
 
-test('computers: while เลขา works, โมจิ on the window thinks; done, it looks up again', async ({ page }) => {
+test('computers: while เลขา works, a hologram screen rises in front of the squirrel and its paws tap on it', async ({ page }) => {
   await openWindow(page);
   await expect(page.locator('.kfw-perch [data-holo]')).toHaveCount(0);
   await win(page).getByRole('button', { name: 'ช่วยเพิ่มงานใหม่ให้หน่อย' }).click();
   await expect(page.locator('.kfw-perch [data-holo]')).toHaveCount(1);
-  await expect(page.locator('.kfw-perch svg.mochi[data-face="think"]')).toHaveCount(1);
+  await expect(page.locator('.kfw-perch .mascot-tap')).toHaveCount(2);
   await snap(page, 'float-hologram.png');
-  // Done: it stops thinking.
+  // Done: the screen goes and the paws rest on the edge again.
   await expect(win(page).locator('.asx-rcard').filter({ hasText: 'เพิ่มงานใหม่ 1 งาน' })).toBeVisible({ timeout: 10000 });
   await expect(page.locator('.kfw-perch [data-holo]')).toHaveCount(0, { timeout: 6000 });
-  await expect(page.locator('.kfw-perch svg.mochi[data-face="think"]')).toHaveCount(0);
+  await expect(page.locator('.kfw-perch .mascot-tap')).toHaveCount(0);
 });
 
 test('computers: minimise folds the chat into the squirrel, which keeps the conversation and its work and opens it again', async ({ page }) => {
@@ -624,7 +624,7 @@ test('paying: the squirrel walks out of its door at once, with no success messag
   await expect(paidTick).toHaveCount(0, { timeout: 3000 });
   await expect(stage.locator('.kb-door')).toHaveCount(1);
   // Dressed as the corner squirrel, in its headset (owner, 2026-10-29: "เวลาที่น้องเดินออกมาก็เป็นน้องใส่หูฟัง").
-  await expect(stage.locator('.kb-figure svg.mochi')).toHaveCount(1);
+  await expect(stage.locator('.kb-figure .mpg-headset')).toHaveCount(1);
   await expect(stage.locator('.kb-figure .mpg-back')).toHaveCount(0);
   // No skip button (owner, 2026-10-29: "เอาปุ่มกดข้ามออก ... รอให้อนิเมชันจบ"); Escape does not close it either.
   await expect(stage.getByRole('button')).toHaveCount(0);
