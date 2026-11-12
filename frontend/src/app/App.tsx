@@ -247,7 +247,8 @@ function isConfirmedCheckoutSubscription(subscription: BillingSubscription, now 
 }
 
 const TAB_KEYS: TabKey[] = ['dashboard', 'adminDashboard', 'jobs', 'tax', 'split', 'report', 'settings', 'invoice', 'insight', 'plans', 'groups', 'calendar', 'receivables', 'incomeExpense', 'vault', 'wht50', 'feedback', 'assistant'];
-const ROOT_RESERVED_SLUGS = new Set(['login', 'app', 'privacy', 'terms', 'api', 'line-documents']);
+// line-start: signing up in LINE (LineStartPage), never a workspace name.
+const ROOT_RESERVED_SLUGS = new Set(['login', 'app', 'privacy', 'terms', 'api', 'line-documents', 'line-start']);
 // The ลูกค้า page was removed; its per-client numbers live in รายงาน › ลูกค้า (the insight alias).
 const RETIRED_TAB_ALIASES: Record<string, TabKey> = { timeline: 'calendar', summary: 'incomeExpense', clients: 'insight' };
 /** The account's light / dark choice kept on the device, and the stretch of the clock last applied (themeSchedule). */

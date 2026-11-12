@@ -141,6 +141,8 @@ test('a browser already signed in to an account stays on /line-start instead of 
   await page.addInitScript(id => {
     localStorage.setItem('krarok_cookie_consent', JSON.stringify({ v: 1, stats: false, at: '2026-11-05T03:00:00.000Z' }));
     localStorage.setItem('krarok_consent', JSON.stringify({ [id]: { terms: '2026-11-05', ai: '2026-11-05', line: '2026-11-05' } }));
+    // The signed-in hint shows the opening logo on other pages; it must not cover this one.
+    localStorage.setItem('cashflow_signed_in', '1');
   }, user.id);
   await page.route('**/api/**', route => route.fulfill({ json: {} }));
   await page.route('**/api/auth*', route => route.fulfill({ json: { session: { user } } }));
@@ -150,5 +152,10 @@ test('a browser already signed in to an account stays on /line-start instead of 
   await page.goto('/line-start?preview=1');
   await expect(page.locator('#wob-name')).toBeVisible();
   await page.waitForTimeout(1500);
+  await expect(page).toHaveURL(/\/line-start\?preview=1$/);
+  await expect(page.locator('#app-splash')).toHaveCount(0);
+  // A tab change at start-up (navigateTab) must not read line-start as a workspace name either.
+  await page.evaluate(() => { window.history.replaceState({}, '', '/line-start?preview=1'); window.dispatchEvent(new PopStateEvent('popstate')); });
+  await page.waitForTimeout(800);
   await expect(page).toHaveURL(/\/line-start\?preview=1$/);
 });
