@@ -42,6 +42,7 @@ for (const device of [{ name: 'phone', width: 390 }, { name: 'iPad', width: 768 
   test(`a LINE chat without an account signs up on the website's welcome screens (${device.name})`, async ({ page }) => {
     const sent = await open(page, { width: device.width });
     await expect(page).toHaveURL(/\/line-start$/);
+    await page.goto('/line-start?full=1'); // every welcome question at once (one tap is the default)
     // Step 1: the greeting, the LINE name already in the field and echoed under สวัสดีครับ.
     await expect(page.locator('#wob-name')).toHaveValue('Park LINE');
     await loadLayoutFonts(page);
@@ -109,6 +110,7 @@ for (const device of [{ name: 'phone', width: 390 }, { name: 'iPad', width: 768 
 test('the server\'s reason is shown when the sign-up is refused, and the person can try again', async ({ page }) => {
   await open(page, { status: 409, reply: { error: 'LINE นี้เชื่อมกับบัญชีอื่นอยู่แล้ว' } });
   await expect(page).toHaveURL(/\/line-start$/);
+  await page.goto('/line-start?full=1');
   await page.locator('.wob-go').click();
   await page.getByRole('button', { name: 'ข้ามก่อน' }).click();
   await page.getByText('ยอมรับเงื่อนไขการใช้งานและนโยบายความเป็นส่วนตัว').click();
@@ -146,7 +148,7 @@ test('/line-start?preview=1 shows the same three screens and sends nothing', asy
   page.on('request', request => { if (request.method() === 'POST' && request.url().includes('/api/line-signup')) posts.push(request.url()); });
   await page.route('**/api/auth*', route => route.fulfill({ json: { session: null } }));
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/line-start?preview=1');
+  await page.goto('/line-start?preview=1&full=1');
   await page.locator('#wob-name').fill('ปาร์ค');
   await page.locator('.wob-go').click();
   await page.getByRole('button', { name: 'ข้ามก่อน' }).click();
@@ -169,20 +171,21 @@ test('a browser already signed in to an account stays on /line-start instead of 
   await page.route('**/api/profile', route => route.fulfill({ json: { userId: user.id, publicId: 'SQ-6666666666', displayName: 'ผู้ทดสอบ' } }));
   await page.route('**/api/groups?*', route => route.fulfill({ json: { systemRole: 'user', groups: [], invitations: [], total: 0, page: 0 } }));
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/line-start?preview=1');
+  await page.goto('/line-start?preview=1&full=1');
   await expect(page.locator('#wob-name')).toBeVisible();
   await page.waitForTimeout(1500);
-  await expect(page).toHaveURL(/\/line-start\?preview=1$/);
+  await expect(page).toHaveURL(/\/line-start\?preview=1&full=1$/);
   await expect(page.locator('#app-splash')).toHaveCount(0);
   // A tab change at start-up (navigateTab) must not read line-start as a workspace name either.
-  await page.evaluate(() => { window.history.replaceState({}, '', '/line-start?preview=1'); window.dispatchEvent(new PopStateEvent('popstate')); });
+  await page.evaluate(() => { window.history.replaceState({}, '', '/line-start?preview=1&full=1'); window.dispatchEvent(new PopStateEvent('popstate')); });
   await page.waitForTimeout(800);
-  await expect(page).toHaveURL(/\/line-start\?preview=1$/);
+  await expect(page).toHaveURL(/\/line-start\?preview=1&full=1$/);
 });
 
 test('ข้ามก่อน in LINE keeps what was picked, goes to the agreements, and ย้อนกลับ returns to the skipped step', async ({ page }) => {
   const sent = await open(page);
   await expect(page).toHaveURL(/\/line-start$/);
+  await page.goto('/line-start?full=1');
   await page.locator('.wob-go').click();
   await page.getByText('นักเรียน / นักศึกษา').click();
   await page.locator('.wob-next').click();
@@ -196,4 +199,40 @@ test('ข้ามก่อน in LINE keeps what was picked, goes to the agreem
   await page.locator('.wob-next').click();
   await page.waitForURL(/liff-add\.html\?done=1/, { timeout: 15_000 });
   expect(sent.find(item => item.url === 'line-signup')?.body).toEqual({ idToken: 'token', name: 'Park LINE', workType: 'student', occupations: [], goals: [], skippedAtStep: 3, agreed: true });
+});
+
+// One tap is the default in LINE (owner, 2026-11-13: "ใช้ง่าย เข้าใจได้รวดเร็ว สะดวก", unlike the competitor's forms).
+const KEEP = Buffer.from(JSON.stringify({ k: 'e', n: 'ข้าวมันไก่', a: 50 })).toString('base64url');
+for (const device of [{ name: 'phone', width: 390 }, { name: 'iPad', width: 768 }]) {
+  test(`one tap: the LINE name in, ใช้แบบไหน picked, the tried record kept as the first (${device.name})`, async ({ page }) => {
+    const sent = await open(page, { width: device.width, query: `?start=1&use=personal&keep=${KEEP}` });
+    await expect(page).toHaveURL(/\/line-start$/);
+    const screen = page.getByTestId('line-quick-start');
+    await expect(screen.locator('#lq-name')).toHaveValue('Park LINE');
+    await expect(screen.getByRole('radio', { name: 'ใช้ส่วนตัว' })).toHaveAttribute('aria-checked', 'true');
+    await expect(screen.getByTestId('line-quick-keep')).toContainText('ข้าวมันไก่');
+    await expect(screen.getByTestId('line-quick-keep')).toContainText('−฿50');
+    await page.waitForTimeout(1600);
+    expect(await textOverlapIssues(page)).toEqual([]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+    await page.screenshot({ path: `test-results/line-quick-start-${device.name}.png` });
+    await screen.getByRole('button', { name: 'ยอมรับและเริ่มใช้งาน' }).click();
+    await expect(page.getByText('พร้อมแล้วครับ')).toBeVisible();
+    await page.waitForURL(/liff-add\.html\?done=1/, { timeout: 15_000 });
+    expect(sent.find(item => item.url === 'line-signup')?.body).toEqual({ idToken: 'token', name: 'Park LINE', skippedAtStep: 2, agreed: true, use: 'personal', keep: KEEP });
+  });
+}
+
+test('one tap asks for a name of two letters, and works without a pick or a tried record', async ({ page }) => {
+  const sent = await open(page);
+  const screen = page.getByTestId('line-quick-start');
+  await expect(screen.getByTestId('line-quick-keep')).toHaveCount(0);
+  await screen.locator('#lq-name').fill('ก');
+  await screen.getByRole('button', { name: 'ยอมรับและเริ่มใช้งาน' }).click();
+  await expect(screen.locator('.wob-error')).toHaveText('กรุณาใส่ชื่ออย่างน้อย 2 ตัวอักษร');
+  await screen.locator('#lq-name').fill('ปาร์ค');
+  await screen.getByRole('radio', { name: 'บริษัท / สำนักงาน' }).click();
+  await screen.getByRole('button', { name: 'ยอมรับและเริ่มใช้งาน' }).click();
+  await page.waitForURL(/liff-add\.html\?done=1/, { timeout: 15_000 });
+  expect(sent.find(item => item.url === 'line-signup')?.body).toEqual({ idToken: 'token', name: 'ปาร์ค', skippedAtStep: 2, agreed: true, use: 'company' });
 });

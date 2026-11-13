@@ -90,6 +90,7 @@ function fakeDeps(over: Partial<LineSignupDeps> = {}) {
     profile: async (userId, name) => { calls.push(`profile:${name}`); },
     settings: async (userId, settings) => { calls.push(`settings:${settings.onboarding?.work_type}`); },
     jobTypes: async (userId, types) => { calls.push(`jobTypes:${types.length}`); },
+    firstRecord: async (userId, draft, today) => { calls.push(`first:${draft.kind}:${draft.name}:${draft.amount}:${today}`); },
     key: () => KEY,
     now: () => new Date('2026-11-13T05:00:00Z'),
     ...over,
@@ -202,4 +203,16 @@ test('a link code sent from a chat that is already linked gets a plain answer, n
   assert.match((await linkCodeWhileLinked(LINE_ID, 'ec5a3a69c7504381', deps('a', null)))!, /^ไม่พบรหัสนี้ หรือรหัสหมดอายุแล้ว/);
   assert.match((await linkCodeWhileLinked(LINE_ID, 'EC5A3A69C7504381', deps('a', 'a')))!, /เชื่อมกับบัญชีนี้อยู่แล้ว/);
   assert.match((await linkCodeWhileLinked(LINE_ID, 'EC5A3A69C7504381', deps('a', 'b')))!, /ยกเลิกการเชื่อมต่อในบัญชีเดิมก่อน/);
+});
+
+test('a record tried in LINE before signing up becomes the account\'s first, dated today in Bangkok', async () => {
+  const { encodeTry } = await import('../backend/src/services/lineTry.js');
+  const { deps, calls } = fakeDeps({ now: () => new Date('2026-11-13T18:30:00Z') });
+  const result = await signUpFromLine(LINE_ID, { name: 'ปาร์ค', use: 'personal', skippedAtStep: 2, keep: encodeTry({ kind: 'expense', name: 'ข้าวมันไก่', amount: 50 }) }, deps);
+  assert.deepEqual(result.first, { kind: 'expense', name: 'ข้าวมันไก่', amount: 50 });
+  assert.equal(calls.at(-1), 'first:expense:ข้าวมันไก่:50:2026-11-14');
+  const tampered = fakeDeps();
+  const plain = await signUpFromLine(LINE_ID, { name: 'ปาร์ค', keep: 'tampered' }, tampered.deps);
+  assert.equal(plain.first, undefined);
+  assert.equal(tampered.calls.some(call => call.startsWith('first:')), false);
 });

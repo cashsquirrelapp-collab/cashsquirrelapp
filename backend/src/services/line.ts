@@ -7,6 +7,8 @@ export interface LineQuickReply {
   items: (
     | { type: 'action'; action: { type: 'message'; label: string; text: string } }
     | { type: 'action'; action: { type: 'uri'; label: string; uri: string } }
+    | { type: 'action'; action: { type: 'postback'; label: string; data: string; displayText?: string } }
+    | { type: 'action'; action: { type: 'cameraRoll' | 'camera'; label: string } }
   )[];
 }
 

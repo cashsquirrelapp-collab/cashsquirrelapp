@@ -175,6 +175,20 @@
     if (target.origin !== window.location.origin || target.hash) throw new Error('ปลายทางไม่ถูกต้อง');
     window.location.replace(target.href);
   }
+  // ใช้แบบไหน and a record tried in the chat ride in the เก็บไว้ link (services/lineTry.ts); the server checks them again.
+  var launchSearch = window.location.search;
+  function startExtras() {
+    var found = { use: null, keep: null };
+    [launchSearch, window.location.search].forEach(function (search) {
+      var params = new URLSearchParams(search);
+      var state = params.get('liff.state');
+      if (state) { var at = state.indexOf('?'); params = new URLSearchParams(at >= 0 ? state.slice(at + 1) : state.replace(/^\?/, '')); }
+      var use = params.get('use'); var keep = params.get('keep');
+      if (!found.use && (use === 'personal' || use === 'business' || use === 'company')) found.use = use;
+      if (!found.keep && keep && /^[A-Za-z0-9_-]{8,600}$/.test(keep)) found.keep = keep;
+    });
+    return found;
+  }
   function startRequested(search) {
     var params = new URLSearchParams(search);
     if (params.has('start')) return true;
@@ -189,7 +203,8 @@
     showStatus('กำลังเปิดหน้าเริ่มใช้งาน', 'รอสักครู่ครับ', false, 'review');
     var go = function (name) {
       try {
-        sessionStorage.setItem('krarok_line_signup', JSON.stringify({ idToken: liff.getIDToken(), name: name || '', destination: destination || null, at: Date.now() }));
+        var extra = startExtras();
+        sessionStorage.setItem('krarok_line_signup', JSON.stringify({ idToken: liff.getIDToken(), name: name || '', destination: destination || null, at: Date.now(), use: extra.use, keep: extra.keep }));
       } catch (error) { showStatus('เปิดหน้าเริ่มใช้งานไม่ได้', 'กรุณาลองเปิดใหม่จากแชท LINE', true, 'urgent'); return; }
       window.location.replace('/line-start');
     };

@@ -1,5 +1,6 @@
 import React from 'react';
 import WelcomeOnboarding, { type OnboardingResult } from './WelcomeOnboarding';
+import LineQuickStart, { readKeep, type QuickUse } from './LineQuickStart';
 import { tr } from '../../i18n/tr';
 
 // /line-start — signing up inside LINE with the website's own welcome screens (owner, 2026-11-13: "อยากให้มันเป็น UI
@@ -10,13 +11,16 @@ import { tr } from '../../i18n/tr';
 export const LINE_SIGNUP_KEY = 'krarok_line_signup';
 const MAX_AGE_MS = 50 * 60_000;
 
-type Handoff = { idToken: string; name: string; destination: string | null; at: number };
+/** use and keep: ใช้แบบไหน and the record tried in the chat, from the LINE link (services/lineTry.ts). */
+type Handoff = { idToken: string; name: string; destination: string | null; at: number; use: QuickUse | null; keep: string | null };
+const USE_IDS: readonly string[] = ['personal', 'business', 'company'];
 
 export function readLineHandoff(now = Date.now()): Handoff | null {
   try {
     const value = JSON.parse(sessionStorage.getItem(LINE_SIGNUP_KEY) || 'null') as Partial<Handoff> | null;
     if (!value || typeof value.idToken !== 'string' || !value.idToken || typeof value.at !== 'number' || now - value.at > MAX_AGE_MS) return null;
-    return { idToken: value.idToken, name: typeof value.name === 'string' ? value.name.slice(0, 60) : '', destination: typeof value.destination === 'string' ? value.destination : null, at: value.at };
+    return { idToken: value.idToken, name: typeof value.name === 'string' ? value.name.slice(0, 60) : '', destination: typeof value.destination === 'string' ? value.destination : null, at: value.at,
+      use: typeof value.use === 'string' && USE_IDS.includes(value.use) ? value.use as QuickUse : null, keep: typeof value.keep === 'string' ? value.keep.slice(0, 600) : null };
   } catch { return null; }
 }
 
@@ -26,6 +30,8 @@ export default function LineStartPage() {
   // nothing is sent and no account is made.
   const [preview] = React.useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('preview'));
   const [previewDone, setPreviewDone] = React.useState(false);
+  // One tap by default (owner, 2026-11-13: "ใช้ง่าย เข้าใจได้รวดเร็ว"); ?full=1 asks every welcome question at once.
+  const [full] = React.useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('full'));
   const mobile = typeof window !== 'undefined' && window.innerWidth < 744;
   // A new LINE account has no test features: the Sheets goal shows only away from the real site (staging, previews).
   const showUnreleased = typeof window !== 'undefined' && !/(^|\.)krarok\.com$/.test(window.location.hostname);
@@ -53,6 +59,25 @@ export default function LineStartPage() {
     window.location.replace(target && target.origin === window.location.origin && !target.hash ? target.href : '/liff-add.html?done=1');
   };
 
+  const quick = async ({ name, use }: { name: string; use: QuickUse | null }) => {
+    if (!handoff) throw new Error(tr("กรุณาเปิดหน้านี้ใหม่จากแชท LINE"));
+    // The rest of the welcome questions come later, one at a time in the chat: the record says so (skipped at step 2).
+    const body: Record<string, unknown> = { idToken: handoff.idToken, name, skippedAtStep: 2, agreed: true };
+    if (use) body.use = use;
+    if (handoff.keep) body.keep = handoff.keep;
+    if (handoff.destination) body.destination = handoff.destination;
+    const response = await fetch('/api/line-signup', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Protection': '1' },
+      body: JSON.stringify(body),
+    });
+    const reply = await response.json().catch(() => ({})) as { error?: string; destination?: string | null };
+    if (!response.ok) throw new Error(reply.error || tr("เริ่มใช้งานไม่สำเร็จ กรุณาลองอีกครั้ง"));
+    try { sessionStorage.removeItem(LINE_SIGNUP_KEY); } catch { /* the token expires on its own */ }
+    const target = reply.destination ? new URL(reply.destination, window.location.origin) : null;
+    window.location.replace(target && target.origin === window.location.origin && !target.hash ? target.href : '/liff-add.html?done=1');
+  };
+
   if (preview) {
     if (previewDone) return (
       <main style={{ minHeight: '100svh', display: 'grid', placeItems: 'center', padding: 24, background: '#FFFFFF', color: '#1C1917', textAlign: 'center' }}>
@@ -63,6 +88,7 @@ export default function LineStartPage() {
         </div>
       </main>
     );
+    if (!full) return <LineQuickStart mobile={mobile} initialName="" initialUse={null} keep={readKeep(new URLSearchParams(window.location.search).get('keep'))} onStart={async () => { setPreviewDone(true); }} />;
     return <WelcomeOnboarding mode="line" mobile={mobile} accountName="" showUnreleased={showUnreleased} onFinish={async () => { setPreviewDone(true); }} onSkip={async () => undefined} onClose={() => undefined} />;
   }
   if (!handoff) {
@@ -75,5 +101,6 @@ export default function LineStartPage() {
       </main>
     );
   }
+  if (!full) return <LineQuickStart mobile={mobile} initialName={handoff.name} initialUse={handoff.use} keep={readKeep(handoff.keep)} onStart={quick} />;
   return <WelcomeOnboarding mode="line" mobile={mobile} accountName={handoff.name} showUnreleased={showUnreleased} onFinish={finish} onSkip={async () => undefined} onClose={() => undefined} />;
 }

@@ -136,4 +136,18 @@ export const onboarding: Record<string, string> = {
   "แอปบัญชีอื่น": "Another accounting app",
   "มีนักบัญชีทำให้": "An accountant does it",
   "ยังไม่ได้จด": "Not recording yet",
+  // One-tap sign-up in LINE (LineQuickStart.tsx, 2026-11-13)
+  "กดปุ่มนี้คือยอมรับ": "Pressing it accepts the",
+  "กรุณาใส่ชื่ออย่างน้อย 2 ตัวอักษร": "Please enter a name of at least 2 letters",
+  "ข้อมูลใช้เพื่อตอบคุณเท่านั้น ไม่ถูกนำไปฝึก AI เลขาบันทึกเมื่อคุณกดยืนยันเท่านั้น ไม่ต้องใช้อีเมล": "Your data is used only to answer you and never trains AI. The assistant saves only when you confirm. No email needed",
+  "จะเก็บเป็นรายการแรก": "Kept as your first record",
+  "ยอมรับและเริ่มใช้งาน": "Accept and start",
+  "เงื่อนไขการใช้งาน": "terms of use",
+  "เริ่มใช้งานในแตะเดียว": "Start in one tap",
+  "และ": "and the",
+  "ใช้แบบไหน": "How will you use it",
+  "ใช้ส่วนตัว": "Personal",
+  "ฟรีแลนซ์ / ร้านค้า": "Freelance / shop",
+  "บริษัท / สำนักงาน": "Company / office",
+  "ให้เลขาเรียกคุณว่า": "What should the assistant call you",
 };

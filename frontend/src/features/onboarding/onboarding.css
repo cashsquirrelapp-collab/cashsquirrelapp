@@ -280,3 +280,25 @@
 /* The real Google Sheets / Excel icons on question 5: kept on white, never tinted. */
 .wob-ico.is-logo, .wob-tile.is-picked .wob-ico.is-logo { background: #FFFFFF; box-shadow: inset 0 0 0 1px rgba(28, 25, 23, 0.08); }
 .wob-ico.is-logo img { display: block; object-fit: contain; }
+
+/* ── Signing up in LINE in one tap (LineQuickStart): the welcome look, one screen ───────────────────────────────── */
+.lq .lq-center { padding: 24px 20px 6vh; }
+.lq .lq-hello { font-size: 56px; }
+.lq-form { width: min(420px, 100%); gap: 0; }
+.lq-label { align-self: flex-start; margin: 22px 0 8px; color: var(--wob-muted); font-size: 13.5px; font-weight: 500; line-height: 1.5; }
+.lq-name { box-shadow: 0 0 0 1px rgba(28, 25, 23, 0.1), 0 14px 30px -20px rgba(28, 25, 23, 0.25); }
+.lq-name:focus { box-shadow: 0 0 0 1.5px var(--wob-orange), 0 14px 30px -20px rgba(230, 95, 43, 0.4); }
+.lq-uses { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; width: 100%; margin-top: 14px; }
+.lq-use { min-height: 44px; padding: 0 16px; border: 1px solid rgba(28, 25, 23, 0.12); border-radius: 999px; background: #FFFFFF; color: var(--wob-ink);
+  font: inherit; font-size: 14.5px; font-weight: 500; line-height: 1.45; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; }
+.lq-use.is-on { border-color: var(--wob-orange); background: var(--wob-cream); color: var(--wob-rust); }
+.lq-keep { display: flex; flex-direction: column; gap: 2px; width: 100%; margin-top: 16px; padding: 12px 16px; border-radius: 16px; background: #FFFFFF;
+  box-shadow: 0 0 0 1px rgba(28, 25, 23, 0.08); text-align: left; }
+.lq-keep span { color: var(--wob-muted); font-size: 12.5px; line-height: 1.5; }
+.lq-keep b { display: flex; justify-content: space-between; gap: 12px; color: var(--wob-ink); font-size: 15px; font-weight: 500; line-height: 1.5; }
+.lq-keep em { font-style: normal; font-weight: 600; }
+.lq-keep em.is-out { color: #C43A3A; } .lq-keep em.is-in { color: #12804F; }
+.lq-go { width: 100%; margin-top: 20px; }
+.lq-consent { margin-top: 14px !important; color: var(--wob-muted); font-size: 12.5px; line-height: 1.6; }
+.lq-consent a { color: var(--wob-rust); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.lq.is-phone .lq-hello { font-size: 40px; }

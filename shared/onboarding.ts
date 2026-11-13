@@ -83,6 +83,8 @@ export const onboardingRecordSchema = z.object({
   occupations: z.array(z.enum(ids(OCCUPATIONS))).max(OCCUPATIONS.length),
   occupation_other: otherText,
   goals: z.array(z.enum([...ids(GOALS), ...ids(LEGACY_GOALS)] as [string, ...string[]])).max(GOALS.length + LEGACY_GOALS.length),
+  /** Signing up in LINE (2026-11-13): ส่วนตัว / ฟรีแลนซ์-ร้านค้า / บริษัท-สำนักงาน, picked before anything else. */
+  use: z.enum(['personal', 'business', 'company']).optional(),
   /** Question 5 (welcome-v2): where the records are kept today; null when skipped. */
   records_in: z.enum(ids(RECORD_PLACES)).nullable().optional(),
   /** The step the person left on when they pressed ข้ามก่อน (1–4). */

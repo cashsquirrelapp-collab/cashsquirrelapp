@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { CONSENT_KEYS, type ConsentKey } from '../../../shared/consents.js';
 import { GOALS, OCCUPATIONS, ONBOARDING_STEPS, OTHER_TEXT_MAX, RECORD_PLACES, WORK_TYPES, jobTypesForOccupations, onboardingRecord, personaForWorkType, type GoalId, type OccupationId, type RecordPlaceId, type WorkTypeId } from '../../../shared/onboarding.js';
@@ -10,6 +10,7 @@ import { sessionSecret } from '../config/env.js';
 import { HttpError } from '../http/guard.js';
 import { saveConsent } from '../repositories/consents.js';
 import { lineOnlyEmail } from './lineFirst.js';
+import { USE_TYPES, decodeTry, type TryDraft } from './lineTry.js';
 import { linkedLineAccount } from './lineSession.js';
 
 // Signing up inside LINE (owner, 2026-11-13: "แอด LINE แล้วใช้ได้เลย" with "ชื่อ + ประเภทงาน"): the LIFF page sends a
@@ -30,6 +31,10 @@ export const lineSignupSchema = z.object({
   goals: z.array(z.enum(ids(GOALS))).max(GOALS.length).optional(),
   skippedAtStep: z.number().int().min(2).max(ONBOARDING_STEPS).optional(),
   recordsIn: z.enum(ids(RECORD_PLACES)).nullable().optional(),
+  /** ใช้แบบไหน, picked in LINE before anything else (services/lineTry.ts). */
+  use: z.enum(USE_TYPES).optional(),
+  /** A record tried in LINE before signing up, kept as the first one (encoded by lineTry.ts; checked again here). */
+  keep: z.string().max(600).optional(),
   agreed: z.literal(true),
   destination: z.string().max(500).optional(),
 }).strict();
@@ -48,11 +53,13 @@ export interface LineSignupDeps {
   settings(userId: string, settings: AppSettings): Promise<void>;
   /** The first job type list; an account that already has one keeps it. */
   jobTypes(userId: string, types: string[]): Promise<void>;
+  /** The record tried before signing up, saved as the account's first. */
+  firstRecord(userId: string, draft: TryDraft, today: string): Promise<void>;
   key(): string;
   now(): Date;
 }
 
-type Answers = Pick<LineSignupInput, 'workType' | 'workTypeOther' | 'occupations' | 'occupationOther' | 'goals' | 'recordsIn' | 'skippedAtStep'>;
+type Answers = Pick<LineSignupInput, 'workType' | 'workTypeOther' | 'occupations' | 'occupationOther' | 'goals' | 'recordsIn' | 'skippedAtStep'> & { use?: LineSignupInput['use'] };
 
 /** What the website saves when its first run ends (App.tsx saveOnboarding), for an account with no settings yet. */
 export function settingsFor(input: Answers, now: Date): AppSettings {
@@ -61,9 +68,12 @@ export function settingsFor(input: Answers, now: Date): AppSettings {
     occupations: (input.occupations ?? []) as OccupationId[], occupationOther: input.occupationOther ?? '',
     goals: (input.goals ?? []) as GoalId[], recordsIn: (input.recordsIn ?? null) as RecordPlaceId | null,
   }, input.skippedAtStep ? 'SKIPPED' : 'COMPLETED', now, null, input.skippedAtStep);
-  const persona = personaForWorkType((input.workType ?? null) as WorkTypeId | null);
+  const onboarding = input.use ? { ...record, use: input.use } : record;
+  // With no work type yet, the use picked in LINE chooses the app's menu: ส่วนตัว reads like an employee's, the rest a freelancer's.
+  const persona = personaForWorkType((input.workType ?? null) as WorkTypeId | null)
+    ?? (input.use === 'personal' ? 'employee' : input.use ? 'freelance' : undefined);
   // The app's defaults for a new account (frontend/src/sampleData.ts defaultSettings), no fixed monthly cost.
-  return { monthlyExpense: 0, monthlyRevenueGoal: 35000, savingsPercentage: 40, accumulatedRemainder: 0, profileSetupCompleted: true, ...(persona ? { userPersona: persona } : {}), onboarding: record };
+  return { monthlyExpense: 0, monthlyRevenueGoal: 35000, savingsPercentage: 40, accumulatedRemainder: 0, profileSetupCompleted: true, ...(persona ? { userPersona: persona } : {}), onboarding };
 }
 
 /** The job types to start with: the built-in ones and those of the occupations picked; null when nothing is added. */
@@ -72,7 +82,8 @@ export function jobTypesFor(input: Pick<LineSignupInput, 'occupations'>): string
   return extra.length ? [...DEFAULT_JOB_TYPES, ...extra] : null;
 }
 
-export async function signUpFromLine(lineUserId: string, input: Answers & Pick<LineSignupInput, 'name'>, deps: LineSignupDeps): Promise<{ userId: string; created: boolean }> {
+export type FirstRecord = TryDraft;
+export async function signUpFromLine(lineUserId: string, input: Answers & Pick<LineSignupInput, 'name' | 'keep'>, deps: LineSignupDeps): Promise<{ userId: string; created: boolean; first?: FirstRecord }> {
   // Already linked (an existing web account, or a sign-up that already went through): nothing new is made.
   const existing = await deps.linked(lineUserId);
   if (existing) return { userId: existing, created: false };
@@ -85,6 +96,13 @@ export async function signUpFromLine(lineUserId: string, input: Answers & Pick<L
   await deps.settings(userId, settingsFor(input, deps.now()));
   const jobTypes = jobTypesFor(input);
   if (jobTypes) await deps.jobTypes(userId, jobTypes);
+  // The record tried in LINE before signing up becomes the first one (owner: "ลองก่อน แล้วเก็บไว้ในแตะเดียว").
+  const first = decodeTry(input.keep);
+  if (first) {
+    const today = new Date(deps.now().getTime() + 7 * 3600_000).toISOString().slice(0, 10);
+    await deps.firstRecord(userId, first, today);
+    return { userId, created: true, first };
+  }
   return { userId, created: true };
 }
 
@@ -134,6 +152,16 @@ export const lineSignupDeps: LineSignupDeps = {
     const changes = validateChanges([{ table: 'cashflow_documents', id: 'job_types', op: 'set', version: null, data: types }]);
     const { error } = await getSupabaseAdmin().rpc('cashflow_apply_changes', { p_user_id: userId, p_changes: changes });
     if (error && error.code !== '40001' && error.code !== '23505') throw error;
+  },
+  async firstRecord(userId, draft, today) {
+    const id = randomUUID();
+    const change = draft.kind === 'income'
+      ? { table: 'cashflow_jobs', id, op: 'set', version: null, data: { id, name: draft.name, value: draft.amount, received: draft.amount, pending: 0, client: '',
+          type: 'งานทั่วไปอื่นๆ', status: 'done', paymentStatus: 'paid', creditTerm: 0, note: '', payDate: today } }
+      : { table: 'cashflow_expenses', id, op: 'set', version: null, data: { id, name: draft.name, amount: draft.amount, category: draft.category ?? '', date: today, note: '' } };
+    const changes = validateChanges([change]);
+    const { error } = await getSupabaseAdmin().rpc('cashflow_apply_changes', { p_user_id: userId, p_changes: changes });
+    if (error) throw error;
   },
   key: sessionSecret,
   now: () => new Date(),

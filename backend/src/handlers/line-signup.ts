@@ -8,6 +8,7 @@ import { safeLineDestination } from '../../../shared/lineDestination.js';
 import { lineSignupOn } from '../services/lineFirst.js';
 import { lineSignupDeps, lineSignupSchema, signUpFromLine, type LineSignupDeps } from '../services/lineSignup.js';
 import { assertLinkedLineAccess, issueLinkedLineSession } from '../services/lineSession.js';
+import type { TryDraft } from '../services/lineTry.js';
 
 // POST /api/line-signup — the เริ่มใช้งาน page inside LINE (liff-add.js signup view). The LINE identity comes only from
 // LINE's own ID-token check, never from the request. Off unless LINE_SIGNUP=enabled (services/lineFirst.ts).
@@ -16,20 +17,21 @@ export interface LineSignupHandlerDeps {
   on: () => boolean;
   verify: typeof verifyLiffIdToken;
   limit: typeof rateLimit;
-  signup: (lineUserId: string, input: Parameters<typeof signUpFromLine>[1]) => Promise<{ userId: string; created: boolean }>;
+  signup: (lineUserId: string, input: Parameters<typeof signUpFromLine>[1]) => Promise<{ userId: string; created: boolean; first?: TryDraft }>;
   access: typeof assertLinkedLineAccess;
   issue: typeof issueLinkedLineSession;
   store: typeof storeSession;
   revoke: (session: Session) => Promise<void>;
   /** The welcome card in the chat and the account's LINE menu; best effort, never fails the sign-up. */
-  welcome: (lineUserId: string, userId: string, recordsIn?: string | null) => Promise<void>;
+  welcome: (lineUserId: string, userId: string, recordsIn?: string | null, first?: TryDraft | null, name?: string | null) => Promise<void>;
 }
 
-async function sendWelcome(lineUserId: string, userId: string, recordsIn?: string | null): Promise<void> {
-  const [{ welcomeAfterLink }, { sendLineMessagePayload }, menus, sheets] = await Promise.all([
-    import('./line-webhook.js'), import('../services/line.js'), import('../services/lineRichMenus.js'), import('../services/lineSheetCards.js'),
+async function sendWelcome(lineUserId: string, userId: string, recordsIn?: string | null, first?: TryDraft | null, name?: string | null): Promise<void> {
+  const [{ sendLineMessagesOutcome, sendLineMessagePayload }, menus, sheets, tryCards] = await Promise.all([
+    import('../services/line.js'), import('../services/lineRichMenus.js'), import('../services/lineSheetCards.js'), import('../services/lineTry.js'),
   ]);
-  await sendLineMessagePayload(lineUserId, await welcomeAfterLink(lineUserId));
+  // The first minute's ending (owner, 2026-11-13: clean, one card at most): the tried record now saved, and what to do next.
+  await sendLineMessagesOutcome(lineUserId, tryCards.buildTryWelcomeBack(first ?? null, name ?? null));
   // Records kept in Google Sheets (question 5): the card to connect that sheet, where the feature is open to the account.
   if (recordsIn === 'google_sheets' && await sheets.sheetsOpenFor(userId)) await sendLineMessagePayload(lineUserId, sheets.buildLineConnectSheet(process.env.LIFF_ID));
   menus.forgetLineMenu(lineUserId);
@@ -63,7 +65,7 @@ export function createLineSignupHandler(deps: LineSignupHandlerDeps = defaults()
     const lineId = await deps.verify(parsed.data.idToken);
     if (!lineId) throw new HttpError(401, 'ยืนยัน LINE ไม่สำเร็จ กรุณาเปิดใหม่จากแชท');
     await deps.limit('line-signup', lineId, 6, 3600);
-    const { userId, created } = await deps.signup(lineId, parsed.data);
+    const { userId, created, first } = await deps.signup(lineId, parsed.data);
     await deps.access(userId);
     const session = await deps.issue(userId);
     try {
@@ -71,7 +73,7 @@ export function createLineSignupHandler(deps: LineSignupHandlerDeps = defaults()
       deps.store(res, session);
     } catch (error) { await deps.revoke(session); throw error; }
     if (created) {
-      try { await deps.welcome(lineId, userId, parsed.data.recordsIn ?? null); }
+      try { await deps.welcome(lineId, userId, parsed.data.recordsIn ?? null, first ?? null, parsed.data.name); }
       catch { console.error('line-signup: welcome card was not sent'); }
     }
     // Navigation only: never tokens, emails or IDs.

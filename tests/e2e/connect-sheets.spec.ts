@@ -115,7 +115,7 @@ test('the real Google Sheets and Excel icons show in the panel and on question 5
   expect(await panel.locator('img[src="/brand/partners/google-sheets.png"]').first().evaluate(img => (img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
   await page.screenshot({ path: 'test-results/connect-sheets-logos-phone.png' });
   await page.route('**/api/auth*', route => route.fulfill({ json: { session: null } }));
-  await page.goto('/line-start?preview=1');
+  await page.goto('/line-start?preview=1&full=1');
   await page.locator('#wob-name').fill('ปาร์ค');
   await page.locator('.wob-go').click();
   for (let at = 0; at < 3; at += 1) await page.locator('.wob-next').click();

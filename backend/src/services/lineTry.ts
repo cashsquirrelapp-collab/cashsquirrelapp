@@ -1,0 +1,124 @@
+import type { LineMessage } from './line.js';
+import { LINE_CARD_COLORS as C } from './lineCards.js';
+
+// The first minute in LINE (owner, 2026-11-13: "ใช้ง่าย เข้าใจได้รวดเร็ว สะดวก", and different from the competitor's
+// banner-and-checklist welcome): a new friend gets two short lines and one question (ใช้แบบไหน), can type a record at once
+// and see the card it would make before signing up, then keeps it with one tap. Nothing is stored before sign-up: the
+// choice and the tried record ride in the sign-up link. No AI is called for people without an account.
+
+export const USE_TYPES = ['personal', 'business', 'company'] as const;
+export type UseType = typeof USE_TYPES[number];
+export const USE_LABELS: Record<UseType, string> = { personal: 'ใช้ส่วนตัว', business: 'ฟรีแลนซ์ / ร้านค้า', company: 'บริษัท / สำนักงาน' };
+export const isUseType = (value: unknown): value is UseType => typeof value === 'string' && (USE_TYPES as readonly string[]).includes(value);
+
+export interface TryDraft { kind: 'expense' | 'income'; name: string; amount: number; category?: string }
+
+const INCOME = /^(ได้เงิน|ได้รับ|รับเงิน|รายรับ|เงินเดือน|ขายได้|ขาย|งาน|ค่าจ้าง|รับงาน|โบนัส)/;
+const CATEGORY: [RegExp, string][] = [
+  [/กาแฟ|ข้าว|อาหาร|ขนม|ชา|น้ำ(?!มัน)|ก๋วยเตี๋ยว|ส้มตำ|ไก่|หมู|ร้านอาหาร/, 'อาหาร/รับรองลูกค้า'],
+  [/รถ|แท็กซี่|grab|bolt|น้ำมัน|bts|mrt|ทางด่วน|ที่จอด|เดินทาง/i, 'ค่าเดินทาง/น้ำมัน'],
+  [/ไฟ|ประปา|เน็ต|อินเทอร์เน็ต|โทรศัพท์|มือถือ/, 'ค่าบริการ/สาธารณูปโภค'],
+  [/กล้อง|อุปกรณ์|คอม|โปรแกรม|ซอฟต์แวร์|แอป|subscription/i, 'ค่าอุปกรณ์/ซอฟต์แวร์'],
+  [/โฆษณา|แอด|ads/i, 'ค่าโฆษณา/ยิงแอด'],
+];
+
+/** "ข้าวมันไก่ 50", "ค่ากาแฟ 60 บาท", "งานถ่ายรูป 5,000": a name and an amount; anything else is not a try. */
+export function parseTry(text: string): TryDraft | null {
+  const match = /^(.{1,60}?)\s*(?:฿\s*)?(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d{1,2}))?\s*(?:บาท|บ\.?)?$/.exec(text.trim().replace(/\s+/g, ' '));
+  if (!match) return null;
+  const name = match[1].trim().replace(/[:：-]+$/, '').trim();
+  const amount = Number(`${match[2].replace(/,/g, '')}${match[3] ? `.${match[3]}` : ''}`);
+  if (!name || /^\d/.test(name) || !Number.isFinite(amount) || amount <= 0 || amount > 10_000_000) return null;
+  if (INCOME.test(name)) return { kind: 'income', name, amount };
+  const category = CATEGORY.find(([pattern]) => pattern.test(name))?.[1];
+  return { kind: 'expense', name, amount, ...(category ? { category } : {}) };
+}
+
+/** The tried record as a short link parameter, and back (checked again: it comes from a link). */
+export function encodeTry(draft: TryDraft): string {
+  return Buffer.from(JSON.stringify({ k: draft.kind === 'income' ? 'i' : 'e', n: draft.name, a: draft.amount, ...(draft.category ? { c: draft.category } : {}) })).toString('base64url');
+}
+export function decodeTry(value: unknown): TryDraft | null {
+  if (typeof value !== 'string' || value.length > 600) return null;
+  try {
+    const raw = JSON.parse(Buffer.from(value, 'base64url').toString('utf8')) as { k?: unknown; n?: unknown; a?: unknown; c?: unknown };
+    if ((raw.k !== 'e' && raw.k !== 'i') || typeof raw.n !== 'string' || typeof raw.a !== 'number') return null;
+    const name = raw.n.trim().slice(0, 60);
+    if (!name || !Number.isFinite(raw.a) || raw.a <= 0 || raw.a > 10_000_000) return null;
+    const category = typeof raw.c === 'string' && CATEGORY.some(([, known]) => known === raw.c) ? raw.c : undefined;
+    return { kind: raw.k === 'i' ? 'income' : 'expense', name, amount: Math.round(raw.a * 100) / 100, ...(category ? { category } : {}) };
+  } catch { return null; }
+}
+
+const baht = (amount: number) => `฿${amount.toLocaleString('th-TH', { minimumFractionDigits: Number.isInteger(amount) ? 0 : 2, maximumFractionDigits: 2 })}`;
+const EXAMPLE: Record<UseType, string> = { personal: 'ข้าวมันไก่ 50', business: 'ค่าเช่ากล้อง 1200', company: 'ค่าเดินทาง 350' };
+
+/** Follow: two short lines and one question. */
+export function buildTryWelcome(): LineMessage[] {
+  return [
+    { type: 'text', text: 'สวัสดีครับ ผมเลขากระรอก 🐿 ช่วยจดเงินเข้าออกให้ แค่พิมพ์มา' },
+    { type: 'text', text: 'ใช้แบบไหนครับ?', quickReply: { items: USE_TYPES.map(use => ({ type: 'action' as const, action: { type: 'postback' as const, label: USE_LABELS[use], data: `try:use:${use}`, displayText: USE_LABELS[use] } })) } },
+  ];
+}
+
+/** After the pick: try one now. */
+export function buildTryPrompt(use: UseType): LineMessage {
+  return { type: 'text', text: use === 'personal'
+    ? `ลองพิมพ์รายจ่ายวันนี้ดูเลยครับ เช่น ${EXAMPLE.personal}`
+    : `ลองพิมพ์รายจ่ายหรือรายรับดูเลยครับ เช่น ${EXAMPLE[use]} หรือ งานถ่ายรูป 5000` };
+}
+
+export const TRY_POSTBACK = /^try:use:(personal|business|company)$/;
+
+/** The card a try would make, not saved yet, with one tap to keep it (the sign-up page, LIFF ?start=1). */
+export function buildTryPreview(draft: TryDraft, use: UseType | null, liffId: string | undefined): LineMessage {
+  const income = draft.kind === 'income';
+  const params = new URLSearchParams({ start: '1', keep: encodeTry(draft), ...(use ? { use } : {}) });
+  const keep = liffId ? `https://liff.line.me/${liffId}?${params}` : undefined;
+  return { type: 'flex', altText: `ตัวอย่าง${income ? 'รายรับ' : 'รายจ่าย'} ${draft.name} ${baht(draft.amount)} กดเก็บไว้เพื่อเริ่มใช้งาน`, contents: {
+    type: 'bubble', size: 'kilo',
+    body: { type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '16px', contents: [
+      { type: 'box', layout: 'horizontal', contents: [{ type: 'box', layout: 'vertical', flex: 0, cornerRadius: '10px', borderWidth: '1px', borderColor: C.border,
+        paddingStart: '8px', paddingEnd: '8px', paddingTop: '2px', paddingBottom: '2px', contents: [{ type: 'text', text: 'ตัวอย่าง · ยังไม่บันทึก', size: 'xxs', color: C.muted }] }] },
+      { type: 'text', text: `${income ? 'รายรับ' : 'รายจ่าย'}${draft.category ? ` · ${draft.category}` : ''} · วันนี้`, size: 'xs', color: C.muted, margin: 'md', wrap: true },
+      { type: 'text', text: draft.name, size: 'md', weight: 'bold', color: C.text, wrap: true },
+      { type: 'text', text: `${income ? '+' : '−'}${baht(draft.amount)}`, size: 'xxl', weight: 'bold', color: income ? C.positive : C.negative },
+      { type: 'text', text: 'ใช้ชื่อ LINE ของคุณ ไม่ต้องใช้อีเมล', size: 'xxs', color: C.muted, margin: 'md', wrap: true },
+    ] },
+    ...(keep ? { footer: { type: 'box', layout: 'vertical', paddingAll: '16px', paddingTop: '0px', contents: [
+      { type: 'button', style: 'primary', height: 'sm', color: C.accent, action: { type: 'uri', label: 'เก็บไว้ · เริ่มใช้งาน', uri: keep } },
+    ] } } : {}),
+  } };
+}
+
+/**
+ * Right after signing up in LINE: the record they tried, now saved, and one line on what to do next, with buttons for
+ * the two things people do first. Replaces the long welcome card in this flow (clean, one card at most).
+ */
+export function buildTryWelcomeBack(first: TryDraft | null, name: string | null): LineMessage[] {
+  const quickReply = { items: [
+    { type: 'action' as const, action: { type: 'message' as const, label: 'สรุปเดือนนี้', text: 'สรุปเดือนนี้' } },
+    { type: 'action' as const, action: { type: 'cameraRoll' as const, label: 'ส่งรูปสลิป' } },
+    { type: 'action' as const, action: { type: 'message' as const, label: 'เชื่อมชีต', text: 'เชื่อมชีต' } },
+  ] };
+  const text = `${first ? 'เรียบร้อยครับ ✓' : `ยินดีต้อนรับครับ${name ? ` คุณ${name}` : ''}`} พิมพ์มาได้เรื่อย ๆ เช่น ค่ากาแฟ 60 หรือส่งรูปสลิปก็ได้`;
+  if (!first) return [{ type: 'text', text, quickReply }];
+  const income = first.kind === 'income';
+  return [
+    { type: 'flex', altText: `บันทึกแล้ว ${first.name} ${income ? '+' : '−'}${baht(first.amount)}`, contents: {
+      type: 'bubble', size: 'kilo',
+      body: { type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '16px', contents: [
+        { type: 'text', text: 'บันทึกแล้ว', size: 'xs', weight: 'bold', color: C.positive },
+        { type: 'box', layout: 'horizontal', contents: [
+          { type: 'text', text: first.name, size: 'sm', color: C.text, flex: 3, wrap: true },
+          { type: 'text', text: `${income ? '+' : '−'}${baht(first.amount)}`, size: 'sm', weight: 'bold', color: income ? C.positive : C.negative, align: 'end', flex: 2 },
+        ] },
+        { type: 'box', layout: 'horizontal', contents: [
+          { type: 'text', text: income ? 'เดือนนี้รับแล้ว' : 'เดือนนี้จ่ายไป', size: 'xs', color: C.muted, flex: 3 },
+          { type: 'text', text: baht(first.amount), size: 'xs', color: C.text, align: 'end', flex: 2 },
+        ] },
+      ] },
+    } },
+    { type: 'text', text, quickReply },
+  ];
+}

@@ -7,6 +7,7 @@ import { supabaseAdmin } from '../config/supabase.js';
 import { findUserByLineId, getQuickReply, handleAssistantMessage, isProUser, prefetchLinkedContext } from '../services/lineAssistant.js';
 import { buildLineStart, buildLineWelcome } from '../services/lineLinkCards.js';
 import { freeMonthlyTokens, lineSignupOn } from '../services/lineFirst.js';
+import { TRY_POSTBACK, buildTryPreview, buildTryPrompt, buildTryWelcome, parseTry, type UseType } from '../services/lineTry.js';
 import type { LineMessage } from '../services/line.js';
 import { toneLineMessages } from '../services/lineTone.js';
 import { decodeLineDraftAction } from '../services/lineDraftReview.js';
@@ -59,6 +60,8 @@ export function lineEventCommand(event: LineEvent): string | null {
     const data = event.postback?.data || '';
     // Payment buttons in the 08:00 reminder pass through as-is; the assistant records them.
     if (decodeVaultAction(data) || decodeDueAction(data) || decodeWht50Action(data)) return data;
+    // ใช้แบบไหน, picked by a new friend before signing up (services/lineTry.ts).
+    if (TRY_POSTBACK.test(data)) return data;
     // ยืนยัน / ยกเลิก on a เลขากระรอก confirmation card.
     const ai = /^ai:(confirm|cancel):(p_[0-9a-f-]{36})$/.exec(data);
     if (ai) return `${ai[1] === 'confirm' ? 'ยืนยัน' : 'ยกเลิก'}รายการเลขา ${ai[2]}`;
@@ -169,7 +172,8 @@ async function answerFollow(event: LineEvent, accessToken: string): Promise<void
   if (claim.error) throw claim.error;
   if (claim.data === 'done') return;
   if (claim.data !== 'claimed') throw new Error('LINE event is still processing');
-  if (!(await findUserByLineId(lineUserId))) await reply(accessToken, event.replyToken, [buildLineStart(process.env.LIFF_ID)]);
+  // The first minute (owner, 2026-11-13): two short lines and one question, not a banner.
+  if (!(await findUserByLineId(lineUserId))) await reply(accessToken, event.replyToken, buildTryWelcome());
   const done = await supabaseAdmin.from('cashflow_webhook_events').update({ status: 'done' }).eq('key', event.webhookEventId);
   if (done.error) throw done.error;
 }
@@ -293,7 +297,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // not match still gets the code answer.
         const looksLikeCode = LINK_CODE.test(messageText.trim().toUpperCase());
 
-        await send([lineSignupOn() && !looksLikeCode ? buildLineStart(process.env.LIFF_ID) : { type: 'text', text: replyText }]);
+        if (lineSignupOn() && !looksLikeCode) {
+          // A new friend: the use they picked gets an example to try; a typed record shows the card it would make, kept
+          // with one tap at sign-up; anything else gets the เริ่มใช้งาน card.
+          const picked = TRY_POSTBACK.exec(messageText.trim());
+          const tried = picked ? null : parseTry(messageText);
+          await send([picked ? buildTryPrompt(picked[1] as UseType) : tried ? buildTryPreview(tried, null, process.env.LIFF_ID) : buildLineStart(process.env.LIFF_ID)]);
+        } else {
+          await send([{ type: 'text', text: replyText }]);
+        }
         await complete();
       })
     );
