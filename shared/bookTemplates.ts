@@ -17,17 +17,21 @@ export interface TemplateIncome { date: string; payer: string; item: string; gro
 export interface TemplateExpense { date: string; vendor: string; item: string; category: string; amount: number }
 export interface TemplateData { income: TemplateIncome[]; expenses: TemplateExpense[] }
 
-export const TEMPLATE_INFO: Record<TemplateId, { title: string; who: string; tabs: string[] }> = {
-  freelance: { title: 'ฟรีแลนซ์ไม่จด VAT', who: 'โค้ช ครู นักศึกษารับงาน ครีเอเตอร์ ที่ยังไม่จด VAT', tabs: ['ตั้งค่า', 'รายรับ', 'รายจ่าย', 'ภาษีถูกหัก ณ ที่จ่าย', 'รายงานเงินสดรับ-จ่าย', 'สรุปภาษีรายปี'] },
-  freelance_vat: { title: 'ฟรีแลนซ์จด VAT', who: 'บุคคลธรรมดาที่จดทะเบียนภาษีมูลค่าเพิ่มแล้ว', tabs: ['ตั้งค่า', 'รายรับ', 'รายจ่าย', 'ภาษีถูกหัก ณ ที่จ่าย', 'รายงานภาษีขาย', 'รายงานภาษีซื้อ', 'สรุป ภ.พ.30', 'สรุปภาษีรายปี'] },
-  agency: { title: 'เอเจนซี่การตลาด / ครีเอทีฟ', who: 'บริษัทหรือห้างหุ้นส่วนจำกัดที่รับงานเป็นแคมเปญ', tabs: ['ตั้งค่า', 'โปรเจกต์', 'งบเทียบจริง', 'ค่าใช้จ่ายโปรเจกต์', 'วางบิลและรับเงิน', 'ทะเบียนหัก ณ ที่จ่าย', 'ส่งบัญชีประจำเดือน'] },
-  production: { title: 'โปรดักชันเฮาส์', who: 'บริษัทหรือห้างหุ้นส่วนจำกัดที่รับงานถ่ายเป็นโปรเจกต์ มีทีมงานและเงินทดรอง', tabs: ['ตั้งค่า', 'งาน', 'งบโปรดักชัน', 'ทีมงานและนักแสดง', 'เงินทดรอง', 'เคลียร์เงิน', 'ค่าใช้จ่ายและเช่าอุปกรณ์', 'วางบิลและรับเงิน', 'ทะเบียนหัก ณ ที่จ่าย', 'ส่งบัญชีประจำเดือน'] },
-  office: { title: 'สำนักงานบัญชี', who: 'ผู้รับทำบัญชีหรือสำนักงานที่ดูแลหลายกิจการ', tabs: ['ลูกค้า', 'เช็กลิสต์เอกสาร', 'ยื่นแบบรายเดือน', 'ติดตามเอกสาร', 'ปิดงบประจำปี', 'ตั้งค่า'] },
+/** writes: the tabs เลขา adds a job / an expense to when the sheet was made from this template (สร้างชีตใหม่ให้ maps
+ *  them at once; the budget and report tabs are never written into). The office workbook keeps no personal records. */
+export const TEMPLATE_INFO: Record<TemplateId, { title: string; who: string; tabs: string[]; writes: { job?: string; expense?: string } }> = {
+  freelance: { title: 'ฟรีแลนซ์ไม่จด VAT', who: 'โค้ช ครู นักศึกษารับงาน ครีเอเตอร์ ที่ยังไม่จด VAT', tabs: ['ตั้งค่า', 'รายรับ', 'รายจ่าย', 'ภาษีถูกหัก ณ ที่จ่าย', 'รายงานเงินสดรับ-จ่าย', 'สรุปภาษีรายปี'], writes: { job: 'รายรับ', expense: 'รายจ่าย' } },
+  freelance_vat: { title: 'ฟรีแลนซ์จด VAT', who: 'บุคคลธรรมดาที่จดทะเบียนภาษีมูลค่าเพิ่มแล้ว', tabs: ['ตั้งค่า', 'รายรับ', 'รายจ่าย', 'ภาษีถูกหัก ณ ที่จ่าย', 'รายงานภาษีขาย', 'รายงานภาษีซื้อ', 'สรุป ภ.พ.30', 'สรุปภาษีรายปี'], writes: { job: 'รายรับ', expense: 'รายจ่าย' } },
+  agency: { title: 'เอเจนซี่การตลาด / ครีเอทีฟ', who: 'บริษัทหรือห้างหุ้นส่วนจำกัดที่รับงานเป็นแคมเปญ', tabs: ['ตั้งค่า', 'โปรเจกต์', 'งบเทียบจริง', 'ค่าใช้จ่ายโปรเจกต์', 'วางบิลและรับเงิน', 'ทะเบียนหัก ณ ที่จ่าย', 'ส่งบัญชีประจำเดือน'], writes: { job: 'โปรเจกต์', expense: 'ค่าใช้จ่ายโปรเจกต์' } },
+  production: { title: 'โปรดักชันเฮาส์', who: 'บริษัทหรือห้างหุ้นส่วนจำกัดที่รับงานถ่ายเป็นโปรเจกต์ มีทีมงานและเงินทดรอง', tabs: ['ตั้งค่า', 'งาน', 'งบโปรดักชัน', 'ทีมงานและนักแสดง', 'เงินทดรอง', 'เคลียร์เงิน', 'ค่าใช้จ่ายและเช่าอุปกรณ์', 'วางบิลและรับเงิน', 'ทะเบียนหัก ณ ที่จ่าย', 'ส่งบัญชีประจำเดือน'], writes: { job: 'งาน', expense: 'ค่าใช้จ่ายและเช่าอุปกรณ์' } },
+  office: { title: 'สำนักงานบัญชี', who: 'ผู้รับทำบัญชีหรือสำนักงานที่ดูแลหลายกิจการ', tabs: ['ลูกค้า', 'เช็กลิสต์เอกสาร', 'ยื่นแบบรายเดือน', 'ติดตามเอกสาร', 'ปิดงบประจำปี', 'ตั้งค่า'], writes: {} },
 };
 
 const ROWS = 200;
 const LAST = ROWS + 1;
 const BRICK = 'E65F2B';
+/** Tab colours: brick where to start (วิธีใช้, ตั้งค่า), dark grey for tabs to fill in, light grey for reports. */
+const TAB = { start: BRICK, input: '57534E', report: 'C9C5C0' };
 const RATES = ['0%', '1%', '2%', '3%', '5%'];
 const YES_NO = ['ใช่', 'ไม่ใช่'];
 const q = (sheet: string) => `'${sheet}'`;
@@ -39,48 +43,142 @@ const rate = (ref: string) => `IF(ISNUMBER(${ref}),${ref},IFERROR(VALUE(SUBSTITU
 const sumMonth = (sheet: string, sumL: string, dateL: string, month: number, extra = '') =>
   `SUMIFS(${col(sheet, sumL)},${col(sheet, dateL)},">="&DATE(${YEAR},${month},1),${col(sheet, dateL)},"<"&DATE(${YEAR},${month + 1},1)${extra})`;
 const MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+/** Lines of wrapped text a cell this wide needs (Thai, roughly 1.15 characters per width unit), as a row height. */
+const tall = (text: string, width: number, line = 17) => Math.max(1, Math.ceil(text.length / (width * 1.15))) * line + 8;
 
 interface Col { h: string; w: number; s?: CellStyle; list?: string[]; f?: (r: number) => string }
+/** What a formula column looks like: grey, so nobody types over it. */
+const CALC: Partial<Record<CellStyle, CellStyle>> = { money: 'calc', text: 'calcText', date: 'calcDate', percent: 'calc' };
+const columnStyle = (c: Col): CellStyle => (c.f ? CALC[c.s ?? 'money'] ?? 'calc' : c.list ? 'choice' : c.s === 'text' ? 'choice' : c.s ?? 'cell');
 
-/** A data tab: the header row, then 200 rows with the formula columns filled and the drop-downs set. */
-function table(name: string, cols: Col[], rows: Cell[][], tabColor?: string): SheetSpec {
+/** A data tab like a printed ledger: the brick header row (frozen, printed on every page), then 200 ruled rows with the
+ *  formula columns filled in grey and the drop-downs set. The header stays in row 1: เลขา writes the rows below it. */
+function table(name: string, cols: Col[], rows: Cell[][], tabColor = TAB.input): SheetSpec {
+  const styles = cols.map(columnStyle);
   const header: Cell[] = cols.map(c => ({ v: c.h, s: 'header' }));
   const body: Cell[][] = [];
   for (let i = 0; i < ROWS; i += 1) {
     const r = i + 2;
     const given = rows[i];
-    if (!given && !cols.some(c => c.f)) break;
-    body.push(cols.map((c, j) => (c.f ? { f: c.f(r), s: c.s ?? 'money' } : given?.[j] ?? null)));
+    body.push(cols.map((c, j) => {
+      if (c.f) return { f: c.f(r), s: styles[j] };
+      const cell = given?.[j] ?? null;
+      // A value given as plain text keeps the column's look (lines, centring).
+      return cell && typeof cell === 'object' && 'v' in cell && cell.s === 'text' ? { v: cell.v, s: styles[j] } : cell;
+    }));
   }
-  const columnStyles: Record<number, CellStyle> = {};
-  cols.forEach((c, j) => { if (c.s && !c.f) columnStyles[j] = c.s; });
   return {
-    name, rows: [header, ...body], widths: cols.map(c => c.w), freezeRows: 1, columnStyles, tabColor,
+    name, rows: [header, ...body], widths: cols.map(c => c.w), freezeRows: 1, columnStyles: Object.fromEntries(styles.map((s, j) => [j, s])), tabColor,
+    heights: { 0: 34 }, defaultHeight: 21, gridlines: false, print: { landscape: true, repeatHeader: true },
     validations: cols.flatMap((c, j) => (c.list ? [{ range: `${columnLetter(j)}2:${columnLetter(j)}${LAST}`, list: c.list }] : [])),
   };
 }
 
-/** A label / value tab (ตั้งค่า): the title in A1, the year always in B3. */
+/** ตั้งค่า as a form: the title in A1, labels on grey, white boxes to fill in; the year always in B3. */
 function settingsTab(title: string, pairs: [string, Cell][], extra: Cell[][] = []): SheetSpec {
+  const box = (value: Cell): Cell => (value && typeof value === 'object' && 'v' in value
+    ? { v: value.v, s: value.s === 'percent' ? 'inputPercent' : 'input' } : typeof value === 'string' ? { v: value, s: 'input' } : value ?? { v: '', s: 'input' });
+  const heights: Record<number, number> = { 0: 34, 1: 22 };
+  pairs.forEach((_, i) => { heights[i + 2] = 26; });
   return {
-    name: 'ตั้งค่า', tabColor: BRICK, widths: [34, 36, 4, 26, 16, 16, 30],
-    rows: [[{ v: title, s: 'title' }], [{ v: 'กรอกช่องสีขาวด้านขวา ตัวเลขในแท็บอื่นใช้ข้อมูลจากหน้านี้', s: 'note' }], ...pairs.map(([label, value]) => [{ v: label, s: 'label' }, value] as Cell[]), ...extra],
+    name: 'ตั้งค่า', tabColor: TAB.start, widths: [32, 40, 4, 26, 16, 16, 30], gridlines: false, heights, defaultHeight: 21,
+    rows: [[{ v: title, s: 'title' }], [{ v: 'กรอกช่องสีขาว ตัวเลขในแท็บอื่นใช้ข้อมูลจากหน้านี้', s: 'subtitle' }],
+      ...pairs.map(([label, value]) => [{ v: label, s: 'label' }, box(value)] as Cell[]), ...extra],
   };
 }
 
-function howTo(info: { title: string; who: string }, lines: string[]): SheetSpec {
-  return {
-    name: 'วิธีใช้', widths: [100], tabColor: BRICK,
-    rows: [
-      [{ v: `ชีตบัญชี: ${info.title}`, s: 'title' }],
-      [{ v: `สำหรับ ${info.who} สร้างโดยกระรอกตุนเงิน`, s: 'note' }],
-      [null],
-      ...lines.map(line => [line] as Cell[]),
-      [null],
-      [{ v: 'ชีตนี้ช่วยจดและสรุปตัวเลข ไม่ได้ยื่นแบบแทนคุณ ตัวเลขภาษีเป็นประมาณการ ตรวจกับนักบัญชีหรือกรมสรรพากรก่อนยื่นจริง', s: 'note' }],
-    ],
+/** What each tab is for and when it is filled in, for the cover page. */
+const TAB_GUIDE: Record<string, [string, string]> = {
+  'ตั้งค่า': ['ชื่อ เลขผู้เสียภาษี และปี ทุกแท็บอ่านจากหน้านี้', 'ครั้งแรกครั้งเดียว'],
+  'รายรับ': ['เงินเข้าแต่ละครั้ง ภาษีถูกหักและเงินเข้าจริงคำนวณให้', 'ทุกครั้งที่เงินเข้า'],
+  'รายจ่าย': ['จ่ายเพื่องานแต่ละครั้ง พร้อมหลักฐาน', 'ทุกครั้งที่จ่าย'],
+  'ภาษีถูกหัก ณ ที่จ่าย': ['ถูกหักเดือนละเท่าไร และยังขาด 50 ทวิ กี่ใบ', 'ดูอย่างเดียว'],
+  'รายงานเงินสดรับ-จ่าย': ['รายงานที่กฎหมายบังคับ สรุปเป็นรายเดือน', 'ดูอย่างเดียว'],
+  'รายงานภาษีขาย': ['ดึงจากแท็บรายรับให้', 'ดูอย่างเดียว'],
+  'รายงานภาษีซื้อ': ['ดึงจากแท็บรายจ่ายเฉพาะที่ขอคืนได้', 'ดูอย่างเดียว'],
+  'สรุป ภ.พ.30': ['ภาษีที่ต้องชำระและวันยื่นของแต่ละเดือน', 'ดูอย่างเดียว'],
+  'สรุปภาษีรายปี': ['เงินได้แยกประเภท ครึ่งปีและทั้งปี เฝ้าเกณฑ์ VAT', 'ดูอย่างเดียว'],
+  'โปรเจกต์': ['หนึ่งแถวต่อแคมเปญ ต้นทุนและกำไรคำนวณให้', 'เมื่อได้งานใหม่'],
+  'งบเทียบจริง': ['งบแต่ละหมวด เทียบกับที่ใช้จริง', 'ตอนวางงบ'],
+  'ค่าใช้จ่ายโปรเจกต์': ['จ่ายแต่ละครั้ง ภาษีหักและแบบที่ต้องยื่นขึ้นให้', 'ทุกครั้งที่จ่าย'],
+  'วางบิลและรับเงิน': ['ใบแจ้งหนี้ ยอดที่ควรได้ และค้างกี่วัน', 'เมื่อวางบิลหรือรับเงิน'],
+  'ทะเบียนหัก ณ ที่จ่าย': ['ภ.ง.ด.3 / 53 / 54 รายเดือน และวันยื่น', 'ดูอย่างเดียว'],
+  'ส่งบัญชีประจำเดือน': ['เช็กเอกสารก่อนส่งนักบัญชี', 'ต้นเดือน'],
+  'งาน': ['หนึ่งแถวต่องาน งบ ใช้จริง และกำไร', 'เมื่อได้งานใหม่'],
+  'งบโปรดักชัน': ['คน × วัน × ราคา เทียบกับที่ใช้จริง', 'ตอนวางงบ'],
+  'ทีมงานและนักแสดง': ['ค่าตัว ภาษีหัก และจ่ายสุทธิ', 'ทุกครั้งที่จ่ายค่าตัว'],
+  'เงินทดรอง': ['ใบเบิกแต่ละก้อน และวันที่ต้องเคลียร์', 'เมื่อเบิกเงิน'],
+  'เคลียร์เงิน': ['หลักฐานทุกใบของแต่ละใบเบิก', 'หลังใช้เงิน'],
+  'ค่าใช้จ่ายและเช่าอุปกรณ์': ['จ่ายตรง เช่าอุปกรณ์ และมัดจำ', 'ทุกครั้งที่จ่าย'],
+  'ลูกค้า': ['หนึ่งแถวต่อลูกค้า', 'เมื่อรับลูกค้าใหม่'],
+  'เช็กลิสต์เอกสาร': ['เอกสารแต่ละเดือนของลูกค้าแต่ละราย', 'ทุกเดือน'],
+  'ยื่นแบบรายเดือน': ['แบบที่ต้องยื่น และกำหนดส่งหลังเลื่อนวันหยุด', 'ทุกเดือน'],
+  'ติดตามเอกสาร': ['เรื่องที่ขาด และวันที่ขอให้ลูกค้าส่ง', 'เมื่อพบเอกสารขาด'],
+  'ปิดงบประจำปี': ['กำหนดส่งงบ DBD และ ภ.ง.ด.50', 'ปีละครั้ง'],
+};
+
+/** The cover page (วิธีใช้): the workbook's name and year, its tabs, the steps, what the colours mean. */
+function howTo(info: { title: string; who: string }, tabs: string[], lines: string[], yearLabel: string): SheetSpec {
+  const rows: Cell[][] = []; const heights: Record<number, number> = {}; const merges: string[] = [];
+  const add = (row: Cell[], height?: number, merge?: string) => {
+    if (height) heights[rows.length] = height;
+    if (merge) merges.push(merge.replace(/#/g, String(rows.length + 1)));
+    rows.push(row);
   };
+  const section = (title: string) => { add([null], 14); add([{ v: title, s: 'section' }, { v: '', s: 'section' }, { v: '', s: 'section' }], 28); add([null], 8); };
+  add([{ v: '', s: 'bar' }, { v: '', s: 'bar' }, { v: '', s: 'bar' }], 5);
+  add([null], 14);
+  add([{ v: 'กระรอกตุนเงิน · ชีตบัญชี', s: 'kicker' }], 18);
+  add([{ v: info.title, s: 'title' }], 36);
+  add([{ v: `สำหรับ${info.who}`, s: 'subtitle' }], 20);
+  add([{ f: `"${yearLabel} "&${q('ตั้งค่า')}!$B$3`, s: 'subtitle' }], 20);
+  section('แท็บในไฟล์นี้');
+  add([{ v: 'แท็บ', s: 'header' }, { v: 'ใช้ทำอะไร', s: 'header' }, { v: 'กรอกเมื่อไร', s: 'header' }], 28);
+  for (const tab of tabs) {
+    const [what, when] = TAB_GUIDE[tab] ?? ['', ''];
+    add([{ v: tab, s: 'label' }, { v: what, s: 'cellWrap' }, { v: when, s: 'choice' }], 24);
+  }
+  section('เริ่มใช้งาน');
+  lines.forEach((line, i) => {
+    const text = line.replace(/^\d+\.\s*/, '');
+    add([{ v: i + 1, s: 'step' }, { v: text, s: 'text' }], tall(text, 86), 'B#:C#');
+  });
+  section('สีในชีต');
+  ([['ช่องสีขาว', 'choice', 'กรอกเองได้'], ['ช่องสีเทา', 'calcText', 'ชีตคำนวณให้ อย่าพิมพ์ทับ'], ['หัวตาราง', 'header', 'ชื่อคอลัมน์ เลขากระรอกใช้หาช่องที่จะลงรายการ ไม่ควรแก้'], ['มีลูกศร ▾', 'choice', 'คลิกแล้วเลือกจากรายการ']] as const)
+    .forEach(([sample, style, meaning]) => add([{ v: sample, s: style }, { v: meaning, s: 'text' }], 26, 'B#:C#'));
+  add([null], 18);
+  const disclaimer = 'ชีตนี้ช่วยจดและสรุปตัวเลข ไม่ได้ยื่นแบบแทนคุณ ตัวเลขภาษีเป็นประมาณการ ตรวจกับนักบัญชีหรือกรมสรรพากรก่อนยื่นจริง';
+  add([{ v: disclaimer, s: 'note' }], tall(disclaimer, 104, 15), 'A#:C#');
+  add([{ v: 'สร้างโดยกระรอกตุนเงิน · krarok.com', s: 'note' }], 18, 'A#:C#');
+  return { name: 'วิธีใช้', widths: [20, 62, 22], tabColor: TAB.start, gridlines: false, heights, merges, defaultHeight: 21, rows, print: {} };
 }
+
+/** First data row of a report tab: row 1 title, row 2 who and which year, row 3 space, row 4 the header. */
+const R0 = 5;
+/** A report tab (worked out from the others): its title, the year and name from ตั้งค่า, the table, the notes under it. */
+function report(name: string, title: string, yearLabel: string, header: string[], body: Cell[][], widths: number[], notes: string[], landscape = false): SheetSpec {
+  const last = columnLetter(header.length - 1);
+  const rows: Cell[][] = [
+    [{ v: title, s: 'title' }],
+    [{ f: `"${yearLabel} "&${q('ตั้งค่า')}!$B$3&IF(${q('ตั้งค่า')}!$B$4="",""," · "&${q('ตั้งค่า')}!$B$4)`, s: 'subtitle' }],
+    [null],
+    header.map(v => ({ v, s: 'header' as const })),
+    ...body,
+  ];
+  const heights: Record<number, number> = { 0: 34, 1: 22, 2: 10, 3: 34 };
+  const merges: string[] = [];
+  const width = widths.reduce((sum, w) => sum + w, 0);
+  for (const note of notes) {
+    rows.push([null]); heights[rows.length - 1] = 10;
+    rows.push([{ v: note, s: 'note' }]); heights[rows.length - 1] = tall(note, width, 15);
+    merges.push(`A${rows.length}:${last}${rows.length}`);
+  }
+  return { name, rows, widths, tabColor: TAB.report, gridlines: false, heights, merges, defaultHeight: 22, print: { landscape } };
+}
+/** A month row's first cell, and a totals row. */
+const monthCell = (name: string): Cell => ({ v: name, s: 'cell' });
+const totals = (label: string, letters: string[], from = R0, to = R0 + 11): Cell[] =>
+  [{ v: label, s: 'totalLabel' }, ...letters.map(l => ({ f: `SUM(${l}${from}:${l}${to})`, s: 'total' as const }))];
 
 const today = (now: Date) => now.toISOString().slice(0, 10);
 
@@ -145,26 +243,24 @@ function freelance(profile: BusinessProfile, year: number, vat: boolean, data: T
     ];
 
   // ภาษีถูกหัก ณ ที่จ่าย: by month, from รายรับ.
-  const whtRows: Cell[][] = [[{ v: 'เดือน', s: 'header' }, { v: 'เงินได้รวม', s: 'header' }, { v: 'ภาษีถูกหักรวม', s: 'header' }, { v: '50 ทวิ ที่ยังไม่ได้ (ใบ)', s: 'header' }]];
-  MONTHS.forEach((name, i) => {
+  const whtBody: Cell[][] = MONTHS.map((name, i) => {
     const m = i + 1;
-    whtRows.push([name, { f: sumMonth('รายรับ', I.gross, I.date, m) }, { f: sumMonth('รายรับ', I.wht, I.date, m) },
-      { f: `COUNTIFS(${col('รายรับ', I.date)},">="&DATE(${YEAR},${m},1),${col('รายรับ', I.date)},"<"&DATE(${YEAR},${m + 1},1),${col('รายรับ', I.got)},"ยังไม่ได้")`, s: 'text' }]);
+    return [monthCell(name), { f: sumMonth('รายรับ', I.gross, I.date, m), s: 'figure' }, { f: sumMonth('รายรับ', I.wht, I.date, m), s: 'figure' },
+      { f: `COUNTIFS(${col('รายรับ', I.date)},">="&DATE(${YEAR},${m},1),${col('รายรับ', I.date)},"<"&DATE(${YEAR},${m + 1},1),${col('รายรับ', I.got)},"ยังไม่ได้")`, s: 'choice' }];
   });
-  whtRows.push([{ v: 'รวมทั้งปี', s: 'label' }, { f: 'SUM(B2:B13)', s: 'total' }, { f: 'SUM(C2:C13)', s: 'total' }, { f: 'SUM(D2:D13)', s: 'total' }]);
-  whtRows.push([null], [{ v: 'ภาษีที่ถูกหักไว้ใช้เป็นเครดิตตอนยื่น ภ.ง.ด.90 (และ ภ.ง.ด.94 สำหรับเงินได้ 40(5)–(8)) เก็บ 50 ทวิ ให้ครบทุกใบ', s: 'note' }]);
+  whtBody.push(totals('รวมทั้งปี', ['B', 'C', 'D']));
+  const tabs = info.tabs.filter(tab => cash || tab !== 'รายงานเงินสดรับ-จ่าย');
 
   const sheets: SheetSpec[] = [
-    howTo(info, [
+    howTo(info, tabs, [
       '1. กรอกแท็บ ตั้งค่า ก่อน (ชื่อ เลขประจำตัวผู้เสียภาษี ปีภาษี)',
       '2. ทุกครั้งที่เงินเข้า เพิ่มหนึ่งแถวในแท็บ รายรับ ใช้วันที่เงินเข้าจริง ภาษีถูกหักและเงินเข้าจริงคำนวณให้เอง',
       '3. ทุกครั้งที่จ่ายเงินเพื่องาน เพิ่มหนึ่งแถวในแท็บ รายจ่าย และเก็บใบเสร็จหรือใบกำกับภาษีไว้ แถวที่ไม่มีหลักฐานจะไม่ถูกนับ',
       '4. แท็บ ภาษีถูกหัก ณ ที่จ่าย บอกว่าแต่ละเดือนถูกหักไปเท่าไร และยังขาด 50 ทวิ กี่ใบ',
       ...(cash ? ['5. แท็บ รายงานเงินสดรับ-จ่าย คือสรุปรายเดือนของรายงานที่กฎหมายบังคับ (เงินได้ 40(5)–(8) และไม่จด VAT) ลงรายการภายใน 3 วันทำการ'] : []),
       ...(vat ? ['5. จด VAT แล้ว: ภาษีขายคิดจากแท็บรายรับ ภาษีซื้อจากแท็บรายจ่าย แท็บ สรุป ภ.พ.30 บอกยอดที่ต้องชำระทุกเดือน แม้ไม่มียอดขาย ต้องยื่น'] : []),
-      'ช่องสีส้มคือหัวตาราง ช่องที่มีลูกศรให้เลือกจากรายการ อย่าพิมพ์ทับช่องที่เป็นสูตร',
-    ]),
-    settingsTab('ตั้งค่า', [
+    ], 'ปีภาษี'),
+    settingsTab('ข้อมูลผู้ประกอบกิจการ', [
       ['ปีภาษี (พ.ศ.)', { v: year + 543, s: 'text' }],
       ['ชื่อผู้ประกอบกิจการ', ''], ['เลขประจำตัวผู้เสียภาษี', ''], ['ชื่อสถานประกอบการ (ถ้ามี)', ''],
       ['สถานะ VAT', vat ? 'จดแล้ว' : 'ยังไม่จด'],
@@ -173,22 +269,22 @@ function freelance(profile: BusinessProfile, year: number, vat: boolean, data: T
     ]),
     table('รายรับ', incomeCols, incomeRows),
     table('รายจ่าย', expenseCols, expenseRows),
-    { name: 'ภาษีถูกหัก ณ ที่จ่าย', rows: whtRows, widths: [16, 18, 18, 22], freezeRows: 1 },
+    report('ภาษีถูกหัก ณ ที่จ่าย', 'ภาษีถูกหัก ณ ที่จ่าย', 'ปีภาษี', ['เดือน', 'เงินได้รวม', 'ภาษีถูกหักรวม', '50 ทวิ ที่ยังไม่ได้ (ใบ)'], whtBody, [18, 20, 20, 22],
+      ['ภาษีที่ถูกหักไว้ใช้เป็นเครดิตตอนยื่น ภ.ง.ด.90 (และ ภ.ง.ด.94 สำหรับเงินได้ 40(5)–(8)) เก็บ 50 ทวิ ให้ครบทุกใบ']),
   ];
 
   if (cash) {
-    const cashRows: Cell[][] = [[{ v: 'เดือน', s: 'header' }, { v: 'รายรับ 40(5)–(8)', s: 'header' }, { v: 'รายจ่าย ซื้อสินค้า', s: 'header' }, { v: 'รายจ่าย ค่าใช้จ่ายอื่น ๆ', s: 'header' }, { v: 'กำไร', s: 'header' }]];
-    MONTHS.forEach((name, i) => {
-      const m = i + 1; const r = i + 2;
-      cashRows.push([name,
-        { f: `${sumMonth('รายรับ', I.gross, I.date, m, `,${col('รายรับ', I.type)},"40(6)"`)}+${sumMonth('รายรับ', I.gross, I.date, m, `,${col('รายรับ', I.type)},"40(8)"`)}` },
-        { f: sumMonth('รายจ่าย', 'I', 'A', m, `,${col('รายจ่าย', 'D')},"ซื้อสินค้า"`) },
-        { f: `${sumMonth('รายจ่าย', 'I', 'A', m)}-C${r}` },
-        { f: `B${r}-C${r}-D${r}` }]);
+    const cashBody: Cell[][] = MONTHS.map((name, i) => {
+      const m = i + 1; const r = i + R0;
+      return [monthCell(name),
+        { f: `${sumMonth('รายรับ', I.gross, I.date, m, `,${col('รายรับ', I.type)},"40(6)"`)}+${sumMonth('รายรับ', I.gross, I.date, m, `,${col('รายรับ', I.type)},"40(8)"`)}`, s: 'figure' },
+        { f: sumMonth('รายจ่าย', 'I', 'A', m, `,${col('รายจ่าย', 'D')},"ซื้อสินค้า"`), s: 'figure' },
+        { f: `${sumMonth('รายจ่าย', 'I', 'A', m)}-C${r}`, s: 'figure' },
+        { f: `B${r}-C${r}-D${r}`, s: 'figure' }];
     });
-    cashRows.push([{ v: 'รวมทั้งปี', s: 'label' }, { f: 'SUM(B2:B13)', s: 'total' }, { f: 'SUM(C2:C13)', s: 'total' }, { f: 'SUM(D2:D13)', s: 'total' }, { f: 'SUM(E2:E13)', s: 'total' }]);
-    cashRows.push([null], [{ v: 'รายงานเงินสดรับ-จ่ายตามประกาศอธิบดีฯ (ฉบับที่ 161): บุคคลธรรมดาที่ไม่จด VAT และมีเงินได้ 40(5)–(8) ต้องลงรายการภายใน 3 วันทำการ รายการละเอียดอยู่ในแท็บรายรับและรายจ่าย แท็บนี้สรุปเป็นรายเดือน', s: 'note' }]);
-    sheets.push({ name: 'รายงานเงินสดรับ-จ่าย', rows: cashRows, widths: [16, 18, 18, 22, 16], freezeRows: 1 });
+    cashBody.push(totals('รวมทั้งปี', ['B', 'C', 'D', 'E']));
+    sheets.push(report('รายงานเงินสดรับ-จ่าย', 'รายงานเงินสดรับ-จ่าย', 'ปีภาษี', ['เดือน', 'รายรับ 40(5)–(8)', 'รายจ่าย ซื้อสินค้า', 'รายจ่าย ค่าใช้จ่ายอื่น ๆ', 'กำไร'], cashBody, [18, 20, 20, 22, 18],
+      ['รายงานเงินสดรับ-จ่ายตามประกาศอธิบดีฯ (ฉบับที่ 161): บุคคลธรรมดาที่ไม่จด VAT และมีเงินได้ 40(5)–(8) ต้องลงรายการภายใน 3 วันทำการ รายการละเอียดอยู่ในแท็บรายรับและรายจ่าย แท็บนี้สรุปเป็นรายเดือน']));
   }
 
   if (vat) {
@@ -210,29 +306,29 @@ function freelance(profile: BusinessProfile, year: number, vat: boolean, data: T
       { h: 'ภาษีซื้อ', w: 12, f: r => `IF(OR('รายจ่าย'!A${r}="",'รายจ่าย'!H${r}<>"ใช่"),"",'รายจ่าย'!G${r})` },
     ];
     sheets.push(table('รายงานภาษีขาย', sales, []), table('รายงานภาษีซื้อ', purchases, []));
-    const pp30: Cell[][] = [['เดือนภาษี', 'ยอดขาย', 'ภาษีขาย', 'ยอดซื้อที่ขอคืนได้', 'ภาษีซื้อ', 'ต้องชำระ (+) / ชำระเกิน (−)', 'กำหนดยื่น กระดาษ', 'กำหนดยื่น ออนไลน์'].map(v => ({ v, s: 'header' as const }))];
-    MONTHS.forEach((name, i) => {
-      const m = i + 1; const r = i + 2;
-      pp30.push([name, { f: sumMonth('รายรับ', 'G', 'A', m) }, { f: sumMonth('รายรับ', 'H', 'A', m) },
-        { f: sumMonth('รายจ่าย', 'F', 'A', m, `,${col('รายจ่าย', 'H')},"ใช่"`) }, { f: sumMonth('รายจ่าย', 'G', 'A', m, `,${col('รายจ่าย', 'H')},"ใช่"`) },
-        { f: `C${r}-E${r}` }, { f: `WORKDAY(DATE(${YEAR},${m + 1},15)-1,1)`, s: 'date' }, { f: `WORKDAY(DATE(${YEAR},${m + 1},23)-1,1)`, s: 'date' }]);
+    const pp30: Cell[][] = MONTHS.map((name, i) => {
+      const m = i + 1; const r = i + R0;
+      return [monthCell(name), { f: sumMonth('รายรับ', 'G', 'A', m), s: 'figure' }, { f: sumMonth('รายรับ', 'H', 'A', m), s: 'figure' },
+        { f: sumMonth('รายจ่าย', 'F', 'A', m, `,${col('รายจ่าย', 'H')},"ใช่"`), s: 'figure' }, { f: sumMonth('รายจ่าย', 'G', 'A', m, `,${col('รายจ่าย', 'H')},"ใช่"`), s: 'figure' },
+        { f: `C${r}-E${r}`, s: 'figureStrong' }, { f: `WORKDAY(DATE(${YEAR},${m + 1},15)-1,1)`, s: 'date' }, { f: `WORKDAY(DATE(${YEAR},${m + 1},23)-1,1)`, s: 'date' }];
     });
-    pp30.push([null], [{ v: 'ภ.พ.30 ต้องยื่นทุกเดือนแม้ไม่มียอดขาย วันยื่นเลื่อนเฉพาะเสาร์-อาทิตย์ในชีตนี้ ปฏิทินยื่นภาษีในแอปเลื่อนวันหยุดราชการให้ด้วย ส่วนขยายยื่นออนไลน์ใช้ได้กับงวดที่ครบกำหนดถึง 31 ม.ค. 2570', s: 'note' }]);
-    sheets.push({ name: 'สรุป ภ.พ.30', rows: pp30, widths: [14, 15, 13, 17, 13, 22, 16, 16], freezeRows: 1 });
+    sheets.push(report('สรุป ภ.พ.30', 'สรุป ภ.พ.30', 'ปีภาษี', ['เดือนภาษี', 'ยอดขาย', 'ภาษีขาย', 'ยอดซื้อที่ขอคืนได้', 'ภาษีซื้อ', 'ต้องชำระ (+) / ชำระเกิน (−)', 'กำหนดยื่น กระดาษ', 'กำหนดยื่น ออนไลน์'], pp30,
+      [16, 16, 14, 18, 14, 22, 16, 16],
+      ['ภ.พ.30 ต้องยื่นทุกเดือนแม้ไม่มียอดขาย วันยื่นเลื่อนเฉพาะเสาร์-อาทิตย์ในชีตนี้ ปฏิทินยื่นภาษีในแอปเลื่อนวันหยุดราชการให้ด้วย ส่วนขยายยื่นออนไลน์ใช้ได้กับงวดที่ครบกำหนดถึง 31 ม.ค. 2570'], true));
   }
 
   // สรุปภาษีรายปี: by income type, split at June for ภ.ง.ด.94.
   const half = (type: string, from: number, to: number) => `SUMIFS(${col('รายรับ', I.gross)},${col('รายรับ', I.type)},"${type}",${col('รายรับ', I.date)},">="&DATE(${YEAR},${from},1),${col('รายรับ', I.date)},"<"&DATE(${YEAR},${to},1))`;
-  const yearRows: Cell[][] = [['ประเภทเงินได้', 'เงินได้ ม.ค.–มิ.ย.', 'เงินได้ ก.ค.–ธ.ค.', 'รวมทั้งปี', 'ภาษีถูกหักรวม'].map(v => ({ v, s: 'header' as const }))];
-  ['40(2)', '40(6)', '40(8)', 'อื่น ๆ'].forEach((type, i) => {
-    const r = i + 2;
-    yearRows.push([type, { f: half(type, 1, 7) }, { f: half(type, 7, 13) }, { f: `B${r}+C${r}` },
-      { f: `SUMIFS(${col('รายรับ', I.wht)},${col('รายรับ', I.type)},"${type}",${col('รายรับ', I.date)},">="&DATE(${YEAR},1,1),${col('รายรับ', I.date)},"<"&DATE(${YEAR}+1,1,1))` }]);
+  const yearBody: Cell[][] = ['40(2)', '40(6)', '40(8)', 'อื่น ๆ'].map((type, i) => {
+    const r = i + R0;
+    return [{ v: type, s: 'cell' }, { f: half(type, 1, 7), s: 'figure' }, { f: half(type, 7, 13), s: 'figure' }, { f: `B${r}+C${r}`, s: 'figure' },
+      { f: `SUMIFS(${col('รายรับ', I.wht)},${col('รายรับ', I.type)},"${type}",${col('รายรับ', I.date)},">="&DATE(${YEAR},1,1),${col('รายรับ', I.date)},"<"&DATE(${YEAR}+1,1,1))`, s: 'figure' }];
   });
-  yearRows.push([{ v: 'รวม', s: 'label' }, { f: 'SUM(B2:B5)', s: 'total' }, { f: 'SUM(C2:C5)', s: 'total' }, { f: 'SUM(D2:D5)', s: 'total' }, { f: 'SUM(E2:E5)', s: 'total' }]);
-  yearRows.push([null], [{ v: 'เฝ้าเกณฑ์ VAT', s: 'label' }, { f: 'D6', s: 'total' }, { f: vat ? '"จด VAT แล้ว"' : 'IF(D6>=1800000,"เกิน 1.8 ล้าน ต้องจด VAT ภายใน 30 วัน",IF(D6>=1500000,"ใกล้เกณฑ์ 1.8 ล้าน","ปกติ"))', s: 'text' }]);
-  yearRows.push([null], [{ v: 'ตัวเลขประมาณการเพื่อเตรียมตัว ไม่ใช่การยื่นแบบ ค่าใช้จ่ายและค่าลดหย่อนให้นักบัญชีหรือโปรแกรมของกรมสรรพากรคำนวณ', s: 'note' }]);
-  sheets.push({ name: 'สรุปภาษีรายปี', rows: yearRows, widths: [16, 18, 18, 16, 16], freezeRows: 1 });
+  const sum = `D${R0 + 4}`;
+  yearBody.push(totals('รวม', ['B', 'C', 'D', 'E'], R0, R0 + 3), [null],
+    [{ v: 'เฝ้าเกณฑ์ VAT', s: 'label' }, { f: sum, s: 'figure' }, { f: vat ? '"จด VAT แล้ว"' : `IF(${sum}>=1800000,"เกิน 1.8 ล้าน ต้องจด VAT ภายใน 30 วัน",IF(${sum}>=1500000,"ใกล้เกณฑ์ 1.8 ล้าน","ปกติ"))`, s: 'choice' }]);
+  sheets.push(report('สรุปภาษีรายปี', 'สรุปภาษีรายปี', 'ปีภาษี', ['ประเภทเงินได้', 'เงินได้ ม.ค.–มิ.ย.', 'เงินได้ ก.ค.–ธ.ค.', 'รวมทั้งปี', 'ภาษีถูกหักรวม'], yearBody, [18, 20, 20, 18, 18],
+    ['ตัวเลขประมาณการเพื่อเตรียมตัว ไม่ใช่การยื่นแบบ ค่าใช้จ่ายและค่าลดหย่อนให้นักบัญชีหรือโปรแกรมของกรมสรรพากรคำนวณ']));
   void now;
   return sheets;
 }
@@ -298,18 +394,17 @@ function payments(name: string, projectHeader: string, categories: string[], dat
 }
 
 function withholdingRegister(sources: { sheet: string; date: string; tax: string; form?: string; fixedForm?: string }[]): SheetSpec {
-  const rows: Cell[][] = [['เดือน', 'ภ.ง.ด.3 (บุคคล)', 'ภ.ง.ด.53 (นิติบุคคล)', 'ภ.ง.ด.54 (ต่างประเทศ)', 'กำหนดยื่น กระดาษ', 'กำหนดยื่น ออนไลน์'].map(v => ({ v, s: 'header' as const }))];
   const sum = (formName: string, m: number) => sources.map(src => src.fixedForm
     ? (src.fixedForm === formName ? sumMonth(src.sheet, src.tax, src.date, m) : '0')
     : sumMonth(src.sheet, src.tax, src.date, m, `,${col(src.sheet, src.form!)},"${formName}"`)).join('+');
-  MONTHS.forEach((name, i) => {
+  const body: Cell[][] = MONTHS.map((name, i) => {
     const m = i + 1;
-    rows.push([name, { f: sum('ภ.ง.ด.3', m) }, { f: sum('ภ.ง.ด.53', m) }, { f: sum('ภ.ง.ด.54', m) },
-      { f: `WORKDAY(DATE(${YEAR},${m + 1},7)-1,1)`, s: 'date' }, { f: `WORKDAY(DATE(${YEAR},${m + 1},15)-1,1)`, s: 'date' }]);
+    return [monthCell(name), { f: sum('ภ.ง.ด.3', m), s: 'figure' }, { f: sum('ภ.ง.ด.53', m), s: 'figure' }, { f: sum('ภ.ง.ด.54', m), s: 'figure' },
+      { f: `WORKDAY(DATE(${YEAR},${m + 1},7)-1,1)`, s: 'date' }, { f: `WORKDAY(DATE(${YEAR},${m + 1},15)-1,1)`, s: 'date' }];
   });
-  rows.push([{ v: 'รวมทั้งปี', s: 'label' }, { f: 'SUM(B2:B13)', s: 'total' }, { f: 'SUM(C2:C13)', s: 'total' }, { f: 'SUM(D2:D13)', s: 'total' }]);
-  rows.push([null], [{ v: 'ยื่นเฉพาะเดือนที่หักภาษีไว้ ส่งให้นักบัญชีพร้อมสำเนา 50 ทวิ ส่วนขยายยื่นออนไลน์ใช้ได้กับงวดที่ครบกำหนดถึง 31 ม.ค. 2570', s: 'note' }]);
-  return { name: 'ทะเบียนหัก ณ ที่จ่าย', rows, widths: [14, 17, 19, 19, 16, 16], freezeRows: 1 };
+  body.push(totals('รวมทั้งปี', ['B', 'C', 'D']));
+  return report('ทะเบียนหัก ณ ที่จ่าย', 'ทะเบียนภาษีหัก ณ ที่จ่าย', 'ปีบัญชี', ['เดือน', 'ภ.ง.ด.3 (บุคคล)', 'ภ.ง.ด.53 (นิติบุคคล)', 'ภ.ง.ด.54 (ต่างประเทศ)', 'กำหนดยื่น กระดาษ', 'กำหนดยื่น ออนไลน์'], body,
+    [16, 18, 20, 20, 16, 16], ['ยื่นเฉพาะเดือนที่หักภาษีไว้ ส่งให้นักบัญชีพร้อมสำเนา 50 ทวิ ส่วนขยายยื่นออนไลน์ใช้ได้กับงวดที่ครบกำหนดถึง 31 ม.ค. 2570'], true);
 }
 
 function monthlyChecklist(extra: string[]): SheetSpec {
@@ -334,15 +429,15 @@ function agency(year: number, data: TemplateData | null): SheetSpec[] {
     { h: 'ส่วนต่าง', w: 14, f: r => `IF(A${r}="","",D${r}-E${r})` },
   ], [['PRJ-2569-001', 'โปรดักชัน', 'ถ่ายวิดีโอ 1 วัน', 45000, null, null], ['PRJ-2569-001', 'KOL', 'อินฟลูเอนเซอร์ 3 คน', 30000, null, null]]);
   return [
-    howTo(TEMPLATE_INFO.agency, [
+    howTo(TEMPLATE_INFO.agency, TEMPLATE_INFO.agency.tabs, [
       '1. กรอกแท็บ ตั้งค่า (ชื่อกิจการ เลขผู้เสียภาษี ปีบัญชี)',
       '2. เปิดหนึ่งแถวในแท็บ โปรเจกต์ ต่อหนึ่งแคมเปญ ใช้รหัสโปรเจกต์เดียวกันในทุกแท็บ',
       '3. งบเทียบจริงดึงยอดใช้จริงจากแท็บ ค่าใช้จ่ายโปรเจกต์ ตามรหัสและหมวด',
       '4. ค่าสื่อที่จ่ายแทนลูกค้า เลือกหมวด “ค่าสื่อแทนจ่าย” เพื่อแยกออกจากกำไรของเอเจนซี่',
       '5. แบบที่ต้องยื่น (ภ.ง.ด.3 / 53 / 54) ขึ้นให้เองจากประเภทผู้รับและอัตราหัก ทะเบียนหัก ณ ที่จ่ายสรุปเป็นรายเดือน',
       '6. ทุกต้นเดือน ใช้แท็บ ส่งบัญชีประจำเดือน เช็กเอกสารก่อนส่งนักบัญชี (ควรส่งก่อนวันที่ 5)',
-    ]),
-    companySettings('ตั้งค่ากิจการ', year), projects, budget,
+    ], 'ปีบัญชี'),
+    companySettings('ข้อมูลกิจการ', year), projects, budget,
     payments('ค่าใช้จ่ายโปรเจกต์', 'รหัสโปรเจกต์', CATS, data, year, 'PRJ-2569-001', false),
     billing('รหัสโปรเจกต์', data, year, 'PRJ-2569-001'),
     withholdingRegister([{ sheet: 'ค่าใช้จ่ายโปรเจกต์', date: 'A', tax: 'J', form: 'L' }]),
@@ -394,15 +489,15 @@ function production(year: number, data: TemplateData | null): SheetSpec[] {
     ['ADV-2569-001', { date: `${year}-03-06` }, 'ปั๊มน้ำมันสมมติ (ตัวอย่าง)', 'น้ำมันรถตู้', 'เดินทาง', 2400, 157.01, 'ใบกำกับภาษีอย่างย่อ', '', null],
   ]);
   return [
-    howTo(TEMPLATE_INFO.production, [
+    howTo(TEMPLATE_INFO.production, TEMPLATE_INFO.production.tabs, [
       '1. กรอกแท็บ ตั้งค่า แล้วเปิดหนึ่งแถวในแท็บ งาน ต่อหนึ่งงาน ใช้รหัสงานเดียวกันทุกแท็บ',
       '2. งบโปรดักชัน = คน × วัน × ราคาต่อหน่วย ใช้จริงดึงจากทีมงาน เคลียร์เงิน และค่าใช้จ่าย ตามรหัสงานและหมวด',
       '3. ค่าตัวทีมงานและนักแสดง: เลือกประเภทเงินได้และอัตราหัก ภาษีหักและจ่ายสุทธิคำนวณให้ ออก 50 ทวิ ให้ทุกคนที่ถูกหัก',
       '4. เงินทดรอง: หนึ่งใบเบิกต่อหนึ่งก้อน ใส่วันที่ต้องเคลียร์ แล้วลงหลักฐานทุกใบในแท็บ เคลียร์เงิน ด้วยเลขที่ใบเบิกเดียวกัน',
       '5. ทะเบียนหัก ณ ที่จ่ายสรุป ภ.ง.ด.3 และ 53 รายเดือนให้นักบัญชี',
       '6. ทุกต้นเดือน ใช้แท็บ ส่งบัญชีประจำเดือน เช็กเอกสารก่อนส่งนักบัญชี (ควรส่งก่อนวันที่ 5)',
-    ]),
-    companySettings('ตั้งค่ากิจการ', year), jobs, budget, crew, advances, clearing,
+    ], 'ปีบัญชี'),
+    companySettings('ข้อมูลกิจการ', year), jobs, budget, crew, advances, clearing,
     payments('ค่าใช้จ่ายและเช่าอุปกรณ์', 'รหัสงาน', CATS, data, year, job, true),
     billing('รหัสงาน', data, year, job),
     withholdingRegister([
@@ -428,17 +523,23 @@ function holidays(year: number): string[] {
 function office(year: number): SheetSpec[] {
   const FORMS = ['ภ.ง.ด.1', 'ภ.ง.ด.3', 'ภ.ง.ด.53', 'ภ.พ.30', 'สปส.1-10'];
   const days = holidays(year);
-  const H = `${q('ตั้งค่า')}!$F$7:$F$${6 + days.length}`;
-  const rule = (formRef: string, colL: string) => `INDEX(${q('ตั้งค่า')}!$${colL}$7:$${colL}$11,MATCH(${formRef},${q('ตั้งค่า')}!$A$7:$A$11,0))`;
-  const settings = settingsTab('ตั้งค่าสำนักงาน', [['ปี (พ.ศ.)', { v: year + 543, s: 'text' }], ['ชื่อสำนักงาน', ''], ['ผู้ทำบัญชี', '']]);
-  settings.rows.push(['แบบ', 'วันกระดาษ (ของเดือนถัดไป)', null, 'วันออนไลน์', 'หมายเหตุ', 'วันหยุดราชการ'].map(v => (v ? { v, s: 'header' as const } : null)));
+  const H = `${q('ตั้งค่า')}!$E$8:$E$${7 + days.length}`;
+  const rule = (formRef: string, colL: string) => `INDEX(${q('ตั้งค่า')}!$${colL}$8:$${colL}$12,MATCH(${formRef},${q('ตั้งค่า')}!$A$8:$A$12,0))`;
+  const settings = settingsTab('ข้อมูลสำนักงาน', [['ปี (พ.ศ.)', { v: year + 543, s: 'text' }], ['ชื่อสำนักงาน', ''], ['ผู้ทำบัญชี', '']]);
+  settings.widths = [32, 40, 18, 40, 16];
+  settings.rows.push([null]);
+  settings.heights![settings.rows.length - 1] = 16;
+  settings.rows.push(['แบบ', 'วันกระดาษ (ของเดือนถัดไป)', 'วันออนไลน์', 'หมายเหตุ', 'วันหยุดราชการ'].map(v => ({ v, s: 'header' as const })));
+  settings.heights![settings.rows.length - 1] = 34;
   const rules: [string, number, number, string][] = [['ภ.ง.ด.1', 7, 15, 'ส่วนขยายออนไลน์ถึงงวดที่ครบกำหนด 31 ม.ค. 2570'], ['ภ.ง.ด.3', 7, 15, ''], ['ภ.ง.ด.53', 7, 15, ''], ['ภ.พ.30', 15, 23, 'ยื่นทุกเดือนแม้ไม่มียอด'], ['สปส.1-10', 15, 15, 'ออนไลน์ได้เพิ่ม 7 วันทำการ ตรวจกับ สปส.']];
   const longest = Math.max(rules.length, days.length);
   for (let i = 0; i < longest; i += 1) {
     const ruleRow = rules[i];
-    settings.rows.push([ruleRow?.[0] ?? null, ruleRow ? { v: ruleRow[1], s: 'text' } : null, null, ruleRow ? { v: ruleRow[2], s: 'text' } : null, ruleRow?.[3] ?? null, days[i] ? { date: days[i] } : null]);
+    settings.rows.push([ruleRow ? { v: ruleRow[0], s: 'cell' } : null, ruleRow ? { v: ruleRow[1], s: 'choice' } : null, ruleRow ? { v: ruleRow[2], s: 'choice' } : null,
+      ruleRow ? { v: ruleRow[3], s: 'cellWrap' } : null, days[i] ? { date: days[i] } : null]);
+    if (ruleRow?.[3]) settings.heights![settings.rows.length - 1] = tall(ruleRow[3], 40, 16);
   }
-  // The rules table and the holidays start at row 7 (title, note, three settings, header): the formulas above read them there.
+  // The rules table and the holidays start at row 8 (title, note, three settings, a space, header): the formulas above read them there.
   const clients = table('ลูกค้า', [
     { h: 'รหัสลูกค้า', w: 11 }, { h: 'ชื่อกิจการ', w: 26 }, { h: 'ประเภทกิจการ', w: 14, list: ['บุคคลธรรมดา', 'ห้างหุ้นส่วนจำกัด', 'บริษัทจำกัด'] },
     { h: 'เลขผู้เสียภาษี', w: 16 }, { h: 'จด VAT', w: 9, list: YES_NO }, { h: 'มีลูกจ้าง', w: 9, list: YES_NO }, { h: 'วันสิ้นรอบบัญชี', w: 14, s: 'date' },
@@ -452,7 +553,7 @@ function office(year: number): SheetSpec[] {
   ], [[{ v: year + 543, s: 'text' }, { v: 3, s: 'text' }, 'C001', null, '12', '30', '18', 'ใช่', 'ยังไม่ครบ', 'รอใบกำกับซื้อค่าเช่ากล้อง']]);
   const filings = table('ยื่นแบบรายเดือน', [
     { h: 'ปี (พ.ศ.)', w: 9, s: 'text' }, { h: 'เดือน (1–12)', w: 10, s: 'text' }, { h: 'รหัสลูกค้า', w: 11 }, { h: 'แบบ', w: 11, list: FORMS }, { h: 'วิธียื่น', w: 10, list: ['ออนไลน์', 'กระดาษ'] },
-    { h: 'วันตามกฎ', w: 13, s: 'date', f: r => `IF(OR(A${r}="",B${r}="",D${r}=""),"",DATE(A${r}-543,B${r}+1,IF(E${r}="กระดาษ",${rule(`D${r}`, 'B')},${rule(`D${r}`, 'D')})))` },
+    { h: 'วันตามกฎ', w: 13, s: 'date', f: r => `IF(OR(A${r}="",B${r}="",D${r}=""),"",DATE(A${r}-543,B${r}+1,IF(E${r}="กระดาษ",${rule(`D${r}`, 'B')},${rule(`D${r}`, 'C')})))` },
     { h: 'กำหนดส่ง (เลื่อนวันหยุด)', w: 18, s: 'date', f: r => `IF(F${r}="","",WORKDAY(F${r}-1,1,${H}))` },
     { h: 'ยอดภาษี / เงินสมทบ', w: 16, s: 'money' }, { h: 'ยื่นแล้ว', w: 9, list: ['ยื่นแล้ว', 'ยังไม่ยื่น'] }, { h: 'วันที่ยื่น', w: 12, s: 'date' }, { h: 'เลขอ้างอิง', w: 16 },
   ], [[{ v: year + 543, s: 'text' }, { v: 3, s: 'text' }, 'C001', 'ภ.ง.ด.53', 'ออนไลน์', null, null, 1260, 'ยังไม่ยื่น', '', ''],
@@ -470,14 +571,14 @@ function office(year: number): SheetSpec[] {
     { h: 'สถานะ', w: 14, list: ['ยังไม่เริ่ม', 'กำลังทำ', 'ส่งตรวจ', 'ยื่นแล้ว'] },
   ], [[{ v: year + 542, s: 'text' }, 'C001', null, { date: `${year - 1}-12-31` }, { date: `${year}-04-28` }, null, null, 'กำลังทำ']]);
   return [
-    howTo(TEMPLATE_INFO.office, [
+    howTo(TEMPLATE_INFO.office, TEMPLATE_INFO.office.tabs, [
       '1. แท็บ ลูกค้า: หนึ่งแถวต่อลูกค้า ใช้รหัสลูกค้าเดียวกันในทุกแท็บ',
       '2. เช็กลิสต์เอกสาร: หนึ่งแถวต่อลูกค้าต่อเดือน กำหนดส่งเอกสารคือวันที่ 5 ของเดือนถัดไป (เลื่อนวันหยุดให้)',
       '3. ยื่นแบบรายเดือน: เลือกแบบและวิธียื่น วันตามกฎและกำหนดส่งหลังเลื่อนวันหยุดคำนวณจากตารางในแท็บ ตั้งค่า',
       '4. ติดตามเอกสาร: จดเรื่องที่ขาด และวันที่ขอให้ลูกค้าส่ง ก่อนถึงกำหนดยื่นของแบบที่ได้รับผลกระทบ',
       '5. ปิดงบประจำปี: กำหนดส่งงบ DBD และ ภ.ง.ด.50 คำนวณจากประเภทกิจการ วันปิดบัญชี และวันประชุม',
       '6. เมื่อกฎเปลี่ยน (เช่น ส่วนขยายยื่นออนไลน์) แก้ตารางในแท็บ ตั้งค่า จุดเดียว',
-    ]),
+    ], 'ปี'),
     clients, checklist, filings, followUps, closing, settings,
   ];
 }

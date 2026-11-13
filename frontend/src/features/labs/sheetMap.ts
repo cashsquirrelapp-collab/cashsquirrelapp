@@ -54,6 +54,15 @@ export function readTabs(tabs: LiveTab[], saved?: SheetMap | null): TabReading[]
   });
 }
 
+/** A sheet made from one of our templates (สร้างชีตใหม่ให้): only the tabs the template names are written into and counted,
+ *  as jobs and as expenses; budgets, reports and the cover are left alone. */
+export function forTemplate(readings: TabReading[], writes: { job?: string; expense?: string }): TabReading[] {
+  return readings.map(reading => {
+    const kind: DataKind | null = reading.analysis.name === writes.job ? 'jobs' : reading.analysis.name === writes.expense ? 'expenses' : null;
+    return kind ? { ...reading, use: true, analysis: { ...reading.analysis, kind } } : { ...reading, use: false };
+  });
+}
+
 export function setTarget(reading: TabReading, index: number, target: ColumnTarget): TabReading {
   return { ...reading, analysis: { ...reading.analysis, columns: reading.analysis.columns.map(column => (column.index === index ? { ...column, target, reason: 'person' } : column)) } };
 }

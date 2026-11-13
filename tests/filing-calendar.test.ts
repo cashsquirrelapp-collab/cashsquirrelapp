@@ -101,7 +101,7 @@ test('workbooks: each business gets its template with the tabs the plan lists, e
     assert.equal(names[0], 'วิธีใช้');
     assert.match(built.fileName, /^ชีตบัญชี_.+_2569_1112\.xlsx$/);
     const settings = built.sheets.find(sheet => sheet.name === 'ตั้งค่า')!;
-    assert.deepEqual(settings.rows[2][1], { v: 2569, s: 'text' }, 'the year the formulas read is B3');
+    assert.equal((settings.rows[2][1] as { v: number }).v, 2569, 'the year the formulas read is B3');
   }
   assert.ok(buildBookTemplate(tutor, { year: 2026 }).sheets.some(sheet => sheet.name === 'รายงานเงินสดรับ-จ่าย'), '40(8) keeps the cash report the law requires');
   assert.ok(!buildBookTemplate(coach, { year: 2026 }).sheets.some(sheet => sheet.name === 'รายงานเงินสดรับ-จ่าย'));

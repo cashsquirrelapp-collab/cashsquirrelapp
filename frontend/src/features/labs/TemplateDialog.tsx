@@ -69,13 +69,14 @@ export function TemplateDialog({ open, onClose, settings, onSaveProfile, jobs, e
   const id = profile ? templateFor(profile) : null;
   const data = React.useMemo(() => (jobs && expenses ? templateData(jobs, expenses, year) : null), [jobs, expenses, year]);
   const canFill = Boolean(data && id !== 'office' && (data.income.length || data.expenses.length));
-  const build = () => {
+  // Tahoma for the Excel download (on every Windows and Mac); Sarabun for the Google Sheet (a Google font for formal Thai).
+  const build = (font: 'Tahoma' | 'Sarabun') => {
     const built = buildBookTemplate(profile!, { year, data: withData && canFill ? data : null });
-    return { built, bytes: buildXlsx(built.sheets, { title: TEMPLATE_INFO[built.id].title }) };
+    return { built, bytes: buildXlsx(built.sheets, { title: TEMPLATE_INFO[built.id].title, font }) };
   };
   const make = () => {
     if (!profile) return;
-    const { built, bytes } = build();
+    const { built, bytes } = build('Tahoma');
     download(bytes, built.fileName);
     setDone(built.fileName);
   };
@@ -83,7 +84,7 @@ export function TemplateDialog({ open, onClose, settings, onSaveProfile, jobs, e
     if (!profile || !drive) return;
     setCreating(true); setDriveError(null);
     try {
-      const { built, bytes } = build();
+      const { built, bytes } = build('Sarabun');
       const status = await googleApi.createTemplate(drive.account, built.fileName.replace(/\.xlsx$/i, ''), toBase64(bytes));
       setCreated(status.file ?? null);
     } catch (error) { setDriveError((error as Error).message || tr("กรุณาลองใหม่อีกครั้ง")); }
