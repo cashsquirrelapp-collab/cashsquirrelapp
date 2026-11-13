@@ -99,24 +99,48 @@
     field('form-view').classList.add('hidden'); field('status-view').classList.add('hidden');
     field('loading-caption').textContent = caption; field('loading-view').classList.remove('hidden');
   }
-  function showStatus(title, message, closeButton, reaction) {
+  // again: a ลองอีกครั้ง button above กลับไปแชท (owner, 2026-11-13: the draft form said เปิดรายการร่างไม่ได้ when LINE
+  // dropped the connection, with no way but to go back).
+  function showStatus(title, message, closeButton, reaction, again) {
     field('loading-view').classList.add('hidden');
     field('form-view').classList.add('hidden');
     var view = field('status-view'); view.classList.remove('hidden'); view.replaceChildren();
     var image = document.createElement('img'); image.className = 'emoji'; image.src = mascotUrl(reaction || 'guide'); image.alt = '';
     var heading = document.createElement('h2'); heading.textContent = title;
     var paragraph = document.createElement('p'); paragraph.textContent = message; view.append(image, heading, paragraph);
-    if (closeButton) { var button = document.createElement('button'); button.type = 'button'; button.textContent = 'กลับไปแชท'; button.addEventListener('click', closeLiff); view.append(button); }
+    if (again) { var retry = document.createElement('button'); retry.type = 'button'; retry.textContent = 'ลองอีกครั้ง'; retry.addEventListener('click', again); view.append(retry); }
+    if (closeButton) { var button = document.createElement('button'); button.type = 'button'; button.textContent = 'กลับไปแชท'; if (again) button.className = 'secondary'; button.addEventListener('click', closeLiff); view.append(button); }
   }
+  // A request to the server that LINE's browser dropped on the way (seen on an iPhone, 2026-11-13: the request reached
+  // the server and was cut off within a second, nothing else happened) is sent again twice before the page gives up.
+  // Only a dropped connection is retried; an answer from the server, even a refusal, is final.
+  async function postLiff(body) {
+    var waits = [500, 1500];
+    for (var attempt = 0; ; attempt++) {
+      try {
+        return await fetch('/api/liff-submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      } catch (error) {
+        if (attempt >= waits.length) throw error;
+        await new Promise(function (resolve) { setTimeout(resolve, waits[attempt]); });
+      }
+    }
+  }
+  window.KrarokLiffPost = postLiff;
   function closeLiff() {
     try { if (window.liff && liff.isInClient()) { liff.closeWindow(); return; } } catch (error) {}
     // A normal browser tab may refuse window.close(); leave clear instructions visible.
     showStatus('กลับไปที่แชท LINE', 'กลับไปที่แอป LINE แล้วเปิดแชทกระรอกตุนเงินได้เลยครับ', false);
     try { window.close(); } catch (error) {}
   }
-  function blockDraft(message) {
+  function blockDraft(message, again) {
     ready = false; draftLoaded = false;
-    showStatus('เปิดรายการร่างไม่ได้', message + '\nกลับไปแชทแล้วเปิดรายการล่าสุด หรือสร้างรายการใหม่อีกครั้ง', true, 'urgent');
+    showStatus('เปิดรายการร่างไม่ได้', message + (again ? '' : '\nกลับไปแชทแล้วเปิดรายการล่าสุด หรือสร้างรายการใหม่อีกครั้ง'), true, 'urgent', again);
+  }
+  // Opening the draft again from the error screen: the logo while it loads, the same error with the button if it fails.
+  function openDraftAgain() {
+    showLoading('กำลังเปิดรายการ');
+    var opening = draftReference.kind === 'document' && window.KrarokDocumentForm ? window.KrarokDocumentForm.open(draftReference) : loadDraft(draftReference);
+    Promise.resolve(opening).catch(function () { blockDraft('ยังโหลดรายการไม่สำเร็จ ตรวจอินเทอร์เน็ตแล้วลองอีกครั้ง', openDraftAgain); });
   }
   function appDestination(search) {
     var params = new URLSearchParams(search);
@@ -277,13 +301,11 @@
   async function loadDraft(reference) {
     var idToken = liff.getIDToken();
     if (!idToken) { blockDraft('กรุณาเปิดรายการนี้จาก LINE เพื่อยืนยันบัญชี'); return; }
-    var response = await fetch('/api/liff-submit', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'load-draft', draftKind: reference.kind, draftKey: reference.key, idToken: idToken }),
-    });
-    var data = await response.json();
+    var response = await postLiff({ action: 'load-draft', draftKind: reference.kind, draftKey: reference.key, idToken: idToken });
+    var data = await response.json().catch(function () { return {}; });
     if (!response.ok || data.ok !== true || data.kind !== reference.kind || !data.draft || typeof data.draft !== 'object' || Array.isArray(data.draft)) {
-      blockDraft(data.error || 'รายการนี้อาจหมดอายุหรือถูกแก้ไขแล้ว'); return;
+      // A busy or failing server can be tried again; an expired or replaced draft cannot (its card is out of date).
+      blockDraft(data.error || 'รายการนี้อาจหมดอายุหรือถูกแก้ไขแล้ว', response.status >= 500 || response.status === 429 ? openDraftAgain : undefined); return;
     }
     draftLoaded = true; populateDraft(reference.kind, data.draft); ready = true;
     field('loading-view').classList.add('hidden'); field('status-view').classList.add('hidden'); field('form-view').classList.remove('hidden');
@@ -384,7 +406,8 @@
       // Old rich-menu links now use the real app form after the same verified LINE sign-in.
       await openLinkedApp('/jobs?openAddJob=1');
     } catch (error) {
-      if (draftReference) blockDraft('โหลดรายการร่างไม่สำเร็จ กรุณาลองเปิดรายการจากแชทอีกครั้ง');
+      if (draftReference && !draftReference.invalid) blockDraft('โหลดรายการไม่สำเร็จ การเชื่อมต่อหลุดระหว่างเปิด', openDraftAgain);
+      else if (draftReference) blockDraft('โหลดรายการร่างไม่สำเร็จ กรุณาลองเปิดรายการจากแชทอีกครั้ง');
       else showStatus('เปิดฟอร์มไม่สำเร็จ', 'ลองเปิดใหม่จากปุ่มในแชท LINE อีกครั้งครับ', true, 'urgent');
     }
   })();

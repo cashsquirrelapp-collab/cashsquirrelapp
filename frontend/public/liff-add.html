@@ -71,6 +71,8 @@
   .status h2 { font-size:23px; font-weight:700; letter-spacing:-.5px; margin:0 0 10px; }
   .status p { color:var(--muted); font-size:13px; line-height:1.8; margin:0; white-space:pre-line; }
   .status button { margin-top:23px; padding:12px 24px; border:0; border-radius:12px; background:var(--accent); color:#fff; font-weight:600; box-shadow:0 3px 0 #B9441B; min-height:46px; }
+  .status button + button { display:block; margin:10px auto 0; }
+  .status button.secondary { background:#fff; color:var(--text); border:1px solid var(--border); box-shadow:none; }
   .loading-dot { width:22px; height:22px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; margin:20px auto; }
   @keyframes spin { to{transform:rotate(360deg)} }
   @media(prefers-reduced-motion:reduce){.loading-dot{animation:none}.btn-primary:active{transform:none}}

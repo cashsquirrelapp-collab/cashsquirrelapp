@@ -293,9 +293,11 @@
     state.reference = reference;
     var idToken = liff.getIDToken();
     if (!idToken) { status('เปิดแบบร่างไม่ได้', 'กรุณาเปิดจากการ์ดในแชท LINE อีกครั้ง', 'urgent', true); return; }
-    var response = await fetch('/api/liff-submit', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'load-draft', draftKind: 'document', draftKey: reference.key, idToken: idToken }) });
-    var data = await response.json();
+    // Sent again when LINE's browser drops the connection (liff-add.js postLiff); a dropped one in the end is shown by
+    // liff-add.js with a ลองอีกครั้ง button.
+    var post = window.KrarokLiffPost || function (body) { return fetch('/api/liff-submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); };
+    var response = await post({ action: 'load-draft', draftKind: 'document', draftKey: reference.key, idToken: idToken });
+    var data = await response.json().catch(function () { return {}; });
     if (!response.ok || data.ok !== true || data.kind !== 'document' || !data.draft) {
       status('เปิดแบบร่างไม่ได้', (data.error || 'แบบร่างนี้หมดเวลาหรือมีแบบร่างใหม่แล้ว') + '\nกลับไปแชทแล้วพิมพ์ “ทำใบเสนอราคา” เพื่อเริ่มใหม่', 'urgent', true); return;
     }

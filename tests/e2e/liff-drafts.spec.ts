@@ -125,3 +125,50 @@ test('an expense draft opens in design B; กลับไปแชท closes the
   expect(closed).toEqual(['closed']);
   expect(sent.some(body => body.action === 'confirm-draft')).toBe(false);
 });
+
+// LINE's browser on an iPhone dropped the draft request on the way (owner, 2026-11-13: "กดเข้าไปแก้ไขรายละเอียดไม่ได้ ...
+// เปิดรายการร่างไม่ได้"; the server log showed the request cut off within a second). A dropped request is sent again; if it
+// keeps dropping, the error screen offers ลองอีกครั้ง. An expired draft is final: no button that cannot work.
+async function openWith(page: Page, answer: (attempt: number) => 'drop' | 'ok' | 'gone') {
+  let attempts = 0;
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.route('https://static.line-scdn.net/**', route => route.fulfill({ contentType: 'text/javascript',
+    body: 'window.liff={init:async()=>{},isLoggedIn:()=>true,isInClient:()=>true,getIDToken:()=>"token",closeWindow(){},login(){}};' }));
+  await page.route('**/api/liff-config', route => route.fulfill({ json: { liffId: 'test-liff' } }));
+  await page.route('**/api/liff-submit', route => {
+    const body = route.request().postDataJSON();
+    if (body.action !== 'load-draft') return route.fulfill({ json: { ok: true } });
+    attempts += 1;
+    const what = answer(attempts);
+    if (what === 'drop') return route.abort('connectionreset');
+    if (what === 'gone') return route.fulfill({ status: 409, json: { error: 'รายการนี้หมดอายุ บันทึกแล้ว หรือมีร่างใหม่ กรุณาเปิดจากการ์ดล่าสุด' } });
+    return route.fulfill({ json: { ok: true, kind: 'job', draft: { name: 'A', paymentStatus: 'pending' } } });
+  });
+  await page.goto('/liff-add.html?draftKind=job&draftKey=0123456789abcdef');
+  return () => attempts;
+}
+
+test('a dropped draft request is sent again and the form opens', async ({ page }) => {
+  const attempts = await openWith(page, n => (n === 1 ? 'drop' : 'ok'));
+  await expect(page.locator('#job-card')).toBeVisible();
+  await expect(page.locator('#job-name')).toHaveValue('A');
+  expect(attempts()).toBe(2);
+});
+
+test('a request that keeps dropping shows ลองอีกครั้ง, which opens the form once the line is back', async ({ page }) => {
+  let online = false;
+  const attempts = await openWith(page, () => (online ? 'ok' : 'drop'));
+  await expect(page.locator('#status-view')).toContainText('เปิดรายการร่างไม่ได้');
+  expect(attempts()).toBe(3);
+  online = true;
+  await page.getByRole('button', { name: 'ลองอีกครั้ง' }).click();
+  await expect(page.locator('#job-card')).toBeVisible();
+  await expect(page.locator('#job-name')).toHaveValue('A');
+});
+
+test('an expired draft says so with no ลองอีกครั้ง', async ({ page }) => {
+  await openWith(page, () => 'gone');
+  await expect(page.locator('#status-view')).toContainText('รายการนี้หมดอายุ');
+  await expect(page.getByRole('button', { name: 'ลองอีกครั้ง' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'กลับไปแชท' })).toBeVisible();
+});
