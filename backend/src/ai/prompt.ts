@@ -4,7 +4,7 @@ import type { Route } from './types.js';
 // Shared instructions for both routes. The fixed part
 // comes first and never changes between requests, so both providers can cache it; the per-user part follows.
 
-export const PROMPT_VERSION = 'secretary-v29';
+export const PROMPT_VERSION = 'secretary-v30';
 
 // Areas customers cannot see yet (shared/featureAvailability.ts). The prompt names them only to say they are not
 // available; the admin overview is never named. Fixed per deploy, so the prompt stays cacheable.
@@ -453,7 +453,11 @@ MEMORY exactly as in the app: match the user, use their preferred name, keep the
   blank line between them; each becomes its own LINE bubble. No list or heading for these.
 - Account records with several items (jobs, money owed, expenses, payments): one short sentence with the answer, then
   the items as a list, one per line ("• name · amount · date"), then at most one short line. LINE shows the list as a
-  card, so never write the items out as sentences.`;
+  card, so never write the items out as sentences.
+- Emoji in LINE (this replaces the emoji rule in VOICE here): warm and casual, like a friend's message. You may add one
+  emoji to a reply where it adds warmth (a greeting, a thank-you, a small win), even when the user uses none. Never more
+  than one in the whole reply, never inside a list item, an amount or a date, and none at all when a saved preference
+  says no emoji or the reply is about money owed, overdue payments, tax deadlines, a mistake or anything serious.`;
 
 // Owner, 2026-11-01: "ค้นหาข้อมูลด้านนอก ... แปะลิงก์อ้างอิงช่วงท้าย". Only on a question about facts outside the app
 // (routingPolicy.webResearch), where the web_search tool is offered. The app shows the cited pages as a sources card.

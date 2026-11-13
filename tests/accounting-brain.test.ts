@@ -297,12 +297,14 @@ test('prompt: without the accounting slot the prompt is byte-identical to the ap
   // FILES TO KEEP rule (attach_file); the chat route is unchanged. secretary-v28 (owner, 2026-11-04): CHECK FIRST added
   // right after SAVING AT ONCE (every card waits for แก้ไข / บันทึกงาน, or a typed บันทึกทั้งหมด); no rule removed.
   // secretary-v29 (owner, 2026-11-06): LINE TALK added after the LINE rules (LINE only); the app prompt is byte-identical.
+  // secretary-v30 (owner, 2026-11-13): LINE TALK allows one emoji per reply in LINE (warm, never on serious or money-owed
+  // replies); the app prompt is byte-identical.
   const slots: PromptSlots[] = [
     { route: 'chat', plan: 'pro', nowLocal: '26 ต.ค. 2569 10:00', knowledge: 'K', accountContext: '{}', offer: 'O' },
     { route: 'action', plan: 'admin', nowLocal: '26 ต.ค. 2569 10:00', knowledge: 'K', accountContext: '{}', founder: 'F', channel: 'line' },
   ];
-  const v29 = ['eaef3184b6fdd494abb9e0f7c1ffb0bcf99344883f6589193e8b2db1753e42de', '49ccd6ffc4ed0249fb646811f9d9e38bbdd61ab02c4768c23752b9074effadac'];
-  slots.forEach((slot, index) => assert.equal(createHash('sha256').update(buildSystemPrompt(slot)).digest('hex'), v29[index]));
+  const v30 = ['eaef3184b6fdd494abb9e0f7c1ffb0bcf99344883f6589193e8b2db1753e42de', 'cecf96d5b7edbc3de6a6a044c14381aebff60c6ae7453a5aefaba9ee640f6951'];
+  slots.forEach((slot, index) => assert.equal(createHash('sha256').update(buildSystemPrompt(slot)).digest('hex'), v30[index]));
   const withAccounting = buildSystemPrompt({ ...slots[0], accounting: 'REF' });
   assert.match(withAccounting, /ACCOUNTING REFERENCE \(selected for this message; general information with sources, not a ruling\)\n\nREF\n\nACCOUNT CONTEXT/);
 });

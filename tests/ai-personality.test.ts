@@ -105,7 +105,7 @@ test('offers: unrelated topics, a recent offer, a refusal, a request to stop and
 });
 
 test('the prompt: everyday talk allowed, the old refusal gone, personality and adapting, money work stays exact', () => {
-  assert.equal(PROMPT_VERSION, 'secretary-v29');
+  assert.equal(PROMPT_VERSION, 'secretary-v30');
   for (const route of ['chat', 'action'] as const) {
     const prompt = buildSystemPrompt({ route, plan: 'pro', nowLocal: 'x', knowledge: '-', accountContext: '-', offer: offerLine('unrelated') });
     assert.doesNotMatch(prompt, /You are not a general chatbot/, 'the line that made เลขา refuse food talk is gone');
@@ -133,6 +133,11 @@ test('every answer: no emoji unless the user used them or asked for none, and no
   assert.equal(styleReply('สู้ ๆ นะ 😊', { userText: 'เหนื่อยจัง 😭' }), 'สู้ ๆ นะ 😊', 'the user used one');
   assert.equal(styleReply('สู้ ๆ นะ 😊 ดู [นโยบาย](/privacy)', { userText: 'เหนื่อยจัง 😭', preferences: [undefined, 'ไม่ใช้อีโมจิ'] }), 'สู้ ๆ นะ ดู [นโยบาย](/privacy)', 'a saved "no emoji" wins');
   assert.equal(styleReply('ราคา ฿3,000 · 1 ม.ค. 2570', { userText: 'x' }), 'ราคา ฿3,000 · 1 ม.ค. 2570', 'baht and dots stay');
+  // LINE (owner, 2026-11-13: "เป็นกันเอง ใช้อีโมจิได้แต่ไม่เยอะ"): one emoji per reply even when the user used none; never more.
+  assert.equal(styleReply('บันทึกให้แล้วครับ 🎉', { userText: 'ค่ากาแฟ 60', channel: 'line' }), 'บันทึกให้แล้วครับ 🎉');
+  assert.equal(styleReply('เยี่ยมเลย 🎉 เดือนนี้กำไรขึ้น 😊 สู้ต่อ 💪', { userText: 'สรุปเดือนนี้ 😆😆', channel: 'line' }), 'เยี่ยมเลย 🎉 เดือนนี้กำไรขึ้น สู้ต่อ');
+  assert.equal(styleReply('ได้เลย 👍', { userText: 'x', preferences: ['ไม่ใช้อีโมจิ'], channel: 'line' }), 'ได้เลย', 'a saved "no emoji" still wins in LINE');
+  assert.equal(styleReply('ได้เลย 👍', { userText: 'x', channel: 'app' }), 'ได้เลย', 'the app is unchanged');
   // Through the gateway: the model's emoji never reaches a user who used none.
   const fake = fakeGemini('ไปกินชาบูกัน 😆🍲');
   const reply = await runAssistant({ user: account(), plan: 'pro', text: 'วันนี้กินไรดี' }, { config: config(), fetchImpl: fake.fetchImpl, ...memoryStores() });

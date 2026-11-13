@@ -432,7 +432,7 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
         : qa?.answer ?? (founderLanguage === 'th' ? entry.text_th : entry.text_en);
       // With the founder's own words from the website story and where to read it all (owner, 2026-10-31); still no model.
       const text = `${fact}\n\n${founderStoryLine(qaId as 'who' | 'background' | 'why' | 'vision', founderLanguage)}`;
-      return { text: styleReply(text, { userText: request.text, preferences: [request.communicationProfile, ...(request.memories ?? [])] }), cards: [] };
+      return { text: styleReply(text, { userText: request.text, preferences: [request.communicationProfile, ...(request.memories ?? [])], channel: request.channel }), cards: [] };
     }
     if (kind === 'confidential') {
       const asked = techQuestion(request.text);
@@ -702,7 +702,7 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
   // The pages a web answer cites, under it (owner, 2026-11-01: "แปะลิงก์อ้างอิงช่วงท้าย"): the provider's own citations only.
   const sources = decision.web && config.webSearchMaxUses > 0 && finalText.trim() ? webSources(result.sources) : [];
   if (sources.length) cards.push({ kind: 'sources', items: sources });
-  const styled = styleReply(cleanAnswerText(finalText, cards), { userText: request.text, preferences: [request.communicationProfile, ...(request.memories ?? [])] });
+  const styled = styleReply(cleanAnswerText(finalText, cards), { userText: request.text, preferences: [request.communicationProfile, ...(request.memories ?? [])], channel: request.channel });
   const checked = guardReply(styled, { userText: request.text, userData: () => JSON.stringify(request.user) });
   guardHits.push(...checked.hits);
   const answer = hideCodes(checked.text, request.text);

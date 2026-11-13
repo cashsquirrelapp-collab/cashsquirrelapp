@@ -244,8 +244,9 @@ test('gateway: prompt version and bytes remain unchanged by the knowledge connec
   // replaces the remembered PREFERRED NAME. secretary-v17 (owner-approved
   // 2026-10-26, Accounting Brain): one ACCOUNTING REFERENCE slot added after FOUNDER;
   // every existing rule is byte-identical and a message without that slot builds exactly the v16 prompt.
-  assert.equal(PROMPT_VERSION, 'secretary-v29');
+  assert.equal(PROMPT_VERSION, 'secretary-v30');
   const prompt = await readFile(new URL('../backend/src/ai/prompt.ts', import.meta.url));
-  // Captured before the approved gateway-only connection; recaptured for secretary-v29. No dependency on a local audit folder.
-  assert.equal(createHash('sha256').update(prompt).digest('hex'), '97c5dad38993dad92d9524b7323fcffa53f8130808a5fd4bfa6e5a496edbd541');
+  // Captured before the approved gateway-only connection; recaptured for secretary-v30 (LINE emoji line, owner 2026-11-13).
+  // No dependency on a local audit folder.
+  assert.equal(createHash('sha256').update(prompt).digest('hex'), '9715bc828659047898fb44d610f3693d8285cf12aad28a41a4095e3a507fda8d');
 });

@@ -1,6 +1,7 @@
 // Three house rules checked on every answer, whatever the model wrote (owner's brief, 2026-10-25: "ลดอีโมจิให้มากที่สุด
 // หากผู้ใช้ไม่ใช้อีโมจิ ไม่ต้องใส่อีโมจิ"; the real-model test found a reply with a made-up tool link):
-// - no emoji when the user's message has none, or when they asked for none;
+// - no emoji when the user's message has none, or when they asked for none; in LINE (owner, 2026-11-13: "เป็นกันเอง
+//   ใช้อีโมจิได้แต่ไม่เยอะ") at most one per reply, whoever used them, and none when they asked for none;
 // - a Markdown link to a tool or another non-web target keeps its words only (the app makes real page links itself);
 // - เลขา never calls itself AI (owner, 2026-10-31: "แทนตัวเองว่าเลขากระรอก ... ห้ามเอ่ยตัวเองว่า AI"). The prompt says so
 //   (SELF); this catches the usual phrases a model still writes. Only self-references change: AI as a topic stays.
@@ -35,12 +36,17 @@ export function selfName(text: string): string {
     .replace(NAME_AI_EN, 'Krarok Secretary is the personal assistant');
 }
 
-export function styleReply(text: string, context: { userText: string; preferences?: (string | undefined)[] }): string {
+export function styleReply(text: string, context: { userText: string; preferences?: (string | undefined)[]; channel?: 'app' | 'line' }): string {
   let out = selfName(text.replace(TOOL_LINK, (_match, label: string) => label));
   const userEmoji = (context.userText.match(EMOJI) || []).length;
   const asked = (context.preferences ?? []).some(value => value && NO_EMOJI.test(value));
-  if (asked || userEmoji === 0) {
-    out = out.replace(EMOJI, '').replace(/[ \t]+$/gm, '').replace(/[ \t]{2,}/g, ' ');
+  const tidy = (value: string) => value.replace(/[ \t]+$/gm, '').replace(/[ \t]{2,}/g, ' ');
+  if (asked || (context.channel !== 'line' && userEmoji === 0)) {
+    out = tidy(out.replace(EMOJI, ''));
+  } else if (context.channel === 'line') {
+    // LINE: the first emoji stays, any after it go.
+    let kept = false;
+    out = tidy(out.replace(EMOJI, match => (kept ? '' : ((kept = true), match))));
   }
   return out.trim();
 }
