@@ -16,6 +16,8 @@ import { lineAreaOpen } from './lineLaunch.js';
 import { isPhaseOneFeatureAvailable } from '../../../shared/featureAvailability.js';
 import { SheetFileError, sheetFileKind, spreadsheetText } from '../../../shared/sheetFileText.js';
 import { DocumentFileError, documentFileKind, documentText } from '../../../shared/documentFileText.js';
+import { sheetConvertTap } from './lineSheetConvert.js';
+import { sheetsOpenFor } from './lineSheetCards.js';
 
 type AttachKind = 'wht50' | 'contract' | 'expense' | 'other';
 export type VaultAction = { step: 'choose'; kind: AttachKind; fileId: string }
@@ -134,11 +136,17 @@ async function handleLineSheetFile(user: UserRow, event: LineFileEvent, token: s
   let read: ReturnType<typeof spreadsheetText>;
   try { read = spreadsheetText(name, new Uint8Array(bytes)); }
   catch (error) { return [{ type: 'text', text: SHEET_ERRORS[error instanceof SheetFileError ? error.code : 'type'] }]; }
-  if (read.dataRows > LINE_SHEET_ROWS) return [sheetImportCard(name, read.dataRows, read.tabs)];
-  return askAboutText(user, name, read.text, LINE_SHEET_REQUEST, deps, {
+  const messages = read.dataRows > LINE_SHEET_ROWS ? [sheetImportCard(name, read.dataRows, read.tabs)] : await askAboutText(user, name, read.text, LINE_SHEET_REQUEST, deps, {
     none: 'อ่านตารางได้แล้ว แต่ตอนนี้เลขายังเตรียมรายการให้ไม่ได้ครับ ลองส่งใหม่อีกครั้ง หรือนำเข้าที่ เมนู งาน › นำเข้าจาก Excel',
     failed: 'เลขาอ่านตารางนี้ไม่สำเร็จครับ ลองส่งใหม่อีกครั้ง', log: 'line-sheet',
   });
+  // เปิดใน Google Sheets under the answer, where the Sheets test feature is open to the account (lineSheetConvert.ts).
+  const convertible = await (deps.sheetsOpen ?? sheetsOpenFor)(user.user_id).catch(() => false);
+  if (convertible && messages.length) {
+    const last = messages[messages.length - 1] as LineMessage & { quickReply?: unknown };
+    messages[messages.length - 1] = { ...last, quickReply: { items: [sheetConvertTap(event.id!, name)] } } as LineMessage;
+  }
+  return messages;
 }
 
 /**
@@ -201,6 +209,8 @@ export interface LineFileDeps {
   remember?: typeof rememberFileProposals;
   saveHistory?: typeof saveChatHistory;
   rateLimit?: typeof rateLimit;
+  /** Whether the Sheets test feature is open to the account (the เปิดใน Google Sheets tap). */
+  sheetsOpen?: (userId: string) => Promise<boolean>;
 }
 
 /**

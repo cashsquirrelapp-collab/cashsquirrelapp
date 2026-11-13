@@ -236,9 +236,10 @@ export async function readSpreadsheet(token: string, fileId: string): Promise<Li
 }
 
 /** Uploads an Excel workbook into the person's Drive as a new Google Sheet (Google converts it, formulas and all). */
-export async function createSpreadsheet(token: string, name: string, xlsx: Uint8Array): Promise<GoogleFile> {
+/** mediaType: what the uploaded bytes are (an Excel workbook unless said; a CSV converts the same way). */
+export async function createSpreadsheet(token: string, name: string, xlsx: Uint8Array, mediaType: string = XLSX_MIME): Promise<GoogleFile> {
   const boundary = `krarok${randomBytes(12).toString('hex')}`;
-  const head = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({ name, mimeType: SHEET_MIME })}\r\n--${boundary}\r\nContent-Type: ${XLSX_MIME}\r\n\r\n`;
+  const head = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({ name, mimeType: SHEET_MIME })}\r\n--${boundary}\r\nContent-Type: ${mediaType}\r\n\r\n`;
   const body = Buffer.concat([Buffer.from(head, 'utf8'), Buffer.from(xlsx), Buffer.from(`\r\n--${boundary}--`, 'utf8')]);
   const response = await call(`${UPLOAD}?uploadType=multipart&fields=id,name,webViewLink&supportsAllDrives=true`, {
     method: 'POST',

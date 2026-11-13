@@ -56,6 +56,7 @@ function deps(file: Buffer) {
       },
       saveHistory: async (_user: unknown, said: string) => { calls.push(`history:${said}`); },
       rateLimit: async (scope: string) => { calls.push(`limit:${scope}`); },
+      sheetsOpen: async () => false,
     } as any,
   };
 }
