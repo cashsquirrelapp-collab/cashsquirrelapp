@@ -2,6 +2,7 @@ import { httpServerHandler } from 'cloudflare:node';
 import { createApp } from '../backend/src/http/app.js';
 import { withCloudflareClientIp } from '../backend/src/security/requestContext.js';
 import { scheduledPaths } from './schedule.js';
+import { liffPageRequest } from './liffPage.js';
 import { answerWithin } from './deferred.js';
 import { runScheduledJobs } from '../migration/scheduled-runner.js';
 import { enforceHttps, toMainHost } from './transport.js';
@@ -56,6 +57,9 @@ function finish(response: Response, path: string, staging = false): Response {
 // their words inside #root (shared/seoBody.ts), so search engines read them without running the app (shared/seo.ts, owner 2026-10-31). Asked for in full each time: the
 // stored copy of index.html is the same for every page, so a "not changed" answer could bring back another page's head.
 async function pageAsset(request: Request, env: Env, path: string): Promise<Response> {
+  // The LINE form is answered at its registered address, not redirected (liffPage.ts).
+  const liffPage = liffPageRequest(request, path);
+  if (liffPage) return env.ASSETS.fetch(liffPage);
   if (request.method !== 'GET' || !seoPage(path)) return env.ASSETS.fetch(request);
   const headers = new Headers(request.headers);
   headers.delete('If-None-Match');
