@@ -32,8 +32,15 @@ async function sendWelcome(lineUserId: string, userId: string, recordsIn?: strin
   ]);
   // The first minute's ending (owner, 2026-11-13: clean, one card at most): the tried record now saved, and what to do next.
   await sendLineMessagesOutcome(lineUserId, tryCards.buildTryWelcomeBack(first ?? null, name ?? null));
-  // Records kept in Google Sheets (question 5): the card to connect that sheet, where the feature is open to the account.
-  if (recordsIn === 'google_sheets' && await sheets.sheetsOpenFor(userId)) await sendLineMessagePayload(lineUserId, sheets.buildLineConnectSheet(process.env.LIFF_ID));
+  // Where the records are kept now (question 5; owner, 2026-11-13: "เขาจะรู้ได้ไงว่ามึงมีฟีเจอร์นี้ ... มึงต้องบอกเขา"): Google
+  // Sheets gets the card to connect that sheet, Excel the way to bring the file in, where the features are open.
+  const open = await sheets.sheetsOpenFor(userId).catch(() => false);
+  if (recordsIn === 'google_sheets' && open) await sendLineMessagePayload(lineUserId, sheets.buildLineConnectSheet(process.env.LIFF_ID));
+  if (recordsIn === 'excel') {
+    await sendLineMessagePayload(lineUserId, { type: 'text', text: open
+      ? 'ใช้ Excel อยู่ใช่ไหมครับ ส่งไฟล์มาในแชทนี้ได้เลย เลขาอ่านแล้วเตรียมรายการให้ และกดเปิดใน Google Sheets ได้ ถ้ารายการเยอะ นำเข้าทีเดียวได้ที่ เมนู งาน › นำเข้าจาก Excel'
+      : 'ใช้ Excel อยู่ใช่ไหมครับ ส่งไฟล์มาในแชทนี้ได้เลย เลขาอ่านแล้วเตรียมรายการให้ ถ้ารายการเยอะ นำเข้าทีเดียวได้ที่ เมนู งาน › นำเข้าจาก Excel' });
+  }
   menus.forgetLineMenu(lineUserId);
   const menuDeps = menus.lineMenuDeps();
   if (menuDeps) await menus.syncLineMenuFor(lineUserId, menuDeps);

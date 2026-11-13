@@ -216,3 +216,21 @@ test('a record tried in LINE before signing up becomes the account\'s first, dat
   assert.equal(plain.first, undefined);
   assert.equal(tampered.calls.some(call => call.startsWith('first:')), false);
 });
+
+// A new account on the test site gets the Sheets features (owner, 2026-11-13: a newcomer is told the sheet can be
+// connected, and it must work when they try); production keeps them for testers.
+test('a new account gets the Sheets features through stagingLabs, after its settings; the default only acts on the test site', async () => {
+  const { deps, calls } = fakeDeps({ stagingLabs: async userId => { calls.push(`labs:${userId}`); } });
+  await signUpFromLine(LINE_ID, { name: 'ปาร์ค', workType: 'freelance', recordsIn: 'google_sheets' }, deps);
+  assert.ok(calls.indexOf('labs:user-1') > calls.indexOf('settings:freelance'));
+  const { lineSignupDeps } = await import('../backend/src/services/lineSignup');
+  // Off the test site the default does nothing (it would need the database otherwise).
+  const before = { mode: process.env.STAGING_MODE, url: process.env.APP_URL };
+  delete process.env.STAGING_MODE;
+  process.env.APP_URL = 'https://krarok.com';
+  try { await lineSignupDeps.stagingLabs!('user-1'); }
+  finally {
+    if (before.mode !== undefined) process.env.STAGING_MODE = before.mode;
+    process.env.APP_URL = before.url;
+  }
+});

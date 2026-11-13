@@ -1,4 +1,6 @@
 import { randomBytes, randomUUID } from 'node:crypto';
+import { isStaging } from '../security/staging.js';
+import { patchPrivate } from '../repositories/accounts.js';
 import { z } from 'zod';
 import { CONSENT_KEYS, type ConsentKey } from '../../../shared/consents.js';
 import { GOALS, OCCUPATIONS, ONBOARDING_STEPS, OTHER_TEXT_MAX, RECORD_PLACES, WORK_TYPES, jobTypesForOccupations, onboardingRecord, personaForWorkType, type GoalId, type OccupationId, type RecordPlaceId, type WorkTypeId } from '../../../shared/onboarding.js';
@@ -55,6 +57,8 @@ export interface LineSignupDeps {
   jobTypes(userId: string, types: string[]): Promise<void>;
   /** The record tried before signing up, saved as the account's first. */
   firstRecord(userId: string, draft: TryDraft, today: string): Promise<void>;
+  /** On the test site only: the Sheets features on for the new account (production keeps them for testers). */
+  stagingLabs?(userId: string): Promise<void>;
   key(): string;
   now(): Date;
 }
@@ -96,6 +100,7 @@ export async function signUpFromLine(lineUserId: string, input: Answers & Pick<L
   await deps.settings(userId, settingsFor(input, deps.now()));
   const jobTypes = jobTypesFor(input);
   if (jobTypes) await deps.jobTypes(userId, jobTypes);
+  if (deps.stagingLabs) await deps.stagingLabs(userId);
   // The record tried in LINE before signing up becomes the first one (owner: "ลองก่อน แล้วเก็บไว้ในแตะเดียว").
   const first = decodeTry(input.keep);
   if (first) {
@@ -111,6 +116,12 @@ const conflict = (error: { code?: string; status?: number; message?: string } | 
 
 export const lineSignupDeps: LineSignupDeps = {
   linked: linkedLineAccount,
+  // The Sheets journey (connect a sheet, make one, write rows, open files in Google) for a new account on the test site
+  // (owner, 2026-11-13: a newcomer must be told the sheet can be connected, and it must work when they try).
+  async stagingLabs(userId) {
+    if (!isStaging()) return;
+    await patchPrivate(userId, { labs: { tester: true, on: ['sheets', 'excel', 'sheetMap', 'sheetWrite', 'templates'], at: new Date().toISOString() } });
+  },
   async createUser(email) {
     const { data, error } = await getSupabaseAdmin().auth.admin.createUser({
       email, email_confirm: true,

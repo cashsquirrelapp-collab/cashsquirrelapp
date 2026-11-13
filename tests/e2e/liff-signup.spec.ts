@@ -201,12 +201,15 @@ test('ข้ามก่อน in LINE keeps what was picked, goes to the agreem
   expect(sent.find(item => item.url === 'line-signup')?.body).toEqual({ idToken: 'token', name: 'Park LINE', workType: 'student', occupations: [], goals: [], skippedAtStep: 3, agreed: true });
 });
 
-// One tap is the default in LINE (owner, 2026-11-13: "ใช้ง่าย เข้าใจได้รวดเร็ว สะดวก", unlike the competitor's forms).
+// One tap on ?quick=1 (the website's full welcome is the default in LINE again, owner 2026-11-13: "กูชอบธีมเดิม").
 const KEEP = Buffer.from(JSON.stringify({ k: 'e', n: 'ข้าวมันไก่', a: 50 })).toString('base64url');
 for (const device of [{ name: 'phone', width: 390 }, { name: 'iPad', width: 768 }]) {
   test(`one tap: the LINE name in, ใช้แบบไหน picked, the tried record kept as the first (${device.name})`, async ({ page }) => {
     const sent = await open(page, { width: device.width, query: `?start=1&use=personal&keep=${KEEP}` });
     await expect(page).toHaveURL(/\/line-start$/);
+    // The website's full welcome is the default again (owner, 2026-11-13); the one-tap screen is on ?quick=1.
+    await expect(page.getByTestId('line-quick-start')).toHaveCount(0);
+    await page.goto('/line-start?quick=1');
     const screen = page.getByTestId('line-quick-start');
     await expect(screen.locator('#lq-name')).toHaveValue('Park LINE');
     await expect(screen.getByRole('radio', { name: 'ใช้ส่วนตัว' })).toHaveAttribute('aria-checked', 'true');
@@ -225,6 +228,7 @@ for (const device of [{ name: 'phone', width: 390 }, { name: 'iPad', width: 768 
 
 test('one tap asks for a name of two letters, and works without a pick or a tried record', async ({ page }) => {
   const sent = await open(page);
+  await page.goto('/line-start?quick=1');
   const screen = page.getByTestId('line-quick-start');
   await expect(screen.getByTestId('line-quick-keep')).toHaveCount(0);
   await screen.locator('#lq-name').fill('ก');

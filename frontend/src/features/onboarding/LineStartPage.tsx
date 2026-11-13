@@ -30,8 +30,10 @@ export default function LineStartPage() {
   // nothing is sent and no account is made.
   const [preview] = React.useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('preview'));
   const [previewDone, setPreviewDone] = React.useState(false);
-  // One tap by default (owner, 2026-11-13: "ใช้ง่าย เข้าใจได้รวดเร็ว"); ?full=1 asks every welcome question at once.
-  const [full] = React.useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('full'));
+  // The website's own welcome, every question (owner, 2026-11-13: "กูชอบธีมเดิม มึงไปตัดของกูออกทำไม", after the one-tap
+  // screen had become the default): where records are kept now (Google Sheets, Excel…) is asked, so the chat can offer to
+  // connect them. The one-tap screen stays on ?quick=1.
+  const [full] = React.useState(() => typeof window === 'undefined' || !new URLSearchParams(window.location.search).has('quick'));
   const mobile = typeof window !== 'undefined' && window.innerWidth < 744;
   // A new LINE account has no test features: the Sheets goal shows only away from the real site (staging, previews).
   const showUnreleased = typeof window !== 'undefined' && !/(^|\.)krarok\.com$/.test(window.location.hostname);
@@ -45,6 +47,9 @@ export default function LineStartPage() {
     if (answers.occupations.includes('other') && answers.occupationOther.trim()) body.occupationOther = answers.occupationOther.trim();
     if (answers.recordsIn) body.recordsIn = answers.recordsIn;
     if (result.skippedAtStep) body.skippedAtStep = result.skippedAtStep;
+    // ใช้แบบไหน picked on the greeting card, and the record tried in the chat (kept as the first one).
+    if (handoff.use) body.use = handoff.use;
+    if (handoff.keep) body.keep = handoff.keep;
     // Where they were going (a menu button tapped before signing up), otherwise back to the chat.
     if (handoff.destination) body.destination = handoff.destination;
     const response = await fetch('/api/line-signup', {
