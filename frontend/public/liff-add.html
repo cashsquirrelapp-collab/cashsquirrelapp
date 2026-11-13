@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@600&text=%E0%B8%81%E0%B8%A3%E0%B8%B0%E0%B8%A3%E0%B8%AD%E0%B8%81%E0%B8%95%E0%B8%B8%E0%B8%99%E0%B9%80%E0%B8%87%E0%B8%B4%E0%B8%99&display=swap" rel="stylesheet" />
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <style>
   :root { --bg:#FFF9F3; --card:#fff; --text:#352015; --muted:#77675d; --faint:#F9F5EF; --border:#EBDDD0; --accent:#EB5E29; --accent-soft:#FFF0E5; --expense:#AD4426; --positive:#236E51; --mint:#E9F4DC; --font:'IBM Plex Sans Thai','IBM Plex Sans',ui-sans-serif,system-ui,-apple-system,sans-serif; }
@@ -28,7 +29,7 @@
   .card { background:var(--card); border:1px solid var(--border); border-radius:23px; overflow:hidden; padding:20px; box-shadow:0 6px 0 #EDDCCD4D; }
   .card-header { position:relative; isolation:isolate; margin:-20px -20px 18px; padding:12px 103px 14px 18px; min-height:92px; background:linear-gradient(115deg,#FFFDF9 25%,#FFF1E1 73%,#FFD7B8); overflow:hidden; border-bottom:1px solid #F0DDCB; }
   #expense-card .card-header { background:linear-gradient(115deg,#FFFDF9 25%,#FFF0E7 73%,#FFD3C0); }
-  .card-header::before { content:''; position:absolute; width:88px; height:88px; right:-3px; bottom:-13px; border-radius:28px; transform:rotate(-12deg); background:#E4EDBD; z-index:-1; }
+  .card-header::before { content:''; position:absolute; width:88px; height:88px; right:-3px; bottom:-13px; border-radius:28px; transform:rotate(-12deg); background:#FBDCCB; z-index:-1; }
   #expense-card .card-header::before { background:#FFD3B2; transform:rotate(12deg); }
   .card-header::after { content:'✦'; position:absolute; right:83px; top:9px; color:#D96731; font-size:19px; transform:rotate(-15deg); z-index:-1; }
   /* Small half-body stickers peek from the edge, leaving the form in focus. */
@@ -43,11 +44,11 @@
   .step-pill { display:flex; align-items:center; gap:5px; flex:1; }
   .step-dot { display:grid; place-items:center; width:24px; height:24px; border-radius:8px; background:var(--faint); border:1px solid var(--border); color:var(--muted); font-size:11px; flex-shrink:0; }
   .step-pill.current .step-dot { background:var(--text); border-color:var(--text); color:#fff; }
-  .step-pill.done .step-dot { background:var(--mint); border-color:#D4E4C1; color:var(--positive); }
+  .step-pill.done .step-dot { background:var(--accent-soft); border-color:#F2C2AC; color:#C24A16; }
   .step-label { color:var(--muted); font-size:10px; }
   .step-pill.current .step-label { font-weight:600; color:var(--text); }
   .step-line { height:1px; background:var(--border); width:7px; flex-shrink:0; }
-  .tip-box { color:#635347; background:#F4F6EA; border-left:3px solid #CFDCAB; border-radius:4px 10px 10px 4px; font-size:11px; padding:10px 12px; margin-bottom:18px; }
+  .tip-box { color:#635347; background:#F3F2F0; border-left:3px solid #E65F2B; border-radius:4px 10px 10px 4px; font-size:11px; padding:10px 12px; margin-bottom:18px; }
   .tip-box p { margin:0; }
   .draft-summary { position:relative; background:linear-gradient(110deg,#F5FAED,#FAFCF7); border:1px solid #DDE8CF; border-radius:16px; padding:13px 15px; margin:0 0 18px; }
   #expense-card .draft-summary { background:linear-gradient(110deg,#FFF0E5,#FFFAF5); border-color:#F0DACA; }
@@ -123,6 +124,37 @@
   .doc-terms { display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
   .doc-terms button { border:1px solid var(--border); background:#fff; color:var(--text); border-radius:999px; padding:7px 13px; font-size:12px; min-height:36px; }
   .doc-terms button[aria-pressed="true"] { background:var(--text); border-color:var(--text); color:#fff; font-weight:600; }
+  /* While LINE opens a page: the app's own opening logo (index.html .splash, boot-skeleton.js), not a mascot (owner, 2026-11-13). */
+      .splash{position:fixed;inset:0;z-index:2147483000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-bottom:6vh;background:#FAFAF9;transition:opacity .45s ease,visibility .45s}
+      .splash.dark{background:#17181B}
+      .splash-stage{position:relative;display:grid;place-items:center;width:150px;height:150px}
+      .splash-glow{position:absolute;inset:-18px;border-radius:50%;background:radial-gradient(circle,rgba(230,95,43,.24) 0%,rgba(230,95,43,.08) 42%,rgba(230,95,43,0) 68%);opacity:0;transform:scale(.4);animation:splashGlow 1.2s cubic-bezier(.2,.8,.2,1) .05s forwards}
+      .splash-ring{position:absolute;inset:22px;border-radius:50%;border:2px solid rgba(230,95,43,.42);opacity:0;animation:splashRing 1.5s cubic-bezier(.2,.7,.3,1) .5s forwards}
+      .splash-ring.is-late{animation-delay:.85s;border-width:1.5px}
+      .splash-mark{position:relative;width:92px;height:92px;opacity:0;transform:scale(.55) rotate(-18deg);filter:drop-shadow(0 12px 24px rgba(230,95,43,.3));animation:splashIn .9s cubic-bezier(.2,1.35,.35,1) .05s forwards,splashBreathe 2.4s ease-in-out 1.15s infinite}
+      .splash-name{margin-top:14px;font:600 25px/1.2 'Prompt','IBM Plex Sans Thai',sans-serif;letter-spacing:-.2px;color:#1C1917;opacity:0;transform:translateY(10px)}
+      .splash.dark .splash-name{color:#F5F5F4}
+      .splash-name em{font-style:normal;color:#E65F2B}
+      .splash.dark .splash-name em{color:#FF7A45}
+      .splash.has-name .splash-name{animation:splashUp .6s cubic-bezier(.2,.8,.2,1) .35s forwards}
+      .splash-dots{display:flex;gap:7px;margin-top:26px;opacity:0;animation:splashFade .4s ease 1.2s forwards}
+      .splash-dots i{display:block;width:6px;height:6px;border-radius:50%;background:#E65F2B;opacity:.25;animation:splashDot 1.1s ease-in-out infinite}
+      .splash.dark .splash-dots i{background:#FF7A45}
+      .splash-dots i:nth-child(2){animation-delay:.15s}
+      .splash-dots i:nth-child(3){animation-delay:.3s}
+      .splash-caption{margin:18px 0 0;padding:0 24px;font:500 14px/1.5 'IBM Plex Sans Thai',sans-serif;color:#78716C;text-align:center;opacity:0;animation:splashFade .4s ease .6s forwards}
+      .splash.dark .splash-caption{color:#A8A29E}
+      .splash.is-leaving{opacity:0;visibility:hidden}
+      .splash.is-leaving .splash-stage{animation:splashOut .45s cubic-bezier(.4,0,.2,1) forwards}
+      @keyframes splashIn{0%{opacity:0;transform:scale(.55) rotate(-18deg)}55%{opacity:1}100%{opacity:1;transform:scale(1) rotate(0)}}
+      @keyframes splashBreathe{0%,100%{opacity:1;transform:scale(1)}50%{opacity:1;transform:scale(1.045)}}
+      @keyframes splashGlow{0%{opacity:0;transform:scale(.4)}60%{opacity:1}100%{opacity:.9;transform:scale(1)}}
+      @keyframes splashRing{0%{opacity:.7;transform:scale(.72)}100%{opacity:0;transform:scale(1.5)}}
+      @keyframes splashUp{to{opacity:1;transform:none}}
+      @keyframes splashFade{to{opacity:1}}
+      @keyframes splashDot{0%,100%{opacity:.25;transform:translateY(0)}50%{opacity:1;transform:translateY(-3px)}}
+      @keyframes splashOut{to{transform:scale(1.18)}}
+      @media (prefers-reduced-motion:reduce){.splash-mark{opacity:1;transform:none;animation:none}.splash-glow,.splash-ring{display:none}.splash.has-name .splash-name{animation:splashFade .3s forwards;transform:none}.splash-dots i{animation:none;opacity:.6}.splash.is-leaving .splash-stage{animation:none}}
   .hidden { display:none!important; }
 </style>
 </head>
@@ -299,7 +331,8 @@
   </section>
   <button type="button" class="return-btn hidden" id="return-chat-btn">กลับไปแชท</button>
 </main>
-<section id="status-view" class="status" aria-live="polite"><img class="emoji" src="/line/mascot-v6-working.png" alt="" /><h2>กำลังเปิดรายการ</h2><p>รอสักครู่ครับ</p><div class="loading-dot" aria-hidden="true"></div></section>
+<div id="loading-view" class="splash" role="status" aria-label="กำลังเปิดกระรอกตุนเงิน"><div class="splash-stage" aria-hidden="true"><span class="splash-glow"></span><span class="splash-ring"></span><span class="splash-ring is-late"></span><svg class="splash-mark" viewBox="0 0 1000 1000"><path fill="#E65F2B" fill-rule="evenodd" d="M462.2891 71.133 C634.9705 58.7986 816.0986 143.1701 886.4971 307.4335 C897.3079 332.6583 907.1436 358.7126 912.5548 385.7689 C920.9325 427.6565 923.5996 472.9793 918.867 515.5722 C905.5484 635.4416 835.3596 739.1615 746.659 816.7746 C668.3074 885.3322 565.9157 929.422 461.1561 929.422 C418.5151 929.422 358.5401 922.7653 350.4509 870.185 C349.3618 863.1059 350.0229 855.8166 351.422 848.8208 C361.2645 799.6082 414.5101 798.9129 453.8728 791.0405 C474.4152 786.932 494.9066 778.0173 512.9479 767.5722 C591.6984 721.9798 619.9668 620.2117 584.9711 538.5549 C565.5644 493.2728 518.8689 458.1077 474.2659 440.474 C407.4458 414.0567 327.7454 408.613 262.0809 441.4451 C228.6948 458.1383 197.2659 488.8157 205.4336 529.6531 C212.2983 563.9768 251.1019 578.0934 280.6937 585.4912 C296.1002 589.3431 311.9956 590.6752 327.792 591.8034 C338.9737 592.6021 350.4064 591.9653 361.6185 591.9653 C414.9505 591.9653 497.7971 591.2465 514.4045 657.6764 C516.8075 667.2878 518.5276 675.9879 518.1272 685.9999 C517.8095 693.9399 515.3149 701.5834 512.6243 708.9827 C494.0358 760.101 438.9823 761.9075 393.1792 761.9075 C375.1886 761.9075 353.6752 764.9772 336.6936 757.6995 C312.0255 747.1274 308.624 709.7501 329.7342 693.607 C341.905 684.2998 356.6295 684.2197 371.3295 684.2197 C386.7051 684.2197 402.081 684.2197 417.4566 684.2197 C429.6845 684.2197 446.2587 685.7037 455.977 676.6128 C473.0076 660.6807 453.9532 640.108 438.1733 634.37 C419.1027 627.4352 398.5829 628.3815 378.6127 628.3815 C357.4386 628.3815 336.6086 627.4621 315.4913 625.9538 C288.8679 624.0521 262.3965 620.1388 236.8324 612.3584 C167.6326 591.2977 109.5945 536.6032 88.4163 467.0173 C82.513 447.621 80 427.7057 80 407.4566 C80 276.3183 181.9107 173.2064 292.8325 117.7457 C316.3862 105.9688 340.4711 96.2803 365.6648 88.6128 C396.8589 79.1189 429.8085 73.453 462.2891 71.133 Z"/></svg></div><div class="splash-name" aria-hidden="true">กระรอก<em>ตุนเงิน</em></div><div class="splash-dots" aria-hidden="true"><i></i><i></i><i></i></div><p class="splash-caption" id="loading-caption">กำลังเปิดรายการ</p></div>
+<section id="status-view" class="status hidden" aria-live="polite"></section>
 <script src="/liff-document.js" defer></script>
 <script src="/liff-add.js" defer></script>
 </body>

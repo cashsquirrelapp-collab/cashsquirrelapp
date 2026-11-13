@@ -123,7 +123,13 @@
     if (jobStep < 3) { jobStepTo(jobStep + 1); return; }
     submitJob();
   }
+  // While a page opens: the app's opening logo with one line under it (owner, 2026-11-13: the logo, not a mascot).
+  function showLoading(caption) {
+    field('form-view').classList.add('hidden'); field('status-view').classList.add('hidden');
+    field('loading-caption').textContent = caption; field('loading-view').classList.remove('hidden');
+  }
   function showStatus(title, message, closeButton, reaction) {
+    field('loading-view').classList.add('hidden');
     field('form-view').classList.add('hidden');
     var view = field('status-view'); view.classList.remove('hidden'); view.replaceChildren();
     var image = document.createElement('img'); image.className = 'emoji'; image.src = mascotUrl(reaction || 'guide'); image.alt = '';
@@ -153,7 +159,7 @@
     return null;
   }
   async function openLinkedApp(destination) {
-    showStatus('เลขากำลังเปิดให้', 'กำลังเปิดบัญชีที่คุณเชื่อมกับ LINE', false, 'working');
+    showLoading('กำลังเปิดบัญชีที่เชื่อมกับ LINE');
     var idToken = liff.getIDToken();
     if (!idToken) throw new Error('ไม่พบข้อมูลยืนยันตัวตน กรุณาเปิดใหม่จาก LINE');
     var response = await fetch('/api/line-session', {
@@ -200,7 +206,7 @@
   function showSignup(destination) {
     // The website's own welcome screens (/line-start, WelcomeOnboarding mode 'line'); this tab keeps the LINE ID token
     // for an hour, and the server checks it again.
-    showStatus('กำลังเปิดหน้าเริ่มใช้งาน', 'รอสักครู่ครับ', false, 'review');
+    showLoading('กำลังเปิดหน้าเริ่มใช้งาน');
     var go = function (name) {
       try {
         var extra = startExtras();
@@ -230,7 +236,7 @@
   async function openConnect(makeNew) {
     // makeNew: สร้างชีตใหม่ให้ on the sheet offer card; the page in the browser makes the sheet instead of picking one.
     // Google refuses sign-in inside LINE: a one-use link opens the phone's own browser, already signed in.
-    showStatus('กำลังเปิดเบราว์เซอร์', 'รอสักครู่ครับ', false, 'working');
+    showLoading('กำลังเปิดเบราว์เซอร์');
     var idToken = liff.getIDToken();
     if (!idToken) throw new Error('missing id token');
     var response = await fetch('/api/line-handoff', {
@@ -312,7 +318,7 @@
       blockDraft(data.error || 'รายการนี้อาจหมดอายุหรือถูกแก้ไขแล้ว'); return;
     }
     draftLoaded = true; populateDraft(reference.kind, data.draft); ready = true;
-    field('status-view').classList.add('hidden'); field('form-view').classList.remove('hidden');
+    field('loading-view').classList.add('hidden'); field('status-view').classList.add('hidden'); field('form-view').classList.remove('hidden');
   }
   async function submitPayload(payload, button, kind) {
     if (!ready || submitting || (draftReference && !draftLoaded)) return;
@@ -367,6 +373,15 @@
   field('job-next-btn').addEventListener('click', jobNext); field('expense-submit-btn').addEventListener('click', submitExpense); field('return-chat-btn').addEventListener('click', closeLiff);
   renderStepsRow(); updateReceipt(); updateExpenseSummary();
 
+  (function splash() {
+    // The opening logo as the app shows it: dark when the app is dark, the name once its typeface is in.
+    var view = field('loading-view');
+    try { if (localStorage.getItem('cashflow_dark_mode') === 'true') view.classList.add('dark'); } catch (error) {}
+    var named = false;
+    var name = function () { if (!named) { named = true; view.classList.add('has-name'); } };
+    if (document.fonts && document.fonts.load) document.fonts.load('600 24px Prompt', 'กระรอกตุนเงิน').then(name, name);
+    setTimeout(name, 1400);
+  })();
   (async function init() {
     // LIFF can rewrite its redirect query during init. Keep the original only as a fallback;
     // all values are identifiers, and are verified against the signed-in owner by the API.

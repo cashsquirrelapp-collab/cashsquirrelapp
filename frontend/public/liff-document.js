@@ -19,6 +19,7 @@
   var baht = function (n) { return '฿' + (Number.isFinite(n) ? n : 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
 
   function status(title, message, reaction, closeButton) {
+    field('loading-view').classList.add('hidden');
     field('form-view').classList.add('hidden');
     var view = field('status-view'); view.classList.remove('hidden'); view.replaceChildren();
     var image = document.createElement('img'); image.className = 'emoji'; image.src = '/line/mascot-v6-' + (reaction || 'guide') + '.png'; image.alt = '';
@@ -303,7 +304,7 @@
     showForm();
   }
   function showForm() {
-    field('status-view').classList.add('hidden'); field('form-view').classList.remove('hidden');
+    field('loading-view').classList.add('hidden'); field('status-view').classList.add('hidden'); field('form-view').classList.remove('hidden');
   }
 
   document.addEventListener('DOMContentLoaded', function () {
