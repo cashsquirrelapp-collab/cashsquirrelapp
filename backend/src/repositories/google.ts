@@ -1,6 +1,7 @@
 import { getSupabaseAdmin } from '../config/supabase.js';
 import { patchPrivate } from './accounts.js';
 import { readGoogleRecord, type GoogleRecord } from '../../../shared/googleSheets.js';
+import { upgradeTemplateMap } from '../../../shared/bookTemplates.js';
 
 // The account's Google connection (shared/googleSheets.ts), under `google` in cashflow_private_state: a table only server
 // code reads or writes. No new table, so no SQL to run.
@@ -10,7 +11,9 @@ import { readGoogleRecord, type GoogleRecord } from '../../../shared/googleSheet
 export async function loadGoogle(userId: string): Promise<GoogleRecord | null> {
   const { data, error } = await getSupabaseAdmin().from('cashflow_private_state').select('google:data->google').eq('user_id', userId).maybeSingle();
   if (error) throw error;
-  return readGoogleRecord((data as { google?: unknown } | null)?.google);
+  const record = readGoogleRecord((data as { google?: unknown } | null)?.google);
+  // A sheet made from an older version of our templates is read the way today's template means it (bookTemplates.ts).
+  return record?.map ? { ...record, map: upgradeTemplateMap(record.map) } : record;
 }
 
 export async function saveGoogle(userId: string, record: GoogleRecord): Promise<void> {

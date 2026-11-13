@@ -1,6 +1,7 @@
 import { isThaiPublicHoliday } from './calendar.js';
 import { hasSection40_5to8, templateFor, type BusinessProfile, type TemplateId } from './businessProfile.js';
 import { columnLetter, type Cell, type CellStyle, type SheetSpec } from './xlsxWriter.js';
+import type { SheetMap } from './googleSheets.js';
 
 // สร้างชีตตามประเภทธุรกิจ (owner, 2026-11-12, plan phase 1; research report "เทมเพลตบัญชีตามประเภทธุรกิจ 2568"). Five
 // bookkeeping workbooks, picked from the six business questions (businessProfile.templateFor):
@@ -690,6 +691,48 @@ export function matchTemplate(tabs: { name: string; headers: string[] }[]): { id
     if (fits) return { id: shape.id, targets: Object.fromEntries(shape.tabs.map(tab => [tab.name, tab.targets])), choices: Object.fromEntries(shape.tabs.map(tab => [tab.name, tab.choices])) };
   }
   return null;
+}
+
+const bare = (header: string) => header.replace(CALC_MARK, '').replace(/\s+/g, ' ').trim();
+/**
+ * A sheet connected before the templates said what each column means (owner, 2026-11-13: "ชีตที่เชื่อมไว้ก่อนหน้า ให้ใช้
+ * ระบบใหม่"): when its job and expense tabs carry most of one template's headers (70%, so a file from an older version of
+ * the template still counts), they are written the way the template means them, column by column by header, with the
+ * category drop-down; budget, report and cover tabs are no longer written into. Maps saved with the choices already
+ * (made today) and anyone else's sheet stay exactly as they are. Nothing is stored: it is applied every time it is read.
+ */
+export function upgradeTemplateMap(map: SheetMap): SheetMap {
+  if (map.tabs.some(tab => tab.columns.some(column => column.choices?.length))) return map;
+  for (const shape of templateShapes()) {
+    if (!shape.tabs.length) continue;
+    const fits = shape.tabs.every(want => {
+      const tab = map.tabs.find(item => item.name === want.name);
+      if (!tab) return false;
+      const have = new Set(tab.columns.map(column => bare(column.header)));
+      return want.headers.filter(header => have.has(bare(header))).length / want.headers.length >= 0.7;
+    });
+    if (!fits) continue;
+    const writes = TEMPLATE_INFO[shape.id].writes;
+    return {
+      ...map,
+      tabs: map.tabs.map(tab => {
+        const want = shape.tabs.find(item => item.name === tab.name);
+        if (!want) return { ...tab, use: false };
+        const at = new Map(want.headers.map((header, index) => [bare(header), index]));
+        return {
+          ...tab, use: true, kind: tab.name === writes.job ? 'jobs' as const : 'expenses' as const,
+          columns: tab.columns.map(column => {
+            const index = at.get(bare(column.header));
+            // A column the person added keeps what it had; a formula column is never written into anyway.
+            if (index === undefined || column.formula) return column;
+            const choices = want.choices[index];
+            return { ...column, target: want.targets[index] ?? 'keep', ...(choices ? { choices } : {}) };
+          }),
+        };
+      }),
+    };
+  }
+  return map;
 }
 
 /** The workbook for this business: its tabs, ready for buildXlsx(). */

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { strFromU8, unzipSync } from 'fflate';
-import { buildBookTemplate, TEMPLATE_INFO } from '../shared/bookTemplates';
+import { buildBookTemplate, TEMPLATE_INFO, upgradeTemplateMap } from '../shared/bookTemplates';
 import { BUSINESS_VERSION, type BusinessProfile } from '../shared/businessProfile';
 import { buildXlsx, STYLE_DEFS, type Cell, type SheetSpec } from '../shared/xlsxWriter';
 import { forTemplate, mapOf, readTabs, templateReadings } from '../frontend/src/features/labs/sheetMap';
@@ -210,6 +210,38 @@ test('the app\'s expense categories become one of the sheet\'s own choices: the 
   assert.deepEqual(expenses.columns.find(column => column.choices)!.choices, production);
   const again = mapOf('file-1234567890', readTabs(live(sheets), map));
   assert.deepEqual(again.tabs.find(tab => tab.name === 'ค่าใช้จ่ายและเช่าอุปกรณ์')!.columns.find(column => column.target === 'category')!.choices, production);
+});
+
+test('a sheet connected before (an older map) is written the way today\'s template means it; other sheets are left alone', () => {
+  /** The map an older version saved: the reader's guesses, no choices. */
+  const oldMap = (tabs: LiveTab[]) => mapOf('file-1234567890', readTabs(tabs));
+  const coffee = { name: 'ข้าวกล่องกอง', amount: 900, category: 'อาหาร/รับรองลูกค้า', date: '2026-11-13' };
+  const write = (map: ReturnType<typeof oldMap>, kind: 'job' | 'expense', record: Record<string, unknown>) => {
+    const tab = chooseTab(map, kind)!;
+    return { tab: tab.name, cells: Object.fromEntries(rowCells(tab, kind, record).filter(cell => cell.value !== null).map(cell => [cell.header, cell.value])) };
+  };
+  // Production: the old map sent expenses into the budget tab; upgraded, they go to the expense tab with a date and a category.
+  const production = oldMap(live(buildBookTemplate(PROFILES.production, { year: 2026 }).sheets));
+  assert.equal(chooseTab(production, 'expense')?.name, 'งบโปรดักชัน', 'what the old map did');
+  const fixed = upgradeTemplateMap(production);
+  assert.deepEqual(write(fixed, 'expense', coffee), { tab: 'ค่าใช้จ่ายและเช่าอุปกรณ์', cells: { 'วันที่จ่าย': '2026-11-13', 'หมวด': 'อาหาร', 'รายการ': 'ข้าวกล่องกอง', 'ก่อน VAT': 900 } });
+  assert.deepEqual(fixed.tabs.filter(tab => tab.use).map(tab => tab.name).sort(), ['ค่าใช้จ่ายและเช่าอุปกรณ์', 'งาน']);
+  assert.deepEqual(upgradeTemplateMap(fixed), fixed, 'applying it again changes nothing');
+  // A file from the version before (no "(คำนวณ)" in the headers) still counts.
+  const before = live(buildBookTemplate(PROFILES.freelance, { year: 2026 }).sheets).map(tab => ({ ...tab, rows: [tab.rows[0].map(cell => ({ ...cell, text: cell.text.replace(' (คำนวณ)', ''), raw: typeof cell.raw === 'string' ? cell.raw.replace(' (คำนวณ)', '') : cell.raw })), ...tab.rows.slice(1)] }));
+  assert.deepEqual(write(upgradeTemplateMap(oldMap(before)), 'expense', coffee).cells, { 'วันที่จ่ายเงิน': '2026-11-13', 'รายการ': 'ข้าวกล่องกอง', 'หมวด': 'อื่น ๆ', 'จำนวนเงิน': 900 });
+  // A VAT file from before the invoice-number and branch columns: matched header by header.
+  const vat = live(buildBookTemplate(PROFILES.freelance_vat, { year: 2026 }).sheets).map(tab => {
+    if (tab.name !== 'รายจ่าย') return tab;
+    const drop = new Set([1, 4, 12]);
+    return { ...tab, rows: tab.rows.map(row => row.filter((_, index) => !drop.has(index))) };
+  });
+  assert.deepEqual(write(upgradeTemplateMap(oldMap(vat)), 'expense', coffee).cells, { 'วันที่จ่ายเงิน': '2026-11-13', 'รายการ': 'ข้าวกล่องกอง', 'หมวด': 'อื่น ๆ', 'มูลค่าก่อน VAT': 900 });
+  // Someone else's sheet, and a map saved today with its choices, come back exactly as they were.
+  const other = oldMap([{ name: 'รายจ่าย', truncated: false, rows: [[{ raw: 'วันที่', text: 'วันที่' }, { raw: 'รายการ', text: 'รายการ' }, { raw: 'ยอด', text: 'ยอด' }], [{ raw: '1/11/2026', text: '1/11/2026', date: '2026-11-01' }, { raw: 'กาแฟ', text: 'กาแฟ' }, { raw: 60, text: '60' }]] }]);
+  assert.equal(upgradeTemplateMap(other), other);
+  const today = mapOf('file-1234567890', templateReadings(readTabs(live(buildBookTemplate(PROFILES.agency, { year: 2026 }).sheets)))!);
+  assert.equal(upgradeTemplateMap(today), today);
 });
 
 test('xlsx: the look is in the file — fonts by destination, no grid lines, joined cells, header printed on every page', () => {
