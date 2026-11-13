@@ -73,5 +73,5 @@ test('the allowance never refills, and the end is said as free tokens used up', 
     assert.match(error.message, /โทเคนฟรีสำหรับบัญชีใหม่ครบแล้ว/);
     return true;
   });
-  assert.throws(() => refuse('tokens', null, true, false, false), /สิทธิ์ทดลองใช้เลขากระรอกครบแล้ว/);
+  assert.throws(() => refuse('tokens', null, true, false, false), /โทเคนเลขาของรอบนี้ใช้ครบแล้ว/);
 });

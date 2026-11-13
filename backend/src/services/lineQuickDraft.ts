@@ -2,11 +2,14 @@ import { validateChanges } from '../../../shared/validation.js';
 import { roundMoney, whtAmountFor } from '../../../shared/wht.js';
 import type { ClassifyResult, ExpenseDraft, JobDraft } from './lineAssistant.js';
 import { AMOUNT_WORD, LINE_MONEY, normalizeLineText, readMoney, splitClientWork } from './lineDocumentDraft.js';
+import { parseThaiDate } from './lineJobQuestions.js';
 
 export interface LineQuickDraftContext {
   // The caller supplies only drafts that have passed its existing expiry/access checks.
   pendingJob?: JobDraft;
   pendingExpense?: ExpenseDraft;
+  /** Today in Bangkok (YYYY-MM-DD), for a day said in the message; the clock when not given. */
+  today?: string;
 }
 export type LineQuickDraftResult = ClassifyResult & { freshDraft: boolean };
 
@@ -109,6 +112,27 @@ function validated(result: LineQuickDraftResult, context: LineQuickDraftContext)
  */
 export function parseLineQuickDraft(input: string, context: LineQuickDraftContext = {}): LineQuickDraftResult | null {
   if (input.length > 1500 || /[\r\n]/.test(input)) return null;
+  const parsed = parseUndated(input, context);
+  if (parsed) return parsed;
+  // An expense with its day before or after it: "เมื่อวาน ค่ากาแฟ 60", "ค่าแท็กซี่ 120 วันที่ 3". A bare number is never the
+  // day (it is the amount).
+  const today = context.today ?? new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
+  const words = input.trim().split(/\s+/);
+  for (const size of [1, 2]) {
+    for (const head of [true, false]) {
+      if (words.length <= size) continue;
+      const phrase = (head ? words.slice(0, size) : words.slice(-size)).join(' ');
+      if (!/[^\d\s]/.test(phrase)) continue;
+      const day = parseThaiDate(phrase, today);
+      if (!day) continue;
+      const rest = parseUndated((head ? words.slice(size) : words.slice(0, -size)).join(' '), context);
+      if (rest?.intent === 'add_expense' && rest.freshDraft) return { ...rest, expenseDate: day };
+    }
+  }
+  return null;
+}
+
+function parseUndated(input: string, context: LineQuickDraftContext): LineQuickDraftResult | null {
   const text = input.replace(/[๐-๙]/g, digit => String(digit.charCodeAt(0) - 0x0e50))
     .trim().replace(/\s*(?:ครับ|ค่ะ|คะ)$/, '').trim();
   // An exact category selection is safe even when the category itself names tax.
@@ -219,10 +243,16 @@ export function parseLineJobRequest(input: string): LineQuickDraftResult | null 
   if (input.length > 600) return null;
   const text = normalizeLineText(input).replace(JOB_FILLER, '').trim();
   const start = JOB_START.exec(text);
-  if (!start) return null;
-  let rest = text.slice(start[0].length).trim();
+  // "ได้เงินค่าตัดต่อ 3000": money in for a job, paid. "งานตัดต่อ 3000 บาท": a job named by its work with an amount (owner,
+  // 2026-11-14: it went to เลขา, which asked a numbered list); "งานเดือนนี้" and other lookups stay commands.
+  const paidFor = /^(?:ได้|รับ)เงินค่า(?=\S)/u.exec(text);
+  const hasAmount = new RegExp(`(?:^|\\s)(?:฿\\s*)?${LINE_MONEY}\\s*(?:บาท|\\.-)?(?:\\s|$)`, 'u').test(text);
+  const bare = !start && !paidFor && hasAmount && /^งาน(?=[^\s\d])/u.test(text)
+    && !/^งาน(?:เดือน|ที่|ทั้งหมด|ค้าง|รอ|ล่าสุด|วันนี้|นี้|ของ|ใน|เก่า|สรุป)/u.test(text);
+  if (!start && !(paidFor && hasAmount) && !bare) return null;
+  let rest = start ? text.slice(start[0].length).trim() : paidFor ? text.slice(paidFor[0].length).trim() : text.replace(/^งาน/u, '').trim();
   if (SEVERAL_OR_DATED.test(rest)) return null;
-  const result: LineQuickDraftResult = { intent: 'add_job', freshDraft: true };
+  const result: LineQuickDraftResult = { intent: 'add_job', freshDraft: true, ...(paidFor ? { jobPaymentStatus: 'paid' as const } : {}) };
   // Payment first, so "ยังไม่ได้รับเงิน" or "มัดจำ 2,000" never becomes part of the work's name or its amount.
   const deposit = new RegExp(`(?:ได้|รับ)?มัดจำ(?:มา)?\\s*(?:฿\\s*)?(${LINE_MONEY})\\s*(?:บาท)?(?:แล้ว)?`, 'u').exec(rest);
   if (deposit) { result.jobReceivedAmount = readMoney(deposit[1]) ?? undefined; rest = rest.replace(deposit[0], ' '); }

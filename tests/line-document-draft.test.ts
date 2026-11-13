@@ -475,19 +475,22 @@ test('every job card has ยืนยันบันทึก; payment not said 
   const reply = await handleAssistantMessage('Uline', `ยืนยันบันทึกงาน ${key}`, 'op-confirm-open', lineDeps([], user)) as any[];
   assert.match(reply[0].text, /ขาดมูลค่างาน/);
   assert.equal(reply[1].type, 'flex');
-  // a job typed without payment gets the confirm button and taps to change the payment
+  // A job typed without payment is asked about, one question at a time with taps (owner, 2026-11-14), never saved as unpaid
+  // by itself; here the kind of work alone, so its project comes first.
   const saved: any[] = [];
-  const card = await handleAssistantMessage('Uline', 'บันทึกงาน ตัดต่อวิดีโอ ให้คุณบี 6000', 'op-no-payment', { ...lineDeps([], { ...user, notif_settings: {} }),
+  const asked = await handleAssistantMessage('Uline', 'บันทึกงาน ตัดต่อวิดีโอ ให้คุณบี 6000', 'op-no-payment', { ...lineDeps([], { ...user, notif_settings: {} }),
     async saveJobDraft(u: UserRow, draft: any) { saved.push(draft); u.notif_settings = { ...u.notif_settings, pendingJobDraft: { createdAt: new Date().toISOString(), draft } }; } } as any) as any[];
-  assert.equal(saved[0].paymentStatus, 'pending');
-  assert.deepEqual(buttons(card[0]), ['ยืนยันบันทึก', 'แก้ไขรายการ', 'ยกเลิก']);
-  assert.deepEqual(card[0].quickReply.items.map((item: any) => item.action.label), ['ยังไม่ได้รับเงิน', 'รับเงินครบแล้ว']);
+  assert.equal(saved[0].paymentStatus, undefined);
+  assert.equal(saved[0].asking, 'project');
+  assert.equal(asked[0].type, 'text');
+  assert.match(asked[0].text, /เป็นโปรเจกต์อะไรครับ/);
+  assert.equal(asked[0].quickReply.items[0].action.text, 'ใช้ชื่อ งานตัดต่อวิดีโอ');
 });
 
 
-// Something missing is now asked about, one question under the card (owner, 2026-11-13: "บันทึกงาน A แล้วแบบมันไม่ครบ
-// อ่ะกูอยากให้มันมีถามเพิ่ม"); the answer typed next fills the draft, the card's form still takes everything at once.
-test('a job or expense card with something missing asks one question; the typed answer fills the draft', async () => {
+// Something missing is asked about one question at a time (owner, 2026-11-13: "อยากให้มันมีถามเพิ่ม"; 2026-11-14: one at a
+// time with taps, the card once it is all there); the answer typed next fills the draft.
+test('a job or expense with something missing asks one question; the typed answer fills the draft', async () => {
   const drafts: any[] = [];
   const keep = (field: 'pendingJobDraft' | 'pendingExpenseDraft') => async (u: UserRow, draft: any, fresh: boolean) => {
     drafts.push(draft);
@@ -497,24 +500,24 @@ test('a job or expense card with something missing asks one question; the typed 
   const user: UserRow = { user_id: userId, jobs: [], goals: [], settings: {}, expenses: [], statuses: [], notif_settings: {} };
   const deps = { ...lineDeps([], user), saveJobDraft: keep('pendingJobDraft'), saveExpenseDraft: keep('pendingExpenseDraft') } as any;
   const first = await handleAssistantMessage('Uline', 'บันทึกงาน A', 'op-ask-1', deps) as any[];
-  assert.equal(first[0].type, 'flex');
-  assert.deepEqual(buttons(first[0]), ['เติมข้อมูล / แก้ไข', 'ยืนยันบันทึก', 'ยกเลิก']);
-  assert.match(first[1].text, /^งาน “A” ค่าจ้างเท่าไรครับ พิมพ์ตัวเลขมาได้เลย/);
-  const answered = await handleAssistantMessage('Uline', 'ค่าจ้าง 5000', 'op-ask-2', deps) as any;
-  const card = Array.isArray(answered) ? answered[0] : answered;
-  assert.deepEqual(buttons(card), ['ยืนยันบันทึก', 'แก้ไขรายการ', 'ยกเลิก'], 'complete now: the confirm button first');
+  assert.equal(first.length, 1);
+  assert.match(first[0].text, /^“A” ค่าจ้างเท่าไรครับ/);
+  const answered = await handleAssistantMessage('Uline', 'ค่าจ้าง 5000', 'op-ask-2', deps) as any[];
   assert.equal(user.notif_settings!.pendingJobDraft!.draft.value, 5000);
-  // A card with no name asks for the name, and a short plain answer becomes it.
+  assert.match(answered[0].text, /ลูกค้าคือใครครับ/);
+  // "บันทึกงาน" alone: its empty card with the form, and the name question under it; a short plain answer becomes the name.
   const bare = await handleAssistantMessage('Uline', 'บันทึกงาน', 'op-ask-3', deps) as any[];
+  assert.equal(bare[0].type, 'flex');
   assert.match(bare[1].text, /^งานนี้ชื่ออะไรครับ/);
-  await handleAssistantMessage('Uline', 'ตัดต่อวิดีโอ', 'op-ask-4', deps);
-  assert.equal(user.notif_settings!.pendingJobDraft!.draft.name, 'ตัดต่อวิดีโอ');
-  // An expense the same way.
+  await handleAssistantMessage('Uline', 'ตัดต่อคลิปเปิดตัวสินค้า', 'op-ask-4', deps);
+  assert.equal(user.notif_settings!.pendingJobDraft!.draft.name, 'ตัดต่อคลิปเปิดตัวสินค้า');
+  // An expense the same way; with its category known, the card comes once the amount is there.
   user.notif_settings = {};
   const spent = await handleAssistantMessage('Uline', 'บันทึกรายจ่าย ค่ากาแฟ', 'op-ask-5', deps) as any[];
-  assert.match(spent[1].text, /^“ค่ากาแฟ” จ่ายไปเท่าไรครับ/);
-  await handleAssistantMessage('Uline', '120', 'op-ask-6', deps);
+  assert.match(spent[0].text, /^“ค่ากาแฟ” จ่ายไปเท่าไรครับ/);
+  const card = await handleAssistantMessage('Uline', '120', 'op-ask-6', deps) as any[];
   assert.equal(user.notif_settings!.pendingExpenseDraft!.draft.amount, 120);
+  assert.deepEqual(buttons(card[0]), ['ยืนยันบันทึก', 'แก้ไขรายการ', 'ยกเลิก']);
 });
 
 test('a short answer is a name only when the open card has none, never a command or a question', async () => {

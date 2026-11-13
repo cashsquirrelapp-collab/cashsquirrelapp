@@ -42,18 +42,23 @@ test('ask_user: a calendar, when the client pays with the app\'s own credit term
   assert.equal((plain.card as any).questions[0].text, 'การชำระเงิน');
 });
 
-test('LINE: the date, payment and details questions as lines, the app\'s credit terms as quick replies', async () => {
+// LINE asks เลขา's questions one at a time with taps (owner, 2026-11-14), never a numbered list: the first here.
+test('LINE: the first of เลขา\'s questions alone, with the app\'s credit terms and a date to pick as taps', async () => {
   const execute = createToolbox({ user: user(), ...memoryStores() });
   const outcome = await execute({ id: 'k', name: 'ask_user', args: { questions: [
     { text: 'ลูกค้าจะชำระเงินเมื่อไหร่', kind: 'payment' },
     { text: 'ข้อมูลลูกค้า', kind: 'party', role: 'client', prefill: { name: 'ปล่อยจอย' } },
   ] } });
   const last = lineAssistantReply('ขอข้อมูลเพิ่ม 2 ข้อครับ', [outcome.card as any]).at(-1) as any;
-  assert.match(last.text, /1\. ลูกค้าจะชำระเงินเมื่อไหร่: ชำระวันไหน \(พิมพ์วันที่ เช่น 15 พ\.ย\.\) และมีเครดิตเทอมไหม \(ไม่มี \/ 0 วัน \/ 30 วัน \/ 45 วัน \/ 60 วัน \/ 90 วัน\)/);
-  assert.match(last.text, /2\. ข้อมูลลูกค้า: ชื่อ ที่อยู่ เลขประจำตัวผู้เสียภาษี โทรศัพท์ .* · ที่มีแล้ว: ปล่อยจอย/);
+  assert.equal(last.text, 'ลูกค้าจะชำระเงินเมื่อไหร่ (1/2)');
+  assert.doesNotMatch(last.text, /1\.|ข้อมูลลูกค้า/);
   assert.deepEqual(last.quickReply.items.map((item: any) => item.action.label),
-    ['ไม่มีเครดิตเทอม', 'เครดิตเทอม 0 วัน', 'เครดิตเทอม 30 วัน', 'เครดิตเทอม 45 วัน', 'เครดิตเทอม 60 วัน', 'เครดิตเทอม 90 วัน']);
-  assert.equal(last.quickReply.items[2].action.text, 'ลูกค้าจะชำระเงินเมื่อไหร่: เครดิตเทอม 30 วัน');
+    ['ไม่มีเครดิตเทอม', 'เครดิตเทอม 0 วัน', 'เครดิตเทอม 30 วัน', 'เครดิตเทอม 45 วัน', 'เครดิตเทอม 60 วัน', 'เครดิตเทอม 90 วัน', 'เลือกวันที่', 'ข้าม']);
+  assert.equal(last.quickReply.items[6].action.type, 'datetimepicker');
+  // The party question, when its turn comes, says what is known already.
+  const { aiQuestionMessage, pendingAiQuestions } = await import('../backend/src/services/lineAiQuestions.js');
+  const second = aiQuestionMessage({ ...pendingAiQuestions((outcome.card as any).questions), answers: ['เครดิตเทอม 30 วัน'] }, '2026-11-14') as any;
+  assert.match(second.text, /^ข้อมูลลูกค้า \(2\/2\)\nพิมพ์ชื่อ ที่อยู่ .*\nที่มีแล้ว: ปล่อยจอย$/);
 });
 
 test('the answers read the same in the app and for เลขา: a Thai date with its key, the credit term, every detail', () => {

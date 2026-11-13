@@ -214,7 +214,8 @@ const NO_ACCESS = 'เลขากระรอกเป็นสิทธิ์�
 export function refuse(reason: 'tokens' | 'requests' | 'daily_cap', resetsAt: Date | null, trial = false, lapsed = false, signup = false): never {
   // A new account's free tokens (signupTokens.ts) are gone: said as what they were, with the way on.
   if (reason === 'tokens' && signup) throw new HttpError(402, 'ใช้โทเคนฟรีสำหรับบัญชีใหม่ครบแล้ว อัปเกรดเป็น Pro เพื่อใช้เลขากระรอกต่อ', 'ai_trial_used');
-  if (reason === 'requests' || (reason === 'tokens' && trial)) throw new HttpError(402, 'สิทธิ์ทดลองใช้เลขากระรอกครบแล้ว อัปเกรดเป็น Pro เพื่อใช้งานต่อ', 'ai_trial_used');
+  // Free tokens used up: said without the word ทดลองใช้ (owner, 2026-10-30: customers never see a trial).
+  if (reason === 'requests' || (reason === 'tokens' && trial)) throw new HttpError(402, 'โทเคนเลขาของรอบนี้ใช้ครบแล้ว อัปเกรดเป็น Pro เพื่อใช้เลขากระรอกต่อ', 'ai_trial_used');
   if (reason === 'tokens' && lapsed) throw new HttpError(402, 'โทเคนที่เหลือจาก Pro หมดแล้ว ต่ออายุ Pro เพื่อรับโทเคนใหม่ทุกเดือน', 'ai_tokens_used');
   // With no refill date (Pro given by hand): said plainly, with where to ask for more.
   if (reason === 'tokens' && !resetsAt) throw new HttpError(402, 'โทเคนที่ได้รับหมดแล้ว หากต้องการใช้ต่อ แจ้งทีมงานได้ที่เมนู แจ้งปัญหา', 'ai_tokens_used');

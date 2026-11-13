@@ -14,6 +14,9 @@ import { lineHistoryText, type ChannelTurn } from './crossChannel.js';
 import { notifyBillingIssues } from '../services/ownerAlerts.js';
 import { hasConsent } from '../repositories/consents.js';
 import { appOrigin } from '../config/env.js';
+import { patchPrivate } from '../repositories/accounts.js';
+import { QUESTIONS_LEAD } from './gateway.js';
+import { pendingAiQuestions, type PendingAiQuestions } from '../services/lineAiQuestions.js';
 
 // LINE talks to the same เลขากระรอก as the app: the same Gemini, rules, tools and Krarok Tokens (one pool per
 // account), with answers shaped for LINE (lineFormat.ts). The LINE handler has already checked the account
@@ -34,6 +37,8 @@ export interface LineBridgeDeps {
   budgetMs?: number;
   /** Whether the account agreed to เลขากระรอก (shared/consents.ts); tests stand in for the record. */
   consented?: (userId: string) => Promise<boolean>;
+  /** Keeps เลขา's questions while LINE asks them one at a time (services/lineAiQuestions.ts); tests stand in for it. */
+  keepQuestions?: (userId: string, state: PendingAiQuestions) => Promise<void>;
 }
 
 /**
@@ -53,7 +58,7 @@ export function tokenBalanceText(status: UsageStatus): string {
   const shared = 'โทเคนนี้ใช้ร่วมกันทั้งเลขาในแอปและใน LINE';
   if (status.tokenLimit === null) return `ยังอ่านจำนวนโทเคนของบัญชีนี้ไม่ได้ กรุณาลองใหม่ภายหลัง\n${shared}`;
   const left = (status.tokensLeft ?? 0).toLocaleString('en-US');
-  const next = status.plan === 'trial' ? 'สิทธิ์ทดลองใช้ไม่เติมใหม่ ใช้ต่อได้เมื่อเป็น Pro'
+  const next = status.plan === 'trial' ? 'อัปเกรดเป็น Pro เพื่อรับโทเคนเลขาทุกเดือน'
     : status.plan === 'lapsed' ? 'Pro หมดอายุแล้ว ใช้โทเคนที่เหลือได้จนหมด ต่ออายุ Pro เพื่อรับโทเคนใหม่'
     : status.resetsAt ? `ได้รับใหม่วันที่ ${thaiDay(new Date(status.resetsAt))}` : '';
   return [`โทเคนเลขารอบนี้ เหลือ ${left} จาก ${status.tokenLimit.toLocaleString('en-US')}`, next, shared].filter(Boolean).join('\n');
@@ -61,6 +66,10 @@ export function tokenBalanceText(status: UsageStatus): string {
 
 /** The AI's answer, or null when the real เลขา is not on for this account (the handler keeps its old behaviour).
  *  `files`: a picture or PDF sent in LINE (owner, 2026-11-06), read the same way as in the app's chat. */
+async function keepQuestions(userId: string, state: PendingAiQuestions): Promise<void> {
+  await patchPrivate(userId, { pendingAiQuestions: state });
+}
+
 export async function lineAssistantAnswer(user: UserRow, text: string, history: ChatTurn[], deps: LineBridgeDeps = {}, files: ChatFile[] = []): Promise<LineAnswer | null> {
   const settings = aiConfig(deps.env ?? process.env);
   if (!settings.enabled) return null;
@@ -82,10 +91,17 @@ export async function lineAssistantAnswer(user: UserRow, text: string, history: 
     await (deps.rateLimit ?? rateLimit)(MESSAGE_RATE.scope, user.user_id, MESSAGE_RATE.limit, MESSAGE_RATE.seconds);
     const reply = await (deps.run ?? handleMessage)(db, { config, now: deps.now, signal: AbortSignal.timeout(deps.budgetMs ?? LINE_AI_BUDGET_MS),
       onBillingIssue: issues => notifyBillingIssues(issues) }, user.user_id, plan, { text, history, channel: 'line', ...(files.length ? { attachments: files } : {}) });
-    const messages = lineAssistantReply(reply.text, reply.cards);
-    // Running low: say so under the answer, with the same number the app shows.
+    // เลขา's questions come one at a time (owner, 2026-11-14): the first now, the rest as each is answered; the line it adds
+    // when it only asks ("รบกวนตอบคำถามด้านล่าง…") is left out.
+    const asking = reply.cards.find((card): card is Extract<AssistantCard, { kind: 'questions' }> => card.kind === 'questions');
+    if (asking) {
+      try { await (deps.keepQuestions ?? keepQuestions)(user.user_id, pendingAiQuestions(asking.questions)); }
+      catch { console.error('line-assistant: questions not kept'); }
+    }
+    const messages = lineAssistantReply(asking && reply.text.trim() === QUESTIONS_LEAD ? '' : reply.text, reply.cards);
+    // Running low: say so under the answer, with the same number the app shows (never under a question).
     const limit = plan.plan === 'trial' ? config.trialTokens : plan.tokens ?? config.proTokensPerCycle;
-    if (reply.tokensLeft !== null && reply.tokensLeft <= Math.max(5, Math.round(limit * 0.1))) {
+    if (!asking && reply.tokensLeft !== null && reply.tokensLeft <= Math.max(5, Math.round(limit * 0.1))) {
       const note = `เหลือโทเคนเลขารอบนี้ ${reply.tokensLeft.toLocaleString('en-US')} จาก ${limit.toLocaleString('en-US')} (ใช้ร่วมกับในแอป)`;
       const last = [...messages].reverse().find((message): message is Extract<LineMessage, { type: 'text' }> => message.type === 'text');
       if (last) last.text = `${last.text}\n\n${note}`; else if (messages.length < 5) messages.push({ type: 'text', text: note });
@@ -97,6 +113,11 @@ export async function lineAssistantAnswer(user: UserRow, text: string, history: 
     // Too slow this time: a plain line to send it again (a failed request costs no tokens).
     if (error instanceof HttpError && error.code === 'ai_provider') return { messages: [{ type: 'text', text: LINE_TOO_SLOW }], text: LINE_TOO_SLOW };
     // Token, trial and pause answers are messages for the person.
+    // Out of tokens: recording by typing still works, with no tokens (owner, 2026-11-14).
+    if (error instanceof HttpError && error.status === 402) {
+      const said = `${error.message}\nพิมพ์จดรายรับรายจ่ายได้ตามปกติ เช่น “ค่ากาแฟ 60” หรือ “งานตัดต่อ 3000” ไม่ใช้โทเคน`;
+      return { messages: [{ type: 'text', text: said }], text: error.message };
+    }
     if (error instanceof HttpError && error.status !== 500) return { messages: [{ type: 'text', text: error.message }], text: error.message };
     throw error;
   }

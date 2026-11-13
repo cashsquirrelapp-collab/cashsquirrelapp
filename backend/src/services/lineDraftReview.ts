@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto';
 import type { ExpenseDraft, JobDraft } from './lineAssistant.js';
 import { lineCard, lineValueRow, LINE_CARD_COLORS } from './lineCards.js';
 import { formatCurrency } from './monthlySummary.js';
+import { roundMoney, whtAmountFor } from '../../../shared/wht.js';
+import { addDays, thaiDayText } from './lineJobQuestions.js';
 import type { LineMessage } from './line.js';
 
 export type DraftKind = 'job' | 'expense';
@@ -39,19 +41,40 @@ export function buildLineDraftReview(kind: DraftKind, stored: StoredLineDraft): 
   // A job with no payment said is one not paid yet (owner, 2026-10-30: the card had no confirm button); it can be changed.
   const complete = !!draft.name && amount > 0;
   const editUrl = lineDraftEditLink(kind, stored);
-  const payment = job.paymentStatus === 'paid' ? 'รับเงินครบแล้ว' : job.paymentStatus === 'partial' ? `รับมัดจำ ${formatCurrency(job.receivedAmount || 0)}` : 'ยังไม่ได้รับเงิน';
+  const today = new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
+  const day = (value: string | null | undefined) => (value ? thaiDayText(value, today) : 'ยังไม่กำหนด');
+  // What the chat's questions filled in (lineJobQuestions.ts), as the app's job form shows it.
+  const net = Math.max(0, roundMoney((job.value || 0) - whtAmountFor(job.value || 0, job.whtRate || 0)));
+  const count = job.installmentCount || 0;
+  const payment = job.paymentStatus === 'paid' ? `รับเงินครบแล้ว${job.paidDate ? ` · ${day(job.paidDate)}` : ''}`
+    : job.paymentStatus === 'partial' ? `รับแล้ว ${formatCurrency(job.receivedAmount || 0)}`
+    : job.paymentStatus === 'installment' && count ? `แบ่ง ${count} งวด งวดละ ${formatCurrency(Math.floor((net / count) * 100) / 100)}`
+    : 'ยังไม่ได้รับเงิน';
+  // When the money is due: the day said, or the credit days counted from delivery (today, or the planned day).
+  const deliveredOn = job.workStatus === 'wip' ? job.deliveryDate : today;
+  const due = job.dueDate ? day(job.dueDate)
+    : job.creditTerm ? deliveredOn ? `${day(addDays(deliveredOn, job.creditTerm))} (เครดิต ${job.creditTerm} วัน)` : `เครดิต ${job.creditTerm} วัน หลังส่งงาน`
+    : job.dueDate === null ? 'ยังไม่กำหนด' : '';
+  const jobRows = kind !== 'job' ? [] : [
+    ...(job.client ? [lineValueRow('ลูกค้า', job.client, { bold: false })] : []),
+    ...(job.whtRate ? [lineValueRow(`หัก ณ ที่จ่าย ${job.whtRate}%`, `−${formatCurrency(whtAmountFor(job.value || 0, job.whtRate))}`, { bold: false }),
+      lineValueRow('รับสุทธิ', formatCurrency(net), { bold: false })] : []),
+    lineValueRow('การรับเงิน', payment, { bold: false }),
+    ...(job.paymentStatus === 'partial' ? [lineValueRow('ยอดที่เหลือ', `${formatCurrency(roundMoney(net - (job.receivedAmount || 0)))}${due ? ` · ${due}` : ''}`, { bold: false })] : []),
+    ...(job.paymentStatus === 'installment' && count ? [lineValueRow('งวดแรก', job.installmentFirstPaid ? 'รับแล้ววันนี้' : day(job.installmentFirstDue), { bold: false })] : []),
+    ...(!job.paymentStatus || job.paymentStatus === 'pending' ? [
+      ...(job.workStatus ? [lineValueRow('สถานะงาน', job.workStatus === 'wip' ? `กำลังทำ · ส่ง ${day(job.deliveryDate)}` : 'ส่งงานแล้ว', { bold: false })] : []),
+      ...(due ? [lineValueRow('จะได้รับเงิน', due, { bold: false })] : []),
+    ] : []),
+  ];
   const card = lineCard({
     title: 'ตรวจรายการก่อนบันทึก',
     character: 'review', compact: true,
     subtitle: kind === 'job' ? 'รายรับ / งาน · รอยืนยัน' : 'รายจ่าย · รอยืนยัน',
     metric: { label: draft.name || 'ยังไม่ได้ระบุชื่อ', value: amount > 0 ? formatCurrency(amount) : 'เพิ่มจำนวนเงิน' },
     body: [lineValueRow(kind === 'job' ? 'ชื่องาน' : 'รายการ', draft.name || '—', { bold: false }),
-      ...(kind === 'job' ? [
-        ...(job.client ? [lineValueRow('ลูกค้า', job.client, { bold: false })] : []),
-        lineValueRow('การรับเงิน', payment, { bold: false }),
-        ...(job.creditTerm ? [lineValueRow('เครดิต', `${job.creditTerm} วัน`, { bold: false })] : []),
-        ...(job.whtRate ? [lineValueRow('หัก ณ ที่จ่าย', `${job.whtRate}%`, { bold: false })] : []),
-      ] : [lineValueRow('หมวด', expense.category || 'อื่นๆ (เปลี่ยนได้)', { bold: false })]),
+      ...(kind === 'job' ? jobRows : [lineValueRow('หมวด', expense.category || 'อื่นๆ (เปลี่ยนได้)', { bold: false }),
+        lineValueRow('วันที่', day(expense.date || today), { bold: false })]),
     ],
     note: editUrl ? 'ยังไม่บันทึก · แก้รายละเอียดได้ก่อนยืนยันภายใน 15 นาที' : 'ยังไม่บันทึก · พิมพ์ “ชื่อ …” หรือ “ยอด …” เพื่อแก้ไขก่อนยืนยัน',
     altText: `รอยืนยัน${kind === 'job' ? 'งาน' : 'รายจ่าย'} ${draft.name} ${formatCurrency(amount)}`,

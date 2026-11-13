@@ -1,3 +1,4 @@
+import { aiQuestionMessage, pendingAiQuestions } from '../services/lineAiQuestions.js';
 import { lineAppLink, lineCard, lineValueRow, LINE_CARD_COLORS } from '../services/lineCards.js';
 import type { LineMessage } from '../services/line.js';
 import type { AssistantCard } from './types.js';
@@ -288,27 +289,9 @@ function cardMessage(card: AssistantCard): LineMessage | null {
     return confirmationMessage(card);
   }
   if (card.kind === 'questions') {
-    // LINE has no checkboxes or forms: the questions as short lines (a date to type, the credit terms the app offers,
-    // the details to send), and the first one with choices as quick replies; the payment question's terms otherwise.
-    const lines = card.questions.map((question, index) => {
-      const head = `${index + 1}. ${question.text}`;
-      if (question.kind === 'date') return `${head} (พิมพ์วันที่ เช่น 15 พ.ย.)`;
-      if (question.kind === 'payment') return `${head}: ชำระวันไหน (พิมพ์วันที่ เช่น 15 พ.ย.) และมีเครดิตเทอมไหม (ไม่มี / ${(question.terms ?? []).map(term => `${term} วัน`).join(' / ')})`;
-      if (question.kind === 'party') {
-        const known = question.prefill?.name ? ` · ที่มีแล้ว: ${question.prefill.name}` : '';
-        return `${head}: ชื่อ ที่อยู่ เลขประจำตัวผู้เสียภาษี โทรศัพท์ (พิมพ์มาได้เลย ไม่มีก็เว้นได้)${known}`;
-      }
-      return `${head}${question.options.length ? ` (${question.options.join(' / ')})` : ''}`;
-    });
-    const first = card.questions.find(question => (!question.kind || question.kind === 'choice') && question.options.length);
-    const payment = card.questions.find(question => question.kind === 'payment');
-    const prefix = (question: { text: string }) => (card.questions.length > 1 ? `${question.text.replace(/[?？]\s*$/, '').trim()}: ` : '');
-    const replies = first ? first.options.map(option => ({ label: option, text: `${prefix(first)}${option}` }))
-      : payment ? [{ label: 'ไม่มีเครดิตเทอม', text: `${prefix(payment)}ไม่มีเครดิตเทอม` },
-        ...(payment.terms ?? []).map(term => ({ label: `เครดิตเทอม ${term} วัน`, text: `${prefix(payment)}เครดิตเทอม ${term} วัน` }))] : [];
-    return { type: 'text', text: lines.join('\n'), ...(replies.length ? { quickReply: { items: replies.slice(0, 13).map(reply => ({
-      type: 'action' as const, action: { type: 'message' as const, label: reply.label.slice(0, 20), text: reply.text },
-    })) } } : {}) } as LineMessage;
+    // One question at a time with taps (owner, 2026-11-14), never a numbered list: the first here, the rest asked by the
+    // LINE chat as each is answered (services/lineAiQuestions.ts, kept by lineBridge.ts).
+    return aiQuestionMessage(pendingAiQuestions(card.questions), new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10));
   }
   return null;
 }

@@ -13,7 +13,9 @@ import { appOrigin } from '../config/env.js';
 import { parseLineJobRequest, parseLineQuickDraft } from './lineQuickDraft.js';
 import { getLineAiPolicy, compactLineAiContext } from './lineAiPolicy.js';
 import { listVaultFiles } from './vault.js';
-import { lineDraftKey, lineDraftOperationId, buildLineDraftReview } from './lineDraftReview.js';
+import { lineDraftKey, lineDraftOperationId, buildLineDraftReview, lineDraftEditLink } from './lineDraftReview.js';
+import { activeAiQuestions, answerAiQuestion, type PendingAiQuestions } from './lineAiQuestions.js';
+import { answerExpenseQuestion, answerJobQuestion, expenseQuestionMessage, jobQuestionMessage, nextExpenseQuestion, nextJobQuestion, prefillJob, thaiDayText, type ExpenseQuestion, type JobQuestion, type QuestionContext } from './lineJobQuestions.js';
 import { explicitLineAiText, LINE_JOB_EXAMPLES } from './lineEntryRouting.js';
 import { isActiveLineDraft, lineDraftResolution } from './lineDraftState.js';
 import { buildLineFeatureShortcut, isLineWhtShortcut, lineShortcutArea } from './lineFeatureShortcuts.js';
@@ -152,10 +154,28 @@ export interface JobDraft {
   type?: string;
   value?: number;
   creditTerm?: number;
-  paymentStatus?: string; // 'paid' | 'partial' | 'pending'
+  paymentStatus?: string; // 'paid' | 'partial' | 'pending' | 'installment'
   receivedAmount?: number;
   whtRate?: number; // หัก ณ ที่จ่าย % -- 0 unless the caller (e.g. the LIFF form) sets it
   note?: string;
+  // Answers to the chat's questions (lineJobQuestions.ts), the same fields as the app's job form.
+  /** The question waiting for its answer. */
+  asking?: string;
+  /** Questions answered with ข้าม (or the name kept as it is). */
+  skipped?: string[];
+  /** ส่งงานแล้ว or กำลังทำ; delivered when not said. */
+  workStatus?: 'delivered' | 'wip';
+  /** When the work will be delivered (กำลังทำ); null: not set yet. */
+  deliveryDate?: string | null;
+  /** The day a fully paid job was paid. */
+  paidDate?: string;
+  /** When the money (or the rest of it) is due; null: not known yet. */
+  dueDate?: string | null;
+  installmentCount?: number;
+  /** The first instalment's due date (the rest follow a month apart); null: not known yet. */
+  installmentFirstDue?: string | null;
+  /** The first instalment is already paid (today). */
+  installmentFirstPaid?: boolean;
 }
 
 export interface ExpenseDraft {
@@ -163,6 +183,10 @@ export interface ExpenseDraft {
   category?: string;
   amount?: number;
   note?: string;
+  /** The day it was paid; today when not said. */
+  date?: string;
+  asking?: string;
+  skipped?: string[];
 }
 
 // Throws on a genuine Supabase/query error (caller must not treat that the same as "not
@@ -368,6 +392,8 @@ export interface ClassifyResult {
   expenseName?: string;
   expenseCategory?: string;
   expenseAmount?: number;
+  /** The day an expense was paid, when the message said it (เมื่อวาน ค่ากาแฟ 60). */
+  expenseDate?: string;
   answer?: string;
   userName?: string;
 }
@@ -688,31 +714,39 @@ function buildHelpText(name?: string): string {
 // Builds a real Job record the same way JobsTab.tsx's add-job form does (WHT is not captured
 // via chat, so it's left at 0 -- editable in-app afterward same as any other field).
 export function buildJobFromDraft(draft: JobDraft): JobRow & { id: string; client: string; note: string; postDate: string; isPosted: boolean } {
-  const today = (() => {
-    const bkk = new Date(Date.now() + 7 * 60 * 60 * 1000);
-    return `${bkk.getUTCFullYear()}-${String(bkk.getUTCMonth() + 1).padStart(2, '0')}-${String(bkk.getUTCDate()).padStart(2, '0')}`;
-  })();
-
+  const today = bangkokDay();
   const valueNum = draft.value || 0;
-  const creditTerm = draft.creditTerm ?? 0;
-  // Same formula as JobsTab.tsx's add-job form: whtAmount deducted from value first, then
-  // "received" for a fully-paid job is the NET amount after tax, matching what actually lands
-  // in the bank -- not the gross contract value.
+  // Same formula as the app's job form (JobFormDrawer.tsx): whtAmount deducted from value first, then "received" for a
+  // fully-paid job is the NET amount after tax, matching what actually lands in the bank -- not the gross contract value.
   const whtRate = draft.whtRate || 0;
   const whtAmount = whtAmountFor(valueNum, whtRate);
   const netReceivable = roundMoney(valueNum - whtAmount);
-  let status: string = 'pending';
-  let received = 0;
-  if (draft.paymentStatus === 'paid') {
-    status = 'done';
-    received = netReceivable;
-  } else if (draft.paymentStatus === 'partial') {
-    status = 'partial';
-    received = draft.receivedAmount || 0;
-  }
+  const payment = draft.paymentStatus === 'paid' ? 'paid' : draft.paymentStatus === 'partial' ? 'partial'
+    : draft.paymentStatus === 'installment' && (draft.installmentCount || 0) >= 2 ? 'installment' : 'pending';
+  // Delivered today unless the chat said กำลังทำ; work in progress is delivered on its planned day (none: not set yet).
+  const isPosted = draft.workStatus !== 'wip';
+  const deliveredOn = isPosted ? today : draft.deliveryDate || '';
+  // Instalments as the app's planner splits them: the net in equal parts (the last takes the cents left), the first due on
+  // the day said and each next one a month later; the first paid today when the chat said so.
+  const count = payment === 'installment' ? draft.installmentCount! : 0;
+  const installments: NonNullable<JobRow['installments']> = Array.from({ length: count }, (_value: unknown, index: number) => {
+    const each = Math.floor((netReceivable / count) * 100) / 100;
+    const amount = index === count - 1 ? roundMoney(netReceivable - each * (count - 1)) : each;
+    const first = draft.installmentFirstPaid ? today : draft.installmentFirstDue || null;
+    const paid = index === 0 && !!draft.installmentFirstPaid;
+    return { id: `installment-${randomUUID()}`, label: `งวดที่ ${index + 1}`, amount,
+      dueDate: first ? addMonthsTo(first, index) : null, paidAt: paid ? today : null, status: paid ? 'paid' as const : 'pending' as const };
+  });
+  const received = payment === 'paid' ? netReceivable : payment === 'partial' ? (draft.receivedAmount || 0)
+    : roundMoney(installments.filter(row => row.status === 'paid').reduce((sum, row) => sum + row.amount, 0));
   const pending = Math.max(0, roundMoney(netReceivable - received));
-  const payDate = calculatePayDate(today, creditTerm, false);
-
+  // A due day said in the chat is kept as it is; its term is the days from delivery, as the form saves a picked day.
+  const pickedDue = (payment === 'pending' || payment === 'partial') && draft.dueDate ? draft.dueDate : null;
+  const creditTerm = pickedDue && deliveredOn ? Math.max(0, Math.round((Date.parse(pickedDue) - Date.parse(deliveredOn)) / 86_400_000)) : draft.creditTerm ?? 0;
+  const payDate = payment === 'installment' ? installments.filter(row => row.status !== 'paid' && row.dueDate).map(row => row.dueDate!).sort()[0] ?? null
+    : payment === 'paid' ? draft.paidDate || today
+    : pickedDue || calculatePayDate(deliveredOn, creditTerm, false);
+  const status = payment === 'paid' ? 'done' : payment;
   return {
     id: randomUUID(),
     name: draft.name || 'งานใหม่จาก LINE',
@@ -725,12 +759,24 @@ export function buildJobFromDraft(draft: JobDraft): JobRow & { id: string; clien
     creditTerm,
     whtRate,
     whtAmount,
-    postDate: today,
-    isPosted: true,
+    postDate: deliveredOn,
+    isPosted,
     payDate,
-    ...(status === 'partial' && received > 0 ? { depositDate: today, depositAmount: received } : {}),
+    paymentStatus: payment === 'paid' || (netReceivable > 0 && received >= netReceivable) ? 'paid' : received > 0 ? 'partial' : 'unpaid',
+    ...(installments.length ? { installments } : {}),
+    ...(payment === 'partial' && received > 0 ? { depositDate: today, depositAmount: received } : {}),
     note: draft.note || '',
   };
+}
+
+/** Today in Bangkok, YYYY-MM-DD. */
+export function bangkokDay(now = Date.now()): string {
+  return new Date(now + 7 * 3600_000).toISOString().slice(0, 10);
+}
+function addMonthsTo(day: string, months: number): string {
+  const [y, m, d] = day.split('-').map(Number);
+  const last = new Date(Date.UTC(y, m - 1 + months + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(y, m - 1 + months, Math.min(d, last))).toISOString().slice(0, 10);
 }
 
 export async function persistJob(user: UserRow, job: ReturnType<typeof buildJobFromDraft>): Promise<boolean> {
@@ -880,6 +926,8 @@ export interface JobCardData {
   whtRate?: number;
   whtAmount?: number;
   isPosted?: boolean; // false = "สต็อกเตรียมผลิต" (WIP), same flag as JobsTab.tsx's formIsPosted
+  payDate?: string | null;
+  installments?: Array<{ amount: number; status: string; dueDate: string | null }>;
 }
 
 // Squirrel-branded Flex "receipt" card shown right after a job is saved -- styled like a bank
@@ -892,16 +940,20 @@ export interface JobCardData {
 export function buildJobSavedMessage(job: JobCardData, monthNet?: number): LineMessage {
   const isWip = job.isPosted === false;
   const isDone = job.status === 'done';
-  const isPartial = job.status === 'partial' || job.status === 'installment';
+  // Instalments (owner, 2026-11-14: "รับเป็นงวด"): how many, how many paid, and the next due day, never "มัดจำ".
+  const rows = job.status === 'installment' ? job.installments ?? [] : [];
+  const paidRows = rows.filter(row => row.status === 'paid').length;
+  const isPartial = job.status === 'partial' || (job.status === 'installment' && (job.received || 0) > 0);
   const isPaidSome = isDone || isPartial;
-  const statusLabel = isWip ? 'กำลังดำเนินการ' : isDone ? 'จ่ายครบแล้ว' : isPartial ? 'ได้รับมัดจำแล้ว' : 'ยังไม่ได้รับเงิน';
+  const statusLabel = rows.length ? `แบ่ง ${rows.length} งวด · รับแล้ว ${paidRows} งวด`
+    : isWip ? 'กำลังดำเนินการ' : isDone ? 'จ่ายครบแล้ว' : isPartial ? 'ได้รับมัดจำแล้ว' : 'ยังไม่ได้รับเงิน';
   // Four distinct moments, four distinct badges: WIP (indigo), posted with nothing received yet
   // (teal "ดีลงาน"), a deposit landed but the job isn't fully paid (amber "ได้รับมัดจำ" -- kept
   // separate from full payment per direct feedback: a deposit shouldn't read as "รับเงินแล้ว" the
   // same way a completed payment does), and fully paid (green "รับเงินแล้ว"). Before this, "done"
   // and "partial" shared the same green badge and headline, so a card for a job that had only
   // gotten a deposit looked identical to one that was fully settled.
-  const headerLabel = isWip ? 'งานใหม่' : isDone ? 'รับเงิน' : isPartial ? 'รับมัดจำ' : 'มูลค่าดีล';
+  const headerLabel = isWip ? 'งานใหม่' : isDone ? 'รับเงิน' : isPartial ? (rows.length ? 'รับงวดแรก' : 'รับมัดจำ') : 'มูลค่าดีล';
   const headerColor = isWip ? C.text : isDone ? C.positive : isPartial ? C.warning : C.text;
   // job.value is the full contract value, not what's actually landed -- for a partial payment
   // that's just the deposit, so show job.received (falling back to value if a caller doesn't send
@@ -914,7 +966,7 @@ export function buildJobSavedMessage(job: JobCardData, monthNet?: number): LineM
           : isDone
             ? buildTypeBadge('coin', 'รับเงินแล้ว', headerColor)
             : isPartial
-              ? buildTypeBadge('partial', 'ได้รับมัดจำ', headerColor)
+              ? buildTypeBadge('partial', rows.length ? 'รับงวดแรกแล้ว' : 'ได้รับมัดจำ', headerColor)
               : buildTypeBadge('deal', 'ดีลงาน', headerColor),
         buildStatementRow(headerLabel, `${isPaidSome ? '+' : ''}${formatCurrency(displayAmount)}`, { size: 'xl', color: headerColor }),
         { type: 'separator', margin: 'md', color: C.border },
@@ -922,6 +974,7 @@ export function buildJobSavedMessage(job: JobCardData, monthNet?: number): LineM
         ...(job.client ? [buildStatementRow('ลูกค้า', job.client, { bold: false })] : []),
         ...(job.whtRate ? [buildStatementRow(`หัก ณ ที่จ่าย ${job.whtRate}%`, `-${formatCurrency(job.whtAmount || 0)}`, { bold: false, color: C.warning })] : []),
         buildStatementRow('สถานะ', statusLabel, { bold: false }),
+        ...(rows.length && job.payDate ? [buildStatementRow('งวดถัดไป', thaiDayText(job.payDate, bangkokDay()), { bold: false })] : []),
         ...(!isWip && (job.pending || 0) > 0 ? [buildStatementRow('ค้างรับ', formatCurrency(job.pending || 0), { bold: false, color: C.warning })] : []),
         ...(!isWip && monthNet != null ? [{ type: 'separator', margin: 'md', color: C.border }, buildStatementRow('คงเหลือเดือนนี้', formatCurrency(Math.max(0, monthNet)), { color: C.positive })] : []),
   ], isWip ? `เพิ่มงาน \"${job.name}\" เป็นกำลังดำเนินการแล้วครับ` : `บันทึกงาน \"${job.name}\" สำเร็จแล้วครับ`, !isWip && isPaidSome && displayAmount > 0 ? 'received' : isWip ? 'working' : 'review');
@@ -939,7 +992,7 @@ export function buildExpenseFromDraft(draft: ExpenseDraft): Expense {
     name: draft.name || 'รายจ่ายจาก LINE',
     category: draft.category || 'อื่นๆ',
     amount: draft.amount || 0,
-    date: today,
+    date: draft.date && /^\d{4}-\d{2}-\d{2}$/.test(draft.date) ? draft.date : today,
     note: draft.note || '',
   };
 }
@@ -1109,6 +1162,8 @@ export interface LineAssistantDependencies {
   isProUser: typeof isProUser;
   saveJobDraft?: typeof saveJobDraft;
   saveExpenseDraft?: typeof saveExpenseDraft;
+  /** Keeps เลขา's questions still to ask (lineAiQuestions.ts). */
+  keepAiQuestions?: (user: UserRow, state: PendingAiQuestions | null) => Promise<void>;
   clearJobDraft?: typeof clearJobDraft;
   clearExpenseDraft?: typeof clearExpenseDraft;
   persistJob?: typeof persistJob;
@@ -1230,20 +1285,42 @@ const settledValue = <T,>(result: PromiseSettledResult<T>): T => {
   return result.value;
 };
 
-/**
- * One question for what a draft card still needs (owner, 2026-11-13: "บันทึกงาน A แล้วมันไม่ครบ ... อยากให้มันมีถามเพิ่ม"):
- * the name first, then the amount. The answer typed next fills the draft (lineQuickDraft.ts), as the card's form would.
- */
-export function draftQuestion(kind: 'job' | 'expense', draft: { name?: string; value?: number; amount?: number }): LineMessage {
-  const name = draft.name?.trim();
-  if (kind === 'job') {
-    return { type: 'text', text: !name
-      ? 'งานนี้ชื่ออะไรครับ พิมพ์มาได้เลย เช่น ตัดต่อวิดีโอ'
-      : `งาน “${name.slice(0, 60)}” ค่าจ้างเท่าไรครับ พิมพ์ตัวเลขมาได้เลย เช่น 5000 หรือกด “เติมข้อมูล / แก้ไข” เพื่อกรอกในฟอร์ม` };
-  }
-  return { type: 'text', text: !name
-    ? 'จ่ายค่าอะไรครับ พิมพ์มาได้เลย เช่น ค่ากาแฟ'
-    : `“${name.slice(0, 60)}” จ่ายไปเท่าไรครับ พิมพ์ตัวเลขมาได้เลย เช่น 120 หรือกด “เติมข้อมูล / แก้ไข” เพื่อกรอกในฟอร์ม` };
+/** Keeps เลขา's questions still to ask (null: none left), in the account's private state and in this request's copy. */
+async function keepAiQuestions(user: UserRow, state: PendingAiQuestions | null): Promise<void> {
+  const rest = { ...(user.notif_settings || {}) };
+  if (state) { await patchPrivate(user.user_id, { pendingAiQuestions: state }); rest.pendingAiQuestions = state; }
+  else { await patchPrivate(user.user_id, {}, ['pendingAiQuestions']); delete rest.pendingAiQuestions; }
+  user.notif_settings = rest;
+}
+
+/** What the questions need from the account: today, its jobs (clients and their rates) and the draft's form. */
+function questionContext(user: UserRow, editUrl?: string): QuestionContext {
+  return { today: bangkokDay(), jobs: (user.jobs || []) as QuestionContext['jobs'], ...(editUrl ? { editUrl } : {}) };
+}
+
+/** Saves the job draft, then asks the next question about it, or shows its card when nothing is missing. */
+async function continueJobDraft(user: UserRow, merged: JobDraft, fresh: boolean, dependencies: LineAssistantDependencies): Promise<LineMessage | LineMessage[]> {
+  const opening = fresh || !merged.asking;
+  const draft: JobDraft = prefillJob({ ...merged }, questionContext(user));
+  const next = nextJobQuestion(draft);
+  if (next) draft.asking = next; else delete draft.asking;
+  await (dependencies.saveJobDraft ?? saveJobDraft)(user, draft, fresh);
+  const stored = user.notif_settings!.pendingJobDraft!;
+  if (!next) return buildLineDraftReview('job', stored);
+  const question = jobQuestionMessage(next, draft, questionContext(user, lineDraftEditLink('job', stored)), opening);
+  // "บันทึกงาน" alone still opens its empty card with the form (owner, 2026-10-30), and the first question under it.
+  return fresh && !draft.name && !draft.value ? [buildLineDraftReview('job', stored), question] : question;
+}
+
+async function continueExpenseDraft(user: UserRow, merged: ExpenseDraft, fresh: boolean, dependencies: LineAssistantDependencies): Promise<LineMessage | LineMessage[]> {
+  const draft: ExpenseDraft = { ...merged };
+  const next = nextExpenseQuestion(draft);
+  if (next) draft.asking = next; else delete draft.asking;
+  await (dependencies.saveExpenseDraft ?? saveExpenseDraft)(user, draft, fresh);
+  const stored = user.notif_settings!.pendingExpenseDraft!;
+  if (!next) return buildLineDraftReview('expense', stored);
+  const question = expenseQuestionMessage(next, draft, questionContext(user, lineDraftEditLink('expense', stored)));
+  return fresh && !draft.name && !draft.amount ? [buildLineDraftReview('expense', stored), question] : question;
 }
 
 export async function handleAssistantMessage(
@@ -1454,9 +1531,33 @@ async function handleAssistantMessageInner(
   // Everything else goes to เลขากระรอก, the same Gemini assistant as the app (owner, 2026-10-24), with or without
   // the old "ถาม AI" prefix. The earlier Claude path is no longer called (owner: Gemini only).
   // A job in everyday words becomes the same draft card (lineQuickDraft.ts parseLineJobRequest), never questions.
+  // The answer to the question waiting about the record being written (lineJobQuestions.ts): rules only, no tokens. A
+  // message that starts a new record is that record instead.
+  const freshRecord = parseLineQuickDraft(trimmed) ?? parseLineJobRequest(trimmed);
+  const questions = questionContext(user);
+  const jobNewest = !storedExpenseDraft || !pendingExpenseDraft || (storedDraft?.createdAt || '') >= (storedExpenseDraft.createdAt || '');
+  if (!freshRecord?.freshDraft && pendingDraft?.asking && jobNewest) {
+    const answer = answerJobQuestion(pendingDraft.asking as JobQuestion, trimmed, pendingDraft, questions);
+    if (answer) return continueJobDraft(user, { ...pendingDraft, ...answer }, false, dependencies);
+  }
+  if (!freshRecord?.freshDraft && pendingExpenseDraft?.asking && (!pendingDraft || !jobNewest)) {
+    const answer = answerExpenseQuestion(pendingExpenseDraft.asking as ExpenseQuestion, trimmed, pendingExpenseDraft);
+    if (answer) return continueExpenseDraft(user, { ...pendingExpenseDraft, ...answer }, false, dependencies);
+  }
   const quickDraft = parseLineQuickDraft(trimmed, { pendingJob: pendingDraft, pendingExpense: pendingExpenseDraft }) ?? parseLineJobRequest(trimmed);
   if (!quickDraft) {
-    const question = explicitLineAiText(trimmed) ?? trimmed;
+    let question = explicitLineAiText(trimmed) ?? trimmed;
+    // เลขา's questions, asked one at a time (lineAiQuestions.ts): the next one with no model; after the last, all the
+    // answers go to เลขา together. A message that is not an answer drops the questions and is answered as it is.
+    const asked = activeAiQuestions(user.notif_settings?.pendingAiQuestions);
+    if (asked) {
+      const step = answerAiQuestion(asked, trimmed, bangkokDay());
+      const keep = dependencies.keepAiQuestions ?? keepAiQuestions;
+      try { await keep(user, step && 'next' in step ? step.state : null); }
+      catch { console.error('line-assistant: questions state not saved'); }
+      if (step && 'next' in step) return step.next;
+      if (step) question = step.composed;
+    }
     try {
       const answered = await (dependencies.assistantAnswer ?? lineAssistantAnswer)(user, question, (recentHistory || []).map(entry => ({ role: entry.role, text: entry.text })));
       if (answered) {
@@ -1528,52 +1629,9 @@ async function handleAssistantMessageInner(
       }
     }
 
-    // Required before actually saving: just name, value, and whether payment's been received --
-    // the essentials worth pausing to ask about. Client and credit term are left as-is (blank
-    // unless the message happened to mention them) and can be filled in later from the app itself
-    // instead of turning every quick "just add this" message into a multi-question exchange.
-    // Payment not said means not paid yet (owner, 2026-10-30: every job card needs its confirm button); the card offers
-    // the other answers as taps.
-    const paymentSaid = Boolean(merged.paymentStatus);
-    if (!merged.paymentStatus) merged.paymentStatus = 'pending';
-    const missingLabels = [
-      !merged.name && 'ชื่องาน',
-      !merged.value && 'มูลค่างาน',
-    ].filter((s): s is string => !!s);
-    const paymentTaps = { items: [
-      { type: 'action', action: { type: 'message', label: 'ยังไม่ได้รับเงิน', text: 'ยังไม่ได้รับเงิน' } },
-      { type: 'action', action: { type: 'message', label: 'รับเงินครบแล้ว', text: 'รับเงินครบแล้ว' } },
-    ] } as const;
-
-    if (missingLabels.length === 0) {
-      const jobValue = merged.value!;
-      const draft: JobDraft = {
-        name: merged.name!,
-        client: merged.client,
-        type: merged.type,
-        value: jobValue,
-        creditTerm: merged.creditTerm || 0,
-        paymentStatus: merged.paymentStatus,
-        receivedAmount: merged.receivedAmount,
-        whtRate: merged.whtRate || 0,
-      };
-      await (dependencies.saveJobDraft ?? saveJobDraft)(user, draft, quickDraft?.freshDraft || false);
-      const card = buildLineDraftReview('job', user.notif_settings!.pendingJobDraft!);
-      if (!paymentSaid) card.quickReply = { items: [...paymentTaps.items] };
-      return card;
-    }
-
-    // Still missing something -- keep what's been said so far and ask specifically for what's
-    // left, instead of discarding it all and making the user retype from scratch.
-    await (dependencies.saveJobDraft ?? saveJobDraft)(user, merged, quickDraft?.freshDraft || false);
-    const missingText = missingLabels.join(', ');
-    const knownText = [merged.name, merged.value ? formatCurrency(merged.value) : null, merged.client].filter(Boolean).join(' ');
-    if (quickDraft) {
-      // The card, then one question for what is missing (owner, 2026-11-13: "ไม่ครบ ... อยากให้มันมีถามเพิ่ม"): the answer
-      // typed next fills the draft (lineQuickDraft.ts), or the card's form takes everything at once.
-      return [buildLineDraftReview('job', user.notif_settings!.pendingJobDraft!), draftQuestion('job', merged)];
-    }
-    return finishConversationalReply(user, trimmed, !!knownName, alreadyAskedName, `จดไว้ให้แล้วนะครับ${knownText ? ` (${knownText})` : ''} ขอข้อมูลเพิ่มอีกนิดนะครับ: ${missingText}`);
+    // What is still missing is asked one short question at a time with taps, and the card comes once it is all there
+    // (owner, 2026-11-14), the same questions as the app's job form (lineJobQuestions.ts).
+    return continueJobDraft(user, merged, quickDraft?.freshDraft || false, dependencies);
   }
 
   if (result.intent === 'add_expense') {
@@ -1584,24 +1642,9 @@ async function handleAssistantMessageInner(
       ...(result.expenseName !== undefined && { name: result.expenseName }),
       ...(result.expenseCategory !== undefined && { category: result.expenseCategory }),
       ...(result.expenseAmount !== undefined && { amount: result.expenseAmount }),
+      ...(result.expenseDate !== undefined && { date: result.expenseDate }),
     };
-
-    const missingLabels = [!merged.name && 'ชื่อรายการ', !merged.amount && 'จำนวนเงิน'].filter((s): s is string => !!s);
-
-    if (missingLabels.length === 0) {
-      const expenseAmount = merged.amount!;
-      const draft: ExpenseDraft = { name: merged.name!, category: merged.category, amount: expenseAmount };
-      await (dependencies.saveExpenseDraft ?? saveExpenseDraft)(user, draft, quickDraft?.freshDraft || false);
-      return buildLineDraftReview('expense', user.notif_settings!.pendingExpenseDraft!);
-    }
-
-    // Still missing something -- keep what's been said so far and ask specifically for what's
-    // left, same as the add_job flow, instead of discarding it all and asking from scratch.
-    await (dependencies.saveExpenseDraft ?? saveExpenseDraft)(user, merged, quickDraft?.freshDraft || false);
-    const missingText = missingLabels.join(', ');
-    const knownText = [merged.name, merged.amount ? formatCurrency(merged.amount) : null].filter(Boolean).join(' ');
-    if (quickDraft) return [buildLineDraftReview('expense', user.notif_settings!.pendingExpenseDraft!), draftQuestion('expense', merged)];
-    return finishConversationalReply(user, trimmed, !!knownName, alreadyAskedName, `จดไว้ให้แล้วนะครับ${knownText ? ` (${knownText})` : ''} ขอข้อมูลเพิ่มอีกนิดนะครับ: ${missingText}`);
+    return continueExpenseDraft(user, merged, quickDraft?.freshDraft || false, dependencies);
   }
 
   // Any intent's `answer` is usable here now, not just "question" -- lets a plain greeting or

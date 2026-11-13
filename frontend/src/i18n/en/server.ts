@@ -165,7 +165,7 @@ export const server: Record<string, string> = {
   "อ่านข้อมูลเครดิต AI ไม่ได้ในตอนนี้": "AI credit could not be read right now",
   "ยอดเครดิตไม่ถูกต้อง": "Invalid credit balance",
   "เลขากระรอกตอบไม่ทันในตอนนี้ กรุณาลองใหม่อีกครั้ง": "Krarok Assistant could not answer in time. Please try again.",
-  "สิทธิ์ทดลองใช้เลขากระรอกครบแล้ว อัปเกรดเป็น Pro เพื่อใช้งานต่อ": "You have used all your Krarok Assistant trial messages. Upgrade to Pro to continue.",
+  "โทเคนเลขาของรอบนี้ใช้ครบแล้ว อัปเกรดเป็น Pro เพื่อใช้เลขากระรอกต่อ": "This round's assistant tokens are used up. Upgrade to Pro to keep using Krarok Assistant.",
   "ใช้โทเคนฟรีสำหรับบัญชีใหม่ครบแล้ว อัปเกรดเป็น Pro เพื่อใช้เลขากระรอกต่อ": "You have used the free tokens for new accounts. Upgrade to Pro to keep using Krarok Assistant.",
   "เลขากระรอกพักการใช้งานชั่วคราว กรุณาลองใหม่ภายหลัง": "Krarok Assistant is paused for now. Please try again later.",
   "รายการนี้ยืนยันไปแล้วหรือหมดเวลา กรุณาขอให้เลขาเตรียมใหม่": "This was already confirmed or has expired. Please ask the assistant to prepare it again.",

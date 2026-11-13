@@ -62,10 +62,11 @@ test('ask_user shows tap-to-answer questions; LINE gets the questions and quick 
   const card = outcome.card as any;
   assert.equal(card.kind, 'questions');
   assert.deepEqual(card.questions.map((question: any) => [question.text, question.options.length, question.allowText]), [['ลูกค้าคือใคร', 1, true], ['ส่งงานแล้วหรือยัง', 2, false], ['หัก ณ ที่จ่ายไหม', 3, false]]);
+  // LINE: one question at a time with its taps and ข้าม (owner, 2026-11-14); the rest follow as each is answered.
   const messages = lineAssistantReply('ขอข้อมูลเพิ่ม 3 ข้อครับ', [card]);
   const last = messages.at(-1) as any;
-  assert.match(last.text, /1\. ลูกค้าคือใคร \(ร้านกาแฟตัวอย่าง\)\n2\. ส่งงานแล้วหรือยัง \(ส่งแล้ววันนี้ \/ ยังไม่ส่ง\)/);
-  assert.deepEqual(last.quickReply.items.map((item: any) => item.action.text), ['ลูกค้าคือใคร: ร้านกาแฟตัวอย่าง']);
+  assert.equal(last.text, 'ลูกค้าคือใคร (1/3)');
+  assert.deepEqual(last.quickReply.items.map((item: any) => item.action.text), ['ร้านกาแฟตัวอย่าง', 'ข้าม']);
 });
 
 test('a confirmation card edited before confirming is prepared again from its own call, and the old one cancelled', async () => {

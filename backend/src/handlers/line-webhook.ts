@@ -11,6 +11,7 @@ import { TRY_CHAT, TRY_POSTBACK, buildTryChat, buildTryPreview, buildTryPrompt, 
 import type { LineMessage } from '../services/line.js';
 import { toneLineMessages } from '../services/lineTone.js';
 import { decodeLineDraftAction } from '../services/lineDraftReview.js';
+import { QUESTION_DATE_DATA } from '../services/lineJobQuestions.js';
 import { decodeLineDocumentAction } from '../services/lineDocumentDraft.js';
 import { decodeVaultAction, handleLineFileMessage, handleLineImageSetPart, handleLineVaultAction } from '../services/lineVaultChat.js';
 import { forgetLineMenu, lineMenuDeps, syncLineMenuFor } from '../services/lineRichMenus.js';
@@ -51,7 +52,7 @@ export interface LineEvent {
   replyToken?: string;
   source?: { type: string; userId?: string };
   message?: { type: string; text?: string; id?: string; fileName?: string; fileSize?: number; imageSet?: { id?: string; index?: number; total?: number } };
-  postback?: { data?: string };
+  postback?: { data?: string; params?: { date?: string } };
 }
 
 export function lineEventCommand(event: LineEvent): string | null {
@@ -62,6 +63,11 @@ export function lineEventCommand(event: LineEvent): string | null {
     if (decodeVaultAction(data) || decodeDueAction(data) || decodeWht50Action(data)) return data;
     // เปิดใน Google Sheets / Docs / Slides under the answer to a file (services/lineSheetConvert.ts).
     if (/^(sheet:convert:|google:open:[sdp]:)\d{1,40}:[A-Za-z0-9_-]{0,240}$/.test(data)) return data;
+    // เลือกวันที่ under a question about the record being written (services/lineJobQuestions.ts): the day picked, as typed.
+    if (data === QUESTION_DATE_DATA) {
+      const day = event.postback?.params?.date;
+      return day && /^\d{4}-\d{2}-\d{2}$/.test(day) ? `วันที่ ${day}` : null;
+    }
     // ใช้แบบไหน, picked by a new friend before signing up (services/lineTry.ts).
     if (TRY_POSTBACK.test(data)) return data;
     // A welcome question answered later in the chat, or ไว้ก่อน on the sheet offer (services/lineNudges.ts).

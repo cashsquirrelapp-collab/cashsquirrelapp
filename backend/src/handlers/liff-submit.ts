@@ -78,6 +78,8 @@ const editedNumber = (schema: z.ZodType<number>) => z.preprocess(value => {
 const cents = (value: number) => value === roundMoney(value);
 const editedMoney = editedNumber(z.number().finite().positive().max(1_000_000_000_000).refine(cents));
 const editedName = z.string().trim().min(1).max(500);
+// A day as the form or the chat keeps it (YYYY-MM-DD); empty is not set.
+const editedDay = z.preprocess(value => (value === '' ? null : value), z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable()).optional();
 const editedText = z.string().max(10000);
 const editedExpense = z.object({
   name: editedName, amount: editedMoney, category: editedText.optional(), note: editedText.optional(),
@@ -87,9 +89,20 @@ const editedJob = z.object({
   type: editedText.optional(), note: editedText.optional(),
   creditTerm: editedNumber(z.number().finite().int().min(0).max(3650)).default(0),
   whtRate: editedNumber(z.number().finite().refine(isValidWhtRate)).default(0),
-  paymentStatus: z.enum(['pending', 'paid', 'partial']),
+  paymentStatus: z.enum(['pending', 'paid', 'partial', 'installment']),
   receivedAmount: editedNumber(z.number().finite().min(0).max(1_000_000_000_000).refine(cents)).optional(),
+  // What the chat's questions filled in (lineJobQuestions.ts) and the form's instalments: kept when the form saves.
+  installmentCount: editedNumber(z.number().int().min(2).max(24)).optional(),
+  installmentFirstDue: editedDay,
+  installmentFirstPaid: z.boolean().optional(),
+  workStatus: z.enum(['delivered', 'wip']).optional(),
+  deliveryDate: editedDay,
+  paidDate: editedDay.transform(value => value ?? undefined),
+  dueDate: editedDay,
 }).superRefine((draft, context) => {
+  if (draft.paymentStatus === 'installment' && !draft.installmentCount) {
+    context.addIssue({ code: 'custom', path: ['installmentCount'], message: 'กรุณาเลือกจำนวนงวด' });
+  }
   const net = Math.max(0, roundMoney(draft.value - whtAmountFor(draft.value, draft.whtRate)));
   if (draft.paymentStatus === 'partial'
     && (draft.receivedAmount === undefined || draft.receivedAmount <= 0 || draft.receivedAmount >= net)) {
@@ -233,7 +246,7 @@ async function handleDraftEditor(
   // enter the financial record. Identity/ownership always come from the verified LINE user.
   const parsed = (kind === 'job' ? editedJob : editedExpense).safeParse({ ...stored.draft, ...body });
   if (!parsed.success) {
-    res.status(400).json({ error: 'กรุณาตรวจชื่อรายการ จำนวนเงิน สถานะการรับเงิน ภาษี และเครดิตเทอม' }); return;
+    res.status(400).json({ error: 'กรุณาตรวจชื่อรายการ จำนวนเงิน สถานะการรับเงิน จำนวนงวด ภาษี และเครดิตเทอม' }); return;
   }
   user.operationId = lineDraftOperationId(kind, stored);
   user.lastWriteWasDuplicate = false;

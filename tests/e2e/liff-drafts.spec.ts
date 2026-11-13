@@ -11,6 +11,7 @@ const drafts: Record<string, { kind: 'job' | 'expense'; draft: Record<string, un
   bare: { kind: 'job', draft: { name: 'งานตัดต่อ', value: 5000 } },
   oddRate: { kind: 'job', draft: { name: 'ออกแบบโลโก้', client: 'บริษัท แบรนด์เอ จำกัด', value: 12000, whtRate: 2, paymentStatus: 'paid', creditTerm: 20, type: 'งานพิเศษ' } },
   expense: { kind: 'expense', draft: { name: 'ค่ากาแฟลูกค้า', amount: 120, category: 'อาหาร/รับรองลูกค้า', note: '' } },
+  installments: { kind: 'job', draft: { name: 'เว็บไซต์บริษัทเอ', client: 'บริษัท เอ จำกัด', value: 30000, whtRate: 3, paymentStatus: 'installment', installmentCount: 3, installmentFirstPaid: true, installmentFirstDue: '2026-11-14', workStatus: 'delivered' } },
 };
 
 async function open(page: Page, scenario: keyof typeof drafts) {
@@ -171,4 +172,21 @@ test('an expired draft says so with no ลองอีกครั้ง', async
   await expect(page.locator('#status-view')).toContainText('รายการนี้หมดอายุ');
   await expect(page.getByRole('button', { name: 'ลองอีกครั้ง' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'กลับไปแชท' })).toBeVisible();
+});
+
+// Instalments from the chat (owner, 2026-11-14: "รับเป็นงวด ... cover ตัวแอปทั้งหมด"): the form shows them and keeps them.
+test('a draft paid in instalments opens on แบ่งงวด with its count, and saves them; 2% is a choice of its own', async ({ page }) => {
+  const { sent } = await open(page, 'installments');
+  await expect(page.locator('#job-status-pick [aria-checked="true"]')).toHaveText('แบ่งงวด');
+  await expect(page.locator('#installment-field')).toBeVisible();
+  await expect(page.locator('#job-installment-pick [aria-checked="true"]')).toHaveText('3 งวด');
+  await expect(page.locator('#job-installmentFirstPaid')).toBeChecked();
+  await expect(page.locator('#receipt-received')).toHaveText('฿9,700.00');
+  await expect(page.locator('#job-wht-pick button')).toHaveText(['ไม่มี', '1%', '2%', '3%', '5%']);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await page.locator('#job-installment-pick button', { hasText: '4 งวด' }).click();
+  await page.locator('#job-next-btn').click();
+  await expect(page.locator('#status-view')).toBeVisible();
+  const saved = sent.find(body => body.action === 'confirm-draft');
+  expect([saved.paymentStatus, saved.installmentCount, saved.installmentFirstPaid, saved.installmentFirstDue]).toEqual(['installment', '4', true, null]);
 });

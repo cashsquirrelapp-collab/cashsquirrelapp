@@ -48,8 +48,12 @@
     var wht = roundMoney(value * rate / 100);
     var net = roundMoney(value - wht);
     var status = valueOf('job-paymentStatus');
-    var received = status === 'paid' ? net : status === 'partial' ? Number(valueOf('job-receivedAmount')) || 0 : 0;
+    var count = Number(valueOf('job-installmentCount')) || 0;
+    var firstPaid = status === 'installment' && count >= 2 && field('job-installmentFirstPaid').checked;
+    var received = status === 'paid' ? net : status === 'partial' ? Number(valueOf('job-receivedAmount')) || 0
+      : firstPaid ? Math.floor((net / count) * 100) / 100 : 0;
     field('received-amount-field').classList.toggle('hidden', status !== 'partial');
+    field('installment-field').classList.toggle('hidden', status !== 'installment');
     field('job-receivedAmount').required = status === 'partial';
     field('receipt-value').textContent = fmtCurrency(value);
     field('receipt-wht-row').classList.toggle('hidden', rate === 0);
@@ -78,7 +82,9 @@
       if (!Number.isFinite(value) || value <= 0) { showError('job', 'กรุณากรอกมูลค่างานมากกว่า 0 บาท', 'job-value'); return false; }
       if (!hasCentsPrecision(value)) { showError('job', 'มูลค่างานระบุทศนิยมได้ไม่เกิน 2 ตำแหน่ง', 'job-value'); return false; }
       if (!Number.isFinite(rate) || rate < 0 || rate > 100) { showError('job', 'กรุณาเลือกอัตราหัก ณ ที่จ่ายให้ถูกต้อง', 'job-wht-pick'); return false; }
-      if (['paid', 'partial', 'pending'].indexOf(status) === -1) { showError('job', 'กรุณาเลือกสถานะการรับเงินก่อนยืนยัน', 'job-status-pick'); return false; }
+      if (['paid', 'partial', 'installment', 'pending'].indexOf(status) === -1) { showError('job', 'กรุณาเลือกสถานะการรับเงินก่อนยืนยัน', 'job-status-pick'); return false; }
+      var parts = Number(valueOf('job-installmentCount'));
+      if (status === 'installment' && !(Number.isInteger(parts) && parts >= 2 && parts <= 24)) { showError('job', 'กรุณาเลือกจำนวนงวด', 'job-installment-pick'); return false; }
       var received = Number(valueOf('job-receivedAmount')); var net = roundMoney(value - roundMoney(value * rate / 100));
       if (status === 'partial' && (!Number.isFinite(received) || received <= 0 || received >= net)) { showError('job', 'ยอดรับบางส่วนต้องมากกว่า 0 และน้อยกว่ายอดหลังหัก ณ ที่จ่าย หากรับครบแล้วให้เลือก “รับเงินครบแล้ว”', 'job-receivedAmount'); return false; }
       if (status === 'partial' && !hasCentsPrecision(received)) { showError('job', 'ยอดรับบางส่วนระบุทศนิยมได้ไม่เกิน 2 ตำแหน่ง', 'job-receivedAmount'); return false; }
@@ -292,8 +298,11 @@
       var credit = Number(draft.creditTerm); setPick('job-credit-pick', Number.isInteger(credit) && credit >= 0 ? String(credit) : '0');
       setPick('job-type-pick', typeof draft.type === 'string' && draft.type.trim() ? draft.type.trim() : 'ยังไม่ระบุ');
       var rate = Number(draft.whtRate); setPick('job-wht-pick', Number.isFinite(rate) && rate >= 0 && rate <= 100 ? String(rate) : '0');
-      var status = ['paid', 'partial', 'pending'].indexOf(draft.paymentStatus) >= 0 ? draft.paymentStatus : '';
+      var status = ['paid', 'partial', 'installment', 'pending'].indexOf(draft.paymentStatus) >= 0 ? draft.paymentStatus : '';
       setPick('job-status-pick', status);
+      var parts = Number(draft.installmentCount); setPick('job-installment-pick', Number.isInteger(parts) && parts >= 2 ? String(parts) : '');
+      setValue('job-installmentFirstDue', typeof draft.installmentFirstDue === 'string' ? draft.installmentFirstDue : '');
+      field('job-installmentFirstPaid').checked = draft.installmentFirstPaid === true;
       field('payment-help').textContent = status ? 'สถานะจากรายการร่าง เปลี่ยนให้ตรงกับเงินที่ได้รับจริงได้' : 'รายการร่างยังไม่ระบุสถานะ กรุณาเลือกเองก่อนยืนยัน';
       updateReceipt();
     }
@@ -332,7 +341,7 @@
       else if (data.notificationSent === false) message += '\nยังส่งการ์ดเข้าแชทไม่สำเร็จ แต่ข้อมูลบันทึกแล้ว ไม่ต้องบันทึกซ้ำ';
       else message += '\nดูรายการได้ในแอปกระรอกตุนเงิน';
       // A saved job is not necessarily paid. Only show the money-received pose for an actual paid/deposit state.
-      var successPose = kind === 'expense' ? 'spent' : payload.paymentStatus === 'paid' || payload.paymentStatus === 'partial' ? 'received' : 'review';
+      var successPose = kind === 'expense' ? 'spent' : payload.paymentStatus === 'paid' || payload.paymentStatus === 'partial' || payload.installmentFirstPaid === true ? 'received' : 'review';
       showStatus(data.duplicate === true ? 'บันทึกไว้แล้ว' : 'บันทึกสำเร็จ', message, true, successPose);
     } catch (error) {
       showError(kind, 'ยังยืนยันผลการบันทึกไม่ได้ กรุณาลองอีกครั้งจากหน้านี้ ระบบจะใช้คำขอเดิมเพื่อลดรายการซ้ำ');
@@ -343,6 +352,11 @@
     // The server merges a saved draft. Explicitly clear a previous deposit when changing
     // payment status, rather than allowing an omitted field to retain its stale amount.
     payload.receivedAmount = payload.paymentStatus === 'partial' ? valueOf('job-receivedAmount') : 0;
+    if (payload.paymentStatus === 'installment') {
+      payload.installmentCount = valueOf('job-installmentCount');
+      payload.installmentFirstPaid = field('job-installmentFirstPaid').checked;
+      payload.installmentFirstDue = payload.installmentFirstPaid ? null : valueOf('job-installmentFirstDue') || null;
+    }
     submitPayload(payload, field('job-next-btn'), 'job');
   }
   function submitExpense() {
@@ -357,7 +371,8 @@
 
   ['job-value', 'job-whtRate', 'job-receivedAmount', 'job-paymentStatus', 'job-name'].forEach(function (id) { field(id).addEventListener('input', updateReceipt); field(id).addEventListener('change', updateReceipt); });
   ['expense-name', 'expense-amount'].forEach(function (id) { field(id).addEventListener('input', updateExpenseSummary); });
-  ['job-wht-pick', 'job-status-pick', 'job-type-pick', 'job-credit-pick', 'expense-category-pick'].forEach(function (id) {
+  field('job-installmentFirstPaid').addEventListener('change', updateReceipt);
+  ['job-wht-pick', 'job-status-pick', 'job-installment-pick', 'job-type-pick', 'job-credit-pick', 'expense-category-pick'].forEach(function (id) {
     var group = field(id); var kind = id.indexOf('expense') === 0 ? 'expense' : 'job';
     group.addEventListener('click', function (event) {
       var button = event.target.closest('button[data-value]'); if (!button || !ready || submitting) return;
@@ -369,7 +384,7 @@
   });
   document.querySelectorAll('[data-close]').forEach(function (button) { button.addEventListener('click', closeLiff); });
   field('job-next-btn').addEventListener('click', jobNext); field('expense-submit-btn').addEventListener('click', submitExpense); field('return-chat-btn').addEventListener('click', closeLiff);
-  setPick('job-wht-pick', '0'); setPick('job-status-pick', ''); setPick('job-type-pick', 'ยังไม่ระบุ'); setPick('job-credit-pick', '0'); setPick('expense-category-pick', 'อื่นๆ');
+  setPick('job-wht-pick', '0'); setPick('job-status-pick', ''); setPick('job-installment-pick', ''); setPick('job-type-pick', 'ยังไม่ระบุ'); setPick('job-credit-pick', '0'); setPick('expense-category-pick', 'อื่นๆ');
   updateReceipt(); updateExpenseSummary();
 
   (function splash() {

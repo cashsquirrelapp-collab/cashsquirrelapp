@@ -153,6 +153,8 @@ const FALLBACK_TEXT = {
   // Sonnet failed on a change the light model must not take over (owner's brief, 2026-10-25, phase 5).
   blocked: 'ขออภัยครับ ตอนนี้ระบบที่ใช้ทำงานนี้ขัดข้องชั่วคราว จึงยังไม่ได้เตรียมหรือแก้รายการใด กรุณาลองใหม่อีกครั้งในอีกสักครู่ครับ',
 };
+/** The line a questions card carries when the model wrote nothing (LINE leaves it out: it asks one question at a time). */
+export const QUESTIONS_LEAD = FALLBACK_TEXT.questions;
 // Tools whose success leaves something behind (a saved proposal or memory). After one ran, the request is never
 // answered again by the other model, so nothing is prepared twice (brief: no repeated tool action on a model switch).
 const LASTING = /^(?:propose_|remember$|forget_memory$)/;
