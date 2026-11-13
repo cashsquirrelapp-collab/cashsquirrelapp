@@ -23,7 +23,10 @@ const namedAmount = new RegExp(`^(.+?)\\s*(?:฿\\s*)?(${MONEY})\\s*(?:บาท
 const jobAmount = new RegExp(`^(.+?)\\s*(?:฿\\s*)?(${MONEY})\\s*(?:บาท)?\\s*(.*)$`);
 const jobNamedAmount = new RegExp(`^(.+?)\\s*ยอด\\s*(?:฿\\s*)?(${MONEY})\\s*(?:บาท)?\\s*(.*)$`);
 const amountOnly = new RegExp(`^(?:ยอด\\s*)?(?:฿\\s*)?(${MONEY})\\s*(?:บาท)?$`);
-const amountField = new RegExp(`^(?:ยอด|จำนวน|จำนวนเงิน)\\s*(?:฿\\s*)?(${MONEY})\\s*(?:บาท)?$`);
+// "ค่าจ้าง 5000", "มูลค่างาน 5000" too (owner, 2026-11-13, answering เลขา's question).
+const amountField = new RegExp(`^(?:ยอด|จำนวน|จำนวนเงิน|ค่าจ้าง|ค่างาน|มูลค่า(?:งาน)?|ราคา)\\s*(?:฿\\s*)?(${MONEY})\\s*(?:บาท)?$`);
+/** Words that start a command or a chat line, never the answer "งานนี้ชื่ออะไร" is asking for. */
+const NOT_A_NAME = /^(?:รอรับเงิน|สรุป|งานเดือนนี้|กำลังดำเนิน|เมนู|เพิ่ม|บันทึก|สวัสดี|หวัดดี|ขอบคุณ|ยืนยัน|ยกเลิก|ช่วย|ทำ|ออก|สร้าง|ขอ|ดู|เปิด|แก้|ลบ|โอเค|ok|ได้|ครับ|ค่ะ)/i;
 const depositStatus = new RegExp(`^(?:ได้รับมัดจำ|รับมัดจำ|ได้มัดจำ)\\s*(?:฿\\s*)?(${MONEY})\\s*(?:บาท)?(?:แล้ว)?$`);
 const unsupported = /[?？\r\n%=$€¥]|ไหม|มั้ย|หรือ|เท่าไหร่|เท่าไร|กี่|อะไร|ทำไม|อย่างไร|ยังไง|ถ้า|หาก|สมมติ|ตัวอย่าง|พรุ่งนี้|มะรืน|เมื่อวาน|เมื่อคืน|วานนี้|วันที่|สัปดาห์หน้า|อาทิตย์หน้า|เดือนหน้า|ปีหน้า|เดือนที่แล้ว|ไม่ต้อง|ไม่ใช่|ไม่เคย|อย่า|ยกเลิก|ยังไม่จ่าย|ยังไม่ได้จ่าย|ไม่ได้จ่าย|จะจ่าย|กำลังจะ|ต้องจ่าย|คืนเงิน|ขอคืน|ประมาณ|ราวๆ|เกือบ|อย่างน้อย|ไม่เกิน|มากกว่า|น้อยกว่า|คนละ|ต่อคน|เครดิต|กำหนด|ภาษี|หัก\s*ณ|ก่อนหัก|หลังหัก|ทวิ|ดอลลาร์|(?:\b(?:USD|USDT|EUR|AUD|SGD|JPY|VAT|WHT)(?=\s*\d|\b))/i;
 
@@ -184,6 +187,10 @@ export function parseLineQuickDraft(input: string, context: LineQuickDraftContex
     const match = text.match(amountField) || (!context.pendingJob.value && text.match(amountOnly));
     const value = match ? amount(match[1]) : null;
     if (value !== null) return validated({ intent: 'add_job', jobValue: value, freshDraft: false }, context);
+    // The answer to "งานนี้ชื่ออะไรครับ" (asked when the card has no name): a short plain name.
+    if (!context.pendingJob.name && text.length <= 80 && safeName(text) && !NOT_A_NAME.test(text)) {
+      return validated({ intent: 'add_job', jobName: text, freshDraft: false }, context);
+    }
   }
   if (context.pendingExpense && !context.pendingJob) {
     const name = /^(?:ชื่อ|ชื่อรายการ)\s+(.+)$/.exec(text)?.[1];
@@ -191,6 +198,10 @@ export function parseLineQuickDraft(input: string, context: LineQuickDraftContex
     const match = text.match(amountField) || (!context.pendingExpense.amount && text.match(amountOnly));
     const value = match ? amount(match[1]) : null;
     if (value !== null) return validated({ intent: 'add_expense', expenseAmount: value, freshDraft: false }, context);
+    // The answer to "จ่ายค่าอะไรครับ".
+    if (!context.pendingExpense.name && text.length <= 80 && safeName(text) && !NOT_A_NAME.test(text)) {
+      return validated({ intent: 'add_expense', expenseName: text, freshDraft: false }, context);
+    }
   }
   return null;
 }

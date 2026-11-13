@@ -1230,6 +1230,22 @@ const settledValue = <T,>(result: PromiseSettledResult<T>): T => {
   return result.value;
 };
 
+/**
+ * One question for what a draft card still needs (owner, 2026-11-13: "บันทึกงาน A แล้วมันไม่ครบ ... อยากให้มันมีถามเพิ่ม"):
+ * the name first, then the amount. The answer typed next fills the draft (lineQuickDraft.ts), as the card's form would.
+ */
+export function draftQuestion(kind: 'job' | 'expense', draft: { name?: string; value?: number; amount?: number }): LineMessage {
+  const name = draft.name?.trim();
+  if (kind === 'job') {
+    return { type: 'text', text: !name
+      ? 'งานนี้ชื่ออะไรครับ พิมพ์มาได้เลย เช่น ตัดต่อวิดีโอ'
+      : `งาน “${name.slice(0, 60)}” ค่าจ้างเท่าไรครับ พิมพ์ตัวเลขมาได้เลย เช่น 5000 หรือกด “เติมข้อมูล / แก้ไข” เพื่อกรอกในฟอร์ม` };
+  }
+  return { type: 'text', text: !name
+    ? 'จ่ายค่าอะไรครับ พิมพ์มาได้เลย เช่น ค่ากาแฟ'
+    : `“${name.slice(0, 60)}” จ่ายไปเท่าไรครับ พิมพ์ตัวเลขมาได้เลย เช่น 120 หรือกด “เติมข้อมูล / แก้ไข” เพื่อกรอกในฟอร์ม` };
+}
+
 export async function handleAssistantMessage(
   lineUserId: string,
   text: string,
@@ -1553,9 +1569,9 @@ async function handleAssistantMessageInner(
     const missingText = missingLabels.join(', ');
     const knownText = [merged.name, merged.value ? formatCurrency(merged.value) : null, merged.client].filter(Boolean).join(' ');
     if (quickDraft) {
-      const card = buildLineDraftReview('job', user.notif_settings!.pendingJobDraft!);
-      if (!paymentSaid) card.quickReply = { items: [...paymentTaps.items] };
-      return card;
+      // The card, then one question for what is missing (owner, 2026-11-13: "ไม่ครบ ... อยากให้มันมีถามเพิ่ม"): the answer
+      // typed next fills the draft (lineQuickDraft.ts), or the card's form takes everything at once.
+      return [buildLineDraftReview('job', user.notif_settings!.pendingJobDraft!), draftQuestion('job', merged)];
     }
     return finishConversationalReply(user, trimmed, !!knownName, alreadyAskedName, `จดไว้ให้แล้วนะครับ${knownText ? ` (${knownText})` : ''} ขอข้อมูลเพิ่มอีกนิดนะครับ: ${missingText}`);
   }
@@ -1584,7 +1600,7 @@ async function handleAssistantMessageInner(
     await (dependencies.saveExpenseDraft ?? saveExpenseDraft)(user, merged, quickDraft?.freshDraft || false);
     const missingText = missingLabels.join(', ');
     const knownText = [merged.name, merged.amount ? formatCurrency(merged.amount) : null].filter(Boolean).join(' ');
-    if (quickDraft) return buildLineDraftReview('expense', user.notif_settings!.pendingExpenseDraft!);
+    if (quickDraft) return [buildLineDraftReview('expense', user.notif_settings!.pendingExpenseDraft!), draftQuestion('expense', merged)];
     return finishConversationalReply(user, trimmed, !!knownName, alreadyAskedName, `จดไว้ให้แล้วนะครับ${knownText ? ` (${knownText})` : ''} ขอข้อมูลเพิ่มอีกนิดนะครับ: ${missingText}`);
   }
 

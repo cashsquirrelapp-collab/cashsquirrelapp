@@ -457,6 +457,46 @@ test('every job card has ยืนยันบันทึก; payment not said 
 });
 
 
+// Something missing is now asked about, one question under the card (owner, 2026-11-13: "บันทึกงาน A แล้วแบบมันไม่ครบ
+// อ่ะกูอยากให้มันมีถามเพิ่ม"); the answer typed next fills the draft, the card's form still takes everything at once.
+test('a job or expense card with something missing asks one question; the typed answer fills the draft', async () => {
+  const drafts: any[] = [];
+  const keep = (field: 'pendingJobDraft' | 'pendingExpenseDraft') => async (u: UserRow, draft: any, fresh: boolean) => {
+    drafts.push(draft);
+    const before = (u.notif_settings as any)?.[field]?.draft ?? {};
+    u.notif_settings = { ...u.notif_settings, [field]: { createdAt: new Date().toISOString(), draft: fresh ? draft : { ...before, ...draft } } };
+  };
+  const user: UserRow = { user_id: userId, jobs: [], goals: [], settings: {}, expenses: [], statuses: [], notif_settings: {} };
+  const deps = { ...lineDeps([], user), saveJobDraft: keep('pendingJobDraft'), saveExpenseDraft: keep('pendingExpenseDraft') } as any;
+  const first = await handleAssistantMessage('Uline', 'บันทึกงาน A', 'op-ask-1', deps) as any[];
+  assert.equal(first[0].type, 'flex');
+  assert.deepEqual(buttons(first[0]), ['เติมข้อมูล / แก้ไข', 'ยืนยันบันทึก', 'ยกเลิก']);
+  assert.match(first[1].text, /^งาน “A” ค่าจ้างเท่าไรครับ พิมพ์ตัวเลขมาได้เลย/);
+  const answered = await handleAssistantMessage('Uline', 'ค่าจ้าง 5000', 'op-ask-2', deps) as any;
+  const card = Array.isArray(answered) ? answered[0] : answered;
+  assert.deepEqual(buttons(card), ['ยืนยันบันทึก', 'แก้ไขรายการ', 'ยกเลิก'], 'complete now: the confirm button first');
+  assert.equal(user.notif_settings!.pendingJobDraft!.draft.value, 5000);
+  // A card with no name asks for the name, and a short plain answer becomes it.
+  const bare = await handleAssistantMessage('Uline', 'บันทึกงาน', 'op-ask-3', deps) as any[];
+  assert.match(bare[1].text, /^งานนี้ชื่ออะไรครับ/);
+  await handleAssistantMessage('Uline', 'ตัดต่อวิดีโอ', 'op-ask-4', deps);
+  assert.equal(user.notif_settings!.pendingJobDraft!.draft.name, 'ตัดต่อวิดีโอ');
+  // An expense the same way.
+  user.notif_settings = {};
+  const spent = await handleAssistantMessage('Uline', 'บันทึกรายจ่าย ค่ากาแฟ', 'op-ask-5', deps) as any[];
+  assert.match(spent[1].text, /^“ค่ากาแฟ” จ่ายไปเท่าไรครับ/);
+  await handleAssistantMessage('Uline', '120', 'op-ask-6', deps);
+  assert.equal(user.notif_settings!.pendingExpenseDraft!.draft.amount, 120);
+});
+
+test('a short answer is a name only when the open card has none, never a command or a question', async () => {
+  const { parseLineQuickDraft } = await import('../backend/src/services/lineQuickDraft');
+  assert.deepEqual(parseLineQuickDraft('ตัดต่อวิดีโอ', { pendingJob: {} as any }), { intent: 'add_job', jobName: 'ตัดต่อวิดีโอ', freshDraft: false });
+  assert.equal(parseLineQuickDraft('ตัดต่อวิดีโอ', { pendingJob: { name: 'A' } as any }), null, 'a card with a name keeps it');
+  for (const text of ['รอรับเงิน', 'สรุปเดือนนี้', 'สวัสดีครับ', 'งานนี้ได้เท่าไร', 'ยกเลิก']) assert.equal(parseLineQuickDraft(text, { pendingJob: {} as any }), null, text);
+  assert.deepEqual(parseLineQuickDraft('มูลค่างาน 5,000', { pendingJob: { name: 'A' } as any }), { intent: 'add_job', jobValue: 5000, freshDraft: false });
+});
+
 // Every add command in LINE gets its card (owner, 2026-10-30: "ใบแจ้งหนี้กับใบเสร็จยังถามปกติอยู่ ... ทั้งหมดเลยที่เป็น
 // คำสั่งให้เพิ่ม ต้องเพิ่มการ์ดมา"), and every document its picture: quotations, invoices, receipts and tax invoices alike.
 import { isReceiptType, isTaxType } from '../backend/src/services/lineDocumentDraft';
