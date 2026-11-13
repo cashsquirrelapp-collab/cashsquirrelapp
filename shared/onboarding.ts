@@ -85,6 +85,8 @@ export const onboardingRecordSchema = z.object({
   goals: z.array(z.enum([...ids(GOALS), ...ids(LEGACY_GOALS)] as [string, ...string[]])).max(GOALS.length + LEGACY_GOALS.length),
   /** Signing up in LINE (2026-11-13): ส่วนตัว / ฟรีแลนซ์-ร้านค้า / บริษัท-สำนักงาน, picked before anything else. */
   use: z.enum(['personal', 'business', 'company']).optional(),
+  /** Made by signing up in LINE: the questions not answered there are asked later, one at a time, in the chat. */
+  channel: z.enum(['line']).optional(),
   /** Question 5 (welcome-v2): where the records are kept today; null when skipped. */
   records_in: z.enum(ids(RECORD_PLACES)).nullable().optional(),
   /** The step the person left on when they pressed ข้ามก่อน (1–4). */

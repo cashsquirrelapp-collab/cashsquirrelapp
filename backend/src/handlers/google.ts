@@ -24,7 +24,7 @@ import { planRow, previewOf, sheetContext, undoWrite, writeFor } from '../servic
 
 const fileId = z.string().regex(/^[A-Za-z0-9_-]{10,200}$/);
 const actionSchema = z.discriminatedUnion('action', [
-  z.object({ action: z.literal('start'), back: z.literal('connect').optional() }).strict(),
+  z.object({ action: z.literal('start'), back: z.enum(['connect', 'connect_new']).optional() }).strict(),
   z.object({ action: z.literal('token') }).strict(),
   z.object({ action: z.literal('pick'), fileId }).strict(),
   z.object({ action: z.literal('read') }).strict(),
@@ -202,8 +202,9 @@ export const googleCallback = withGuard(async (req, res) => {
   res.setHeader('Referrer-Policy', 'no-referrer');
   const { code, state, error } = req.query as Record<string, unknown>;
   // Opened from LINE (/connect-sheets) goes back there; otherwise Settings. The page is read only from a signed state.
-  const page = typeof state === 'string' && readState(state) && stateBack(state) === 'connect' ? '/connect-sheets' : '/settings';
-  const back = (result: string) => { res.status(302); res.setHeader('Location', `${appOrigin()}${page}?google=${result}`); res.end(); };
+  const asked = typeof state === 'string' && readState(state) ? stateBack(state) : null;
+  const page = asked === 'connect_new' ? '/connect-sheets?new=1&' : asked === 'connect' ? '/connect-sheets?' : '/settings?';
+  const back = (result: string) => { res.status(302); res.setHeader('Location', `${appOrigin()}${page}google=${result}`); res.end(); };
   if (typeof error === 'string') { back('cancelled'); return; }
   if (!googleConfigured() || typeof code !== 'string' || typeof state !== 'string' || code.length > 2000) { back('failed'); return; }
   const stateUser = readState(state);

@@ -149,3 +149,23 @@ export function profileSummary(profile: BusinessProfile): string[] {
     ...(profile.pays.length ? profile.pays.map(id => label(PAYMENTS, id)) : ['ไม่จ่ายเงินให้ใคร']),
   ];
 }
+
+/**
+ * สร้างชีตใหม่ให้ from LINE (owner, 2026-11-13: "ถ้าไม่มี…สร้างให้เขาอัตโนมัติ"): before the six questions are answered, the
+ * welcome answers choose the closest workbook. Used only to pick the template; nothing is saved as the person's answers.
+ */
+export function profileFromWelcome(onboarding: { use?: string; work_type?: string | null; occupations?: readonly string[] } | null | undefined, now = new Date()): BusinessProfile {
+  const occupations = onboarding?.occupations ?? [];
+  const work: WorkId = occupations.includes('photo_video') ? (onboarding?.use === 'company' ? 'production' : 'design')
+    : occupations.includes('video_graphic') ? 'design' : occupations.includes('content_creator') ? 'creator'
+    : occupations.includes('teacher_coach') ? 'teacher' : occupations.includes('marketing') && onboarding?.use === 'company' ? 'agency'
+    : onboarding?.work_type === 'student' ? 'student' : 'other';
+  const entity: EntityId = onboarding?.work_type === 'accounting_office' ? 'accounting_office'
+    : onboarding?.use === 'company' ? 'company' : 'individual';
+  return {
+    version: BUSINESS_VERSION, entity, vat: 'no',
+    work: entity === 'company' && work !== 'production' ? 'agency' : work,
+    income: occupations.includes('trade_owner') ? 'own_business' : 'per_job',
+    pays: [], revenue: 'under_1m', updated_at: now.toISOString(),
+  };
+}

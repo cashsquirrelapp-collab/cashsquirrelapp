@@ -62,8 +62,9 @@ export const redirectUri = () => `${appOrigin()}/api/google/callback`;
 
 const STATE_MS = 10 * 60_000;
 /** Signed, for this account, ten minutes: Google's answer is taken only for the account that asked. */
-/** Where Google's sign-in comes back to: Settings, or the page opened from LINE (/connect-sheets). */
-export type GoogleBack = 'connect';
+/** Where Google's sign-in comes back to: Settings, or the page opened from LINE (/connect-sheets; connect_new when it
+ *  was opened to make a new sheet, สร้างชีตใหม่ให้). */
+export type GoogleBack = 'connect' | 'connect_new';
 export function makeState(userId: string, now = Date.now(), back?: GoogleBack): string {
   const body = Buffer.from(JSON.stringify({ u: userId, e: now + STATE_MS, n: randomBytes(9).toString('base64url'), ...(back ? { b: back } : {}) })).toString('base64url');
   return `${body}.${createHmac('sha256', keyFor('oauth-state')).update(body).digest('base64url')}`;
@@ -85,7 +86,7 @@ export function readState(state: string, now = Date.now()): string | null {
 export function stateBack(state: string): GoogleBack | null {
   try {
     const value = JSON.parse(Buffer.from(state.split('.')[0] ?? '', 'base64url').toString('utf8')) as { b?: unknown };
-    return value.b === 'connect' ? 'connect' : null;
+    return value.b === 'connect' || value.b === 'connect_new' ? value.b : null;
   } catch { return null; }
 }
 

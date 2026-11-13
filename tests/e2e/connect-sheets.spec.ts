@@ -45,15 +45,27 @@ async function openPage(page: Page, path: string, opts: { signedIn?: boolean; la
     const body = route.request().postDataJSON() as Record<string, unknown>;
     posts.push(body);
     // Google's sign-in is skipped: the page comes back connected, as the callback would send it.
-    if (body.action === 'start') { google.connected = true; return route.fulfill({ json: { ...status(), url: `${new URL(page.url()).origin}/connect-sheets?google=connected` } }); }
+    if (body.action === 'start') {
+      google.connected = true;
+      const back = body.back === 'connect_new' ? '/connect-sheets?new=1&google=connected' : '/connect-sheets?google=connected';
+      return route.fulfill({ json: { ...status(), url: `${new URL(page.url()).origin}${back}` } });
+    }
+    if (body.action === 'createTemplate') { google.file = { ...FILE, name: String(body.name) }; return route.fulfill({ json: { ...status(), created: true } }); }
     if (body.action === 'token') return route.fulfill({ json: { token: 'ya29.test', expiresIn: 3600, apiKey: 'picker-key', appId: '875278739350' } });
     if (body.action === 'pick') { google.file = { ...FILE }; return route.fulfill({ json: status() }); }
     if (body.action === 'read') return route.fulfill({ json: { ...status(), tabs: TABS, readAt: '2026-11-13T03:00:00.000Z' } });
     if (body.action === 'saveMap') { google.map = body.map; return route.fulfill({ json: status() }); }
     return route.fulfill({ status: 400, json: { error: 'bad' } });
   });
+  // The account's records, for สร้างชีตใหม่ให้ (a LINE sign-up: ใช้แบบไหน and งานหลัก answered, the six questions not yet).
+  const year = new Date().getFullYear();
+  await page.route('**/api/data*', route => route.fulfill({ json: { snapshot: {
+    jobs: [], goals: [],
+    expenses: [{ id: 'e1', name: 'ค่าเช่ากล้อง', amount: 1200, category: 'ค่าอุปกรณ์/ซอฟต์แวร์', date: `${year}-01-05` }, { id: 'e2', name: 'ค่ารถ', amount: 300, category: 'ค่าเดินทาง', date: `${year}-01-06` }],
+    settings: { onboarding: { version: 'welcome-v2', status: 'SKIPPED', work_type: null, work_type_other: null, occupations: ['photo_video'], occupation_other: null, goals: [], use: 'business', channel: 'line', records_in: null, skipped_at_step: 2, updated_at: '2026-11-13T01:00:00Z' } },
+  }, versions: {} } }));
   await page.goto(path);
-  return { posts };
+  return { posts, google };
 }
 
 test('the เชื่อมชีต card opens the phone\'s own browser with a one-use link', async ({ page }) => {
@@ -140,4 +152,51 @@ test('the real Google Drive icon shows where a file is picked from Drive', async
   await expect(panel.getByTestId('sheets-pick').locator('img')).toHaveAttribute('src', '/brand/partners/google-drive.png');
   expect((await page.request.get('/brand/partners/google-drive.png')).status()).toBe(200);
   await page.screenshot({ path: 'test-results/connect-sheets-drive-phone.png' });
+});
+
+test('สร้างชีตใหม่ให้ on the sheet offer card: the LINE page asks for the link in new-sheet mode', async ({ page }) => {
+  const asked: unknown[] = [];
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.route('https://static.line-scdn.net/**', route => route.fulfill({ contentType: 'text/javascript',
+    body: 'window.__opened=[];window.liff={init:async()=>{},isLoggedIn:()=>true,isInClient:()=>true,getIDToken:()=>"token",getProfile:async()=>({displayName:"x"}),openWindow(o){window.__opened.push(o)},closeWindow(){},login(){}};' }));
+  await page.route('**/api/liff-config', route => route.fulfill({ json: { liffId: 'test-liff', signup: true } }));
+  await page.route('**/api/line-handoff', route => { asked.push(route.request().postDataJSON()); return route.fulfill({ json: { url: 'https://staging.krarok.com/api/line-handoff?t=abc&new=1&openExternalBrowser=1' } }); });
+  await page.goto('/liff-add.html?connect=sheets&new=1');
+  await expect(page.getByRole('heading', { name: 'ทำต่อในเบราว์เซอร์ได้เลย' })).toBeVisible();
+  await expect(page.getByText('ล็อกอิน Google แล้วกดสร้างชีต', { exact: false })).toBeVisible();
+  expect(asked).toEqual([{ idToken: 'token', purpose: 'sheets', mode: 'new' }]);
+  expect(await textOverlapIssues(page)).toEqual([]);
+});
+
+test('/connect-sheets?new=1: sign in with Google once, the sheet is made with the records and mapped, then back to LINE', async ({ page }) => {
+  const { posts, google } = await openPage(page, '/connect-sheets?new=1', { labsOn: ['sheets', 'sheetMap', 'templates'] });
+  const card = page.getByTestId('connect-sheets-new');
+  await expect(card.getByRole('heading', { name: 'สร้างชีตใหม่ใน Google Drive' })).toBeVisible();
+  await expect(card).toContainText('ฟรีแลนซ์ไม่จด VAT พร้อมรายการที่จดไว้ 2 รายการ');
+  await expect(card.locator('.lab-chip').first()).toBeVisible();
+  expect(await textOverlapIssues(page)).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+  await page.screenshot({ path: 'test-results/connect-sheets-new-phone.png' });
+  await card.getByRole('button', { name: 'เชื่อม Google แล้วสร้างชีต' }).click();
+  // Back from Google's sign-in: made at once, no second tap.
+  await expect(page.getByRole('heading', { name: 'สร้างชีตแล้ว' })).toBeVisible({ timeout: 10_000 });
+  expect(posts.find(post => post.action === 'start')).toEqual({ action: 'start', back: 'connect_new' });
+  const made = posts.find(post => post.action === 'createTemplate')!;
+  expect(String(made.name)).toMatch(/^ชีตบัญชี_ฟรีแลนซ์ไม่จดVAT_/);
+  expect(String(made.xlsx).startsWith('UEsD')).toBe(true);
+  expect(posts.map(post => post.action)).toEqual(['start', 'createTemplate', 'read', 'saveMap']);
+  expect((google.map as { fileId: string }).fileId).toBe(FILE.id);
+  await expect(page.getByRole('link', { name: 'เปิดชีต' })).toHaveAttribute('href', FILE.url);
+  await expect(page.getByRole('link', { name: 'กลับไปที่ LINE' })).toBeVisible();
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await page.screenshot({ path: 'test-results/connect-sheets-new-done-phone.png' });
+});
+
+test('/connect-sheets?new=1: already have a sheet goes to the usual panel; without the templates feature it is the usual panel', async ({ page }) => {
+  await openPage(page, '/connect-sheets?new=1', { labsOn: ['sheets', 'sheetMap', 'templates'] });
+  await page.getByRole('button', { name: 'มีชีตอยู่แล้ว? เลือกไฟล์ของคุณแทน' }).click();
+  await expect(page.getByTestId('sheets-panel')).toBeVisible();
+  await openPage(page, '/connect-sheets?new=1', { labsOn: ['sheets', 'sheetMap'] });
+  await expect(page.getByTestId('sheets-panel')).toBeVisible();
+  await expect(page.getByTestId('connect-sheets-new')).toHaveCount(0);
 });

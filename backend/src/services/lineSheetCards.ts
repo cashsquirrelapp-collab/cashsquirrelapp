@@ -18,7 +18,7 @@ function step(title: string, detail: string) {
 }
 
 /** The real Google Sheets icon (frontend/public/brand/partners, as Google publishes it) beside its name. */
-function sheetsBadge() {
+export function sheetsBadge() {
   const logo = lineAppLink('/brand/partners/google-sheets.png')?.uri;
   return { type: 'box', layout: 'horizontal', spacing: 'md', alignItems: 'center', cornerRadius: '12px', backgroundColor: C.subtle,
     paddingAll: '10px', contents: [

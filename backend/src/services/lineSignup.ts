@@ -68,7 +68,7 @@ export function settingsFor(input: Answers, now: Date): AppSettings {
     occupations: (input.occupations ?? []) as OccupationId[], occupationOther: input.occupationOther ?? '',
     goals: (input.goals ?? []) as GoalId[], recordsIn: (input.recordsIn ?? null) as RecordPlaceId | null,
   }, input.skippedAtStep ? 'SKIPPED' : 'COMPLETED', now, null, input.skippedAtStep);
-  const onboarding = input.use ? { ...record, use: input.use } : record;
+  const onboarding = { ...record, ...(input.use ? { use: input.use } : {}), channel: 'line' as const };
   // With no work type yet, the use picked in LINE chooses the app's menu: ส่วนตัว reads like an employee's, the rest a freelancer's.
   const persona = personaForWorkType((input.workType ?? null) as WorkTypeId | null)
     ?? (input.use === 'personal' ? 'employee' : input.use ? 'freelance' : undefined);

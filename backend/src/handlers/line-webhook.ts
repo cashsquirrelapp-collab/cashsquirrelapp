@@ -62,6 +62,8 @@ export function lineEventCommand(event: LineEvent): string | null {
     if (decodeVaultAction(data) || decodeDueAction(data) || decodeWht50Action(data)) return data;
     // ใช้แบบไหน, picked by a new friend before signing up (services/lineTry.ts).
     if (TRY_POSTBACK.test(data)) return data;
+    // A welcome question answered later in the chat, or ไว้ก่อน on the sheet offer (services/lineNudges.ts).
+    if (/^(ask:(use|work|occupation|goal|records):[a-z_]{2,24}|nudge:sheet:later)$/.test(data)) return data;
     // ยืนยัน / ยกเลิก on a เลขากระรอก confirmation card.
     const ai = /^ai:(confirm|cancel):(p_[0-9a-f-]{36})$/.exec(data);
     if (ai) return `${ai[1] === 'confirm' ? 'ยืนยัน' : 'ยกเลิก'}รายการเลขา ${ai[2]}`;
@@ -271,8 +273,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           const card = await (await import('../services/lineSheetCards.js')).connectSheetCardFor(lineUserId);
           if (card) { await send([card]); await complete(); return; }
         }
+        // A tap on a welcome question or on ไว้ก่อน (owner, 2026-11-13: asked one at a time in the chat, never twice).
+        if (event.type === 'postback' && /^(ask:|nudge:)/.test(messageText)) {
+          const answer = await (await import('../services/lineNudges.js')).handleNudgeTap(lineUserId, messageText);
+          if (answer) { await send([answer]); await complete(); return; }
+        }
+        // After a save, at most one thing a day: the next welcome question or the offer to use the person's own sheet.
+        // Its reads start now, beside the save, so the answer is not slower.
+        const nudges = /^(ยืนยันรายการเลขา p_|บันทึกทั้งหมดเลขา g)/.test(messageText.trim())
+          ? import('../services/lineNudges.js').then(async module => ({ module, finish: await module.prepareNudge(lineUserId) })).catch(() => null)
+          : null;
         const assistantReply = await handleAssistantMessage(lineUserId, messageText, event.webhookEventId, undefined, linkedContext);
         if (assistantReply !== null) {
+          const ready = nudges ? await nudges : null;
+          if (ready && assistantReply.length < 5 && ready.module.savedByCommand(messageText, assistantReply)) {
+            const nudge = await ready.finish();
+            if (nudge) assistantReply.push(nudge);
+          }
           // An empty answer is a linked message that needs no reply (an unrecognised message).
           if (assistantReply.length) await send(assistantReply);
           // How long the answer took, with no words from the chat: what to look at if LINE feels slow again.

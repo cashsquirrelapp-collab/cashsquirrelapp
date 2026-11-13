@@ -55,11 +55,12 @@ export function createLineHandoffHandler(deps: LineHandoffDeps = defaults): Hand
         if (session.user.id !== userId) throw new HttpError(401, 'Session mismatch');
         deps.store(res, session);
       } catch (error) { await deps.revoke(session); throw error; }
-      go('/connect-sheets');
+      // สร้างชีตใหม่ให้ on the sheet offer card: the page makes the new sheet instead of picking one.
+      go((req.query as Record<string, unknown>)?.new === '1' ? '/connect-sheets?new=1' : '/connect-sheets');
       return;
     }
     if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
-    const { idToken, purpose } = (req.body ?? {}) as Record<string, unknown>;
+    const { idToken, purpose, mode } = (req.body ?? {}) as Record<string, unknown>;
     if (typeof idToken !== 'string' || !idToken || idToken.length > 8192 || purpose !== 'sheets') throw new HttpError(400, 'ลิงก์ไม่ถูกต้อง กรุณาเปิดใหม่จากแชท LINE');
     const lineId = await deps.verify(idToken);
     if (!lineId) throw new HttpError(401, 'ยืนยัน LINE ไม่สำเร็จ กรุณาเปิดใหม่จากแชท');
@@ -71,7 +72,7 @@ export function createLineHandoffHandler(deps: LineHandoffDeps = defaults): Hand
     if (!(await deps.sheetsOn(userId))) throw new HttpError(403, 'การเชื่อมชีตยังไม่เปิดให้บัญชีนี้', 'feature_closed');
     const token = await deps.create(userId, 'sheets');
     // openExternalBrowser=1: LINE opens it in Safari or Chrome even if it is tapped inside LINE.
-    res.json({ url: `${deps.origin()}/api/line-handoff?t=${encodeURIComponent(token)}&openExternalBrowser=1` });
+    res.json({ url: `${deps.origin()}/api/line-handoff?t=${encodeURIComponent(token)}${mode === 'new' ? '&new=1' : ''}&openExternalBrowser=1` });
   }, { csrf: true });
 }
 

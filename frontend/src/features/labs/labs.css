@@ -280,3 +280,9 @@
 /* The Google Drive icon on the brick button sits on its own white chip, never on the brick. */
 .lab-logo-chip { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: #FFFFFF; flex: none; }
 .lab-tpl-created-name { display: inline-flex; align-items: center; gap: 8px; }
+/* สร้างชีตใหม่ให้ (/connect-sheets?new=1): the workbook's tabs under its name, then one button. */
+.lab-connect .lab-connect-sub { margin-bottom: 12px; color: #1C1917; }
+.lab-connect-tabs { justify-content: center; margin: 0 0 20px; }
+.lab-connect .lab-connect-error { margin: 0 0 16px; text-align: left; }
+.lab-connect-alt { margin-top: 14px; font-size: 13.5px; line-height: 1.5; }
+.lab-connect-tabs .lab-chip { background: #F5F5F4; color: #1C1917; }

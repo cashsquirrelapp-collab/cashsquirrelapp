@@ -116,6 +116,22 @@ test('Google\'s sign-in comes back to the LINE page only when a signed state ask
   assert.equal(stateBack(makeState(USER)), null);
 });
 
+test('สร้างชีตใหม่ให้: the link and Google\'s sign-in both keep the new-sheet mode, and nothing else rides along', async () => {
+  const made = response();
+  await createLineHandoffHandler(handlerDeps().deps)(post({ idToken: 'good', purpose: 'sheets', mode: 'new' }), made);
+  assert.equal(made.body.url, `https://staging.krarok.com/api/line-handoff?t=${encodeURIComponent(`${USER}.secret`)}&new=1&openExternalBrowser=1`);
+  const other = response();
+  await createLineHandoffHandler(handlerDeps().deps)(post({ idToken: 'good', purpose: 'sheets', mode: '<script>' }), other);
+  assert.ok(!String(other.body.url).includes('new=1'));
+  const opened = response();
+  await createLineHandoffHandler(handlerDeps().deps)({ ...get(`${USER}.secret`), query: { t: `${USER}.secret`, new: '1' } }, opened);
+  assert.equal(opened.headers.location, 'https://staging.krarok.com/connect-sheets?new=1');
+  const odd = response();
+  await createLineHandoffHandler(handlerDeps().deps)({ ...get(`${USER}.secret`), query: { t: `${USER}.secret`, new: 'https://evil.example' } }, odd);
+  assert.equal(odd.headers.location, 'https://staging.krarok.com/connect-sheets');
+  assert.equal(stateBack(makeState(USER, Date.now(), 'connect_new')), 'connect_new');
+});
+
 test('the LINE cards: เชื่อมชีต opens the LINE page, and the done card names the file and its tabs', () => {
   const start = buildLineConnectSheet('2012039027-neCxHo9L') as any;
   assert.equal(start.contents.footer.contents[0].action.uri, 'https://liff.line.me/2012039027-neCxHo9L?connect=sheets');

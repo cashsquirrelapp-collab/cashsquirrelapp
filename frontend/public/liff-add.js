@@ -219,7 +219,16 @@
     var at = state.indexOf('?');
     return new URLSearchParams(at >= 0 ? state.slice(at + 1) : state.replace(/^\?/, '')).get('connect') === 'sheets';
   }
-  async function openConnect() {
+  function newSheetRequested(search) {
+    var params = new URLSearchParams(search);
+    if (params.get('new') === '1') return true;
+    var state = params.get('liff.state');
+    if (!state) return false;
+    var at = state.indexOf('?');
+    return new URLSearchParams(at >= 0 ? state.slice(at + 1) : state.replace(/^\?/, '')).get('new') === '1';
+  }
+  async function openConnect(makeNew) {
+    // makeNew: สร้างชีตใหม่ให้ on the sheet offer card; the page in the browser makes the sheet instead of picking one.
     // Google refuses sign-in inside LINE: a one-use link opens the phone's own browser, already signed in.
     showStatus('กำลังเปิดเบราว์เซอร์', 'รอสักครู่ครับ', false, 'working');
     var idToken = liff.getIDToken();
@@ -227,7 +236,7 @@
     var response = await fetch('/api/line-handoff', {
       method: 'POST', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', 'X-CSRF-Protection': '1' },
-      body: JSON.stringify({ idToken: idToken, purpose: 'sheets' })
+      body: JSON.stringify(makeNew ? { idToken: idToken, purpose: 'sheets', mode: 'new' } : { idToken: idToken, purpose: 'sheets' })
     });
     var result = await response.json().catch(function () { return {}; });
     if (!response.ok || !result.url) {
@@ -237,7 +246,7 @@
     }
     try { liff.openWindow({ url: result.url, external: true }); }
     catch (error) { window.location.href = result.url; return; }
-    showStatus('ทำต่อในเบราว์เซอร์ได้เลย', 'ล็อกอิน Google เลือกไฟล์ แล้วตรวจคอลัมน์ เสร็จแล้วกลับมาที่แชทนี้ เลขาจะส่งการ์ดยืนยันให้\nลิงก์ใช้ได้ครั้งเดียวภายใน 5 นาที', true, 'document');
+    showStatus('ทำต่อในเบราว์เซอร์ได้เลย', (makeNew ? 'ล็อกอิน Google แล้วกดสร้างชีต' : 'ล็อกอิน Google เลือกไฟล์ แล้วตรวจคอลัมน์') + ' เสร็จแล้วกลับมาที่แชทนี้ เลขาจะส่งการ์ดยืนยันให้\nลิงก์ใช้ได้ครั้งเดียวภายใน 5 นาที', true, 'document');
   }
   async function openStart() {
     // Someone already linked who taps เริ่มใช้งาน again is told so; a chat without an account gets the sign-up form.
@@ -371,7 +380,7 @@
       // Back from /line-start after signing up: close the window, the welcome card is already in the chat.
       if (new URLSearchParams(originalSearch).has('done')) { showStatus('พร้อมแล้วครับ', 'กลับไปที่แชทแล้วพิมพ์บอกเลขาได้เลย เช่น “ค่ากาแฟ 60”', true, 'review'); closeLiff(); return; }
       if (signupOffered && (startRequested(window.location.search) || startRequested(originalSearch))) { await openStart(); return; }
-      if (connectRequested(window.location.search) || connectRequested(originalSearch)) { await openConnect(); return; }
+      if (connectRequested(window.location.search) || connectRequested(originalSearch)) { await openConnect(newSheetRequested(window.location.search) || newSheetRequested(originalSearch)); return; }
       var openPath = appDestination(window.location.search);
       if (openPath === null) openPath = appDestination(originalSearch);
       if (openPath !== null) { await openLinkedApp(openPath); return; }
