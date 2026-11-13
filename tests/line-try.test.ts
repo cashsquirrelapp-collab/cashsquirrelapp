@@ -25,12 +25,23 @@ test('the tried record rides in the link and comes back checked; a changed or ma
   assert.equal(decodeTry('x'.repeat(700)), null);
 });
 
-test('follow: two short lines, one question with three picks; a pick gets an example to try', () => {
-  const [hello, ask] = buildTryWelcome() as any[];
-  assert.match(hello.text, /^สวัสดีครับ ผมเลขากระรอก/);
-  assert.ok((hello.text.match(/\p{Extended_Pictographic}/gu) ?? []).length <= 1, 'one emoji at most');
-  assert.equal(ask.text, 'ใช้แบบไหนครับ?');
-  assert.deepEqual(ask.quickReply.items.map((item: any) => item.action.data), ['try:use:personal', 'try:use:business', 'try:use:company']);
+// The greeting card (owner, 2026-11-13: design C of four, with office buildings as props behind the official mascot, and
+// a newcomer told an existing sheet or Excel file can be connected).
+test('follow: the greeting card with the city and the mascot, three steps, ใช้แบบไหน as three choices; a pick gets an example', () => {
+  process.env.APP_URL = 'https://staging.krarok.com';
+  const messages = buildTryWelcome() as any[];
+  assert.equal(messages.length, 1, 'one card, nothing else');
+  const card = messages[0];
+  const text = JSON.stringify(card);
+  assert.equal(card.type, 'flex');
+  assert.match(card.altText, /^ยินดีที่ได้รู้จักครับ ผมเลขากระรอก/);
+  assert.ok(text.includes('/line/greeting-city-v1.png') && text.includes('/line/mascot-v6-review.png'), 'the buildings and the official mascot');
+  assert.ok(!text.includes('linearGradient'), 'flat brick, no gradient');
+  for (const step of ['พิมพ์บอก', 'ตรวจแล้วกดยืนยัน', 'ดูสรุปเมื่อไหร่ก็ได้']) assert.ok(text.includes(step), step);
+  assert.ok(!text.includes('มีชีตหรือ Excel อยู่แล้ว?'), 'no sheet line where the Sheets features are not shown');
+  assert.ok(JSON.stringify(buildTryWelcome({ sheets: true })).includes('มีชีตหรือ Excel อยู่แล้ว?'));
+  const picks = [...text.matchAll(/"data":"(try:use:[a-z]+)"/g)].map(match => match[1]);
+  assert.deepEqual(picks, ['try:use:personal', 'try:use:business', 'try:use:company']);
   for (const data of ['try:use:personal', 'try:use:company']) {
     assert.ok(TRY_POSTBACK.test(data));
     assert.equal(lineEventCommand({ type: 'postback', source: { type: 'user', userId: 'U1' }, postback: { data } }), data);

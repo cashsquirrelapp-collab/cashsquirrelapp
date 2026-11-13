@@ -1,5 +1,5 @@
 import type { LineMessage } from './line.js';
-import { LINE_CARD_COLORS as C } from './lineCards.js';
+import { LINE_CARD_COLORS as C, LINE_CARD_THEMES, lineAppLink } from './lineCards.js';
 
 // The first minute in LINE (owner, 2026-11-13: "ใช้ง่าย เข้าใจได้รวดเร็ว สะดวก", and different from the competitor's
 // banner-and-checklist welcome): a new friend gets two short lines and one question (ใช้แบบไหน), can type a record at once
@@ -53,12 +53,71 @@ export function decodeTry(value: unknown): TryDraft | null {
 const baht = (amount: number) => `฿${amount.toLocaleString('th-TH', { minimumFractionDigits: Number.isInteger(amount) ? 0 : 2, maximumFractionDigits: 2 })}`;
 const EXAMPLE: Record<UseType, string> = { personal: 'ข้าวมันไก่ 50', business: 'ค่าเช่ากล้อง 1200', company: 'ค่าเดินทาง 350' };
 
-/** Follow: two short lines and one question. */
-export function buildTryWelcome(): LineMessage[] {
-  return [
-    { type: 'text', text: 'สวัสดีครับ ผมเลขากระรอก 🐿 ช่วยจดเงินเข้าออกให้ แค่พิมพ์มา' },
-    { type: 'text', text: 'ใช้แบบไหนครับ?', quickReply: { items: USE_TYPES.map(use => ({ type: 'action' as const, action: { type: 'postback' as const, label: USE_LABELS[use], data: `try:use:${use}`, displayText: USE_LABELS[use] } })) } },
-  ];
+const asset = (path: string) => lineAppLink(path)?.uri;
+export const greetingTile = (icon: string, title: string, detail: string) => ({ type: 'box', layout: 'horizontal', spacing: 'md', alignItems: 'center', margin: 'md', contents: [
+  { type: 'box', layout: 'vertical', flex: 0, width: '40px', height: '40px', cornerRadius: '12px', backgroundColor: C.accent, justifyContent: 'center', alignItems: 'center',
+    contents: asset(`/line/icons/${icon}.png`) ? [{ type: 'image', url: asset(`/line/icons/${icon}.png`), size: '22px', aspectRatio: '1:1', aspectMode: 'fit' }] : [] },
+  { type: 'box', layout: 'vertical', flex: 1, contents: [
+    { type: 'text', text: title, size: 'sm', weight: 'bold', color: C.text, wrap: true },
+    { type: 'text', text: detail, size: 'xs', color: C.muted, wrap: true },
+  ] },
+] });
+/** ใช้แบบไหน as three large choices in the card (and the same as taps under it). */
+const useChoices = () => ({ type: 'box', layout: 'vertical', spacing: 'sm', margin: 'md', contents: USE_TYPES.map(use => ({
+  type: 'box', layout: 'vertical', cornerRadius: '10px', paddingAll: '11px', borderWidth: '1px', borderColor: '#D6D3D1', backgroundColor: '#FFFFFF',
+  action: { type: 'postback', label: USE_LABELS[use], data: `try:use:${use}`, displayText: USE_LABELS[use] },
+  contents: [{ type: 'text', text: USE_LABELS[use], size: 'sm', weight: 'bold', color: C.text, align: 'center' }],
+})) });
+
+/**
+ * Follow: the greeting card (owner, 2026-11-13, design C of four, "เพิ่มพร็อพ ... ตึกสำนักงาน ให้มันดูสวยๆ"): the brick band
+ * with office buildings behind the official mascot, three steps with their icons, and ใช้แบบไหน as three choices. Where
+ * the Sheets features are shown to newcomers (sheetsForNewcomers), a fourth line says an existing Google Sheets or Excel
+ * file can be connected (owner: "เขาจะรู้ได้ไงว่ามึงมีฟีเจอร์นี้ ... มึงต้องบอกเขา เพราะเขาคือลูกค้าใหม่").
+ */
+/** The greeting's band: the brick colour, office buildings along the bottom, the official mascot standing in front. */
+export function greetingHeader(title: string, subtitle: string, pose = 'review') {
+  const city = asset('/line/greeting-city-v1.png');
+  const mascot = asset(`/line/mascot-v6-${pose}.png`);
+  const symbol = asset('/brand/logo01-v1/symbol-white.png');
+  const band = LINE_CARD_THEMES.brand.center;
+  return { type: 'box', layout: 'vertical', backgroundColor: band, paddingAll: '20px', paddingBottom: '0px', contents: [
+      // The buildings stand along the bottom of the band, behind the words and the mascot.
+      ...(city ? [{ type: 'image', url: city, size: 'full', aspectRatio: '4:1', aspectMode: 'fit', position: 'absolute', offsetStart: '0px', offsetEnd: '0px', offsetBottom: '0px' }] : []),
+      { type: 'box', layout: 'horizontal', spacing: 'sm', alignItems: 'center', contents: [
+        ...(symbol ? [{ type: 'image', url: symbol, size: '18px', aspectRatio: '1:1', aspectMode: 'fit', flex: 0 }] : []),
+        { type: 'text', text: 'กระรอกตุนเงิน', size: 'xs', weight: 'bold', color: '#FFFFFF', flex: 1, wrap: false },
+      ] },
+      { type: 'text', text: title, size: 'lg', weight: 'bold', color: '#FFFFFF', wrap: true, margin: 'lg' },
+      { type: 'text', text: subtitle, size: 'xs', color: '#FFFFFFD9', wrap: true },
+      // Room for the city, with the mascot standing in front of it on the right.
+      { type: 'box', layout: 'horizontal', height: '84px', contents: [
+        { type: 'filler' },
+        ...(mascot ? [{ type: 'box', layout: 'vertical', width: '92px', flex: 0, justifyContent: 'flex-end', contents: [
+          { type: 'image', url: mascot, size: '92px', aspectRatio: '1:1', aspectMode: 'fit' },
+        ] }] : []),
+      ] },
+    ] };
+}
+
+/** The line telling a newcomer an existing sheet or Excel file can be used (shown where the Sheets features are). */
+export const SHEETS_TILE = () => greetingTile('document', 'มีชีตหรือ Excel อยู่แล้ว?', 'เชื่อม Google Sheets หรือส่งไฟล์ Excel มาได้ ไม่ต้องย้ายข้อมูล');
+
+export function buildTryWelcome(options: { sheets?: boolean } = {}): LineMessage[] {
+  const band = LINE_CARD_THEMES.brand.center;
+  return [{ type: 'flex', altText: 'ยินดีที่ได้รู้จักครับ ผมเลขากระรอก เลขาการเงินในแชท LINE ใช้แบบไหนครับ', contents: {
+    type: 'bubble', size: 'mega', styles: { header: { backgroundColor: band }, body: { backgroundColor: '#FFFFFF' } },
+    header: greetingHeader('ยินดีที่ได้รู้จักครับ', 'เลขาการเงินในแชท LINE ของคุณ'),
+    body: { type: 'box', layout: 'vertical', paddingAll: '20px', paddingTop: '10px', contents: [
+      greetingTile('spent', 'พิมพ์บอก', 'เช่น ค่ากาแฟ 60 หรือ งานถ่ายรูป 5000'),
+      greetingTile('review', 'ตรวจแล้วกดยืนยัน', 'เลขาทำการ์ดให้ดูก่อนบันทึกทุกครั้ง'),
+      greetingTile('report', 'ดูสรุปเมื่อไหร่ก็ได้', 'พิมพ์ สรุปเดือนนี้'),
+      ...(options.sheets ? [SHEETS_TILE()] : []),
+      { type: 'separator', color: C.border, margin: 'xl' },
+      { type: 'text', text: 'ใช้แบบไหนครับ', size: 'md', weight: 'bold', color: C.text, margin: 'lg' },
+      useChoices(),
+    ] },
+  } } as LineMessage];
 }
 
 /** After the pick: try one now. */

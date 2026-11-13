@@ -4,6 +4,7 @@ import { labState } from '../../../shared/labs.js';
 import { getSupabaseAdmin } from '../config/supabase.js';
 import { loadLabs } from '../repositories/labs.js';
 import { isOwnerUserId } from '../repositories/roles.js';
+import { isStaging } from '../security/staging.js';
 import type { LineMessage } from './line.js';
 import { LINE_CARD_COLORS as C, lineAppLink, lineCard, lineValueRow } from './lineCards.js';
 
@@ -57,6 +58,12 @@ export function buildLineSheetConnected(file: { name: string; url?: string }, ma
     note: 'พิมพ์บอกเลขาได้เลย เช่น “ค่ากาแฟ 60” แล้วกดยืนยัน เลขาจะเพิ่มแถวให้',
     ...(file.url ? { footer: { label: 'เปิดชีต', uri: file.url } } : {}),
   });
+}
+
+/** Whether a newcomer is told about connecting a sheet (the greeting, the welcome): on the test site, and on the real
+ *  site only once SHEETS_PUBLIC=enabled is set at launch (customers never see unreleased features). */
+export function sheetsForNewcomers(env: Record<string, string | undefined> = process.env): boolean {
+  return isStaging(env) || env.SHEETS_PUBLIC === 'enabled';
 }
 
 /** Whether the Sheets test feature is open to this account (customers never see unreleased features). */

@@ -177,7 +177,10 @@ async function answerFollow(event: LineEvent, accessToken: string): Promise<void
   if (claim.data === 'done') return;
   if (claim.data !== 'claimed') throw new Error('LINE event is still processing');
   // The first minute (owner, 2026-11-13): two short lines and one question, not a banner.
-  if (!(await findUserByLineId(lineUserId))) await reply(accessToken, event.replyToken, buildTryWelcome());
+  if (!(await findUserByLineId(lineUserId))) {
+    const { sheetsForNewcomers } = await import('../services/lineSheetCards.js');
+    await reply(accessToken, event.replyToken, buildTryWelcome({ sheets: sheetsForNewcomers() }));
+  }
   const done = await supabaseAdmin.from('cashflow_webhook_events').update({ status: 'done' }).eq('key', event.webhookEventId);
   if (done.error) throw done.error;
 }
@@ -185,14 +188,17 @@ async function answerFollow(event: LineEvent, accessToken: string): Promise<void
 /** The card sent right after a LINE chat is linked: the Pro or the plain welcome for that account. */
 export async function welcomeAfterLink(lineUserId: string, deps = { findUserByLineId, isProUser, getQuickReply }): Promise<LineMessage> {
   let pro = false;
+  let sheets = false;
   try {
     const user = await deps.findUserByLineId(lineUserId);
     // With the free monthly allowance on (services/lineFirst.ts), an account without Pro chats too: same welcome.
     pro = !!user && (freeMonthlyTokens() > 0 || await deps.isProUser(user.user_id));
+    const cards = await import('../services/lineSheetCards.js');
+    sheets = !!user && (cards.sheetsForNewcomers() || await cards.sheetsOpenFor(user.user_id).catch(() => false));
   } catch {
     console.error('line-webhook: plan lookup for the welcome failed');
   }
-  return buildLineWelcome({ pro, quickReply: pro ? deps.getQuickReply() : undefined });
+  return buildLineWelcome({ pro, sheets, quickReply: pro ? deps.getQuickReply() : undefined });
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

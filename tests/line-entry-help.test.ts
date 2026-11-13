@@ -26,6 +26,10 @@ test('the welcome after linking promises only what the plan includes', async () 
   assert.equal(free.quickReply, undefined);
   assert.ok(JSON.stringify(free).includes('เป็นสิทธิ์ของสมาชิก Pro'));
   assert.ok(JSON.stringify(free.contents.footer).includes('/plans'));
+  // In the greeting's look (design C): the city and the mascot on the band; the sheet line only where the features are shown.
+  assert.ok(JSON.stringify(pro).includes('/line/greeting-city-v1.png'));
+  assert.ok(!JSON.stringify(pro).includes('มีชีตหรือ Excel อยู่แล้ว?'));
+  assert.ok(JSON.stringify(buildLineWelcome({ pro: true, sheets: true })).includes('มีชีตหรือ Excel อยู่แล้ว?'));
   assert.equal(parseLineQuickDraft(LINE_JOB_EXAMPLES[0])?.intent, 'add_job');
   const bye = JSON.stringify(buildLineDisconnected());
   assert.ok(bye.includes('ยกเลิกการเชื่อมต่อแล้ว') && bye.includes('อยู่ครบ ไม่มีการลบ'));

@@ -1,6 +1,7 @@
 import type { LineMessage, LineQuickReply } from './line.js';
 import { LINE_CARD_COLORS as C, lineAppLink, lineCard, lineValueRow } from './lineCards.js';
 import { LINE_JOB_EXAMPLES } from './lineEntryRouting.js';
+import { greetingHeader, greetingTile, SHEETS_TILE } from './lineTry.js';
 
 // Cards for connecting and disconnecting LINE (owner, 2026-10-22): a warm welcome in the voice of the
 // squirrel secretary, and a clear notice when the connection ends. Every line states what is true for
@@ -15,22 +16,30 @@ function feature(title: string, detail: string) {
   ] };
 }
 
-export function buildLineWelcome(options: { pro: boolean; quickReply?: LineQuickReply }): LineMessage {
-  const card = lineCard({
-    title: 'ยินดีต้อนรับครับ', subtitle: 'เชื่อมต่อ LINE เรียบร้อยแล้ว', character: 'welcome',
-    altText: 'ยินดีต้อนรับครับ เชื่อมต่อ LINE กับกระรอกตุนเงินเรียบร้อยแล้ว',
-    body: [
+/**
+ * Right after a chat is linked, in the greeting's look (owner, 2026-11-13, design C with the office buildings): the band,
+ * what to do with its icons, the sheet line where the Sheets features are shown, and the plan's button.
+ */
+export function buildLineWelcome(options: { pro: boolean; sheets?: boolean; quickReply?: LineQuickReply }): LineMessage {
+  const footer = options.pro ? lineAppLink('/jobs?openAddJob=1', 'เพิ่มงานในแอป') : lineAppLink('/plans', 'ดูแพ็กเกจ Pro');
+  const card: LineMessage = { type: 'flex', altText: 'ยินดีต้อนรับครับ เชื่อมต่อ LINE กับกระรอกตุนเงินเรียบร้อยแล้ว', contents: {
+    type: 'bubble', size: 'mega', styles: { body: { backgroundColor: '#FFFFFF' }, footer: { backgroundColor: '#FFFFFF' } },
+    header: greetingHeader('ยินดีต้อนรับครับ', 'เชื่อมต่อ LINE เรียบร้อยแล้ว', 'guide'),
+    body: { type: 'box', layout: 'vertical', paddingAll: '20px', paddingTop: '10px', contents: [
       { type: 'text', text: options.pro
         ? 'ผมคือเลขากระรอก ผู้ช่วยดูแลงานและรายรับของคุณ มีอะไรให้ช่วย พิมพ์บอกได้เลยครับ'
-        : 'ผมคือเลขากระรอก ผู้ช่วยดูแลงานและรายรับของคุณครับ', size: 'sm', color: C.text, wrap: true },
-      feature('บันทึกงาน', `พิมพ์ “${LINE_JOB_EXAMPLES[0]}” แล้วตรวจก่อนบันทึก`),
-      feature('เตือนรับเงิน', 'แจ้งเวลา 08:00 เมื่อมีงานใกล้ถึงกำหนดรับเงิน เปิดได้ในหน้าตั้งค่า'),
-      feature('ดูภาพรวม', 'พิมพ์ “สรุปเดือนนี้” หรือ “รอรับเงิน”'),
-    ],
-    note: options.pro ? undefined : 'การบันทึกงานและแจ้งเตือนผ่าน LINE เป็นสิทธิ์ของสมาชิก Pro',
-    footer: options.pro ? lineAppLink('/jobs?openAddJob=1', 'เพิ่มงานในแอป') : lineAppLink('/plans', 'ดูแพ็กเกจ Pro'),
-  });
-  return options.pro && options.quickReply ? { ...card, quickReply: options.quickReply } : card;
+        : 'ผมคือเลขากระรอก ผู้ช่วยดูแลงานและรายรับของคุณครับ', size: 'sm', color: C.text, wrap: true, margin: 'md' },
+      greetingTile('working', 'บันทึกงาน', `พิมพ์ “${LINE_JOB_EXAMPLES[0]}” แล้วตรวจก่อนบันทึก`),
+      greetingTile('reminder', 'เตือนรับเงิน', 'แจ้งเวลา 08:00 เมื่อมีงานใกล้ถึงกำหนดรับเงิน เปิดได้ในหน้าตั้งค่า'),
+      greetingTile('report', 'ดูภาพรวม', 'พิมพ์ “สรุปเดือนนี้” หรือ “รอรับเงิน”'),
+      ...(options.sheets ? [SHEETS_TILE()] : []),
+      ...(options.pro ? [] : [{ type: 'separator', color: C.border, margin: 'xl' }, { type: 'text', text: 'การบันทึกงานและแจ้งเตือนผ่าน LINE เป็นสิทธิ์ของสมาชิก Pro', size: 'xs', color: C.muted, wrap: true, margin: 'lg' }]),
+    ] },
+    ...(footer ? { footer: { type: 'box', layout: 'vertical', paddingAll: '20px', paddingTop: '0px', contents: [
+      { type: 'button', style: 'primary', color: C.accent, height: 'sm', action: { type: 'uri', ...footer } },
+    ] } } : {}),
+  } } as LineMessage;
+  return options.pro && options.quickReply ? { ...card, quickReply: options.quickReply } as LineMessage : card;
 }
 
 /**
