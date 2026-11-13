@@ -49,6 +49,34 @@ test('details typed in one message fill the draft; what is unsure is left for th
   assert.deepEqual(parseLineDocumentCreate('สร้างใบเสนอราคา ๕๐๐๐')!.items, [{ description: '', quantity: 1, price: 5000 }]); // Thai digits
 });
 
+// The owner's own words (2026-11-13): "ลูกค้านาย A" was read as a client called "นาย", and "มูลค่างาน" / "เป็น" were left
+// in the line item, while the card said it was ready to make.
+test('a person\'s title starts the client name; มูลค่างาน names the amount; "เป็น" before the work is not part of it', () => {
+  const read = (text: string) => { const draft = parseLineDocumentCreate(text)!; return [draft.client.name ?? '', draft.items.map(item => `${item.description}|${item.quantity}${item.unit ?? ''}|${item.price}`)]; };
+  for (const [text, client, items] of [
+    ['สร้างใบเสนอราคาให้หน่อยลูกค้านาย A มูลค่างาน 5,000 บาท เป็นงานตัดต่อ', 'นาย A', ['งานตัดต่อ|1|5000']],
+    ['สร้างใบเสนอราคาให้หน่อย ลูกค้า นาย A มูลค่างาน 5,000 บาท เป็นงานตัดต่อ', 'นาย A', ['งานตัดต่อ|1|5000']],
+    ['ทำใบเสนอราคาให้ลูกค้านาย A 5000 เป็นค่าตัดต่อ', 'นาย A', ['ค่าตัดต่อ|1|5000']],
+    ['ทำใบเสนอราคาให้ ลูกค้า นาย A งานตัดต่อ 5000', 'นาย A', ['งานตัดต่อ|1|5000']],
+    ['ทำใบเสนอราคา ลูกค้าชื่อ นาย A ราคา 5,000 เป็นงานตัดต่อ', 'นาย A', ['งานตัดต่อ|1|5000']],
+    ['ทำใบเสนอราคา ลูกค้า ชื่อ คุณบี งานออกแบบ ราคาอยู่ที่ 2,500', 'คุณบี', ['งานออกแบบ|1|2500']],
+    ['ทำใบเสนอราคาให้นางสาว บี งานถ่ายรูป 3,000', 'นางสาว บี', ['งานถ่ายรูป|1|3000']],
+    ['ทำใบเสนอราคาให้นางสาวบี งานถ่ายรูป 3,000', 'นางสาวบี', ['งานถ่ายรูป|1|3000']],
+    ['ทำใบเสนอราคา นาง เอ งานตัดต่อ 4000', 'นาง เอ', ['งานตัดต่อ|1|4000']],
+    ['ออกใบแจ้งหนี้ให้นายสมชาย ค่าตัดต่อ 5000', 'นายสมชาย', ['ค่าตัดต่อ|1|5000']],
+    ['ทำใบเสนอราคาให้ น.ส.ซี ราคางาน 2,500 งานออกแบบ', 'น.ส.ซี', ['งานออกแบบ|1|2500']],
+    ['ทำใบเสนอราคาให้ ดร.ดี งานบรรยาย 10,000', 'ดร.ดี', ['งานบรรยาย|1|10000']],
+    ['ทำใบเสนอราคาสำหรับลูกค้าคุณบี งานถ่ายรูป 3000', 'คุณบี', ['งานถ่ายรูป|1|3000']],
+    ['ทำใบเสนอราคาให้นาย A ตัดต่อวิดีโอ 5 คลิป คลิปละ 1,500', 'นาย A', ['ตัดต่อวิดีโอ|5คลิป|1500']],
+    ['ทำใบแจ้งหนี้ ค่านายหน้า 5000', '', ['ค่านายหน้า|1|5000']],
+    ['ทำใบแจ้งหนี้ นายหน้าขายบ้าน 5000', '', ['นายหน้าขายบ้าน|1|5000']],
+  ] as const) assert.deepEqual(read(text), [client, items], text);
+  assert.equal(applyDocumentFollowUp(parseLineDocumentCreate('ทำใบเสนอราคา งานตัดต่อ ให้คุณบี')!, 'มูลค่างาน 5000')!.items[0].price, 5000);
+  // Jobs read the client and the amount the same way.
+  assert.deepEqual(parseLineJobRequest('บันทึกงาน ตัดต่อให้นาย A มูลค่างาน 5,000'), { intent: 'add_job', freshDraft: true, jobValue: 5000, jobName: 'ตัดต่อ', jobClient: 'นาย A' });
+  assert.deepEqual(parseLineJobRequest('รับงาน ลูกค้านางสาว บี เป็นงานถ่ายรูป 3000'), { intent: 'add_job', freshDraft: true, jobValue: 3000, jobName: 'งานถ่ายรูป', jobClient: 'นางสาว บี' });
+});
+
 test('the empty card says what is missing and opens the form; nothing can be made yet', () => {
   const stored = newDocumentDraft(parseLineDocumentCreate('ขอใบเสนอราคาหน่อย')!);
   const card = buildDocumentDraftCard(stored, ISSUER) as any;

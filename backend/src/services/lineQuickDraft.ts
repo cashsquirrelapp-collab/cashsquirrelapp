@@ -1,7 +1,7 @@
 import { validateChanges } from '../../../shared/validation.js';
 import { roundMoney, whtAmountFor } from '../../../shared/wht.js';
 import type { ClassifyResult, ExpenseDraft, JobDraft } from './lineAssistant.js';
-import { LINE_MONEY, normalizeLineText, readMoney, splitClientWork } from './lineDocumentDraft.js';
+import { AMOUNT_WORD, LINE_MONEY, normalizeLineText, readMoney, splitClientWork } from './lineDocumentDraft.js';
 
 export interface LineQuickDraftContext {
   // The caller supplies only drafts that have passed its existing expiry/access checks.
@@ -230,7 +230,7 @@ export function parseLineJobRequest(input: string): LineQuickDraftResult | null 
     if (unitPrice !== null) result.jobValue = Math.round(Number(each[1]) * unitPrice * 100) / 100;
     rest = rest.replace(each[0], ` ${each[1]} ${each[2]} `);
   } else {
-    const named = new RegExp(`(?:ยอด|ราคา|ค่าจ้าง|มูลค่า|รวม)\\s*(?:฿\\s*)?(${LINE_MONEY})\\s*(?:บาท|\\.-)?`, 'u').exec(rest);
+    const named = new RegExp(`${AMOUNT_WORD}\\s*(?:฿\\s*)?(${LINE_MONEY})\\s*(?:บาท|\\.-)?`, 'u').exec(rest);
     const plain = [...rest.matchAll(new RegExp(`(?:^|\\s)(?:฿\\s*)?(${LINE_MONEY})\\s*(?:บาท|\\.-)?(?=\\s|$)`, 'gu'))].at(-1);
     const found = named ?? plain;
     if (found) { result.jobValue = readMoney(found[1]) ?? undefined; rest = rest.replace(found[0], ' '); }

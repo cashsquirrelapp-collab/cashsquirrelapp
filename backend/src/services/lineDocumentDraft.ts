@@ -66,8 +66,13 @@ export function paymentMethodOf(word: string): string {
   return /สด/.test(word) ? 'เงินสด' : /โอน/.test(word) ? 'โอนเงิน' : /พร้อม/.test(word) ? 'พร้อมเพย์' : /เช็/.test(word) ? 'เช็ค' : 'บัตรเครดิต';
 }
 const FILLER = /(?:\s*(?:ให้หน่อย|หน่อย|ด้วย|นะ|น้า|จ้า|จ้ะ|ครับ|คับ|ค้าบ|ค่ะ|คะ|ที))+$/u;
-/** Words that start a client's name, kept with the word after them ("บริษัท แบรนด์เอ"). */
-const COMPANY = /^(?:บริษัท|บจก\.?|หจก\.?|ห้างหุ้นส่วน(?:จำกัด)?|ร้าน|คุณ|โรงแรม|โรงเรียน|มูลนิธิ|สำนักงาน|สตูดิโอ|คลินิก|สมาคม|กลุ่ม)/u;
+/**
+ * Words that start a client's name, kept with the word after them ("บริษัท แบรนด์เอ", "นาย A"). A person's title too
+ * (owner, 2026-11-13: "ลูกค้านาย A" was read as a client called "นาย"); นางสาว before นาง, and นายหน้า / นายจ้าง are words.
+ */
+const COMPANY = /^(?:บริษัท|บจก\.?|หจก\.?|ห้างหุ้นส่วน(?:จำกัด)?|ร้าน|คุณ|นางสาว|น\.ส\.|นาง|นาย(?!หน้า|จ้าง)|ดร\.|โรงแรม|โรงเรียน|มูลนิธิ|สำนักงาน|สตูดิโอ|คลินิก|สมาคม|กลุ่ม)/u;
+/** Words that name the amount ("ยอด 4,000", "มูลค่างาน 5,000", "ราคาอยู่ที่ 3,000"), shared with jobs (lineQuickDraft.ts). */
+export const AMOUNT_WORD = '(?:ยอด(?:เงิน|รวม)?|ราคา(?:งาน)?|มูลค่า(?:งาน)?|ค่างาน|ค่าจ้าง|จำนวนเงิน|รวม)\\s*(?:อยู่ที่|ที่|คือ)?';
 /** A word that begins what the work is ("งานรื้อ…", "ค่าออกแบบ"). */
 const WORK = /^(?:งาน|ค่า)/u;
 /** Lookup words: "ขอใบเสนอราคา ล่าสุด" finds documents, it does not make one. */
@@ -118,7 +123,7 @@ export function parseLineDocumentCreate(input: string): LineDocumentDraft | null
   if (each && Number(each[1]) > 0) { quantity = Number(each[1]); unit = each[2]; price = money(each[3]); rest = rest.replace(each[0], ' '); }
   if (price === null) {
     // An amount named as such wins ("ยอด 4,000"); otherwise the last plain number.
-    const named = new RegExp(`(?:ยอด|ราคา|รวม|ค่าจ้าง|จำนวนเงิน)\\s*(?:฿\\s*)?(${MONEY})\\s*(?:บาท|\\.-)?`, 'u').exec(rest);
+    const named = new RegExp(`${AMOUNT_WORD}\\s*(?:฿\\s*)?(${MONEY})\\s*(?:บาท|\\.-)?`, 'u').exec(rest);
     const plain = [...rest.matchAll(new RegExp(`(?:^|\\s)(?:฿\\s*)?(${MONEY})\\s*(?:บาท|\\.-)?(?=\\s|$)`, 'gu'))].at(-1);
     const found = named ?? plain;
     if (found) { price = money(found[1]); rest = rest.replace(found[0], ' '); }
@@ -139,7 +144,8 @@ export function parseLineDocumentCreate(input: string): LineDocumentDraft | null
  */
 export function splitClientWork(text: string): { client: string; work: string } {
   // "ถ่ายรูปให้ร้านบี" written as one word: split at ให้ when a business word follows (never "ให้คำปรึกษา").
-  const tokens = text.replace(FILLER, '').split(/\s+/).filter(Boolean)
+  // "เป็นงานตัดต่อ" / "คือค่าออกแบบ": the work starts at งาน / ค่า, not at the linking word before it.
+  const tokens = text.replace(FILLER, '').replace(/(^|\s)(?:เป็น|คือ)\s*(?=งาน|ค่า)/gu, '$1').split(/\s+/).filter(Boolean)
     .flatMap(token => { const glued = new RegExp(`^(.+?)ให้(${COMPANY.source.slice(1)}.*)$`, 'u').exec(token); return glued ? [glued[1], `ให้${glued[2]}`] : [token]; });
   let client: string[] = [];
   const takeClient = (at: number, first: string) => {
@@ -153,9 +159,14 @@ export function splitClientWork(text: string): { client: string; work: string } 
   // ให้ starts a client, except the verbs it starts: ให้คำปรึกษา, ให้บริการ, ให้เช่า…
   const marker = tokens.findIndex(token => /^(?:ให้|ลูกค้า|สำหรับ)/u.test(token) && !/^ให้(?:คำ|บริการ|เช่า|ยืม|ความ|ข้อมูล|การ)/u.test(token));
   if (marker >= 0) {
-    const first = tokens[marker].replace(/^(?:ให้|ลูกค้า|สำหรับ)/u, '');
+    // "ให้ลูกค้านาย A", "ลูกค้าชื่อนาย A", "ลูกค้า คือ คุณบี": the name comes after them all.
+    const first = tokens[marker].replace(/^(?:(?:ให้|สำหรับ)(?:ลูกค้า)?|ลูกค้า)(?:ชื่อ|คือ)?/u, '');
     if (first) { tokens[marker] = first; takeClient(marker, first); }
-    else if (tokens[marker + 1]) { tokens.splice(marker, 1); takeClient(marker, tokens[marker]); }
+    else {
+      tokens.splice(marker, 1);
+      while (/^(?:ลูกค้า|ชื่อ|คือ)$/u.test(tokens[marker] || '')) tokens.splice(marker, 1);
+      if (tokens[marker]) takeClient(marker, tokens[marker]);
+    }
   } else {
     const company = tokens.findIndex(token => COMPANY.test(token));
     if (company >= 0) takeClient(company, tokens[company]);
@@ -195,7 +206,7 @@ export function applyDocumentFollowUp(draft: LineDocumentDraft, input: string): 
   else if ((match = /^เครดิต\s*(\d{1,3})\s*วัน$/u.exec(text))) next.creditTerm = Math.min(365, Number(match[1]));
   else if (/^ไม่มีเครดิต(?:เทอม)?$/u.test(text)) delete next.creditTerm;
   else if ((match = /^หมายเหตุ\s*(.{1,2000})$/u.exec(text))) next.note = match[1].trim();
-  else if ((match = new RegExp(`^(?:ยอด|ราคา)\\s*(?:฿\\s*)?(${MONEY})\\s*(?:บาท)?$`, 'u').exec(text)) || (match = new RegExp(`^(?:฿\\s*)?(${MONEY})\\s*(?:บาท)?$`, 'u').exec(text))) {
+  else if ((match = new RegExp(`^${AMOUNT_WORD}\\s*(?:฿\\s*)?(${MONEY})\\s*(?:บาท)?$`, 'u').exec(text)) || (match = new RegExp(`^(?:฿\\s*)?(${MONEY})\\s*(?:บาท)?$`, 'u').exec(text))) {
     // An amount alone fills the one line still without a price, or starts the first line.
     const price = money(match[1]);
     if (price === null) return null;
