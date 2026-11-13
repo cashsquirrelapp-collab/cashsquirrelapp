@@ -1,15 +1,15 @@
 import { expect, test, type Page } from '@playwright/test';
 import { textOverlapIssues } from './textOverlap';
 
-// Job and expense drafts from the chat open as one formal slip (owner, 2026-11-13, design D: "แบบ D ชอบๆ"): no
-// รายรับ / รายจ่าย switch and no steps, the draft filled in, rows of choices instead of drop-downs for หัก ณ ที่จ่าย and
-// the payment state, a running total with dotted leaders, and กลับไปแชท beside ยืนยันบันทึก. LINE's SDK and the server's
+// Job and expense drafts from the chat in design B (owner, 2026-11-13: "เปลี่ยนเป็นแบบ B ... ดูง่ายกว่า", after design D):
+// the amount large on a brick band with the mascot, white cards, choices to tap for the type, หัก ณ ที่จ่าย, credit days
+// and category, the payment state as large options, no รายรับ / รายจ่าย switch and no steps. LINE's SDK and the server's
 // answers are stood in; the server side is tested in tests/line-*.test.ts.
 
 const drafts: Record<string, { kind: 'job' | 'expense'; draft: Record<string, unknown> }> = {
   job: { kind: 'job', draft: { name: 'งานตัดต่อ', client: 'นาย A', value: 5000, whtRate: 3, paymentStatus: 'pending', creditTerm: 30, type: 'Video Production', note: '' } },
   bare: { kind: 'job', draft: { name: 'งานตัดต่อ', value: 5000 } },
-  oddRate: { kind: 'job', draft: { name: 'ออกแบบโลโก้', client: 'บริษัท แบรนด์เอ จำกัด', value: 12000, whtRate: 2, paymentStatus: 'paid' } },
+  oddRate: { kind: 'job', draft: { name: 'ออกแบบโลโก้', client: 'บริษัท แบรนด์เอ จำกัด', value: 12000, whtRate: 2, paymentStatus: 'paid', creditTerm: 20, type: 'งานพิเศษ' } },
   expense: { kind: 'expense', draft: { name: 'ค่ากาแฟลูกค้า', amount: 120, category: 'อาหาร/รับรองลูกค้า', note: '' } },
 };
 
@@ -33,19 +33,21 @@ async function open(page: Page, scenario: keyof typeof drafts) {
   return { sent, closed };
 }
 
-test('a job draft opens as the slip, filled in, with no switch and no steps', async ({ page }) => {
+test('a job draft opens in design B, filled in, with no switch and no steps', async ({ page }) => {
   await open(page, 'job');
   await expect(page.locator('#expense-card')).toBeHidden();
   await expect(page.locator('.kind-tabs')).toHaveCount(0);
   await expect(page.locator('#job-title')).toHaveText('บันทึกงาน');
-  await expect(page.locator('#job-meta')).toContainText('จากแชท LINE · ');
-  await expect(page.locator('.slip-stamp').first()).toHaveText('แบบร่าง');
+  await expect(page.locator('#job-band-amount')).toHaveText('฿5,000.00');
+  await expect(page.locator('#job-band-who')).toHaveText('งานตัดต่อ · นาย A');
+  await expect(page.locator('#job-type-pick [aria-checked="true"]')).toHaveText('Video Production');
   await expect(page.locator('#job-name')).toHaveValue('งานตัดต่อ');
   await expect(page.locator('#job-client')).toHaveValue('นาย A');
   await expect(page.locator('#job-type')).toHaveValue('Video Production');
   await expect(page.locator('#job-creditTerm')).toHaveValue('30');
   await expect(page.locator('#job-wht-pick [aria-checked="true"]')).toHaveText('3%');
-  await expect(page.locator('#job-status-pick [aria-checked="true"]')).toHaveText('ยังไม่ได้รับ');
+  await expect(page.locator('#job-status-pick [aria-checked="true"]')).toHaveText('ยังไม่ได้รับเงิน');
+  await expect(page.locator('#job-credit-pick [aria-checked="true"]')).toHaveText('30 วัน');
   await expect(page.locator('#received-amount-field')).toBeHidden();
   await expect(page.locator('#receipt-value')).toHaveText('฿5,000.00');
   await expect(page.locator('#receipt-wht-row')).toContainText('หัก ณ ที่จ่าย 3%');
@@ -60,12 +62,12 @@ test('a job draft opens as the slip, filled in, with no switch and no steps', as
   expect(green).toBe(false);
   expect(await textOverlapIssues(page)).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({ path: 'artifacts/liff-slip-job.png', fullPage: true });
+  await page.screenshot({ path: 'artifacts/liff-b-job.png', fullPage: true });
 });
 
 test('choosing มัดจำแล้ว asks how much came in and the total follows; ยืนยันบันทึก sends what the slip shows', async ({ page }) => {
   const { sent } = await open(page, 'job');
-  await page.locator('#job-status-pick').getByRole('radio', { name: 'มัดจำแล้ว' }).click();
+  await page.locator('#job-status-pick').getByRole('radio', { name: 'รับมัดจำบางส่วนแล้ว' }).click();
   await expect(page.locator('#received-amount-field')).toBeVisible();
   await page.locator('#job-wht-pick').getByRole('radio', { name: 'ไม่มี' }).click();
   await expect(page.locator('#receipt-wht-row')).toBeHidden();
@@ -75,7 +77,7 @@ test('choosing มัดจำแล้ว asks how much came in and the total f
   await expect(page.locator('#receipt-received')).toHaveText('฿2,000.00');
   await expect(page.locator('#receipt-pending')).toHaveText('฿3,000.00');
   expect(await textOverlapIssues(page)).toEqual([]);
-  await page.screenshot({ path: 'artifacts/liff-slip-job-partial.png', fullPage: true });
+  await page.screenshot({ path: 'artifacts/liff-b-job-partial.png', fullPage: true });
   // Leave the amount field first: a full-page screenshot moves the page when it loses focus during the tap.
   await page.locator('#job-receivedAmount').blur();
   await page.locator('#job-next-btn').click();
@@ -96,21 +98,29 @@ test('a draft without a payment state asks for one before saving; a rate the row
   const other = await open(second, 'oddRate');
   await expect(second.locator('#job-wht-pick [aria-checked="true"]')).toHaveText('2%');
   await expect(second.locator('#job-wht-pick button')).toHaveText(['ไม่มี', '1%', '2%', '3%', '5%']);
+  await expect(second.locator('#job-credit-pick button')).toHaveText(['ไม่มี', '15 วัน', '20 วัน', '30 วัน', '45 วัน', '60 วัน', '90 วัน']);
+  await expect(second.locator('#job-type-pick [aria-checked="true"]')).toHaveText('งานพิเศษ');
+  // The chosen type tapped again is left unchosen.
+  await second.locator('#job-type-pick').getByRole('radio', { name: 'งานพิเศษ' }).click();
+  await expect(second.locator('#job-type')).toHaveValue('ยังไม่ระบุ');
   await second.locator('#job-next-btn').click();
   await expect(second.locator('#status-view')).toContainText('บันทึกสำเร็จ');
-  expect(other.sent.find(body => body.action === 'confirm-draft')).toMatchObject({ whtRate: '2', paymentStatus: 'paid', receivedAmount: 0 });
+  expect(other.sent.find(body => body.action === 'confirm-draft')).toMatchObject({ whtRate: '2', paymentStatus: 'paid', receivedAmount: 0, creditTerm: '20', type: 'ยังไม่ระบุ' });
 });
 
-test('an expense draft opens as the slip; กลับไปแชท closes the window without saving', async ({ page }) => {
+test('an expense draft opens in design B; กลับไปแชท closes the window without saving', async ({ page }) => {
   const { sent, closed } = await open(page, 'expense');
   await expect(page.locator('#job-card')).toBeHidden();
   await expect(page.locator('#expense-title')).toHaveText('บันทึกรายจ่าย');
   await expect(page.locator('#expense-name')).toHaveValue('ค่ากาแฟลูกค้า');
   await expect(page.locator('#expense-category')).toHaveValue('อาหาร/รับรองลูกค้า');
+  await expect(page.locator('#expense-category-pick [aria-checked="true"]')).toHaveText('อาหาร/รับรองลูกค้า');
   await expect(page.locator('#expense-summary-amount')).toHaveText('฿120.00');
-  await expect(page.locator('#expense-summary-name')).toHaveText('ค่ากาแฟลูกค้า');
+  await expect(page.locator('#expense-summary-name')).toHaveText('ค่ากาแฟลูกค้า · อาหาร/รับรองลูกค้า');
+  await page.locator('#expense-category-pick').getByRole('radio', { name: 'ค่าเดินทาง/น้ำมัน' }).click();
+  await expect(page.locator('#expense-category')).toHaveValue('ค่าเดินทาง/น้ำมัน');
   expect(await textOverlapIssues(page)).toEqual([]);
-  await page.screenshot({ path: 'artifacts/liff-slip-expense.png', fullPage: true });
+  await page.screenshot({ path: 'artifacts/liff-b-expense.png', fullPage: true });
   await page.locator('#expense-card').getByRole('button', { name: 'กลับไปแชท' }).click();
   expect(closed).toEqual(['closed']);
   expect(sent.some(body => body.action === 'confirm-draft')).toBe(false);

@@ -40,16 +40,13 @@
     if (focusId && field(focusId)) field(focusId).focus(); else box.focus();
   }
   function clearError() { field('document-error-box').style.display = 'none'; }
-  // Rows of choices on the slip (design D, owner 2026-11-13): the hidden input keeps the value the form reads.
+  // Choices to tap (design B, owner 2026-11-13): the hidden input keeps the value the form reads.
   function setPick(groupId, chosen) {
     var group = field(groupId); var selected = chosen === undefined || chosen === null ? '' : String(chosen);
     Array.from(group.children).forEach(function (button) { button.setAttribute('aria-checked', String(button.getAttribute('data-value') === selected)); });
     field(group.getAttribute('data-input')).value = selected;
   }
-  function slipDate() {
-    try { return 'จากแชท LINE · ' + new Intl.DateTimeFormat('th-TH', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Bangkok' }).format(new Date()); }
-    catch (error) { return 'จากแชท LINE'; }
-  }
+
   // A query value from the LIFF link itself or from LINE's liff.state (read only, never followed).
   // LIFF may rewrite the address during init, so the address as first opened is kept too (this file runs before it).
   var firstSearch = window.location.search;
@@ -99,6 +96,11 @@
     field('doc-wht-label').textContent = 'หัก ณ ที่จ่าย ' + t.whtRate + '%';
     field('doc-wht-amount').textContent = '−' + baht(t.wht);
     field('doc-payable').textContent = baht(t.payable);
+    field('document-summary-amount').textContent = baht(t.payable);
+    var named = state.items.filter(function (item) { return item.description.trim(); });
+    field('document-summary-name').textContent = value('doc-client-name')
+      ? value('doc-client-name') + (named.length ? ' · ' + named[0].description + (named.length > 1 ? ' และอีก ' + (named.length - 1) + ' รายการ' : '') : '')
+      : 'ยังไม่ได้กรอกลูกค้า';
     state.items.forEach(function (item, at) {
       var line = field('doc-item-line-' + at);
       if (line) line.textContent = 'รวม ' + baht((Number(item.quantity) || 0) * (Number(item.price) || 0));
@@ -106,7 +108,7 @@
   }
 
   function input(id, type, label, initial, options) {
-    var wrap = document.createElement('div'); wrap.className = options && options.wide ? 'fl full' : 'fl';
+    var wrap = document.createElement('div'); wrap.className = 'f';
     var title = document.createElement('label'); title.htmlFor = id; title.textContent = label;
     if (options && options.required) { var star = document.createElement('span'); star.setAttribute('aria-hidden', 'true'); star.textContent = ' *'; title.append(star); }
     var control = document.createElement('input'); control.type = type; control.id = id; control.value = initial === undefined || initial === null ? '' : String(initial);
@@ -119,8 +121,8 @@
   function renderItems() {
     var list = field('document-items'); list.replaceChildren();
     state.items.forEach(function (item, at) {
-      var box = document.createElement('div'); box.className = 'slip-item';
-      var head = document.createElement('div'); head.className = 'slip-item-head';
+      var box = document.createElement('div'); box.className = 'bf-item';
+      var head = document.createElement('div'); head.className = 'bf-item-head';
       var name = document.createElement('span'); name.textContent = 'รายการที่ ' + (at + 1);
       head.append(name);
       if (state.items.length > 1) {
@@ -130,7 +132,7 @@
         head.append(remove);
       }
       var description = input('doc-item-desc-' + at, 'text', 'รายละเอียด', item.description, { wide: true, placeholder: 'เช่น ถ่ายรูปสินค้า' });
-      var grid = document.createElement('div'); grid.className = 'slip-grid';
+      var pair = document.createElement('div'); pair.className = 'bf-row2';
       var quantity = input('doc-item-qty-' + at, 'number', 'จำนวน', item.quantity, { step: 'any' });
       var unit = input('doc-item-unit-' + at, 'text', 'หน่วย', item.unit || '', { placeholder: 'เช่น รูป งาน' });
       var price = input('doc-item-price-' + at, 'number', 'ราคาต่อหน่วย (บาท)', item.price || '', { wide: true, placeholder: '0.00' });
@@ -139,9 +141,9 @@
       quantity.control.addEventListener('input', function () { item.quantity = Number(quantity.control.value) || 0; updateTotals(); });
       unit.control.addEventListener('input', function () { item.unit = unit.control.value; });
       price.control.addEventListener('input', function () { item.price = Number(price.control.value) || 0; updateTotals(); });
-      grid.append(description.wrap, quantity.wrap, unit.wrap, price.wrap);
-      var line = document.createElement('div'); line.className = 'slip-item-line'; line.id = 'doc-item-line-' + at;
-      box.append(head, grid, line);
+      pair.append(quantity.wrap, unit.wrap);
+      var line = document.createElement('div'); line.className = 'bf-item-line'; line.id = 'doc-item-line-' + at;
+      box.append(head, description.wrap, pair, price.wrap, line);
       list.append(box);
     });
     field('document-add-item').classList.toggle('hidden', state.items.length >= MAX_ITEMS);
@@ -208,7 +210,6 @@
     state.type = NAMES[draft.type] ? draft.type : 'quotation';
     var name = NAMES[state.type];
     field('document-title').textContent = name;
-    field('document-meta').textContent = slipDate();
     field('document-submit-btn').textContent = 'สร้าง' + name;
     document.title = name + ' · Krarok Tunngern';
     if (draft.heard) { field('document-heard-text').textContent = 'จากข้อความของคุณ: “' + draft.heard + '”'; field('document-heard').classList.remove('hidden'); }
@@ -299,7 +300,7 @@
       status('เปิดแบบร่างไม่ได้', (data.error || 'แบบร่างนี้หมดเวลาหรือมีแบบร่างใหม่แล้ว') + '\nกลับไปแชทแล้วพิมพ์ “ทำใบเสนอราคา” เพื่อเริ่มใหม่', 'urgent', true); return;
     }
     fill(data);
-    document.body.classList.add('draft-mode', 'slip-mode');
+    document.body.classList.add('draft-mode', 'bf-mode');
     ['job-card', 'expense-card'].forEach(function (id) { field(id).classList.add('hidden'); });
     field('document-card').classList.remove('hidden');
     // สร้างเอกสาร on a complete card opens here to create at once (so the picture can be drawn); anything missing shows the form.

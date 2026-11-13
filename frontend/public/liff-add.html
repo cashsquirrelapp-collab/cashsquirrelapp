@@ -109,217 +109,204 @@
       @keyframes splashDot{0%,100%{opacity:.25;transform:translateY(0)}50%{opacity:1;transform:translateY(-3px)}}
       @keyframes splashOut{to{transform:scale(1.18)}}
       @media (prefers-reduced-motion:reduce){.splash-mark{opacity:1;transform:none;animation:none}.splash-glow,.splash-ring{display:none}.splash.has-name .splash-name{animation:splashFade .3s forwards;transform:none}.splash-dots i{animation:none;opacity:.6}.splash.is-leaving .splash-stage{animation:none}}
-  /* Job and expense drafts from the chat as a formal slip on a neutral ground (owner, 2026-11-13, design D: "ชอบ"). */
-  body.slip-mode { background:#ECEAE7; }
-  .slip-mode .page { padding:14px 12px 28px; }
-  .slip-mode .page > .brand { display:none; }
-  .slip-sheet { background:#fff; border:1px solid #DEDBD7; border-radius:6px; padding:22px 20px; color:#1C1917; }
-  .slip-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
-  .slip-logo { display:flex; align-items:center; gap:8px; font:600 15px/1.4 'Prompt',var(--font); }
-  .slip-logo img { width:26px; height:26px; flex:0 0 26px; }
-  .slip-logo small { display:block; font:400 11px/1.45 var(--font); color:#6B6560; }
-  .slip-stamp { border:1.5px solid #E65F2B; color:#C24A16; font-size:11px; font-weight:700; line-height:1.45; padding:3px 9px; border-radius:4px; white-space:nowrap; }
-  .slip-title { margin-top:20px; padding-bottom:14px; border-bottom:2px solid #1C1917; display:flex; flex-wrap:wrap; justify-content:space-between; align-items:baseline; gap:4px 12px; }
-  .slip-title h1 { margin:0; font:700 24px/1.4 'Prompt',var(--font); letter-spacing:-.2px; }
-  .slip-meta { font-size:12px; line-height:1.5; color:#6B6560; }
-  .slip-sec { margin-top:20px; font-size:12px; font-weight:700; line-height:1.45; color:#C24A16; letter-spacing:.3px; }
-  .slip-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); column-gap:16px; }
-  .slip .fl { padding:10px 0 6px; border-bottom:1px solid #D6D3D1; min-width:0; }
-  .slip .fl.full { grid-column:1 / -1; }
-  .slip .fl:focus-within { border-bottom-color:#E65F2B; }
-  .slip .fl label,.slip .fl-label { display:block; margin:0; font-size:11px; font-weight:400; line-height:1.45; color:#6B6560; }
-  .slip .fl input,.slip .fl select,.slip .fl textarea { display:block; width:100%; border:0; border-radius:0; background-color:transparent; padding:2px 0 4px; min-height:36px; font-size:16px; line-height:1.5; color:#1C1917; }
-  .slip .fl input:focus,.slip .fl select:focus,.slip .fl textarea:focus { outline:0; background-color:transparent; }
-  .slip .fl select { -webkit-appearance:none; appearance:none; background:transparent url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%236B6560' stroke-width='1.6'/%3E%3C/svg%3E") no-repeat right 2px center / 12px 8px; padding-right:22px; }
-  .slip .fl textarea { min-height:52px; resize:vertical; }
-  .slip .fl input::placeholder,.slip .fl textarea::placeholder { color:#A8A29E; }
-  .slip .fl input.money { font:600 20px/1.45 'Prompt',var(--font); }
-  .slip .helper { font-size:11px; color:#6B6560; margin:6px 0 2px; line-height:1.5; }
-  .pick { display:flex; margin-top:6px; border:1px solid #D6D3D1; border-radius:6px; overflow:hidden; }
-  .pick button { flex:1; min-width:0; min-height:42px; border:0; background:#fff; color:#1C1917; font-size:13px; line-height:1.45; padding:6px 2px; }
-  .pick button + button { border-left:1px solid #D6D3D1; }
-  .pick button[aria-checked="true"] { background:#1C1917; color:#fff; font-weight:600; }
-  .pick:focus { outline:2px solid #E65F2B; outline-offset:2px; }
-  .slip-lines { margin-top:14px; font-size:14px; line-height:1.5; }
-  .slip-lines .ln { display:flex; align-items:baseline; gap:6px; padding:5px 0; }
-  .slip-lines .ln i { flex:1; min-width:12px; border-bottom:1.5px dotted #D6D3D1; transform:translateY(-4px); }
-  .slip-lines .ln span:last-child { font-family:'Prompt',var(--font); white-space:nowrap; }
-  .slip-lines .ln span.plain { font-family:var(--font); white-space:normal; text-align:right; overflow-wrap:anywhere; max-width:62%; }
-  .slip-lines .ln.total { margin-top:6px; padding-top:10px; border-top:3px double #1C1917; font-weight:700; font-size:16px; }
-  .slip-lines .ln.total i { border:0; }
-  .slip-lines .ln.total span:last-child { color:#C24A16; font-size:20px; }
-  .slip-note { margin:18px 0 0; font-size:11px; line-height:1.6; color:#6B6560; }
-  .slip .error { margin-top:14px; }
-  .slip-actions { display:flex; gap:10px; margin-top:16px; }
-  .slip-btn { flex:1; min-height:52px; border-radius:10px; font-size:16px; font-weight:600; line-height:1.4; padding:12px; }
-  .slip-btn.ghost { background:#fff; color:#1C1917; border:1px solid #D6D3D1; }
-  .slip-btn.primary { flex:2; background:#C24A16; color:#fff; border:0; }
-  .slip-heard { margin:14px 0 0; padding:8px 12px; border-left:3px solid #E65F2B; background:#F5F4F2; border-radius:2px 6px 6px 2px; font-size:12px; line-height:1.55; color:#57534E; }
-  .slip-heard p { margin:0; overflow-wrap:anywhere; }
-  .slip-help { margin:8px 0 0; }
-  .slip-known { padding:10px 0; border-bottom:1px solid #D6D3D1; font-size:15px; line-height:1.5; }
-  .slip-known-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
-  .slip-known-head b { font-weight:600; overflow-wrap:anywhere; }
-  .slip-known-head button { flex:none; border:0; background:transparent; color:#C24A16; font-size:13px; font-weight:600; line-height:1.45; padding:4px 0 4px 10px; min-height:32px; }
-  .slip-known p { margin:4px 0 0; color:#6B6560; font-size:12px; line-height:1.6; white-space:pre-line; overflow-wrap:anywhere; }
-  .slip-sub { margin:16px 0 0; font-size:12px; font-weight:600; line-height:1.5; color:#1C1917; }
-  .slip-item { margin-top:10px; padding-top:10px; border-top:1px solid #E7E5E4; }
-  .slip-item:first-child { border-top:0; padding-top:2px; }
-  .slip-item-head { display:flex; justify-content:space-between; align-items:center; min-height:32px; font-size:12px; font-weight:700; line-height:1.45; color:#1C1917; }
-  .slip-item-head button { border:0; background:transparent; color:#B3261E; font-size:12px; font-weight:600; padding:6px 0 6px 10px; min-height:32px; }
-  .slip-item-line { text-align:right; font-family:'Prompt',var(--font); font-size:13px; line-height:1.5; color:#57534E; margin-top:6px; }
-  .slip-add { display:block; width:100%; margin-top:12px; min-height:44px; border:1px dashed #BDB8B2; border-radius:6px; background:#fff; color:#1C1917; font-size:14px; font-weight:600; line-height:1.45; }
-  .fl-group { display:contents; }
-  .fl-group.hidden { display:none!important; }
-  .pick button[aria-pressed="true"] { background:#1C1917; color:#fff; font-weight:600; }
-  .pick button:disabled { cursor:default; opacity:1; color:#A8A29E; background:#F5F4F2; }
-  .pick button[aria-checked="true"]:disabled { background:#57534E; color:#fff; }
-  .slip .fl .pick + input { margin-top:6px; }
+  /* Drafts from the chat (job, expense, document) in design B (owner, 2026-11-13: "เปลี่ยนเป็นแบบ B ... ดูง่ายกว่า"): the
+     amount large on a flat brick band with the mascot, white cards below, choices to tap instead of lists. */
+  body.bf-mode { background:#F4F4F2; }
+  .bf-mode .page { max-width:none; padding:0 0 28px; }
+  .bf-mode .page > .brand { display:none; }
+  .bf { max-width:560px; margin:0 auto; color:#1C1917; }
+  .bf-band { position:relative; overflow:hidden; background:#C24A16; color:#fff; padding:16px 20px 46px; }
+  .bf-brand { display:flex; align-items:center; gap:7px; font-size:13px; font-weight:600; line-height:1.45; }
+  .bf-brand img { width:18px; height:18px; flex:0 0 18px; }
+  .bf-state { margin-left:auto; font-size:11px; font-weight:600; line-height:1.45; background:rgba(255,255,255,.18); padding:3px 10px; border-radius:999px; white-space:nowrap; }
+  .bf-title { margin:16px 0 0; font:600 16px/1.45 'Prompt',var(--font); padding-right:96px; overflow-wrap:anywhere; }
+  .bf-label { margin-top:6px; font-size:13px; line-height:1.45; color:rgba(255,255,255,.88); padding-right:96px; }
+  .bf-amount { margin-top:2px; font:700 36px/1.35 'Prompt',var(--font); letter-spacing:-.5px; padding-right:96px; overflow-wrap:anywhere; }
+  .bf-who { margin-top:2px; font-size:14px; line-height:1.5; color:rgba(255,255,255,.92); padding-right:96px; overflow-wrap:anywhere; min-height:21px; }
+  .bf-mascot { position:absolute; right:8px; bottom:26px; width:96px; height:96px; object-fit:contain; pointer-events:none; }
+  .bf-card { position:relative; background:#fff; border-radius:20px; margin:14px 14px 0; padding:20px 18px; }
+  .bf-band + .bf-card { margin-top:-26px; }
+  .bf-card h2 { margin:0; font:600 17px/1.45 'Prompt',var(--font); color:#1C1917; }
+  .bf-card h2 label { display:inline; margin:0; font:inherit; color:inherit; }
+  .bf .f { margin-top:14px; }
+  .bf .f > label,.bf .f-label { display:block; margin:0 0 6px; font-size:13px; font-weight:400; line-height:1.45; color:#6B6560; }
+  .bf .optional { color:#A8A29E; font-size:12px; margin-left:4px; font-weight:400; }
+  .bf .f input:not([type=hidden]),.bf .f textarea,.bf-item input { display:block; width:100%; background:#F5F5F4; border:1.5px solid transparent; border-radius:12px; padding:12px 14px; min-height:50px; font-size:16px; line-height:1.5; color:#1C1917; }
+  .bf .f input:focus,.bf .f textarea:focus,.bf-item input:focus { outline:0; background:#fff; border-color:#E65F2B; }
+  .bf .f input.money,.bf-item input.money { font:600 18px/1.45 'Prompt',var(--font); }
+  .bf .f textarea { min-height:76px; resize:vertical; }
+  .bf input::placeholder,.bf textarea::placeholder { color:#A8A29E; }
+  .bf .helper { font-size:12px; line-height:1.5; color:#6B6560; margin:6px 0 0; }
+  .bf-chips { display:flex; flex-wrap:wrap; gap:8px; }
+  .bf-chips button { border:1.5px solid #E7E5E4; background:#fff; color:#1C1917; border-radius:999px; padding:7px 14px; min-height:40px; font-size:14px; line-height:1.4; }
+  .bf-chips button[aria-checked="true"],.bf-chips button[aria-pressed="true"] { border-color:#E65F2B; background:#FCEDE6; color:#C24A16; font-weight:600; }
+  .bf-chips button:disabled { cursor:default; opacity:1; color:#A8A29E; background:#F5F5F4; }
+  .bf-chips button[aria-checked="true"]:disabled { color:#C24A16; background:#FCEDE6; }
+  .bf-chips:focus,.bf-tiles:focus { outline:2px solid #E65F2B; outline-offset:4px; border-radius:12px; }
+  .bf .f .bf-after-chips { margin-top:8px; }
+  .bf-tiles { display:flex; flex-direction:column; gap:8px; }
+  .bf-tiles button { display:flex; align-items:center; gap:12px; width:100%; text-align:left; border:1.5px solid #E7E5E4; background:#fff; border-radius:14px; padding:12px 14px; min-height:52px; font-size:15px; line-height:1.45; color:#1C1917; }
+  .bf-tiles button::before { content:''; flex:0 0 20px; width:20px; height:20px; border-radius:50%; border:2px solid #D6D3D1; box-sizing:border-box; }
+  .bf-tiles button[aria-checked="true"] { border-color:#E65F2B; background:#FCEDE6; font-weight:600; }
+  .bf-tiles button[aria-checked="true"]::before { border:6px solid #E65F2B; }
+  .bf-sum { display:grid; grid-template-columns:1fr auto; row-gap:9px; column-gap:12px; margin-top:12px; font-size:15px; line-height:1.5; }
+  .bf-sum .row { display:contents; }
+  .bf-sum .v { font-family:'Prompt',var(--font); text-align:right; white-space:nowrap; }
+  .bf-sum .rule { grid-column:1 / -1; border-top:1px solid #E7E5E4; margin:3px 0; }
+  .bf-sum .row.big span { font-weight:600; font-size:16px; }
+  .bf-sum .row.big .v { color:#C24A16; font-size:20px; }
+  .bf-heard { margin:0 0 16px; padding:10px 12px; border-radius:12px; background:#F5F5F4; font-size:13px; line-height:1.55; color:#57534E; }
+  .bf-heard p { margin:0; overflow-wrap:anywhere; }
+  .bf-help { margin:8px 0 0; }
+  .bf-known { margin-top:12px; padding:12px 14px; border-radius:14px; background:#F5F5F4; font-size:15px; line-height:1.5; }
+  .bf-known-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
+  .bf-known-head b { font-weight:600; overflow-wrap:anywhere; }
+  .bf-known-head button { flex:none; border:1.5px solid #E7E5E4; background:#fff; color:#1C1917; border-radius:999px; font-size:13px; font-weight:600; line-height:1.4; padding:5px 13px; min-height:34px; }
+  .bf-known p { margin:6px 0 0; color:#6B6560; font-size:12px; line-height:1.6; white-space:pre-line; overflow-wrap:anywhere; }
+  .bf-sub { margin:18px 0 0; font-size:13px; font-weight:600; line-height:1.5; }
+  .bf-item { margin-top:12px; padding:12px 14px 14px; border:1.5px solid #E7E5E4; border-radius:14px; }
+  .bf-item-head { display:flex; justify-content:space-between; align-items:center; min-height:32px; font-size:13px; font-weight:600; line-height:1.45; }
+  .bf-item-head button { border:0; background:transparent; color:#B3261E; font-size:13px; font-weight:600; padding:6px 0 6px 10px; min-height:32px; }
+  .bf-item .f { margin-top:10px; }
+  .bf-row2 { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; }
+  .bf-item-line { text-align:right; font-family:'Prompt',var(--font); font-size:14px; line-height:1.5; color:#57534E; margin-top:10px; }
+  .bf-add { display:block; width:100%; margin-top:12px; min-height:48px; border:1.5px dashed #D6D3D1; border-radius:14px; background:#fff; color:#1C1917; font-size:15px; font-weight:600; line-height:1.45; }
+  .bf .error { margin:14px 0 0; }
+  .bf-actions { padding:18px 14px 0; }
+  .bf-btn { display:block; width:100%; border:0; border-radius:14px; background:#C24A16; color:#fff; font-size:17px; font-weight:600; line-height:1.4; padding:15px; min-height:54px; }
+  .bf-cap { text-align:center; font-size:12px; line-height:1.5; color:#6B6560; margin:10px 0 0; }
+  .bf-back { display:block; margin:4px auto 0; border:0; background:transparent; color:#6B6560; font-size:14px; line-height:1.4; padding:10px 18px; min-height:44px; }
   .hidden { display:none!important; }
 </style>
 </head>
 <body>
 <main class="page hidden" id="form-view">
   <div class="brand"><img src="/brand/logo01-v1/symbol-ci.svg" alt="" /><span>กระรอกตุนเงิน · เลขาการเงิน</span></div>
-  <section id="job-card" class="slip" aria-labelledby="job-title">
-    <div class="slip-sheet">
-      <div class="slip-head">
-        <div class="slip-logo"><img src="/brand/logo01-v1/symbol-ci.svg" alt="" /><div>กระรอกตุนเงิน<small>เลขาการเงิน</small></div></div>
-        <span class="slip-stamp">แบบร่าง</span>
-      </div>
-      <div class="slip-title"><h1 id="job-title">บันทึกงาน</h1><span class="slip-meta" id="job-meta">จากแชท LINE</span></div>
-      <div class="slip-sec">รายละเอียดงาน</div>
-      <div class="slip-grid">
-        <div class="fl full"><label for="job-name">ชื่องาน</label><input type="text" id="job-name" placeholder="เช่น ถ่ายภาพสินค้า" maxlength="500" required autocomplete="off" /></div>
-        <div class="fl"><label for="job-client">ลูกค้า</label><input type="text" id="job-client" placeholder="ไม่บังคับ" maxlength="500" autocomplete="off" /></div>
-        <div class="fl"><label for="job-type">ประเภทงาน</label><select id="job-type">
-        <option value="ยังไม่ระบุ">ยังไม่ระบุ</option><option>Sponsored Post</option><option>Video Production</option><option>Digital Product</option><option>Consulting / Advisory</option><option>งานทั่วไปอื่นๆ</option>
-      </select></div>
-      </div>
-      <div class="slip-sec">ค่าจ้างและการรับเงิน</div>
-      <div class="slip-grid">
-        <div class="fl full"><label for="job-value">มูลค่าค่าจ้างเต็ม (บาท)</label><input type="number" id="job-value" class="money" placeholder="0.00" min="0.01" step="0.01" inputmode="decimal" required /></div>
-        <div class="fl full"><span class="fl-label" id="job-wht-label">หัก ณ ที่จ่าย</span>
-          <div class="pick" id="job-wht-pick" role="radiogroup" aria-labelledby="job-wht-label" tabindex="-1" data-input="job-whtRate"><button type="button" role="radio" data-value="0">ไม่มี</button><button type="button" role="radio" data-value="1">1%</button><button type="button" role="radio" data-value="3">3%</button><button type="button" role="radio" data-value="5">5%</button></div>
-          <input type="hidden" id="job-whtRate" value="0" /></div>
-        <div class="fl full"><span class="fl-label" id="job-status-label">สถานะการรับเงิน</span>
-          <div class="pick" id="job-status-pick" role="radiogroup" aria-labelledby="job-status-label" aria-describedby="payment-help" tabindex="-1" data-input="job-paymentStatus"><button type="button" role="radio" data-value="paid">รับครบแล้ว</button><button type="button" role="radio" data-value="partial">มัดจำแล้ว</button><button type="button" role="radio" data-value="pending">ยังไม่ได้รับ</button></div>
-          <input type="hidden" id="job-paymentStatus" value="" />
-          <p class="helper" id="payment-help">เลือกตามเงินที่ได้รับจริง</p></div>
-        <div class="fl full" id="credit-field"><label for="job-creditTerm">เครดิตเทอม (วัน)</label><input type="number" id="job-creditTerm" value="0" min="0" max="3650" step="1" inputmode="numeric" aria-describedby="credit-help" /><p class="helper" id="credit-help">นับจากวันส่งงาน ไม่มีเครดิตเทอมใส่ 0</p></div>
-        <div class="fl hidden" id="received-amount-field"><label for="job-receivedAmount">รับเงินมาแล้ว (บาท)</label><input type="number" id="job-receivedAmount" class="money" placeholder="0.00" min="0.01" step="0.01" inputmode="decimal" /></div>
-        <div class="fl full"><label for="job-note">หมายเหตุ</label><textarea id="job-note" maxlength="2000" placeholder="ไม่บังคับ"></textarea></div>
-      </div>
-      <div class="slip-lines" id="job-receipt" aria-label="สรุปยอด">
-        <div class="ln"><span>มูลค่างาน</span><i></i><span id="receipt-value">฿0.00</span></div>
-        <div class="ln" id="receipt-wht-row"><span>หัก ณ ที่จ่าย 0%</span><i></i><span id="receipt-wht">−฿0.00</span></div>
-        <div class="ln"><span>ยอดหลังหัก</span><i></i><span id="receipt-net">฿0.00</span></div>
-        <div class="ln"><span>รับแล้ว</span><i></i><span id="receipt-received">ยังไม่เลือก</span></div>
-        <div class="ln total"><span>ยอดรอรับ</span><i></i><span id="receipt-pending">ยังไม่เลือก</span></div>
-      </div>
-      <div class="error" id="job-error-box" role="alert" tabindex="-1"></div>
-      <p class="slip-note">บันทึกเข้าบัญชีกระรอกตุนเงินของคุณเมื่อกดยืนยันเท่านั้น แก้ไขต่อได้ในแอป</p>
+  <section id="job-card" class="bf" aria-labelledby="job-title">
+    <div class="bf-band">
+      <div class="bf-brand"><img src="/brand/logo01-v1/symbol-white.svg" alt="" />กระรอกตุนเงิน<span class="bf-state">แบบร่างจากแชท</span></div>
+      <h1 class="bf-title" id="job-title">บันทึกงาน</h1>
+      <div class="bf-label">มูลค่าค่าจ้าง</div>
+      <div class="bf-amount" id="job-band-amount">฿0.00</div>
+      <div class="bf-who" id="job-band-who"></div>
+      <img class="bf-mascot" src="/line/mascot-v6-working.png" alt="" aria-hidden="true" />
     </div>
-    <div class="slip-actions"><button type="button" class="slip-btn ghost" data-close>กลับไปแชท</button><button type="button" class="slip-btn primary" id="job-next-btn">ยืนยันบันทึก</button></div>
-  </section>
-  <section id="expense-card" class="slip hidden" aria-labelledby="expense-title">
-    <div class="slip-sheet">
-      <div class="slip-head">
-        <div class="slip-logo"><img src="/brand/logo01-v1/symbol-ci.svg" alt="" /><div>กระรอกตุนเงิน<small>เลขาการเงิน</small></div></div>
-        <span class="slip-stamp">แบบร่าง</span>
-      </div>
-      <div class="slip-title"><h1 id="expense-title">บันทึกรายจ่าย</h1><span class="slip-meta" id="expense-meta">จากแชท LINE</span></div>
-      <div class="slip-sec">รายละเอียดรายจ่าย</div>
-      <div class="slip-grid">
-        <div class="fl full"><label for="expense-name">ชื่อรายการ</label><input type="text" id="expense-name" placeholder="เช่น กาแฟ" maxlength="500" required autocomplete="off" /></div>
-        <div class="fl full"><label for="expense-category">หมวดหมู่</label><select id="expense-category" aria-describedby="category-help">
-      <option>ค่าอุปกรณ์/ซอฟต์แวร์</option><option>ค่าโฆษณา/ยิงแอด</option><option>ค่าเดินทาง/น้ำมัน</option><option>อาหาร/รับรองลูกค้า</option><option>จ้างงานต่อ (Outsource)</option><option>ภาษี/ธรรมเนียม</option><option>ค่าบริการ/สาธารณูปโภค</option><option selected>อื่นๆ</option>
-    </select><p class="helper" id="category-help">เลือกหมวดหมู่ที่เหมาะกับรายการนี้ เปลี่ยนได้ก่อนบันทึก</p></div>
-        <div class="fl full"><label for="expense-amount">จำนวนเงิน (บาท)</label><input type="number" id="expense-amount" class="money" placeholder="0.00" min="0.01" step="0.01" inputmode="decimal" required /></div>
-        <div class="fl full"><label for="expense-note">หมายเหตุ</label><textarea id="expense-note" maxlength="2000" placeholder="ไม่บังคับ"></textarea></div>
-      </div>
-      <div class="slip-lines" aria-label="สรุปรายจ่าย">
-        <div class="ln"><span>รายการ</span><i></i><span id="expense-summary-name" class="plain">รายการใหม่</span></div>
-        <div class="ln total"><span>ยอดรายจ่าย</span><i></i><span id="expense-summary-amount">฿0.00</span></div>
-      </div>
-      <div class="error" id="expense-error-box" role="alert" tabindex="-1"></div>
-      <p class="slip-note">บันทึกเข้าบัญชีกระรอกตุนเงินของคุณเมื่อกดยืนยันเท่านั้น แก้ไขต่อได้ในแอป</p>
+    <div class="bf-card">
+      <h2>รายละเอียดงาน</h2>
+      <div class="f"><label for="job-name">ชื่องาน</label><input type="text" id="job-name" placeholder="เช่น ถ่ายภาพสินค้า" maxlength="500" required autocomplete="off" /></div>
+      <div class="f"><label for="job-client">ลูกค้า <span class="optional">ไม่บังคับ</span></label><input type="text" id="job-client" placeholder="ชื่อลูกค้าหรือบริษัท" maxlength="500" autocomplete="off" /></div>
+      <div class="f"><label for="job-value">ค่าจ้างเต็ม (บาท)</label><input type="number" id="job-value" class="money" placeholder="0.00" min="0.01" step="0.01" inputmode="decimal" required /></div>
+      <div class="f"><span class="f-label" id="job-type-label">ประเภทงาน</span><div class="bf-chips" id="job-type-pick" role="radiogroup" aria-labelledby="job-type-label" tabindex="-1" data-input="job-type" data-empty="ยังไม่ระบุ"><button type="button" role="radio" data-value="Sponsored Post">Sponsored Post</button><button type="button" role="radio" data-value="Video Production">Video Production</button><button type="button" role="radio" data-value="Digital Product">Digital Product</button><button type="button" role="radio" data-value="Consulting / Advisory">Consulting</button><button type="button" role="radio" data-value="งานทั่วไปอื่นๆ">อื่น ๆ</button></div><input type="hidden" id="job-type" value="ยังไม่ระบุ" /></div>
     </div>
-    <div class="slip-actions"><button type="button" class="slip-btn ghost" data-close>กลับไปแชท</button><button type="button" class="slip-btn primary" id="expense-submit-btn">ยืนยันบันทึก</button></div>
-  </section>
-  <section id="document-card" class="slip hidden" aria-labelledby="document-title">
-    <div class="slip-sheet">
-      <div class="slip-head">
-        <div class="slip-logo"><img src="/brand/logo01-v1/symbol-ci.svg" alt="" /><div>กระรอกตุนเงิน<small>เลขาการเงิน</small></div></div>
-        <span class="slip-stamp">แบบร่าง</span>
+    <div class="bf-card">
+      <h2 id="job-status-label">การรับเงิน</h2>
+      <div class="f"><div class="bf-tiles" id="job-status-pick" role="radiogroup" aria-labelledby="job-status-label" aria-describedby="payment-help" tabindex="-1" data-input="job-paymentStatus"><button type="button" role="radio" data-value="paid">รับเงินครบแล้ว</button><button type="button" role="radio" data-value="partial">รับมัดจำบางส่วนแล้ว</button><button type="button" role="radio" data-value="pending">ยังไม่ได้รับเงิน</button></div>
+        <input type="hidden" id="job-paymentStatus" value="" /><p class="helper" id="payment-help">เลือกตามเงินที่ได้รับจริง</p></div>
+      <div class="f hidden" id="received-amount-field"><label for="job-receivedAmount">รับเงินมาแล้ว (บาท)</label><input type="number" id="job-receivedAmount" class="money" placeholder="0.00" min="0.01" step="0.01" inputmode="decimal" /></div>
+      <div class="f"><span class="f-label" id="job-wht-label">หัก ณ ที่จ่าย</span><div class="bf-chips" id="job-wht-pick" role="radiogroup" aria-labelledby="job-wht-label" tabindex="-1" data-input="job-whtRate" data-suffix="%"><button type="button" role="radio" data-value="0">ไม่มี</button><button type="button" role="radio" data-value="1">1%</button><button type="button" role="radio" data-value="3">3%</button><button type="button" role="radio" data-value="5">5%</button></div><input type="hidden" id="job-whtRate" value="0" /></div>
+      <div class="f"><span class="f-label" id="job-credit-label">เครดิตเทอม</span><div class="bf-chips" id="job-credit-pick" role="radiogroup" aria-labelledby="job-credit-label" tabindex="-1" data-input="job-creditTerm" data-suffix=" วัน"><button type="button" role="radio" data-value="0">ไม่มี</button><button type="button" role="radio" data-value="15">15 วัน</button><button type="button" role="radio" data-value="30">30 วัน</button><button type="button" role="radio" data-value="45">45 วัน</button><button type="button" role="radio" data-value="60">60 วัน</button><button type="button" role="radio" data-value="90">90 วัน</button></div><input type="hidden" id="job-creditTerm" value="0" /><p class="helper">นับจากวันส่งงาน</p></div>
+    </div>
+    <div class="bf-card">
+      <h2>สรุปยอด</h2>
+      <div class="bf-sum" id="job-receipt" aria-label="สรุปยอด">
+        <div class="row"><span>มูลค่าเต็ม</span><span class="v" id="receipt-value">฿0.00</span></div>
+        <div class="row" id="receipt-wht-row"><span>หัก ณ ที่จ่าย 0%</span><span class="v" id="receipt-wht">−฿0.00</span></div>
+        <div class="row"><span>ยอดหลังหัก</span><span class="v" id="receipt-net">฿0.00</span></div>
+        <div class="row"><span>รับแล้ว</span><span class="v" id="receipt-received">ยังไม่เลือก</span></div>
+        <span class="rule"></span>
+        <div class="row big"><span>รอรับเงิน</span><span class="v" id="receipt-pending">ยังไม่เลือก</span></div>
       </div>
-      <div class="slip-title"><h1 id="document-title">ใบเสนอราคา</h1><span class="slip-meta" id="document-meta">จากแชท LINE</span></div>
-      <div class="slip-heard hidden" id="document-heard"><p id="document-heard-text"></p></div>
-
-      <div class="slip-sec">ผู้ออกเอกสาร</div>
-      <div class="slip-known hidden" id="document-issuer-known">
-        <div class="slip-known-head"><b id="document-issuer-name"></b><button type="button" id="document-issuer-edit">แก้ไข</button></div>
+    </div>
+    <div class="bf-card"><h2><label for="job-note">หมายเหตุ</label></h2><div class="f"><textarea id="job-note" maxlength="2000" placeholder="รายละเอียดที่อยากเก็บไว้กับงานนี้ (ไม่บังคับ)"></textarea></div>
+      <div class="error" id="job-error-box" role="alert" tabindex="-1"></div></div>
+  <div class="bf-actions"><button type="button" class="bf-btn" id="job-next-btn">บันทึกงาน</button><p class="bf-cap">บันทึกเมื่อกดปุ่มนี้เท่านั้น</p><button type="button" class="bf-back" data-close>กลับไปแชท</button></div>
+  </section>
+  <section id="expense-card" class="bf hidden" aria-labelledby="expense-title">
+    <div class="bf-band">
+      <div class="bf-brand"><img src="/brand/logo01-v1/symbol-white.svg" alt="" />กระรอกตุนเงิน<span class="bf-state">แบบร่างจากแชท</span></div>
+      <h1 class="bf-title" id="expense-title">บันทึกรายจ่าย</h1>
+      <div class="bf-label">ยอดรายจ่าย</div>
+      <div class="bf-amount" id="expense-summary-amount">฿0.00</div>
+      <div class="bf-who" id="expense-summary-name"></div>
+      <img class="bf-mascot" src="/line/mascot-v6-spent.png" alt="" aria-hidden="true" />
+    </div>
+    <div class="bf-card">
+      <h2>รายละเอียดรายจ่าย</h2>
+      <div class="f"><label for="expense-name">ชื่อรายการ</label><input type="text" id="expense-name" placeholder="เช่น กาแฟ" maxlength="500" required autocomplete="off" /></div>
+      <div class="f"><label for="expense-amount">จำนวนเงิน (บาท)</label><input type="number" id="expense-amount" class="money" placeholder="0.00" min="0.01" step="0.01" inputmode="decimal" required /></div>
+      <div class="f"><span class="f-label" id="expense-category-label">หมวดหมู่</span><div class="bf-chips" id="expense-category-pick" role="radiogroup" aria-labelledby="expense-category-label" tabindex="-1" data-input="expense-category"><button type="button" role="radio" data-value="ค่าอุปกรณ์/ซอฟต์แวร์">ค่าอุปกรณ์/ซอฟต์แวร์</button><button type="button" role="radio" data-value="ค่าโฆษณา/ยิงแอด">ค่าโฆษณา/ยิงแอด</button><button type="button" role="radio" data-value="ค่าเดินทาง/น้ำมัน">ค่าเดินทาง/น้ำมัน</button><button type="button" role="radio" data-value="อาหาร/รับรองลูกค้า">อาหาร/รับรองลูกค้า</button><button type="button" role="radio" data-value="จ้างงานต่อ (Outsource)">จ้างงานต่อ (Outsource)</button><button type="button" role="radio" data-value="ภาษี/ธรรมเนียม">ภาษี/ธรรมเนียม</button><button type="button" role="radio" data-value="ค่าบริการ/สาธารณูปโภค">ค่าบริการ/สาธารณูปโภค</button><button type="button" role="radio" data-value="อื่นๆ">อื่นๆ</button></div><input type="hidden" id="expense-category" value="อื่นๆ" /><p class="helper" id="category-help">เลือกหมวดที่เหมาะกับรายการนี้</p></div>
+    </div>
+    <div class="bf-card"><h2><label for="expense-note">หมายเหตุ</label></h2><div class="f"><textarea id="expense-note" maxlength="2000" placeholder="รายละเอียดเพิ่มเติม (ไม่บังคับ)"></textarea></div>
+      <div class="error" id="expense-error-box" role="alert" tabindex="-1"></div></div>
+  <div class="bf-actions"><button type="button" class="bf-btn" id="expense-submit-btn">บันทึกรายจ่าย</button><p class="bf-cap">บันทึกเมื่อกดปุ่มนี้เท่านั้น</p><button type="button" class="bf-back" data-close>กลับไปแชท</button></div>
+  </section>
+  <section id="document-card" class="bf hidden" aria-labelledby="document-title">
+    <div class="bf-band">
+      <div class="bf-brand"><img src="/brand/logo01-v1/symbol-white.svg" alt="" />กระรอกตุนเงิน<span class="bf-state">แบบร่างจากแชท</span></div>
+      <h1 class="bf-title" id="document-title">ใบเสนอราคา</h1>
+      <div class="bf-label">ยอดชำระสุทธิ</div>
+      <div class="bf-amount" id="document-summary-amount">฿0.00</div>
+      <div class="bf-who" id="document-summary-name"></div>
+      <img class="bf-mascot" src="/line/mascot-v6-document.png" alt="" aria-hidden="true" />
+    </div>
+    <div class="bf-card">
+      <div class="bf-heard hidden" id="document-heard"><p id="document-heard-text"></p></div>
+      <h2>ผู้ออกเอกสาร</h2>
+      <div class="bf-known hidden" id="document-issuer-known">
+        <div class="bf-known-head"><b id="document-issuer-name"></b><button type="button" id="document-issuer-edit">แก้ไข</button></div>
         <p id="document-issuer-details"></p>
       </div>
       <div id="document-issuer-fields" class="hidden">
-        <p class="helper slip-help" id="document-issuer-help"></p>
-        <div class="slip-grid">
-        <div class="fl full"><label for="doc-issuer-name">ชื่อธุรกิจหรือชื่อของคุณ</label><input type="text" id="doc-issuer-name" maxlength="200" autocomplete="organization" placeholder="เช่น นายออมสิน ดีแท้ หรือ บริษัท สัญญารัก จำกัด" /></div>
-        <div class="fl full"><label for="doc-issuer-address">ที่อยู่ออกเอกสาร / ที่อยู่จดทะเบียน</label><textarea id="doc-issuer-address" maxlength="500" rows="2" autocomplete="street-address"></textarea></div>
-        <div class="fl"><label for="doc-issuer-taxId">เลขประจำตัวผู้เสียภาษี</label><input type="text" id="doc-issuer-taxId" maxlength="20" inputmode="numeric" placeholder="13 หลัก" /></div>
-        <div class="fl"><label for="doc-issuer-phone">เบอร์โทรศัพท์</label><input type="text" id="doc-issuer-phone" maxlength="40" inputmode="tel" autocomplete="tel" placeholder="เช่น 089-999-9999" /></div>
-        <div class="fl full"><label for="doc-issuer-email">อีเมล</label><input type="text" id="doc-issuer-email" maxlength="200" inputmode="email" autocomplete="email" placeholder="ไม่บังคับ" /></div>
-        </div>
-        <p class="slip-sub">ช่องทางรับเงิน <span class="optional">ไม่บังคับ · แสดงท้ายเอกสาร ให้ลูกค้าโอนเงิน</span></p>
-        <div class="slip-grid">
-        <div class="fl"><label for="doc-issuer-bankName">ชื่อธนาคาร</label><input type="text" id="doc-issuer-bankName" maxlength="100" placeholder="เช่น กสิกรไทย หรือ พร้อมเพย์" /></div>
-        <div class="fl"><label for="doc-issuer-bankAccount">เลขที่บัญชี</label><input type="text" id="doc-issuer-bankAccount" maxlength="40" inputmode="numeric" placeholder="เช่น 123-4-56789-0" /></div>
-        <div class="fl full"><label for="doc-issuer-bankAccountName">ชื่อบัญชี</label><input type="text" id="doc-issuer-bankAccountName" maxlength="200" /></div>
-        </div>
+        <p class="helper bf-help" id="document-issuer-help"></p>
+        <div class="f"><label for="doc-issuer-name">ชื่อธุรกิจหรือชื่อของคุณ</label><input type="text" id="doc-issuer-name" maxlength="200" autocomplete="organization" placeholder="เช่น นายออมสิน ดีแท้ หรือ บริษัท สัญญารัก จำกัด" /></div>
+        <div class="f"><label for="doc-issuer-address">ที่อยู่ออกเอกสาร / ที่อยู่จดทะเบียน</label><textarea id="doc-issuer-address" maxlength="500" rows="2" autocomplete="street-address"></textarea></div>
+        <div class="f"><label for="doc-issuer-taxId">เลขประจำตัวผู้เสียภาษี</label><input type="text" id="doc-issuer-taxId" maxlength="20" inputmode="numeric" placeholder="13 หลัก" /></div>
+        <div class="f"><label for="doc-issuer-phone">เบอร์โทรศัพท์</label><input type="text" id="doc-issuer-phone" maxlength="40" inputmode="tel" autocomplete="tel" placeholder="เช่น 089-999-9999" /></div>
+        <div class="f"><label for="doc-issuer-email">อีเมล <span class="optional">ไม่บังคับ</span></label><input type="text" id="doc-issuer-email" maxlength="200" inputmode="email" autocomplete="email" /></div>
+        <p class="bf-sub">ช่องทางรับเงิน <span class="optional">ไม่บังคับ · แสดงท้ายเอกสาร ให้ลูกค้าโอนเงิน</span></p>
+        <div class="f"><label for="doc-issuer-bankName">ชื่อธนาคาร</label><input type="text" id="doc-issuer-bankName" maxlength="100" placeholder="เช่น กสิกรไทย หรือ พร้อมเพย์" /></div>
+        <div class="f"><label for="doc-issuer-bankAccount">เลขที่บัญชี</label><input type="text" id="doc-issuer-bankAccount" maxlength="40" inputmode="numeric" placeholder="เช่น 123-4-56789-0" /></div>
+        <div class="f"><label for="doc-issuer-bankAccountName">ชื่อบัญชี</label><input type="text" id="doc-issuer-bankAccountName" maxlength="200" /></div>
       </div>
-
-      <div class="slip-sec">ลูกค้า</div>
-      <div class="slip-grid">
-        <div class="fl full"><label for="doc-client-name">ชื่อลูกค้าหรือบริษัท</label><input type="text" id="doc-client-name" maxlength="200" placeholder="เช่น บริษัท แบรนด์เอ จำกัด" /></div>
-        <div class="fl full"><label for="doc-client-address">ที่อยู่</label><textarea id="doc-client-address" maxlength="500" rows="2" placeholder="ไม่บังคับ"></textarea></div>
-        <div class="fl"><label for="doc-client-taxId">เลขประจำตัวผู้เสียภาษี</label><input type="text" id="doc-client-taxId" maxlength="20" inputmode="numeric" placeholder="ไม่บังคับ" /></div>
-        <div class="fl"><label for="doc-client-branch">สาขา</label><input type="text" id="doc-client-branch" maxlength="100" placeholder="เช่น สำนักงานใหญ่" /></div>
-        <div class="fl full"><label for="doc-client-phone">เบอร์โทร</label><input type="text" id="doc-client-phone" maxlength="40" inputmode="tel" placeholder="ไม่บังคับ" /></div>
-      </div>
-
-      <div class="slip-sec">รายการ</div>
-      <div id="document-items"></div>
-      <button type="button" class="slip-add" id="document-add-item">+ เพิ่มรายการ</button>
-
-      <div class="slip-sec">ภาษีและการชำระเงิน</div>
-      <div class="slip-grid">
-        <div class="fl full"><span class="fl-label" id="doc-vat-label">ภาษีมูลค่าเพิ่ม (VAT)</span>
-          <div class="pick" id="doc-vat-pick" role="radiogroup" aria-labelledby="doc-vat-label" tabindex="-1" data-input="doc-vat"><button type="button" role="radio" data-value="0">ไม่มี VAT</button><button type="button" role="radio" data-value="7">VAT 7%</button></div>
-          <input type="hidden" id="doc-vat" value="0" />
-          <p class="helper hidden" id="doc-vat-fixed">ใบกำกับภาษีคิด VAT 7% เสมอ</p></div>
-        <div class="fl full"><span class="fl-label" id="doc-wht-label-text">หัก ณ ที่จ่าย</span>
-          <div class="pick" id="doc-wht-pick" role="radiogroup" aria-labelledby="doc-wht-label-text" tabindex="-1" data-input="doc-wht"><button type="button" role="radio" data-value="0">ไม่มี</button><button type="button" role="radio" data-value="1">1%</button><button type="button" role="radio" data-value="2">2%</button><button type="button" role="radio" data-value="3">3%</button><button type="button" role="radio" data-value="5">5%</button></div>
-          <input type="hidden" id="doc-wht" value="0" /></div>
-        <div class="fl full" id="doc-credit-wrap"><span class="fl-label" id="doc-credit-label">เครดิตเทอม</span>
-          <div class="pick" role="group" aria-labelledby="doc-credit-label" id="document-terms"></div></div>
-        <div id="doc-paid-wrap" class="fl-group hidden">
-          <div class="fl full"><label for="doc-paid-date">วันที่รับชำระเงิน</label><input type="date" id="doc-paid-date" /></div>
-          <div class="fl full"><label id="doc-method-label" for="doc-paid-method">วิธีชำระเงิน <span class="optional">ไม่บังคับ</span></label>
-            <div class="pick" role="group" aria-labelledby="doc-method-label" id="document-methods"></div>
-            <input type="text" id="doc-paid-method" maxlength="100" placeholder="หรือพิมพ์เอง เช่น โอนเข้าบัญชีกสิกรไทย" /></div>
-        </div>
-        <div class="fl full"><label for="doc-note">หมายเหตุ</label><textarea id="doc-note" maxlength="2000" rows="2" placeholder="เช่น ราคานี้รวมค่าเดินทางแล้ว"></textarea></div>
-      </div>
-      <div class="slip-lines" aria-label="สรุปยอดเอกสาร">
-        <div class="ln"><span>รวมก่อนภาษี</span><i></i><span id="doc-subtotal">฿0.00</span></div>
-        <div class="ln" id="doc-vat-row"><span>VAT 7%</span><i></i><span id="doc-vat-amount">฿0.00</span></div>
-        <div class="ln" id="doc-wht-row"><span id="doc-wht-label">หัก ณ ที่จ่าย</span><i></i><span id="doc-wht-amount">−฿0.00</span></div>
-        <div class="ln total"><span>ยอดชำระสุทธิ</span><i></i><span id="doc-payable">฿0.00</span></div>
-      </div>
-      <div class="error" id="document-error-box" role="alert" tabindex="-1"></div>
-      <p class="slip-note">สร้างเป็นเอกสารในแอป ยังไม่ได้ส่งให้ลูกค้า แก้ไขต่อได้ภายหลัง</p>
     </div>
-    <div class="slip-actions"><button type="button" class="slip-btn ghost" data-close>กลับไปแชท</button><button type="button" class="slip-btn primary" id="document-submit-btn">สร้างใบเสนอราคา</button></div>
+    <div class="bf-card">
+      <h2>ลูกค้า</h2>
+        <div class="f"><label for="doc-client-name">ชื่อลูกค้าหรือบริษัท</label><input type="text" id="doc-client-name" maxlength="200" placeholder="เช่น บริษัท แบรนด์เอ จำกัด" /></div>
+        <div class="f"><label for="doc-client-address">ที่อยู่ <span class="optional">ไม่บังคับ</span></label><textarea id="doc-client-address" maxlength="500" rows="2"></textarea></div>
+        <div class="f"><label for="doc-client-taxId">เลขประจำตัวผู้เสียภาษี <span class="optional">ไม่บังคับ</span></label><input type="text" id="doc-client-taxId" maxlength="20" inputmode="numeric" /></div>
+        <div class="f"><label for="doc-client-branch">สาขา <span class="optional">ไม่บังคับ</span></label><input type="text" id="doc-client-branch" maxlength="100" placeholder="เช่น สำนักงานใหญ่" /></div>
+        <div class="f"><label for="doc-client-phone">เบอร์โทร <span class="optional">ไม่บังคับ</span></label><input type="text" id="doc-client-phone" maxlength="40" inputmode="tel" /></div>
+    </div>
+    <div class="bf-card">
+      <h2>รายการ</h2>
+      <div id="document-items"></div>
+      <button type="button" class="bf-add" id="document-add-item">+ เพิ่มรายการ</button>
+    </div>
+    <div class="bf-card">
+      <h2>ภาษีและการชำระเงิน</h2>
+      <div class="f"><span class="f-label" id="doc-vat-label">ภาษีมูลค่าเพิ่ม (VAT)</span><div class="bf-chips" id="doc-vat-pick" role="radiogroup" aria-labelledby="doc-vat-label" tabindex="-1" data-input="doc-vat"><button type="button" role="radio" data-value="0">ไม่มี VAT</button><button type="button" role="radio" data-value="7">VAT 7%</button></div><input type="hidden" id="doc-vat" value="0" /><p class="helper hidden" id="doc-vat-fixed">ใบกำกับภาษีคิด VAT 7% เสมอ</p></div>
+      <div class="f"><span class="f-label" id="doc-wht-label-text">หัก ณ ที่จ่าย</span><div class="bf-chips" id="doc-wht-pick" role="radiogroup" aria-labelledby="doc-wht-label-text" tabindex="-1" data-input="doc-wht"><button type="button" role="radio" data-value="0">ไม่มี</button><button type="button" role="radio" data-value="1">1%</button><button type="button" role="radio" data-value="2">2%</button><button type="button" role="radio" data-value="3">3%</button><button type="button" role="radio" data-value="5">5%</button></div><input type="hidden" id="doc-wht" value="0" /></div>
+      <div class="f" id="doc-credit-wrap"><span class="f-label" id="doc-credit-label">เครดิตเทอม</span><div class="bf-chips" role="group" aria-labelledby="doc-credit-label" id="document-terms"></div></div>
+      <div id="doc-paid-wrap" class="hidden">
+        <div class="f"><label for="doc-paid-date">วันที่รับชำระเงิน</label><input type="date" id="doc-paid-date" /></div>
+        <div class="f"><label id="doc-method-label" for="doc-paid-method">วิธีชำระเงิน <span class="optional">ไม่บังคับ</span></label>
+          <div class="bf-chips" role="group" aria-labelledby="doc-method-label" id="document-methods"></div>
+          <input type="text" id="doc-paid-method" class="bf-after-chips" maxlength="100" placeholder="หรือพิมพ์เอง เช่น โอนเข้าบัญชีกสิกรไทย" /></div>
+      </div>
+    </div>
+    <div class="bf-card">
+      <h2>สรุปยอด</h2>
+      <div class="bf-sum" aria-label="สรุปยอดเอกสาร">
+        <div class="row"><span>รวมก่อนภาษี</span><span class="v" id="doc-subtotal">฿0.00</span></div>
+        <div class="row" id="doc-vat-row"><span>VAT 7%</span><span class="v" id="doc-vat-amount">฿0.00</span></div>
+        <div class="row" id="doc-wht-row"><span id="doc-wht-label">หัก ณ ที่จ่าย</span><span class="v" id="doc-wht-amount">−฿0.00</span></div>
+        <span class="rule"></span>
+        <div class="row big"><span>ยอดชำระสุทธิ</span><span class="v" id="doc-payable">฿0.00</span></div>
+      </div>
+    </div>
+    <div class="bf-card"><h2><label for="doc-note">หมายเหตุ</label></h2><div class="f"><textarea id="doc-note" maxlength="2000" rows="2" placeholder="เช่น ราคานี้รวมค่าเดินทางแล้ว (ไม่บังคับ)"></textarea></div>
+      <div class="error" id="document-error-box" role="alert" tabindex="-1"></div></div>
+  <div class="bf-actions"><button type="button" class="bf-btn" id="document-submit-btn">สร้างใบเสนอราคา</button><p class="bf-cap">สร้างเป็นเอกสารในแอป ยังไม่ได้ส่งให้ลูกค้า แก้ไขต่อได้ภายหลัง</p><button type="button" class="bf-back" data-close>กลับไปแชท</button></div>
   </section>
   <button type="button" class="return-btn hidden" id="return-chat-btn">กลับไปแชท</button>
 </main>

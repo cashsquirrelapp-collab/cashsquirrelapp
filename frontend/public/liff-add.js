@@ -17,39 +17,30 @@
     return '฿' + (Number.isFinite(value) ? value : 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
   function setValue(id, value) { field(id).value = value === undefined || value === null ? '' : String(value); }
-  function ensureOption(id, value, fallback) {
-    var select = field(id);
-    var selected = typeof value === 'string' || typeof value === 'number' ? String(value) : fallback;
-    if (!selected) selected = fallback;
-    if (!Array.from(select.options).some(function (option) { return option.value === selected; })) {
-      var option = document.createElement('option'); option.value = selected; option.textContent = selected; select.append(option);
-    }
-    select.value = selected;
-  }
 
   function mascotUrl(reaction) { return '/line/mascot-v6-' + reaction + '.png'; }
 
-  // The job and expense forms open only for a draft from the chat, as one formal slip (design D, owner 2026-11-13).
+  // The job and expense forms open only for a draft from the chat, in design B (owner 2026-11-13: "ดูง่ายกว่า").
   function setKind(kind) {
     if (draftReference && draftLoaded && kind !== draftReference.kind) return;
     currentKind = kind;
     field('job-card').classList.toggle('hidden', kind !== 'job'); field('expense-card').classList.toggle('hidden', kind !== 'expense');
   }
-  // A row of choices standing in for a select: the hidden input keeps the value the rest of the form reads.
+  // Choices to tap standing in for a select: the hidden input keeps the value the rest of the form reads. A group with
+  // data-empty (ประเภทงาน) can have none chosen, which keeps that word as its value.
   function setPick(groupId, value) {
     var group = field(groupId); var selected = value === undefined || value === null ? '' : String(value);
-    if (selected && !Array.from(group.children).some(function (button) { return button.getAttribute('data-value') === selected; })) {
-      // A rate the draft carries but the row does not offer (2%): shown as its own choice, never dropped.
-      var extra = document.createElement('button'); extra.type = 'button'; extra.setAttribute('role', 'radio'); extra.setAttribute('data-value', selected); extra.textContent = selected + '%';
-      var after = Array.from(group.children).find(function (button) { return Number(button.getAttribute('data-value')) > Number(selected); });
+    var empty = group.getAttribute('data-empty');
+    if (selected && selected !== empty && !Array.from(group.children).some(function (button) { return button.getAttribute('data-value') === selected; })) {
+      // A value the draft carries but the row does not offer (2%, 20 วัน, a category of its own): its own choice, never dropped.
+      var extra = document.createElement('button'); extra.type = 'button'; extra.setAttribute('role', 'radio'); extra.setAttribute('data-value', selected);
+      extra.textContent = selected + (group.getAttribute('data-suffix') || '');
+      var numeric = /^\d+(\.\d+)?$/.test(selected);
+      var after = numeric ? Array.from(group.children).find(function (button) { return Number(button.getAttribute('data-value')) > Number(selected); }) : null;
       group.insertBefore(extra, after || null);
     }
     Array.from(group.children).forEach(function (button) { button.setAttribute('aria-checked', String(button.getAttribute('data-value') === selected)); });
     field(group.getAttribute('data-input')).value = selected;
-  }
-  function slipDate() {
-    try { return 'จากแชท LINE · ' + new Intl.DateTimeFormat('th-TH', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Bangkok' }).format(new Date()); }
-    catch (error) { return 'จากแชท LINE'; }
   }
   function updateReceipt() {
     var value = Number(valueOf('job-value')) || 0;
@@ -59,7 +50,6 @@
     var status = valueOf('job-paymentStatus');
     var received = status === 'paid' ? net : status === 'partial' ? Number(valueOf('job-receivedAmount')) || 0 : 0;
     field('received-amount-field').classList.toggle('hidden', status !== 'partial');
-    field('credit-field').classList.toggle('full', status !== 'partial');
     field('job-receivedAmount').required = status === 'partial';
     field('receipt-value').textContent = fmtCurrency(value);
     field('receipt-wht-row').classList.toggle('hidden', rate === 0);
@@ -68,11 +58,13 @@
     field('receipt-net').textContent = fmtCurrency(net);
     field('receipt-received').textContent = status ? fmtCurrency(received) : 'ยังไม่เลือก';
     field('receipt-pending').textContent = status ? fmtCurrency(roundMoney(Math.max(0, net - received))) : 'ยังไม่เลือก';
+    field('job-band-amount').textContent = fmtCurrency(value);
+    field('job-band-who').textContent = [valueOf('job-name'), valueOf('job-client')].filter(Boolean).join(' · ') || 'กรอกชื่องาน';
   }
   function updateExpenseSummary() {
     var amount = Number(valueOf('expense-amount')) || 0;
     field('expense-summary-amount').textContent = fmtCurrency(amount);
-    field('expense-summary-name').textContent = valueOf('expense-name') || 'รายการใหม่';
+    field('expense-summary-name').textContent = [valueOf('expense-name') || 'รายการใหม่', valueOf('expense-category')].filter(Boolean).join(' · ');
   }
   function showError(kind, message, focusId) {
     var box = field(kind + '-error-box'); box.textContent = message; box.style.display = 'block';
@@ -93,7 +85,7 @@
     }
     {
       var credit = Number(valueOf('job-creditTerm'));
-      if (!Number.isInteger(credit) || credit < 0 || credit > 3650) { showError('job', 'เครดิตเทอมต้องเป็นจำนวนเต็มตั้งแต่ 0 ถึง 3,650 วัน', 'job-creditTerm'); return false; }
+      if (!Number.isInteger(credit) || credit < 0 || credit > 3650) { showError('job', 'เครดิตเทอมต้องเป็นจำนวนเต็มตั้งแต่ 0 ถึง 3,650 วัน', 'job-credit-pick'); return false; }
     }
     return true;
   }
@@ -263,18 +255,18 @@
     return { kind: kind, key: key.toLowerCase() };
   }
   function populateDraft(kind, draft) {
-    document.body.classList.add('draft-mode', 'slip-mode');
+    document.body.classList.add('draft-mode', 'bf-mode');
     setKind(kind);
-    field(kind === 'expense' ? 'expense-meta' : 'job-meta').textContent = slipDate();
     if (kind === 'expense') {
       setValue('expense-name', draft.name); setValue('expense-amount', draft.amount); setValue('expense-note', draft.note);
-      ensureOption('expense-category', draft.category, 'อื่นๆ');
+      setPick('expense-category-pick', typeof draft.category === 'string' && draft.category.trim() ? draft.category.trim() : 'อื่นๆ');
       field('category-help').textContent = draft.category ? 'หมวดหมู่นี้มาจากรายการร่าง กรุณาตรวจสอบและเปลี่ยนได้ตามต้องการ' : 'ยังไม่ได้ระบุหมวดหมู่ เลือกหมวดที่เหมาะกับรายการนี้ได้เลย';
       updateExpenseSummary();
     } else {
       setValue('job-name', draft.name); setValue('job-client', draft.client); setValue('job-value', draft.value);
-      setValue('job-creditTerm', draft.creditTerm == null ? 0 : draft.creditTerm); setValue('job-receivedAmount', draft.receivedAmount); setValue('job-note', draft.note);
-      ensureOption('job-type', draft.type, 'ยังไม่ระบุ');
+      setValue('job-receivedAmount', draft.receivedAmount); setValue('job-note', draft.note);
+      var credit = Number(draft.creditTerm); setPick('job-credit-pick', Number.isInteger(credit) && credit >= 0 ? String(credit) : '0');
+      setPick('job-type-pick', typeof draft.type === 'string' && draft.type.trim() ? draft.type.trim() : 'ยังไม่ระบุ');
       var rate = Number(draft.whtRate); setPick('job-wht-pick', Number.isFinite(rate) && rate >= 0 && rate <= 100 ? String(rate) : '0');
       var status = ['paid', 'partial', 'pending'].indexOf(draft.paymentStatus) >= 0 ? draft.paymentStatus : '';
       setPick('job-status-pick', status);
@@ -343,15 +335,20 @@
 
   ['job-value', 'job-whtRate', 'job-receivedAmount', 'job-paymentStatus', 'job-name'].forEach(function (id) { field(id).addEventListener('input', updateReceipt); field(id).addEventListener('change', updateReceipt); });
   ['expense-name', 'expense-amount'].forEach(function (id) { field(id).addEventListener('input', updateExpenseSummary); });
-  ['job-wht-pick', 'job-status-pick'].forEach(function (id) {
-    field(id).addEventListener('click', function (event) {
+  ['job-wht-pick', 'job-status-pick', 'job-type-pick', 'job-credit-pick', 'expense-category-pick'].forEach(function (id) {
+    var group = field(id); var kind = id.indexOf('expense') === 0 ? 'expense' : 'job';
+    group.addEventListener('click', function (event) {
       var button = event.target.closest('button[data-value]'); if (!button || !ready || submitting) return;
-      setPick(id, button.getAttribute('data-value')); clearError('job'); updateReceipt();
+      var empty = group.getAttribute('data-empty');
+      // Tapping the chosen type again leaves it unchosen.
+      var next = empty && button.getAttribute('aria-checked') === 'true' ? empty : button.getAttribute('data-value');
+      setPick(id, next); clearError(kind); updateReceipt(); updateExpenseSummary();
     });
   });
   document.querySelectorAll('[data-close]').forEach(function (button) { button.addEventListener('click', closeLiff); });
   field('job-next-btn').addEventListener('click', jobNext); field('expense-submit-btn').addEventListener('click', submitExpense); field('return-chat-btn').addEventListener('click', closeLiff);
-  setPick('job-wht-pick', '0'); setPick('job-status-pick', ''); updateReceipt(); updateExpenseSummary();
+  setPick('job-wht-pick', '0'); setPick('job-status-pick', ''); setPick('job-type-pick', 'ยังไม่ระบุ'); setPick('job-credit-pick', '0'); setPick('expense-category-pick', 'อื่นๆ');
+  updateReceipt(); updateExpenseSummary();
 
   (function splash() {
     // The opening logo as the app shows it: dark when the app is dark, the name once its typeface is in.
