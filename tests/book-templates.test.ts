@@ -52,29 +52,79 @@ test('every workbook: a cover page naming each tab, ตั้งค่า as a f
       // Formula columns are grey (never typed over); the others are ruled white cells.
       sheet.rows[1].forEach((cell, j) => {
         if (cell && typeof cell === 'object' && 'f' in cell) assert.match(String(cell.s), /^calc/, `${id}/${sheet.name} col ${j}`);
-        else assert.ok(['cell', 'choice', 'money', 'date', 'percent'].includes(String(sheet.columnStyles?.[j])), `${id}/${sheet.name} col ${j}: ${sheet.columnStyles?.[j]}`);
+        else assert.ok(['cell', 'choice', 'money', 'date', 'percent', 'idText'].includes(String(sheet.columnStyles?.[j])), `${id}/${sheet.name} col ${j}: ${sheet.columnStyles?.[j]}`);
       });
     }
   }
 });
 
-test('report tabs: title, who and which year, then the table from row 4, totals over the twelve months, no colour from cream', () => {
+test('report tabs: title, the official header lines (who, tax ID, place, year), the table from row 5, totals over the months', () => {
   const { sheets } = buildBookTemplate(PROFILES.freelance, { year: 2026 });
   for (const name of ['ภาษีถูกหัก ณ ที่จ่าย', 'รายงานเงินสดรับ-จ่าย', 'สรุปภาษีรายปี']) {
     const sheet = sheets.find(s => s.name === name)!;
     assert.equal(styleOf(sheet.rows[0][0]), 'title');
-    assert.match(String((sheet.rows[1][0] as { f: string }).f), /ปีภาษี.*ตั้งค่า'!\$B\$3.*ตั้งค่า'!\$B\$4/);
-    assert.ok(sheet.rows[3].every(cell => styleOf(cell) === 'header'), `${name}: header in row 4`);
+    assert.match(String((sheet.rows[1][0] as { f: string }).f), /ชื่อผู้ประกอบการ.*\$B\$4.*เลขประจำตัวผู้เสียภาษีอากร.*\$B\$5/);
+    assert.match(String((sheet.rows[2][0] as { f: string }).f), /สถานประกอบการ.*\$B\$6.*\$B\$7.*ปีภาษี.*\$B\$3/);
+    assert.ok(sheet.rows[4].every(cell => styleOf(cell) === 'header'), `${name}: header in row 5`);
   }
   const cash = sheets.find(s => s.name === 'รายงานเงินสดรับ-จ่าย')!;
-  assert.equal(styleOf(cash.rows[4][0]), 'cell');
-  assert.equal((cash.rows[4][4] as { f: string }).f, 'B5-C5-D5', 'January is row 5');
-  assert.equal((cash.rows[16][1] as { f: string }).f, 'SUM(B5:B16)', 'the year total adds rows 5–16');
+  assert.equal(styleOf(cash.rows[5][0]), 'cell');
+  assert.equal((cash.rows[5][4] as { f: string }).f, 'B6-C6-D6', 'January is row 6');
+  assert.equal((cash.rows[17][1] as { f: string }).f, 'SUM(B6:B17)', 'the year total adds rows 6–17');
   const year = sheets.find(s => s.name === 'สรุปภาษีรายปี')!;
-  assert.equal((year.rows[8][1] as { f: string }).f, 'SUM(B5:B8)');
-  assert.equal((year.rows[10][1] as { f: string }).f, 'D9', 'the VAT watch reads the year total');
+  assert.deepEqual(year.rows.slice(5, 11).map(row => (row[0] as { v: string }).v), ['40(2)', '40(5)', '40(6)', '40(7)', '40(8)', 'อื่น ๆ']);
+  assert.equal((year.rows[11][1] as { f: string }).f, 'SUM(B6:B11)');
+  assert.equal((year.rows[13][1] as { f: string }).f, 'D12', 'the VAT watch reads the year total');
+  const cashFormula = String((cash.rows[5][1] as { f: string }).f);
+  for (const type of ['40(5)', '40(6)', '40(7)', '40(8)']) assert.ok(cashFormula.includes(`"${type}"`), `the cash report counts ${type}`);
+  assert.ok(!cashFormula.includes('"40(2)"'));
+  const settings = sheets.find(s => s.name === 'ตั้งค่า')!;
+  assert.deepEqual([settings.rows[5][0], settings.rows[6][0]].map(cell => (cell as { v: string }).v), ['ชื่อสถานประกอบการ (ถ้ามี)', 'สำนักงานใหญ่ / สาขา'], 'B6 and B7 feed the header');
   const fills = Object.values(STYLE_DEFS).map(def => def.fill).filter(Boolean);
   assert.ok(!fills.includes('FDEEE6'), 'no peach (owner: cream and peach look old)');
+});
+
+test('VAT reports follow the Revenue Department layout: header, เดือนภาษี, branch, one line per invoice of the month, พ.ศ.', () => {
+  const { sheets } = buildBookTemplate(PROFILES.freelance_vat, { year: 2026 });
+  const income = sheets.find(s => s.name === 'รายรับ')!;
+  const expense = sheets.find(s => s.name === 'รายจ่าย')!;
+  assert.deepEqual(income.rows[0].map(cell => (cell as { v: string }).v).slice(0, 5), ['วันที่รับเงิน', 'เลขที่ใบกำกับภาษี', 'ผู้ซื้อ / ผู้จ่ายเงิน', 'เลขผู้เสียภาษีผู้ซื้อ', 'สาขาผู้ซื้อ']);
+  assert.deepEqual(expense.rows[0].map(cell => (cell as { v: string }).v).slice(0, 5), ['วันที่จ่ายเงิน', 'เลขที่ใบกำกับภาษี', 'ผู้ขาย / ผู้รับเงิน', 'เลขผู้เสียภาษีผู้ขาย', 'สาขาผู้ขาย']);
+  assert.equal((income.rows[0][14] as { v: string }).v, 'ลำดับในรายงานภาษีขาย (คำนวณ)');
+  assert.match(String((income.rows[1][14] as { f: string }).f), /COUNTIFS\(\$A\$2:\$A2,">="&DATE\(.*VALUE\('รายงานภาษีขาย'!\$C\$4&""\)/);
+  assert.match(String((expense.rows[1][12] as { f: string }).f), /\$J2<>"ใช่".*\$J\$2:\$J2,"ใช่"/, 'purchases: only claimable invoices');
+  assert.match(String((income.rows[1][8] as { f: string }).f), /ROUND\(H2\*0.07,2\)/, 'VAT 7% moved with the new column');
+  for (const [name, party] of [['รายงานภาษีขาย', 'ผู้ซื้อ'], ['รายงานภาษีซื้อ', 'ผู้ขาย']]) {
+    const report = sheets.find(s => s.name === name)!;
+    assert.equal((report.rows[0][0] as { v: string }).v, name);
+    assert.equal((report.rows[3][1] as { v: string }).v, 'เดือนภาษี');
+    assert.deepEqual(report.validations, [{ range: 'C4:C4', list: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'] }]);
+    assert.deepEqual(report.rows[5].map(cell => (cell as { v: string }).v), ['ลำดับที่', 'วัน เดือน ปี', 'เลขที่ / เล่มที่', `ชื่อ${party === 'ผู้ซื้อ' ? 'ผู้ซื้อสินค้า / ผู้รับบริการ' : 'ผู้ขายสินค้า / ผู้ให้บริการ'}`,
+      `เลขประจำตัวผู้เสียภาษีอากรของ${party}`, 'สำนักงานใหญ่ / สาขาที่', 'มูลค่าสินค้าหรือบริการ', 'จำนวนเงินภาษีมูลค่าเพิ่ม']);
+    assert.match(String((report.rows[6][1] as { f: string }).f), /YEAR\(INDEX\(.*\)\+543/, 'dates in พ.ศ.');
+    const total = report.rows[6 + 100];
+    assert.equal((total[0] as { v: string }).v, 'รวม');
+    assert.equal((total[6] as { f: string }).f, 'SUM(G7:G106)');
+  }
+  const pp30 = sheets.find(s => s.name === 'สรุป ภ.พ.30')!;
+  assert.match(String((pp30.rows[5][1] as { f: string }).f), /'รายรับ'!\$H\$2:\$H\$5000/, 'ภ.พ.30 reads the value from its new column');
+  assert.match(String((pp30.rows[5][4] as { f: string }).f), /'รายจ่าย'!\$I\$2:\$I\$5000.*'รายจ่าย'!\$J\$2:\$J\$5000,"ใช่"/);
+  // Tax IDs and branch codes are text: 0105… and 00000 keep their zeros, typed or written by เลขา.
+  for (const j of [3, 4]) { assert.equal(income.columnStyles?.[j], 'idText'); assert.equal(expense.columnStyles?.[j], 'idText'); }
+  const settingsTab = sheets.find(s => s.name === 'ตั้งค่า')!;
+  assert.equal(styleOf(settingsTab.rows[4][1]), 'inputText', 'the tax ID box in ตั้งค่า');
+});
+
+test('words on brick pass WCAG AA: the header is the deep brick #C24A16 (white on it 4.9:1)', () => {
+  const lum = (hex: string) => {
+    const [r, g, b] = [0, 2, 4].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(c => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const ratio = (a: string, b: string) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
+  assert.equal(STYLE_DEFS.header.fill, 'C24A16');
+  assert.ok(ratio(STYLE_DEFS.header.fill!, STYLE_DEFS.header.color!) >= 4.5);
+  for (const style of ['step', 'kicker'] as const) assert.ok(ratio(STYLE_DEFS[style].color!, 'FFFFFF') >= 4.5, style);
+  assert.ok(ratio('E65F2B', 'FFFFFF') < 4.5, 'the bright brick stays for bars and lines only');
 });
 
 test('สร้างชีตใหม่ให้: a sheet made from a template is written only into its income and expense tabs', () => {
@@ -90,6 +140,19 @@ test('สร้างชีตใหม่ให้: a sheet made from a templat
   // Read without the template's names, the budget tabs would have taken the expenses.
   const loose = mapOf('f', readTabs(live(buildBookTemplate(PROFILES.production, { year: 2026 }).sheets)));
   assert.notEqual(chooseTab(loose, 'expense')?.name, TEMPLATE_INFO.production.writes.expense);
+});
+
+test('a worked-out column says so in its header, not by grey alone; totals read far past the 200 ruled rows', () => {
+  for (const profile of Object.values(PROFILES)) {
+    for (const sheet of buildBookTemplate(profile, { year: 2026 }).sheets.filter(s => s.freezeRows === 1)) {
+      sheet.rows[1].forEach((cell, j) => {
+        const header = String((sheet.rows[0][j] as { v: string }).v);
+        assert.equal(header.endsWith(' (คำนวณ)'), Boolean(cell && typeof cell === 'object' && 'f' in cell), `${sheet.name}: ${header}`);
+      });
+    }
+  }
+  const text = JSON.stringify(buildBookTemplate(PROFILES.agency, { year: 2026 }).sheets);
+  assert.ok(!/\$[A-Z]+\$201\b/.test(text), 'no range stops at row 201');
 });
 
 test('xlsx: the look is in the file — fonts by destination, no grid lines, joined cells, header printed on every page', () => {
@@ -111,4 +174,5 @@ test('xlsx: the look is in the file — fonts by destination, no grid lines, joi
   const jobs = strFromU8(excel['xl/worksheets/sheet3.xml']);
   assert.match(jobs, /<pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"\/>/);
   assert.match(jobs, /<c r="B200" s="\d+"\/>/, 'empty ruled rows down to 200');
+  assert.match(styles, /<xf numFmtId="49"/, 'a text format for tax IDs');
 });

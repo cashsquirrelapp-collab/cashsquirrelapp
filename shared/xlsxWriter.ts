@@ -7,7 +7,7 @@ import { strToU8, zipSync } from 'fflate';
 
 export type CellStyle = 'text' | 'header' | 'money' | 'date' | 'title' | 'total' | 'note' | 'percent' | 'label'
   | 'cell' | 'cellWrap' | 'choice' | 'calc' | 'calcText' | 'calcDate' | 'subtitle' | 'section' | 'bar' | 'input' | 'inputPercent'
-  | 'totalLabel' | 'step' | 'kicker' | 'figure' | 'figureStrong';
+  | 'totalLabel' | 'step' | 'kicker' | 'figure' | 'figureStrong' | 'idText' | 'inputText';
 export type Cell =
   | string | number | null | undefined
   | { v: string | number; s?: CellStyle }
@@ -39,14 +39,14 @@ export interface SheetSpec {
 }
 
 // The look (owner, 2026-11-13: "สวยๆ เป็นทางการ"; 2026-11-12: brick #E65F2B flat on a neutral ground, no gradients, no
-// cream): a brick header row, hairline-ruled cells like a printed ledger, grey cells for what the sheet works out (never
+// cream). Words on brick use the deep brick #C24A16 (white on it 4.90:1, WCAG AA; on #E65F2B only 3.48:1): a brick header row, hairline-ruled cells like a printed ledger, grey cells for what the sheet works out (never
 // typed over), a double rule under totals, quiet titles. One table drives both the file and the preview images.
 export const SHEET_COLORS = {
-  brick: 'E65F2B', brickDark: 'B8461C', brickLine: 'EE8A63', ink: '1C1917', muted: '6B6560', calcInk: '57534E',
+  brick: 'E65F2B', brickDeep: 'C24A16', brickDark: '9A3A12', brickLine: 'D2734B', ink: '1C1917', muted: '6B6560', calcInk: '57534E',
   line: 'E2DFDB', lineStrong: 'BDB8B2', calcFill: 'F4F3F1', totalFill: 'ECEAE7', white: 'FFFFFF',
 } as const;
 export type BorderKind = 'cell' | 'header' | 'total' | 'input' | 'section';
-export type NumberFormat = 'money' | 'moneyDash' | 'date' | 'percent';
+export type NumberFormat = 'money' | 'moneyDash' | 'date' | 'percent' | 'text';
 export interface StyleDef {
   bold?: boolean; size?: number; color?: string; fill?: string; border?: BorderKind; format?: NumberFormat;
   h?: 'left' | 'center' | 'right'; v?: 'top' | 'center' | 'bottom'; wrap?: boolean; indent?: number;
@@ -54,7 +54,7 @@ export interface StyleDef {
 const K = SHEET_COLORS;
 export const STYLE_DEFS: Record<CellStyle, StyleDef> = {
   text: { v: 'center', wrap: true },
-  header: { bold: true, color: K.white, fill: K.brick, border: 'header', h: 'center', v: 'center', wrap: true },
+  header: { bold: true, color: K.white, fill: K.brickDeep, border: 'header', h: 'center', v: 'center', wrap: true },
   money: { format: 'money', border: 'cell', v: 'center' },
   date: { format: 'date', border: 'cell', h: 'center', v: 'center' },
   title: { bold: true, size: 18, color: K.ink, v: 'center' },
@@ -74,18 +74,22 @@ export const STYLE_DEFS: Record<CellStyle, StyleDef> = {
   input: { border: 'input', h: 'left', v: 'center', indent: 1 },
   inputPercent: { format: 'percent', border: 'input', h: 'left', v: 'center', indent: 1 },
   totalLabel: { bold: true, color: K.ink, fill: K.totalFill, border: 'total', v: 'center', indent: 1 },
-  step: { bold: true, size: 12, color: K.brick, h: 'right', v: 'top', indent: 1 },
-  kicker: { bold: true, size: 10, color: K.brick, v: 'center' },
+  step: { bold: true, size: 12, color: K.brickDeep, h: 'right', v: 'top', indent: 1 },
+  kicker: { bold: true, size: 10, color: K.brickDeep, v: 'center' },
   /** A worked-out figure in a report: white, ruled, a dash for nothing. */
   figure: { format: 'moneyDash', border: 'cell', v: 'center' },
   /** The figure a report is for (ภ.พ.30 to pay). */
   figureStrong: { bold: true, format: 'moneyDash', border: 'cell', v: 'center' },
+  /** Tax IDs and branch codes: kept as text, so 0105… and 00000 keep their leading zeros (typed or written by เลขา). */
+  idText: { format: 'text', border: 'cell', h: 'center', v: 'center' },
+  inputText: { format: 'text', border: 'input', h: 'left', v: 'center', indent: 1 },
 };
 export const NUMBER_FORMATS: Record<NumberFormat, { id: number; code: string }> = {
   money: { id: 164, code: '#,##0.00' },
   date: { id: 165, code: 'dd/mm/yyyy' },
   moneyDash: { id: 166, code: '#,##0.00;-#,##0.00;"–"' },
   percent: { id: 9, code: '0%' },
+  text: { id: 49, code: '@' },
 };
 const STYLE_NAMES = Object.keys(STYLE_DEFS) as CellStyle[];
 const STYLE_INDEX = Object.fromEntries(STYLE_NAMES.map((name, i) => [name, i])) as Record<CellStyle, number>;
@@ -150,7 +154,7 @@ function sheetXml(sheet: SheetSpec): string {
 
 const BORDERS: Record<BorderKind, string> = {
   cell: `<left style="thin"><color rgb="FF${K.line}"/></left><right style="thin"><color rgb="FF${K.line}"/></right><top style="thin"><color rgb="FF${K.line}"/></top><bottom style="thin"><color rgb="FF${K.line}"/></bottom>`,
-  header: `<left style="thin"><color rgb="FF${K.brickLine}"/></left><right style="thin"><color rgb="FF${K.brickLine}"/></right><top style="thin"><color rgb="FF${K.brick}"/></top><bottom style="thin"><color rgb="FF${K.brickDark}"/></bottom>`,
+  header: `<left style="thin"><color rgb="FF${K.brickLine}"/></left><right style="thin"><color rgb="FF${K.brickLine}"/></right><top style="thin"><color rgb="FF${K.brickDeep}"/></top><bottom style="thin"><color rgb="FF${K.brickDark}"/></bottom>`,
   total: `<left style="thin"><color rgb="FF${K.line}"/></left><right style="thin"><color rgb="FF${K.line}"/></right><top style="thin"><color rgb="FF${K.calcInk}"/></top><bottom style="double"><color rgb="FF${K.calcInk}"/></bottom>`,
   input: `<left style="thin"><color rgb="FF${K.lineStrong}"/></left><right style="thin"><color rgb="FF${K.lineStrong}"/></right><top style="thin"><color rgb="FF${K.lineStrong}"/></top><bottom style="thin"><color rgb="FF${K.lineStrong}"/></bottom>`,
   section: `<left/><right/><top/><bottom style="medium"><color rgb="FF${K.brick}"/></bottom>`,

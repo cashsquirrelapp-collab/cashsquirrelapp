@@ -111,7 +111,7 @@ test('workbooks: each business gets its template with the tabs the plan lists, e
   assert.equal(income.rows[1][6], '3%');
   assert.match(String((income.rows[1][7] as { f: string }).f), /ROUND\(F2\*IF\(ISNUMBER\(G2\)/, 'withheld tax is a formula');
   assert.equal(income.rows.length, 201, '200 rows ready');
-  assert.ok(income.validations!.some(v => v.range === 'G2:G201' && v.list.includes('3%')));
+  assert.ok(income.validations!.some(v => v.range === 'G2:G5000' && v.list.includes('3%')), 'drop-downs reach the rows added below the 200');
 });
 
 test('xlsx: a real workbook with styles, frozen headers, drop-downs and Thai tab names', () => {
@@ -125,9 +125,9 @@ test('xlsx: a real workbook with styles, frozen headers, drop-downs and Thai tab
   assert.match(workbook, /name="เงินทดรอง"/);
   const jobs = strFromU8(files['xl/worksheets/sheet3.xml']);
   assert.match(jobs, /state="frozen"/);
-  assert.match(jobs, /<dataValidation type="list"[^>]*sqref="D2:D201"><formula1>"TVC,ออนไลน์,ภาพนิ่ง,อีเวนต์,MV"<\/formula1>/);
+  assert.match(jobs, /<dataValidation type="list"[^>]*sqref="D2:D5000"><formula1>"TVC,ออนไลน์,ภาพนิ่ง,อีเวนต์,MV"<\/formula1>/);
   // Quotes inside a formula are written as &quot; (XML); the spreadsheet reads them back as quotes.
-  assert.match(jobs, /<f>IF\(A2=&quot;&quot;,&quot;&quot;,SUMIFS\('งบโปรดักชัน'!\$G\$2:\$G\$201/);
+  assert.match(jobs, /<f>IF\(A2=&quot;&quot;,&quot;&quot;,SUMIFS\('งบโปรดักชัน'!\$G\$2:\$G\$5000/);
   assert.match(strFromU8(files['xl/styles.xml']), /FFE65F2B/, 'the brick header');
 });
 
