@@ -77,6 +77,35 @@ test('a person\'s title starts the client name; มูลค่างาน name
   assert.deepEqual(parseLineJobRequest('รับงาน ลูกค้านางสาว บี เป็นงานถ่ายรูป 3000'), { intent: 'add_job', freshDraft: true, jobValue: 3000, jobName: 'งานถ่ายรูป', jobClient: 'นางสาว บี' });
 });
 
+// How people name a person they work for (owner, 2026-11-13: "พี่, อาจารย์, Mr./Ms."), read only after ให้ / ลูกค้า /
+// สำหรับ, and "ให้พี่หน่อย" as the speaker, not a client called "พี่".
+test('พี่ / น้อง / อาจารย์ / อ. / หมอ / เจ๊ / เฮีย / ผศ. / Mr. start a client name; ให้พี่หน่อย is the speaker; a bare title names nobody', () => {
+  const read = (text: string) => { const draft = parseLineDocumentCreate(text)!; return [draft.client.name ?? '', draft.items.map(item => `${item.description}|${item.price}`)]; };
+  for (const [text, client, items] of [
+    ['ทำใบเสนอราคาให้พี่บี งานตัดต่อ 5000', 'พี่บี', ['งานตัดต่อ|5000']],
+    ['ทำใบเสนอราคาให้พี่ บี งานตัดต่อ 5000', 'พี่ บี', ['งานตัดต่อ|5000']],
+    ['ทำใบเสนอราคาให้พี่หน่อย งานตัดต่อ 5000', '', ['งานตัดต่อ|5000']],
+    ['ทำใบเสนอราคาให้พี่ งานตัดต่อ 5000', '', ['งานตัดต่อ|5000']],
+    ['ทำใบเสนอราคาให้น้องเอ ค่าตัดต่อ 3000', 'น้องเอ', ['ค่าตัดต่อ|3000']],
+    ['ทำใบเสนอราคาให้อาจารย์สมชาย ค่าบรรยาย 8000', 'อาจารย์สมชาย', ['ค่าบรรยาย|8000']],
+    ['ทำใบเสนอราคาให้ อ.สมชาย ค่าบรรยาย 8000', 'อ.สมชาย', ['ค่าบรรยาย|8000']],
+    ['ออกใบแจ้งหนี้ให้ Mr. John งานแปลเอกสาร 3000', 'Mr. John', ['งานแปลเอกสาร|3000']],
+    ['ออกใบแจ้งหนี้ให้ Ms Anna งานแปล 3000', 'Ms Anna', ['งานแปล|3000']],
+    ['ออกใบแจ้งหนี้ให้Mrs.Smith ค่าออกแบบ 2000', 'Mrs.Smith', ['ค่าออกแบบ|2000']],
+    ['ทำใบเสนอราคาให้เจ๊แดง ค่าออกแบบเมนู 2500', 'เจ๊แดง', ['ค่าออกแบบเมนู|2500']],
+    ['ทำใบเสนอราคาให้หมอ เอ ค่าถ่ายรูปคลินิก 4000', 'หมอ เอ', ['ค่าถ่ายรูปคลินิก|4000']],
+    ['ทำใบเสนอราคาให้ ผศ.ดร.สมศรี ค่าที่ปรึกษา 10000', 'ผศ.ดร.สมศรี', ['ค่าที่ปรึกษา|10000']],
+    ['ทำใบเสนอราคา ลูกค้าเฮียเอ ค่าป้าย 1500', 'เฮียเอ', ['ค่าป้าย|1500']],
+    ['ทำใบเสนอราคา ตัดต่อให้พี่บี 5000', 'พี่บี', ['ตัดต่อ|5000']],
+    ['ทำใบเสนอราคาให้นาย งานตัดต่อ 5000', '', ['งานตัดต่อ|5000']],
+    // Never a client on their own: these are the work.
+    ['ทำใบแจ้งหนี้ ครูสอนพิเศษ 3000', '', ['ครูสอนพิเศษ|3000']],
+    ['ทำใบเสนอราคา Mission Impossible 5000', '', ['Mission Impossible|5000']],
+  ] as const) assert.deepEqual(read(text), [client, items], text);
+  assert.equal(parseLineDocumentCreate('ทำใบเสนอราคาให้พี่หน่อย')!.client.name, undefined, 'the speaker asking for one');
+  assert.deepEqual(parseLineJobRequest('รับงาน ถ่ายรูปให้อาจารย์สมชาย 3000'), { intent: 'add_job', freshDraft: true, jobValue: 3000, jobName: 'ถ่ายรูป', jobClient: 'อาจารย์สมชาย' });
+});
+
 test('the empty card says what is missing and opens the form; nothing can be made yet', () => {
   const stored = newDocumentDraft(parseLineDocumentCreate('ขอใบเสนอราคาหน่อย')!);
   const card = buildDocumentDraftCard(stored, ISSUER) as any;

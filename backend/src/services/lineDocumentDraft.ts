@@ -71,6 +71,12 @@ const FILLER = /(?:\s*(?:ให้หน่อย|หน่อย|ด้วย|�
  * (owner, 2026-11-13: "ลูกค้านาย A" was read as a client called "นาย"); นางสาว before นาง, and นายหน้า / นายจ้าง are words.
  */
 const COMPANY = /^(?:บริษัท|บจก\.?|หจก\.?|ห้างหุ้นส่วน(?:จำกัด)?|ร้าน|คุณ|นางสาว|น\.ส\.|นาง|นาย(?!หน้า|จ้าง)|ดร\.|โรงแรม|โรงเรียน|มูลนิธิ|สำนักงาน|สตูดิโอ|คลินิก|สมาคม|กลุ่ม)/u;
+/**
+ * How people name a person they work for (owner, 2026-11-13): พี่บี, น้องเอ, อาจารย์สมชาย, อ.สมชาย, ครู, หมอ, เจ๊แดง, เฮีย,
+ * ป้า, ลุง, ผศ./รศ./ศ., Mr./Mrs./Ms./Miss/Dr. Read as the start of a client's name only after ให้ / ลูกค้า / สำหรับ (never
+ * on their own: "ครูสอนพิเศษ" is work), and kept with the word after them unless that word starts the work.
+ */
+const PERSON = /^(?:พี่|น้อง|อาจารย์|อ\.|ครู|หมอ|เจ๊|เฮีย|ป้า|ลุง|ผศ\.|รศ\.|ศ\.|(?:[Mm](?:rs?|s|iss)|[Dd]r)(?![a-z])\.?)/u;
 /** Words that name the amount ("ยอด 4,000", "มูลค่างาน 5,000", "ราคาอยู่ที่ 3,000"), shared with jobs (lineQuickDraft.ts). */
 export const AMOUNT_WORD = '(?:ยอด(?:เงิน|รวม)?|ราคา(?:งาน)?|มูลค่า(?:งาน)?|ค่างาน|ค่าจ้าง|จำนวนเงิน|รวม)\\s*(?:อยู่ที่|ที่|คือ)?';
 /** A word that begins what the work is ("งานรื้อ…", "ค่าออกแบบ"). */
@@ -97,6 +103,8 @@ export function parseLineDocumentCreate(input: string): LineDocumentDraft | null
   const type = documentTypeOf(word);
   let rest = match[5].replace(/^ให้\s*(?:หน่อย|ผม|ฉัน|หนู|เรา|กู|เค้า|ที)(?=\s|$)\s*/u, '').replace(FILLER, '').trim();
   rest = rest.replace(/^(?:ให้\s*)?(?:หน่อย|ที)\s*/u, '').trim();
+  // "ให้พี่หน่อย", "ให้พี่ งานตัดต่อ": the speaker calling themselves พี่ / น้อง, not a client.
+  rest = rest.replace(/^ให้\s*(?:พี่|น้อง)\s*(?:หน่อย|ด้วย|ที)?(?=\s*(?:$|งาน|ค่า|\d))\s*/u, '').trim();
   // "ออกใบเสร็จจากใบแจ้งหนี้ INV-…": issuing on from a document stays with เลขา, which reads the document.
   if (/^จาก|(?:^|\s)(?:QT|INV|REC|TAX|RTX)-\d/u.test(rest)) return null;
   const draft: LineDocumentDraft = { type, client: {}, items: [], vatRate: isTaxType(type) ? 7 : 0, whtRate: 0, ...(rest ? { heard: rest.slice(0, 300) } : {}) };
@@ -146,15 +154,18 @@ export function splitClientWork(text: string): { client: string; work: string } 
   // "ถ่ายรูปให้ร้านบี" written as one word: split at ให้ when a business word follows (never "ให้คำปรึกษา").
   // "เป็นงานตัดต่อ" / "คือค่าออกแบบ": the work starts at งาน / ค่า, not at the linking word before it.
   const tokens = text.replace(FILLER, '').replace(/(^|\s)(?:เป็น|คือ)\s*(?=งาน|ค่า)/gu, '$1').split(/\s+/).filter(Boolean)
-    .flatMap(token => { const glued = new RegExp(`^(.+?)ให้(${COMPANY.source.slice(1)}.*)$`, 'u').exec(token); return glued ? [glued[1], `ให้${glued[2]}`] : [token]; });
+    .flatMap(token => { const glued = new RegExp(`^(.+?)ให้((?:${COMPANY.source.slice(1)}|${PERSON.source.slice(1)}).*)$`, 'u').exec(token); return glued ? [glued[1], `ให้${glued[2]}`] : [token]; });
   let client: string[] = [];
   const takeClient = (at: number, first: string) => {
     const name = [first];
     let next = at + 1;
-    if (COMPANY.test(first) && first.replace(COMPANY, '') === '' && tokens[next]) name.push(tokens[next++]);
+    // A business word or a title alone ("บริษัท", "นาย", "พี่", "Mr.") takes the next word, unless it starts the work.
+    const bare = (words: RegExp) => words.test(first) && first.replace(words, '') === '';
+    if ((bare(COMPANY) || bare(PERSON)) && tokens[next] && !WORK.test(tokens[next])) name.push(tokens[next++]);
     if (tokens[next] && /^(?:จำกัด|\(มหาชน\)|จำกัด\s*\(มหาชน\))$/u.test(tokens[next])) name.push(tokens[next++]);
     tokens.splice(at, next - at);
-    client = name;
+    // A title with no name after it ("ให้นาย งานตัดต่อ") names nobody: left empty, the card asks for the client.
+    client = name.length === 1 && (bare(COMPANY) || bare(PERSON)) ? [] : name;
   };
   // ให้ starts a client, except the verbs it starts: ให้คำปรึกษา, ให้บริการ, ให้เช่า…
   const marker = tokens.findIndex(token => /^(?:ให้|ลูกค้า|สำหรับ)/u.test(token) && !/^ให้(?:คำ|บริการ|เช่า|ยืม|ความ|ข้อมูล|การ)/u.test(token));
