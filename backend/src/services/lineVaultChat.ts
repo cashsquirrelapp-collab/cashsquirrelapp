@@ -4,7 +4,8 @@ import { findUserByLineId, isProUser, recentChatHistory, saveChatHistory, type U
 import { checkLinkedAccountWriteAccess } from './linkedAccountAccess.js';
 import { getSupabaseAdmin } from '../config/supabase.js';
 import { listVaultFiles, storeVaultFile, updateVaultFile } from './vault.js';
-import { VAULT_KIND_LABEL, VAULT_MAX_BYTES, sniffVaultMime, type VaultKind } from '../../../shared/vault.js';
+import { VAULT_FREE_FILES, VAULT_KIND_LABEL, VAULT_MAX_BYTES, VAULT_MAX_FILES, sniffVaultMime, type VaultKind } from '../../../shared/vault.js';
+import { freeMonthlyTokens } from './lineFirst.js';
 import { ATTACHMENT_MAX_BYTES, MAX_FILES, checkAttachment, checkAttachments } from '../ai/attachment.js';
 import type { ChatFile } from '../ai/types.js';
 import type { LineAnswer } from '../ai/lineBridge.js';
@@ -33,7 +34,7 @@ export function decodeVaultAction(data: string): VaultAction | null {
 
 export interface LineFileEvent { id?: string; type: string; fileName?: string; fileSize?: number; imageSet?: { id?: string; index?: number; total?: number } }
 
-async function owner(lineUserId: string): Promise<{ user: UserRow; auth: NonNullable<Awaited<ReturnType<ReturnType<typeof getSupabaseAdmin>['auth']['admin']['getUserById']>>['data']['user']> } | LineMessage> {
+async function owner(lineUserId: string): Promise<{ user: UserRow; auth: NonNullable<Awaited<ReturnType<ReturnType<typeof getSupabaseAdmin>['auth']['admin']['getUserById']>>['data']['user']>; maxFiles?: number } | LineMessage> {
   const user = await findUserByLineId(lineUserId);
   if (!user) return { type: 'text', text: isPhaseOneFeatureAvailable('vault', false) ? 'เชื่อมบัญชีกระรอกตุนเงินกับ LINE ก่อน จึงจะเก็บไฟล์เข้าคลังส่วนตัวได้ครับ' : 'ตอนนี้ LINE ยังรับไฟล์และรูปภาพไม่ได้ครับ' };
   const access = await checkLinkedAccountWriteAccess(user.user_id);
@@ -41,10 +42,13 @@ async function owner(lineUserId: string): Promise<{ user: UserRow; auth: NonNull
   // The document vault is not on the website for ordinary accounts yet, so LINE does not keep files for them either.
   if (!await lineAreaOpen('vault', user.user_id)) return { type: 'text', text: 'ตอนนี้ LINE ยังรับไฟล์และรูปภาพไม่ได้ครับ' };
   const account = await getSupabaseAdmin().auth.admin.getUserById(user.user_id);
-  if (account.error || !account.data.user || !await isProUser(user.user_id)) {
+  // Files follow the LINE chat (owner, 2026-11-13: "ปลดให้หมด"): every account while the free allowance is on, with the
+  // free vault's file count as on the website (vault-upload.ts); Pro only while it is off, as production is today.
+  const pro = account.error || !account.data.user ? false : await isProUser(user.user_id);
+  if (account.error || !account.data.user || (!pro && !freeMonthlyTokens())) {
     return { type: 'text', text: 'การแนบไฟล์ผ่าน LINE ใช้ได้ในช่วงทดลองหรือแพ็กเกจ Pro ครับ' };
   }
-  return { user, auth: account.data.user };
+  return { user, auth: account.data.user, maxFiles: pro ? VAULT_MAX_FILES : VAULT_FREE_FILES };
 }
 
 /** Limit the bytes while streaming; LINE may omit or misstate the Content-Length. */
@@ -222,8 +226,10 @@ export async function handleLineFileMessage(lineUserId: string, event: LineFileE
     bytes = await (deps.read ?? readLineFile)(event.id, token);
     saved = await (deps.store ?? storeVaultFile)({ kind: 'user', id: access.user.user_id }, access.auth, bytes, {
       kind: 'other', fileName: event.fileName || (event.type === 'image' ? 'รูปจาก LINE' : 'ไฟล์จาก LINE'),
-    });
+    }, access.maxFiles);
   } catch (error) {
+    // A free vault at its file count says so, as the website does.
+    if ((error as { code?: string } | null)?.code === 'vault_free_full') return [{ type: 'text', text: (error as Error).message }];
     console.error('line-vault: upload failed', { type: error instanceof Error ? error.message : 'unknown' });
     return [{ type: 'text', text: 'ยังเก็บไฟล์ไม่สำเร็จครับ รองรับ PDF, JPG, PNG, WEBP ไม่เกิน 10 MB กรุณาลองส่งใหม่ หรือเปิดคลังเอกสารในเว็บ' }];
   }
@@ -303,7 +309,7 @@ export async function handleLineImageSetPart(lineUserId: string, event: LineFile
   try {
     if (event.fileSize && event.fileSize > VAULT_MAX_BYTES) throw new Error('too large');
     bytes = await read(event.id, token);
-    const saved = await (deps.store ?? storeVaultFile)({ kind: 'user', id: user.user_id }, access.auth, bytes, { kind: 'other', fileName: event.fileName || `รูปจาก LINE ${index}` });
+    const saved = await (deps.store ?? storeVaultFile)({ kind: 'user', id: user.user_id }, access.auth, bytes, { kind: 'other', fileName: event.fileName || `รูปจาก LINE ${index}` }, access.maxFiles);
     part.fileId = saved.id;
     part.fileName = saved.fileName;
   } catch (error) {

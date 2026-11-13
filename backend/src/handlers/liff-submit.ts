@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { isProUser } from '../services/lineAssistant.js';
+import { freeMonthlyTokens } from '../services/lineFirst.js';
 import { rateLimit } from '../security/rateLimit.js';
 import type { VercelRequest, VercelResponse } from '../http/types.js';
 import {
@@ -128,6 +129,11 @@ const documentForm = z.object({
     bankName: docText(100), bankAccount: docText(40), bankAccountName: docText(200),
   }).strict().optional(),
 }).strict();
+
+/** The LINE forms are open to an account when the LINE chat is: everyone while the free allowance is on, else Pro. */
+async function formsOpen(userId: string, dependencies: LiffSubmitDependencies): Promise<boolean> {
+  return freeMonthlyTokens() > 0 || await dependencies.isProUser(userId);
+}
 
 async function handleDocumentDraft(body: Record<string, unknown>, user: UserRow, lineUserId: string, res: VercelResponse, dependencies: LiffSubmitDependencies): Promise<void> {
   const key = body.draftKey;
@@ -315,7 +321,10 @@ export async function handleLiffSubmit(
         res.status(400).json({ error: 'คำสั่งไม่ถูกต้อง' }); return;
       }
       await dependencies.rateLimit('liff-submit', user.user_id, 30, 60);
-      if (!await dependencies.isProUser(user.user_id)) {
+      // The LINE forms follow the LINE chat (owner, 2026-11-13: the draft form said ฟีเจอร์นี้ต้องใช้แพ็กเกจ Pro on a free
+      // account the chat had just made the card for, "ปลดให้หมด"): open to every account while the free allowance is on
+      // (lineFirst.ts), Pro only while it is off, as production is today. Free limits (documents, files) still apply.
+      if (!await formsOpen(user.user_id, dependencies)) {
         res.status(403).json({ error: 'ฟีเจอร์นี้ต้องใช้แพ็กเกจ Pro' }); return;
       }
       if (body.action === 'document-image') { await handleDocumentImage(body, user, lineUserId, res, dependencies); return; }
@@ -327,7 +336,7 @@ export async function handleLiffSubmit(
     if(!requestId.success){res.status(400).json({error:'รหัสคำขอไม่ถูกต้อง กรุณาเปิดฟอร์มใหม่'});return;}
     user.operationId=requestId.data;
     await dependencies.rateLimit('liff-submit', user.user_id, 30, 60);
-    if (!await dependencies.isProUser(user.user_id)) { res.status(403).json({ error: 'ฟีเจอร์นี้ต้องใช้แพ็กเกจ Pro' }); return; }
+    if (!await formsOpen(user.user_id, dependencies)) { res.status(403).json({ error: 'ฟีเจอร์นี้ต้องใช้แพ็กเกจ Pro' }); return; }
     if (!['job','expense'].includes(body.kind)) { res.status(400).json({ error: 'ประเภทข้อมูลไม่ถูกต้อง' }); return; }
     if (body.kind === 'expense') {
       const draft: ExpenseDraft = {

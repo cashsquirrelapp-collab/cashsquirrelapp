@@ -253,6 +253,30 @@ test('the form loads the current draft with the saved issuer, and an old card is
   assert.equal(old.state.status, 409);
 });
 
+// The forms follow the LINE chat (owner, 2026-11-13: the draft form said "ฟีเจอร์นี้ต้องใช้แพ็กเกจ Pro" on a free account the
+// chat had just made the card for, "ปลดให้หมด"): every account while the free allowance is on, Pro only while it is off.
+test('a free account opens the form while the free allowance is on; with it off the form is Pro only, as before', async () => {
+  const stored = newDocumentDraft(parseLineDocumentCreate('ขอใบเสนอราคาหน่อย')!);
+  const freeHandler = (calls: Record<string, any[]>) => createLiffSubmitHandler({ ...(formHandler as any).deps, verifyLiffIdToken: async () => 'U-line-user',
+    findUserByLineId: async () => ({ user_id: userId, jobs: [], goals: [], settings: {}, expenses: [], statuses: [], notif_settings: { pendingDocumentDraft: stored } }) as any,
+    checkLinkedAccountWriteAccess: async () => ({ allowed: true as const }), rateLimit: async () => undefined,
+    isProUser: async () => { (calls.pro ||= []).push(true); return false; },
+    loadDocumentAccount: async () => ({ issuer: documentIssuer(ISSUER), issuerVersion: 4, profile: ISSUER }) } as any);
+  const before = process.env.FREE_MONTHLY_TOKENS;
+  try {
+    process.env.FREE_MONTHLY_TOKENS = '200';
+    const open = response();
+    await freeHandler({})({ method: 'POST', body: { idToken: 't', action: 'load-draft', draftKind: 'document', draftKey: stored.id } } as any, open.res);
+    assert.equal(open.state.status, 200, 'free account, free allowance on');
+    delete process.env.FREE_MONTHLY_TOKENS;
+    const shut = response();
+    await freeHandler({})({ method: 'POST', body: { idToken: 't', action: 'load-draft', draftKind: 'document', draftKey: stored.id } } as any, shut.res);
+    assert.deepEqual([shut.state.status, shut.state.body.error], [403, 'ฟีเจอร์นี้ต้องใช้แพ็กเกจ Pro'], 'free account, free allowance off');
+  } finally {
+    if (before === undefined) delete process.env.FREE_MONTHLY_TOKENS; else process.env.FREE_MONTHLY_TOKENS = before;
+  }
+});
+
 test('the form saves one document for its draft, clears the draft, and sends the created card', async () => {
   const stored = newDocumentDraft(parseLineDocumentCreate('ขอใบเสนอราคาหน่อย')!);
   const calls: Record<string, any[]> = {};
