@@ -5,7 +5,8 @@ import { buildBookTemplate, TEMPLATE_INFO } from '../shared/bookTemplates';
 import { BUSINESS_VERSION, type BusinessProfile } from '../shared/businessProfile';
 import { buildXlsx, STYLE_DEFS, type Cell, type SheetSpec } from '../shared/xlsxWriter';
 import { forTemplate, mapOf, readTabs, templateReadings } from '../frontend/src/features/labs/sheetMap';
-import { chooseTab, rowCells } from '../shared/sheetRow';
+import { chooseCategory, chooseTab, rowCells } from '../shared/sheetRow';
+import { sheetMapSchema } from '../shared/googleSheets';
 import type { LiveTab } from '../shared/googleSheets';
 
 // The workbooks' formal look (owner, 2026-11-13: "เทมเพลต…สวยๆ เป็นทางการ"): a cover page, ตั้งค่า as a form, ledger tabs
@@ -163,8 +164,8 @@ test('our own sheets are read the way the template means them: an expense row ge
     return Object.fromEntries(rowCells(tab, kind, record, samples).filter(cell => cell.value !== null).map(cell => [cell.header, cell.value]));
   };
   const coffee = { name: 'ค่ากาแฟ', amount: 60, category: 'อาหาร', date: '2026-11-13' };
-  assert.deepEqual(cellsOf('freelance', 'expense', coffee), { 'วันที่จ่ายเงิน': '2026-11-13', 'รายการ': 'ค่ากาแฟ', 'หมวด': 'อาหาร', 'จำนวนเงิน': 60 });
-  assert.deepEqual(cellsOf('freelance_vat', 'expense', coffee), { 'วันที่จ่ายเงิน': '2026-11-13', 'รายการ': 'ค่ากาแฟ', 'หมวด': 'อาหาร', 'มูลค่าก่อน VAT': 60 });
+  assert.deepEqual(cellsOf('freelance', 'expense', coffee), { 'วันที่จ่ายเงิน': '2026-11-13', 'รายการ': 'ค่ากาแฟ', 'หมวด': 'อื่น ๆ', 'จำนวนเงิน': 60 }, 'no food choice on a freelancer sheet');
+  assert.deepEqual(cellsOf('freelance_vat', 'expense', coffee), { 'วันที่จ่ายเงิน': '2026-11-13', 'รายการ': 'ค่ากาแฟ', 'หมวด': 'อื่น ๆ', 'มูลค่าก่อน VAT': 60 });
   assert.deepEqual(cellsOf('production', 'expense', coffee), { 'วันที่จ่าย': '2026-11-13', 'หมวด': 'อาหาร', 'รายการ': 'ค่ากาแฟ', 'ก่อน VAT': 60 });
   const job = { name: 'ตัดต่อคลิป', client: 'บริษัท ก จำกัด', value: 10000, whtRate: 3, payDate: '2026-11-10', paymentStatus: 'paid' };
   assert.deepEqual(cellsOf('freelance', 'job', job, { 6: ['3%'] }),
@@ -177,6 +178,38 @@ test('our own sheets are read the way the template means them: an expense row ge
   const extended = live(sheets).map(tab => (tab.name === 'รายจ่าย' ? { ...tab, rows: [[...tab.rows[0], { raw: 'โปรเจกต์', text: 'โปรเจกต์' }], ...tab.rows.slice(1)] } : tab));
   assert.ok(templateReadings(readTabs(extended)));
   assert.equal(templateReadings(readTabs(live(buildBookTemplate(PROFILES.office, { year: 2026 }).sheets))), null, 'the office workbook keeps no personal records');
+});
+
+test('the app\'s expense categories become one of the sheet\'s own choices: the item name first, then the category', () => {
+  const freelance = ['ซื้อสินค้า', 'อุปกรณ์', 'ซอฟต์แวร์', 'เดินทาง', 'ค่าจ้างช่วง', 'ค่าสถานที่', 'โทรศัพท์-เน็ต', 'อื่น ๆ'];
+  const production = ['ทีมงาน', 'นักแสดง', 'อุปกรณ์', 'สถานที่', 'อาหาร', 'เดินทาง', 'อาร์ต', 'ตัดต่อ', 'อื่น ๆ'];
+  const agency = ['กลยุทธ์-ครีเอทีฟ', 'โปรดักชัน', 'KOL', 'ค่าสื่อแทนจ่าย', 'ค่าธรรมเนียมสื่อ', 'อีเวนต์', 'อื่น ๆ'];
+  const cases: [string, string, string[], string][] = [
+    ['ค่าอุปกรณ์/ซอฟต์แวร์', 'เช่ากล้อง 2 วัน', freelance, 'อุปกรณ์'],
+    ['ค่าอุปกรณ์/ซอฟต์แวร์', 'Adobe รายเดือน', freelance, 'ซอฟต์แวร์'],
+    ['ค่าอุปกรณ์/ซอฟต์แวร์', 'ซื้อของ', freelance, 'อุปกรณ์'],
+    ['ค่าเดินทาง/น้ำมัน', 'เติมน้ำมัน', freelance, 'เดินทาง'],
+    ['จ้างงานต่อ (Outsource)', 'จ้างช่างไฟ', production, 'ทีมงาน'],
+    ['จ้างงานต่อ (Outsource)', 'จ้างกราฟิก', freelance, 'ค่าจ้างช่วง'],
+    ['อาหาร/รับรองลูกค้า', 'ข้าวกล่องกอง', production, 'อาหาร'],
+    ['อาหาร/รับรองลูกค้า', 'ค่ากาแฟ', freelance, 'อื่น ๆ'],
+    ['ค่าโฆษณา/ยิงแอด', 'ยิงแอด Facebook', agency, 'ค่าสื่อแทนจ่าย'],
+    ['อื่นๆ', 'จ้างอินฟลูรีวิว', agency, 'KOL'],
+    ['ค่าบริการ/สาธารณูปโภค', 'ค่าไฟฟ้า', production, 'อื่น ๆ'],
+    ['ค่าบริการ/สาธารณูปโภค', 'ค่าเน็ตบ้าน', freelance, 'โทรศัพท์-เน็ต'],
+    ['อุปกรณ์', 'อะไรก็ได้', freelance, 'อุปกรณ์'],
+  ];
+  for (const [category, name, choices, expected] of cases) assert.equal(chooseCategory(category, name, choices), expected, `${name} / ${category}`);
+  assert.equal(chooseCategory('อะไรสักอย่าง', 'ไม่รู้', ['A', 'B']), 'อะไรสักอย่าง', 'no อื่น ๆ: the app word stays');
+  // The choices ride in the saved map (only on the category column), survive the check and come back when it is read again.
+  const sheets = buildBookTemplate(PROFILES.production, { year: 2026 }).sheets;
+  const map = mapOf('file-1234567890', templateReadings(readTabs(live(sheets)))!);
+  assert.ok(sheetMapSchema.safeParse(map).success);
+  const expenses = map.tabs.find(tab => tab.name === 'ค่าใช้จ่ายและเช่าอุปกรณ์')!;
+  assert.deepEqual(expenses.columns.filter(column => column.choices).map(column => column.header), ['หมวด']);
+  assert.deepEqual(expenses.columns.find(column => column.choices)!.choices, production);
+  const again = mapOf('file-1234567890', readTabs(live(sheets), map));
+  assert.deepEqual(again.tabs.find(tab => tab.name === 'ค่าใช้จ่ายและเช่าอุปกรณ์')!.columns.find(column => column.target === 'category')!.choices, production);
 });
 
 test('xlsx: the look is in the file — fonts by destination, no grid lines, joined cells, header printed on every page', () => {

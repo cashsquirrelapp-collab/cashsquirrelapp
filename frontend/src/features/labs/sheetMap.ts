@@ -18,6 +18,8 @@ export interface TabReading {
   /** Columns the sheet's formulas fill (by column index). */
   formulas: Set<number>;
   truncated: boolean;
+  /** A category column's own drop-down (a sheet made from our template), kept in the saved map. */
+  choices?: Record<number, string[]>;
 }
 
 const STATUSES: StatusOption[] = [
@@ -51,20 +53,22 @@ export function readTabs(tabs: LiveTab[], saved?: SheetMap | null): TabReading[]
         }),
       };
     }
-    return { grid, analysis, use: kept ? kept.use : defaultIncluded(analysis), formulas: formulaColumns(tab, analysis), truncated: tab.truncated };
+    const choices = kept ? Object.fromEntries(kept.columns.filter(column => column.choices?.length).map(column => [column.index, column.choices!])) : {};
+    return { grid, analysis, use: kept ? kept.use : defaultIncluded(analysis), formulas: formulaColumns(tab, analysis), truncated: tab.truncated, ...(Object.keys(choices).length ? { choices } : {}) };
   });
 }
 
 /** A sheet made from one of our templates (สร้างชีตใหม่ให้): only the tabs the template names are written into and counted,
  *  as jobs and as expenses; budgets, reports and the cover are left alone. */
-export function forTemplate(readings: TabReading[], writes: { job?: string; expense?: string }, targets: Record<string, string[]> = {}): TabReading[] {
+export function forTemplate(readings: TabReading[], writes: { job?: string; expense?: string }, targets: Record<string, string[]> = {}, choices: Record<string, Record<number, string[]>> = {}): TabReading[] {
   return readings.map(reading => {
     const kind: DataKind | null = reading.analysis.name === writes.job ? 'jobs' : reading.analysis.name === writes.expense ? 'expenses' : null;
     if (!kind) return { ...reading, use: false };
     // The template says what each column is (no guessing): the date of an expense, the client, the amount; others are kept.
     const known = targets[reading.analysis.name];
     const columns = known ? reading.analysis.columns.map(column => ({ ...column, target: (known[column.index] ?? 'keep') as ColumnTarget, reason: 'person' as const, confidence: 1 })) : reading.analysis.columns;
-    return { ...reading, use: true, analysis: { ...reading.analysis, kind, columns } };
+    const lists = choices[reading.analysis.name];
+    return { ...reading, use: true, analysis: { ...reading.analysis, kind, columns }, ...(lists && Object.keys(lists).length ? { choices: lists } : {}) };
   });
 }
 
@@ -72,7 +76,7 @@ export function forTemplate(readings: TabReading[], writes: { job?: string; expe
 export function templateReadings(readings: TabReading[]): TabReading[] | null {
   const tabs = readings.map(reading => ({ name: reading.analysis.name, headers: (reading.grid.rows[reading.analysis.headerRow ?? 0] ?? []).map(cell => cell?.text ?? '') }));
   const found = matchTemplate(tabs);
-  return found ? forTemplate(readings, TEMPLATE_INFO[found.id].writes, found.targets) : null;
+  return found ? forTemplate(readings, TEMPLATE_INFO[found.id].writes, found.targets, found.choices) : null;
 }
 
 export function setTarget(reading: TabReading, index: number, target: ColumnTarget): TabReading {
@@ -83,12 +87,13 @@ export const setUse = (reading: TabReading, use: boolean): TabReading => ({ ...r
 
 /** What is saved: per tab, the header row, kind, counted or not, and each column's field and formula mark. */
 export function mapOf(fileId: string, readings: TabReading[]): SheetMap {
-  const tabs: SheetMapTab[] = readings.map(({ analysis, use, formulas }) => ({
+  const tabs: SheetMapTab[] = readings.map(({ analysis, use, formulas, choices }) => ({
     name: analysis.name,
     headerRow: analysis.headerRow,
     kind: analysis.kind,
     use,
-    columns: analysis.columns.map(column => ({ index: column.index, header: column.header.slice(0, 200), target: column.target, ...(formulas.has(column.index) ? { formula: true } : {}) })),
+    columns: analysis.columns.map(column => ({ index: column.index, header: column.header.slice(0, 200), target: column.target, ...(formulas.has(column.index) ? { formula: true } : {}),
+      ...(column.target === 'category' && choices?.[column.index]?.length ? { choices: choices[column.index] } : {}) })),
   }));
   return { fileId, at: new Date().toISOString(), tabs };
 }

@@ -12,7 +12,8 @@ export interface GoogleFile { id: string; name: string; url: string }
 
 /** One column of a tab as the person confirmed it. `target` is one of the importer's fields (sheetImport.ts), or keep or
  *  ignore. `formula`: the column is worked out by the sheet's own formulas, so the app never writes into it. */
-export interface SheetMapColumn { index: number; header: string; target: string; formula?: boolean }
+/** choices: a category column's own drop-down (a sheet made from our template), so เลขา writes one of them. */
+export interface SheetMapColumn { index: number; header: string; target: string; formula?: boolean; choices?: string[] }
 export interface SheetMapTab {
   name: string;
   /** Zero-based row of the headers, or null for a tab without one. */
@@ -47,6 +48,7 @@ export const sheetMapColumnSchema = z.object({
   header: z.string().max(200),
   target,
   formula: z.boolean().optional(),
+  choices: z.array(z.string().max(60)).max(40).optional(),
 }).strict();
 export const sheetMapTabSchema = z.object({
   name: z.string().min(1).max(120),

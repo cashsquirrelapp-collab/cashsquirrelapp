@@ -56,13 +56,53 @@ function paymentOf(record: Record<string, unknown>): 'paid' | 'partial' | 'unpai
   return 'unpaid';
 }
 
+// The app's expense categories in the words of a sheet's own drop-down (owner, 2026-11-13): the item's name speaks first
+// ("ค่ากาแฟ" is food), then the app's category; the first rule whose choice the sheet has wins, else its "อื่น ๆ".
+const CATEGORY_RULES: [RegExp, string[]][] = [
+  [/kol|อินฟลู|influencer|รีวิวสินค้า/i, ['KOL']],
+  [/โฆษณา|ยิงแอด|\bads?\b|บูสต์|boost/i, ['ค่าสื่อแทนจ่าย']],
+  [/ตัดต่อ|คัลเลอร์|edit|color/i, ['ตัดต่อ']],
+  [/นักแสดง|นายแบบ|นางแบบ|talent|actor/i, ['นักแสดง']],
+  [/อาหาร|ข้าว|กาแฟ|เครื่องดื่ม|ขนม|รับรอง|catering|food/i, ['อาหาร']],
+  [/ไฟฟ้า|ประปา|สาธารณูปโภค|utility/i, ['อื่น ๆ']],
+  [/เดินทาง|น้ำมัน|แท็กซี่|taxi|grab|ทางด่วน|ตั๋ว|ที่จอด|travel/i, ['เดินทาง']],
+  [/สถานที่|โลเคชัน|location|สตูดิโอ|studio|ค่าเช่าที่/i, ['สถานที่', 'ค่าสถานที่']],
+  [/โทรศัพท์|ค่าโทร|มือถือ|เน็ต|internet/i, ['โทรศัพท์-เน็ต']],
+  [/จ้าง|outsource|ฟรีแลนซ์|ทีมงาน|ช่าง|crew/i, ['ค่าจ้างช่วง', 'ทีมงาน']],
+  [/อุปกรณ์|กล้อง|เลนส์|ไมค์|ไมโครโฟน|ขาตั้ง|ไฟ|คอมพิวเตอร์|equipment|camera/i, ['อุปกรณ์']],
+  [/ซอฟต์แวร์|โปรแกรม|software|subscription|adobe|canva|โดเมน|โฮสต์/i, ['ซอฟต์แวร์']],
+  [/ซื้อสินค้า|สินค้า|วัตถุดิบ|stock/i, ['ซื้อสินค้า']],
+  [/อีเวนต์|event/i, ['อีเวนต์']],
+  [/อาร์ต|พร็อพ|prop/i, ['อาร์ต']],
+  [/ครีเอทีฟ|กลยุทธ์|creative|strategy/i, ['กลยุทธ์-ครีเอทีฟ']],
+  [/ถ่าย|โปรดักชัน|production|shoot/i, ['โปรดักชัน']],
+];
+const squash = (value: string) => value.replace(/\s+/g, '').toLowerCase();
+/** One of the sheet's choices for this expense. */
+export function chooseCategory(category: string, name: string, choices: string[]): string {
+  const exact = choices.find(choice => squash(choice) === squash(category));
+  // "อื่นๆ" in the app says nothing: the item's name may still find a better choice.
+  if (exact && !/^อื่น/.test(exact)) return exact;
+  for (const source of [name, category]) {
+    for (const [pattern, wanted] of CATEGORY_RULES) {
+      if (!pattern.test(source)) continue;
+      const found = wanted.find(choice => choices.includes(choice));
+      if (found) return found;
+    }
+  }
+  return choices.find(choice => /^อื่น/.test(choice)) ?? category;
+}
+
 /** The value one mapped column gets for this record, before any formatting to the column's own style. */
 function valueFor(column: SheetMapColumn, kind: RowKind, record: Record<string, unknown>, samples: string[], mixed: boolean): string | number | null {
   const target = column.target;
   if (kind === 'expense') {
     switch (target) {
       case 'name': return text(record.name) || null;
-      case 'category': return text(record.category) || null;
+      case 'category': {
+        const category = text(record.category);
+        return column.choices?.length ? chooseCategory(category, text(record.name), column.choices) : category || null;
+      }
       case 'amount': case 'expense': return money(record.amount);
       case 'date': { const date = isoDate(record.date); return date ? dateFor(date, samples) : null; }
       case 'note': return text(record.note) || null;

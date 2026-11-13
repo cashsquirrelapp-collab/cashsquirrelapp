@@ -658,7 +658,7 @@ const SAMPLE_PROFILES: Record<TemplateId, BusinessProfile> = (() => {
     office: { ...base, entity: 'accounting_office', work: 'other' },
   };
 })();
-let shapes: { id: TemplateId; tabs: { name: string; headers: string[]; targets: string[] }[] }[] | null = null;
+let shapes: { id: TemplateId; tabs: { name: string; headers: string[]; targets: string[]; choices: Record<number, string[]> }[] }[] | null = null;
 /** The tabs เลขา writes into, for each workbook: their headers and what each column means. */
 export function templateShapes() {
   shapes ??= (Object.keys(SAMPLE_PROFILES) as TemplateId[]).map(id => {
@@ -666,21 +666,28 @@ export function templateShapes() {
     const sheets = buildBookTemplate(SAMPLE_PROFILES[id], { year: 2026, now: new Date('2026-01-01T00:00:00Z') }).sheets;
     const tabs = [writes.job, writes.expense].filter((name): name is string => Boolean(name)).map(name => {
       const sheet = sheets.find(item => item.name === name)!;
-      return { name, headers: sheet.rows[0].map(cell => String((cell as { v: string }).v)), targets: sheet.targets ?? [] };
+      // The category column's drop-down, so เลขา writes one of its words.
+      const choices: Record<number, string[]> = {};
+      for (const validation of sheet.validations ?? []) {
+        const at = /^([A-Z]+)\d/.exec(validation.range)?.[1];
+        const index = at ? [...at].reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0) - 1 : -1;
+        if (index >= 0 && sheet.targets?.[index] === 'category') choices[index] = validation.list;
+      }
+      return { name, headers: sheet.rows[0].map(cell => String((cell as { v: string }).v)), targets: sheet.targets ?? [], choices };
     });
     return { id, tabs };
   });
   return shapes;
 }
 /** One of our workbooks, recognised by its job and expense tabs having our headers (columns added after them are fine). */
-export function matchTemplate(tabs: { name: string; headers: string[] }[]): { id: TemplateId; targets: Record<string, string[]> } | null {
+export function matchTemplate(tabs: { name: string; headers: string[] }[]): { id: TemplateId; targets: Record<string, string[]>; choices: Record<string, Record<number, string[]>> } | null {
   for (const shape of templateShapes()) {
     if (!shape.tabs.length) continue;
     const fits = shape.tabs.every(tab => {
       const found = tabs.find(item => item.name === tab.name);
       return found && tab.headers.every((header, i) => (found.headers[i] ?? '').trim() === header);
     });
-    if (fits) return { id: shape.id, targets: Object.fromEntries(shape.tabs.map(tab => [tab.name, tab.targets])) };
+    if (fits) return { id: shape.id, targets: Object.fromEntries(shape.tabs.map(tab => [tab.name, tab.targets])), choices: Object.fromEntries(shape.tabs.map(tab => [tab.name, tab.choices])) };
   }
   return null;
 }
