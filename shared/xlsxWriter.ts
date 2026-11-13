@@ -34,6 +34,8 @@ export interface SheetSpec {
   gridlines?: boolean;
   /** Cells joined into one, such as "B12:C12" (a long line across two columns). */
   merges?: string[];
+  /** Not written into the file: what each column means to เลขา (a sheet-map target), for a tab it adds rows to. */
+  targets?: string[];
   /** Printing: one page wide, landscape or not, the frozen header repeated on every page. */
   print?: { landscape?: boolean; repeatHeader?: boolean };
 }

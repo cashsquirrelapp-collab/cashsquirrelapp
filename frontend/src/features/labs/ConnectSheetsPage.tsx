@@ -14,7 +14,7 @@ import { useLabs, useLabsLoaded } from '../../services/labs';
 import { PartnerLogo } from '../../components/brand/PartnerLogo';
 import { SheetsPanel } from './SheetsPanel';
 import { templateData } from './TemplateDialog';
-import { forTemplate, mapOf, readTabs } from './sheetMap';
+import { forTemplate, mapOf, readTabs, templateReadings } from './sheetMap';
 import './labs.css';
 
 // /connect-sheets — เชื่อมชีตจาก LINE (owner, 2026-11-13). Opened in the phone's own browser by the one-use link from the
@@ -67,7 +67,8 @@ function NewSheet({ account, result, onPick }: { account: string; result: string
       if (!created) throw new Error(tr("สร้างชีตไม่สำเร็จ กรุณาลองอีกครั้ง"));
       // Mapped straight away: เลขา knows this workbook's columns, and saving the map sends the LINE done card.
       const { tabs } = await googleApi.read(account);
-      await googleApi.saveMap(account, mapOf(created.id, forTemplate(readTabs(tabs, null), TEMPLATE_INFO[chosen.id].writes)));
+      const readings = readTabs(tabs, null);
+      await googleApi.saveMap(account, mapOf(created.id, templateReadings(readings) ?? forTemplate(readings, TEMPLATE_INFO[chosen.id].writes)));
       setFile(created); setPhase('done');
     } catch (failure) {
       setError((failure as Error).message || tr("สร้างชีตไม่สำเร็จ กรุณาลองอีกครั้ง")); setPhase('ready');

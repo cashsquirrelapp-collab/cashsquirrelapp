@@ -48,8 +48,9 @@ const MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มี�
 /** Lines of wrapped text a cell this wide needs (Thai, roughly 1.15 characters per width unit), as a row height. */
 const tall = (text: string, width: number, line = 17) => Math.max(1, Math.ceil(text.length / (width * 1.15))) * line + 8;
 
-/** id: a tax ID or branch code column (text, keeps leading zeros). */
-interface Col { h: string; w: number; s?: CellStyle; list?: string[]; f?: (r: number) => string; id?: boolean }
+/** id: a tax ID or branch code column (text, keeps leading zeros). t: what the column means to เลขา when it adds a row
+ *  (a sheet-map target such as date, name, amount); any other column is left alone. */
+interface Col { h: string; w: number; s?: CellStyle; list?: string[]; f?: (r: number) => string; id?: boolean; t?: string }
 /** What a formula column looks like: grey, so nobody types over it. */
 const CALC: Partial<Record<CellStyle, CellStyle>> = { money: 'calc', text: 'calcText', date: 'calcDate', percent: 'calc' };
 const columnStyle = (c: Col): CellStyle => (c.f ? CALC[c.s ?? 'money'] ?? 'calc' : c.id ? 'idText' : c.list ? 'choice' : c.s === 'text' ? 'choice' : c.s ?? 'cell');
@@ -74,6 +75,7 @@ function table(name: string, cols: Col[], rows: Cell[][], tabColor = TAB.input):
   }
   return {
     name, rows: [header, ...body], widths: cols.map(c => c.w), freezeRows: 1, columnStyles: Object.fromEntries(styles.map((s, j) => [j, s])), tabColor,
+    targets: cols.map(c => (c.f ? 'keep' : c.t ?? 'keep')),
     heights: { 0: 34 }, defaultHeight: 21, gridlines: false, print: { landscape: true, repeatHeader: true },
     validations: cols.flatMap((c, j) => (c.list ? [{ range: `${columnLetter(j)}2:${columnLetter(j)}${END}`, list: c.list }] : [])),
   };
@@ -269,19 +271,19 @@ function freelance(profile: BusinessProfile, year: number, vat: boolean, data: T
   const cash = !vat && hasSection40_5to8(profile);
   // รายรับ: one row per payment received.
   const incomeCols: Col[] = vat ? [
-    { h: 'วันที่รับเงิน', w: 13, s: 'date' }, { h: 'เลขที่ใบกำกับภาษี', w: 16 }, { h: 'ผู้ซื้อ / ผู้จ่ายเงิน', w: 28 }, { h: 'เลขผู้เสียภาษีผู้ซื้อ', w: 18, id: true },
-    { h: 'สาขาผู้ซื้อ', w: 11, id: true }, { h: 'รายการ', w: 26 }, { h: 'ประเภทเงินได้', w: 12, list: INCOME_TYPES }, { h: 'มูลค่าก่อน VAT', w: 15, s: 'money' },
-    { h: 'VAT 7%', w: 12, f: r => `IF(H${r}="","",ROUND(H${r}*0.07,2))` }, { h: 'อัตราหัก', w: 9, list: RATES },
+    { h: 'วันที่รับเงิน', w: 13, s: 'date', t: 'paidDate' }, { h: 'เลขที่ใบกำกับภาษี', w: 16 }, { h: 'ผู้ซื้อ / ผู้จ่ายเงิน', w: 28, t: 'client' }, { h: 'เลขผู้เสียภาษีผู้ซื้อ', w: 18, id: true },
+    { h: 'สาขาผู้ซื้อ', w: 11, id: true }, { h: 'รายการ', w: 26, t: 'name' }, { h: 'ประเภทเงินได้', w: 12, list: INCOME_TYPES }, { h: 'มูลค่าก่อน VAT', w: 15, s: 'money', t: 'value' },
+    { h: 'VAT 7%', w: 12, f: r => `IF(H${r}="","",ROUND(H${r}*0.07,2))` }, { h: 'อัตราหัก', w: 9, list: RATES, t: 'whtRate' },
     { h: 'ภาษีถูกหัก', w: 12, f: r => `IF(H${r}="","",ROUND(H${r}*${rate(`J${r}`)},2))` },
     { h: 'เงินเข้าจริง', w: 14, f: r => `IF(H${r}="","",H${r}+I${r}-K${r})` },
-    { h: 'ได้ 50 ทวิ แล้ว', w: 14, list: ['ได้แล้ว', 'ยังไม่ได้', 'ไม่ต้องใช้'] }, { h: 'หมายเหตุ', w: 26 },
+    { h: 'ได้ 50 ทวิ แล้ว', w: 14, list: ['ได้แล้ว', 'ยังไม่ได้', 'ไม่ต้องใช้'] }, { h: 'หมายเหตุ', w: 26, t: 'note' },
     { h: 'ลำดับในรายงานภาษีขาย', w: 14, s: 'text', f: r => inMonth('รายงานภาษีขาย', r, 'H') },
   ] : [
-    { h: 'วันที่รับเงิน', w: 13, s: 'date' }, { h: 'ผู้จ่ายเงิน', w: 28 }, { h: 'เลขผู้เสียภาษีผู้จ่าย', w: 18, id: true }, { h: 'รายการ', w: 26 },
-    { h: 'ประเภทเงินได้', w: 12, list: INCOME_TYPES }, { h: 'ยอดก่อนหัก', w: 14, s: 'money' }, { h: 'อัตราหัก', w: 9, list: RATES },
+    { h: 'วันที่รับเงิน', w: 13, s: 'date', t: 'paidDate' }, { h: 'ผู้จ่ายเงิน', w: 28, t: 'client' }, { h: 'เลขผู้เสียภาษีผู้จ่าย', w: 18, id: true }, { h: 'รายการ', w: 26, t: 'name' },
+    { h: 'ประเภทเงินได้', w: 12, list: INCOME_TYPES }, { h: 'ยอดก่อนหัก', w: 14, s: 'money', t: 'value' }, { h: 'อัตราหัก', w: 9, list: RATES, t: 'whtRate' },
     { h: 'ภาษีถูกหัก', w: 12, f: r => `IF(F${r}="","",ROUND(F${r}*${rate(`G${r}`)},2))` },
     { h: 'เงินเข้าจริง', w: 14, f: r => `IF(F${r}="","",F${r}-H${r})` },
-    { h: 'หลักฐานการหัก', w: 14, list: ['50 ทวิ', 'e-WHT', 'ไม่ถูกหัก'] }, { h: 'ได้ 50 ทวิ แล้ว', w: 14, list: ['ได้แล้ว', 'ยังไม่ได้', 'ไม่ต้องใช้'] }, { h: 'หมายเหตุ', w: 26 },
+    { h: 'หลักฐานการหัก', w: 14, list: ['50 ทวิ', 'e-WHT', 'ไม่ถูกหัก'] }, { h: 'ได้ 50 ทวิ แล้ว', w: 14, list: ['ได้แล้ว', 'ยังไม่ได้', 'ไม่ต้องใช้'] }, { h: 'หมายเหตุ', w: 26, t: 'note' },
   ];
   const incomeRows: Cell[][] = data?.income.length
     ? data.income.map(row => vat
@@ -299,13 +301,13 @@ function freelance(profile: BusinessProfile, year: number, vat: boolean, data: T
   const I = vat ? { date: 'A', type: 'G', gross: 'H', wht: 'K', got: 'M' } : { date: 'A', type: 'E', gross: 'F', wht: 'H', got: 'K' };
 
   const expenseCols: Col[] = vat ? [
-    { h: 'วันที่จ่ายเงิน', w: 13, s: 'date' }, { h: 'เลขที่ใบกำกับภาษี', w: 16 }, { h: 'ผู้ขาย / ผู้รับเงิน', w: 26 }, { h: 'เลขผู้เสียภาษีผู้ขาย', w: 18, id: true },
-    { h: 'สาขาผู้ขาย', w: 11, id: true }, { h: 'รายการ', w: 26 }, { h: 'หมวด', w: 14, list: EXPENSE_CATEGORIES }, { h: 'มูลค่าก่อน VAT', w: 15, s: 'money' },
+    { h: 'วันที่จ่ายเงิน', w: 13, s: 'date', t: 'date' }, { h: 'เลขที่ใบกำกับภาษี', w: 16 }, { h: 'ผู้ขาย / ผู้รับเงิน', w: 26 }, { h: 'เลขผู้เสียภาษีผู้ขาย', w: 18, id: true },
+    { h: 'สาขาผู้ขาย', w: 11, id: true }, { h: 'รายการ', w: 26, t: 'name' }, { h: 'หมวด', w: 14, list: EXPENSE_CATEGORIES, t: 'category' }, { h: 'มูลค่าก่อน VAT', w: 15, s: 'money', t: 'amount' },
     { h: 'ภาษีซื้อ', w: 12, s: 'money' }, { h: 'ขอคืนภาษีซื้อได้', w: 14, list: YES_NO }, { h: 'หลักฐาน', w: 18, list: EVIDENCE }, { h: 'ลิงก์ไฟล์', w: 22 },
     { h: 'ลำดับในรายงานภาษีซื้อ', w: 14, s: 'text', f: r => inMonth('รายงานภาษีซื้อ', r, 'H', `$J${r}<>"ใช่"`, `,$J$2:$J${r},"ใช่"`) },
   ] : [
-    { h: 'วันที่จ่ายเงิน', w: 13, s: 'date' }, { h: 'ผู้ขาย / ผู้รับเงิน', w: 26 }, { h: 'รายการ', w: 26 }, { h: 'หมวด', w: 14, list: EXPENSE_CATEGORIES },
-    { h: 'ใช้เพื่องาน', w: 11, list: ['ใช่', 'ใช้ร่วม', 'ส่วนตัว'] }, { h: 'สัดส่วนใช้งาน', w: 12, s: 'percent' }, { h: 'จำนวนเงิน', w: 14, s: 'money' },
+    { h: 'วันที่จ่ายเงิน', w: 13, s: 'date', t: 'date' }, { h: 'ผู้ขาย / ผู้รับเงิน', w: 26 }, { h: 'รายการ', w: 26, t: 'name' }, { h: 'หมวด', w: 14, list: EXPENSE_CATEGORIES, t: 'category' },
+    { h: 'ใช้เพื่องาน', w: 11, list: ['ใช่', 'ใช้ร่วม', 'ส่วนตัว'] }, { h: 'สัดส่วนใช้งาน', w: 12, s: 'percent' }, { h: 'จำนวนเงิน', w: 14, s: 'money', t: 'amount' },
     { h: 'หลักฐาน', w: 18, list: EVIDENCE },
     { h: 'นับเป็นค่าใช้จ่ายได้', w: 16, f: r => `IF(G${r}="","",IF(OR(H${r}="ไม่มี",E${r}="ส่วนตัว"),0,ROUND(G${r}*IF(E${r}="ใช้ร่วม",IF(F${r}="",1,F${r}),1),2)))` },
     { h: 'ลิงก์ไฟล์', w: 22 },
@@ -441,8 +443,8 @@ function billing(projectHeader: string, data: TemplateData | null, year: number,
 
 function payments(name: string, projectHeader: string, categories: string[], data: TemplateData | null, year: number, sample: string, deposit: boolean): SheetSpec {
   const cols: Col[] = [
-    { h: 'วันที่จ่าย', w: 13, s: 'date' }, { h: projectHeader, w: 13 }, { h: 'หมวด', w: 16, list: categories }, { h: 'ผู้รับเงิน', w: 24 },
-    { h: 'ประเภทผู้รับ', w: 12, list: PAYEE_TYPES }, { h: 'รายการ', w: 24 }, { h: 'ก่อน VAT', w: 14, s: 'money' }, { h: 'VAT', w: 11, s: 'money' },
+    { h: 'วันที่จ่าย', w: 13, s: 'date', t: 'date' }, { h: projectHeader, w: 13 }, { h: 'หมวด', w: 16, list: categories, t: 'category' }, { h: 'ผู้รับเงิน', w: 24 },
+    { h: 'ประเภทผู้รับ', w: 12, list: PAYEE_TYPES }, { h: 'รายการ', w: 24, t: 'name' }, { h: 'ก่อน VAT', w: 14, s: 'money', t: 'amount' }, { h: 'VAT', w: 11, s: 'money' },
     { h: 'อัตราหัก', w: 9, list: RATES }, { h: 'ภาษีหัก', w: 12, f: r => `IF(G${r}="","",ROUND(G${r}*${rate(`I${r}`)},2))` },
     { h: 'จ่ายสุทธิ', w: 14, f: r => `IF(G${r}="","",G${r}+IF(H${r}="",0,H${r})-J${r})` },
     { h: 'แบบที่ต้องยื่น', w: 12, s: 'text', f: r => `IF(G${r}="","",${form(`E${r}`, `I${r}`)})` },
@@ -482,9 +484,9 @@ function monthlyChecklist(extra: string[]): SheetSpec {
 function agency(year: number, data: TemplateData | null): SheetSpec[] {
   const CATS = ['กลยุทธ์-ครีเอทีฟ', 'โปรดักชัน', 'KOL', 'ค่าสื่อแทนจ่าย', 'ค่าธรรมเนียมสื่อ', 'อีเวนต์', 'อื่น ๆ'];
   const projects = table('โปรเจกต์', [
-    { h: 'รหัสโปรเจกต์', w: 13 }, { h: 'ชื่อแคมเปญ', w: 26 }, { h: 'ลูกค้า', w: 24 }, { h: 'เลขผู้เสียภาษีลูกค้า', w: 18, id: true },
-    { h: 'ค่าบริการก่อน VAT', w: 16, s: 'money' }, { h: 'ค่าสื่อแทนจ่าย (ประมาณ)', w: 18, s: 'money' },
-    { h: 'สถานะ', w: 12, list: ['เสนอราคา', 'กำลังทำ', 'ส่งงานแล้ว', 'ปิดงาน'] }, { h: 'วันเริ่ม', w: 12, s: 'date' }, { h: 'วันส่งงาน', w: 12, s: 'date' },
+    { h: 'รหัสโปรเจกต์', w: 13 }, { h: 'ชื่อแคมเปญ', w: 26, t: 'name' }, { h: 'ลูกค้า', w: 24, t: 'client' }, { h: 'เลขผู้เสียภาษีลูกค้า', w: 18, id: true },
+    { h: 'ค่าบริการก่อน VAT', w: 16, s: 'money', t: 'value' }, { h: 'ค่าสื่อแทนจ่าย (ประมาณ)', w: 18, s: 'money' },
+    { h: 'สถานะ', w: 12, list: ['เสนอราคา', 'กำลังทำ', 'ส่งงานแล้ว', 'ปิดงาน'] }, { h: 'วันเริ่ม', w: 12, s: 'date', t: 'date' }, { h: 'วันส่งงาน', w: 12, s: 'date' },
     { h: 'ต้นทุนจริง (ไม่รวมค่าสื่อ)', w: 20, f: r => `IF(A${r}="","",SUMIFS(${col('ค่าใช้จ่ายโปรเจกต์', 'G')},${col('ค่าใช้จ่ายโปรเจกต์', 'B')},A${r})-SUMIFS(${col('ค่าใช้จ่ายโปรเจกต์', 'G')},${col('ค่าใช้จ่ายโปรเจกต์', 'B')},A${r},${col('ค่าใช้จ่ายโปรเจกต์', 'C')},"ค่าสื่อแทนจ่าย"))` },
     { h: 'กำไรขั้นต้น', w: 14, f: r => `IF(A${r}="","",E${r}-J${r})` },
   ], [['PRJ-2569-001', 'เปิดตัวสินค้าใหม่ (ตัวอย่าง)', 'บริษัท สมมติเครื่องดื่ม จำกัด (ตัวอย่าง)', '0000000000301', 85000, 120000, 'กำลังทำ', { date: `${year}-03-01` }, { date: `${year}-04-15` }, null, null]]);
@@ -517,8 +519,8 @@ function production(year: number, data: TemplateData | null): SheetSpec[] {
   const clearCost = (ref: string, cat?: string) => `SUMIFS(${col('เคลียร์เงิน', 'F')},${col('เคลียร์เงิน', 'J')},${ref}${cat ? `,${col('เคลียร์เงิน', 'E')},${cat}` : ''})`;
   const directCost = (ref: string, cat?: string) => `SUMIFS(${col('ค่าใช้จ่ายและเช่าอุปกรณ์', 'G')},${col('ค่าใช้จ่ายและเช่าอุปกรณ์', 'B')},${ref}${cat ? `,${col('ค่าใช้จ่ายและเช่าอุปกรณ์', 'C')},${cat}` : ''})`;
   const jobs = table('งาน', [
-    { h: 'รหัสงาน', w: 13 }, { h: 'ชื่องาน', w: 24 }, { h: 'ลูกค้า', w: 24 }, { h: 'ประเภทงาน', w: 12, list: ['TVC', 'ออนไลน์', 'ภาพนิ่ง', 'อีเวนต์', 'MV'] },
-    { h: 'วันถ่ายแรก', w: 12, s: 'date' }, { h: 'จำนวนวันถ่าย', w: 12, s: 'text' }, { h: 'มูลค่างานก่อน VAT', w: 16, s: 'money' },
+    { h: 'รหัสงาน', w: 13 }, { h: 'ชื่องาน', w: 24, t: 'name' }, { h: 'ลูกค้า', w: 24, t: 'client' }, { h: 'ประเภทงาน', w: 12, list: ['TVC', 'ออนไลน์', 'ภาพนิ่ง', 'อีเวนต์', 'MV'] },
+    { h: 'วันถ่ายแรก', w: 12, s: 'date', t: 'date' }, { h: 'จำนวนวันถ่าย', w: 12, s: 'text' }, { h: 'มูลค่างานก่อน VAT', w: 16, s: 'money', t: 'value' },
     { h: 'งบรวม', w: 14, f: r => `IF(A${r}="","",SUMIFS(${col('งบโปรดักชัน', 'G')},${col('งบโปรดักชัน', 'A')},A${r}))` },
     { h: 'ใช้จริง', w: 14, f: r => `IF(A${r}="","",${crewCost(`A${r}`)}+${clearCost(`A${r}`)}+${directCost(`A${r}`)})` },
     { h: 'กำไร', w: 14, f: r => `IF(A${r}="","",G${r}-I${r})` },
@@ -646,6 +648,41 @@ function office(year: number): SheetSpec[] {
     ], 'ปี'),
     clients, checklist, filings, followUps, closing, settings,
   ];
+}
+
+const SAMPLE_PROFILES: Record<TemplateId, BusinessProfile> = (() => {
+  const base = { version: 'biz-v1' as const, vat: 'no' as const, pays: [], revenue: 'under_1m' as const, updated_at: '2026-01-01T00:00:00Z', income: 'per_job' as const };
+  return {
+    freelance: { ...base, entity: 'individual', work: 'other' }, freelance_vat: { ...base, entity: 'individual', vat: 'yes', work: 'other' },
+    agency: { ...base, entity: 'company', work: 'agency' }, production: { ...base, entity: 'company', work: 'production' },
+    office: { ...base, entity: 'accounting_office', work: 'other' },
+  };
+})();
+let shapes: { id: TemplateId; tabs: { name: string; headers: string[]; targets: string[] }[] }[] | null = null;
+/** The tabs เลขา writes into, for each workbook: their headers and what each column means. */
+export function templateShapes() {
+  shapes ??= (Object.keys(SAMPLE_PROFILES) as TemplateId[]).map(id => {
+    const writes = TEMPLATE_INFO[id].writes;
+    const sheets = buildBookTemplate(SAMPLE_PROFILES[id], { year: 2026, now: new Date('2026-01-01T00:00:00Z') }).sheets;
+    const tabs = [writes.job, writes.expense].filter((name): name is string => Boolean(name)).map(name => {
+      const sheet = sheets.find(item => item.name === name)!;
+      return { name, headers: sheet.rows[0].map(cell => String((cell as { v: string }).v)), targets: sheet.targets ?? [] };
+    });
+    return { id, tabs };
+  });
+  return shapes;
+}
+/** One of our workbooks, recognised by its job and expense tabs having our headers (columns added after them are fine). */
+export function matchTemplate(tabs: { name: string; headers: string[] }[]): { id: TemplateId; targets: Record<string, string[]> } | null {
+  for (const shape of templateShapes()) {
+    if (!shape.tabs.length) continue;
+    const fits = shape.tabs.every(tab => {
+      const found = tabs.find(item => item.name === tab.name);
+      return found && tab.headers.every((header, i) => (found.headers[i] ?? '').trim() === header);
+    });
+    if (fits) return { id: shape.id, targets: Object.fromEntries(shape.tabs.map(tab => [tab.name, tab.targets])) };
+  }
+  return null;
 }
 
 /** The workbook for this business: its tabs, ready for buildXlsx(). */

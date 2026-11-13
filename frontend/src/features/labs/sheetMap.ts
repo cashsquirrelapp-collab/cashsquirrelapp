@@ -3,6 +3,7 @@ import type { LiveTab, SheetMap, SheetMapTab } from '../../../../shared/googleSh
 import { incomeRowsForYear } from '../../../../shared/incomeExport';
 import { roundMoney } from '../../../../shared/wht';
 import { analyzeSheet, buildImportPlan, defaultIncluded, planTotals, type ColumnTarget, type DataKind, type SheetAnalysis, type SheetGrid } from '../import/sheetImport';
+import { matchTemplate, TEMPLATE_INFO } from '../../../../shared/bookTemplates';
 
 // แผนที่ชีต (ฟีเจอร์ทดลอง, phase 2): the person's own Google Sheet read the same way the Excel import reads a file
 // (sheetImport.ts): which row holds the headers, what each column is, which tabs are data and which are summaries. The
@@ -56,11 +57,22 @@ export function readTabs(tabs: LiveTab[], saved?: SheetMap | null): TabReading[]
 
 /** A sheet made from one of our templates (สร้างชีตใหม่ให้): only the tabs the template names are written into and counted,
  *  as jobs and as expenses; budgets, reports and the cover are left alone. */
-export function forTemplate(readings: TabReading[], writes: { job?: string; expense?: string }): TabReading[] {
+export function forTemplate(readings: TabReading[], writes: { job?: string; expense?: string }, targets: Record<string, string[]> = {}): TabReading[] {
   return readings.map(reading => {
     const kind: DataKind | null = reading.analysis.name === writes.job ? 'jobs' : reading.analysis.name === writes.expense ? 'expenses' : null;
-    return kind ? { ...reading, use: true, analysis: { ...reading.analysis, kind } } : { ...reading, use: false };
+    if (!kind) return { ...reading, use: false };
+    // The template says what each column is (no guessing): the date of an expense, the client, the amount; others are kept.
+    const known = targets[reading.analysis.name];
+    const columns = known ? reading.analysis.columns.map(column => ({ ...column, target: (known[column.index] ?? 'keep') as ColumnTarget, reason: 'person' as const, confidence: 1 })) : reading.analysis.columns;
+    return { ...reading, use: true, analysis: { ...reading.analysis, kind, columns } };
   });
+}
+
+/** A sheet made from one of our templates (by its tabs and headers), read as the template means it; null for any other. */
+export function templateReadings(readings: TabReading[]): TabReading[] | null {
+  const tabs = readings.map(reading => ({ name: reading.analysis.name, headers: (reading.grid.rows[reading.analysis.headerRow ?? 0] ?? []).map(cell => cell?.text ?? '') }));
+  const found = matchTemplate(tabs);
+  return found ? forTemplate(readings, TEMPLATE_INFO[found.id].writes, found.targets) : null;
 }
 
 export function setTarget(reading: TabReading, index: number, target: ColumnTarget): TabReading {

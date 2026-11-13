@@ -11,7 +11,7 @@ import { FIELD_LABELS, FIELDS_FOR, KIND_LABELS, columnLetter } from '../import/i
 import type { ColumnTarget, DataKind } from '../import/sheetImport';
 import { EXCEL_ACCEPT, ExcelReadError, excelMapFor, keepExcelMap, readExcelFile } from './excelSource';
 import { pickSheet } from './googlePicker';
-import { mapOf, overviewOf, readTabs, setKind, setTarget, setUse, type TabReading } from './sheetMap';
+import { mapOf, overviewOf, readTabs, setKind, setTarget, setUse, templateReadings, type TabReading } from './sheetMap';
 import { PartnerLogo } from '../../components/brand/PartnerLogo';
 import './labs.css';
 
@@ -199,7 +199,9 @@ function GoogleSource({ open, account, mapOn, writeOn = false, result, onCreateT
     setStatus(reply.google);
     setTabs(reply.tabs);
     setReadAt(reply.readAt);
-    ws.load(readTabs(reply.tabs, reply.google.map));
+    // A sheet made from one of our templates, not mapped yet: read the way the template means it (the person still checks).
+    const readings = readTabs(reply.tabs, reply.google.map);
+    ws.load(reply.google.map ? readings : templateReadings(readings) ?? readings);
   }, [account, ws.load]); // eslint-disable-line react-hooks/exhaustive-deps
   React.useEffect(() => {
     if (!open || !fileId) { setTabs(null); ws.load([]); return; }
@@ -321,7 +323,8 @@ function ExcelSource({ open, mapOn, onCreateTemplate, switcher, onWide }: {
     try {
       const tabs = await readExcelFile(picked);
       const map = excelMapFor(picked.name, tabs);
-      ws.load(readTabs(tabs, map));
+      const readings = readTabs(tabs, map);
+      ws.load(map ? readings : templateReadings(readings) ?? readings);
       setSaved(Boolean(map));
       setFile({ name: picked.name, readAt: new Date().toISOString() });
     } catch (caught) {

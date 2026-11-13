@@ -4,8 +4,8 @@ import { strFromU8, unzipSync } from 'fflate';
 import { buildBookTemplate, TEMPLATE_INFO } from '../shared/bookTemplates';
 import { BUSINESS_VERSION, type BusinessProfile } from '../shared/businessProfile';
 import { buildXlsx, STYLE_DEFS, type Cell, type SheetSpec } from '../shared/xlsxWriter';
-import { forTemplate, mapOf, readTabs } from '../frontend/src/features/labs/sheetMap';
-import { chooseTab } from '../shared/sheetRow';
+import { forTemplate, mapOf, readTabs, templateReadings } from '../frontend/src/features/labs/sheetMap';
+import { chooseTab, rowCells } from '../shared/sheetRow';
 import type { LiveTab } from '../shared/googleSheets';
 
 // The workbooks' formal look (owner, 2026-11-13: "เทมเพลต…สวยๆ เป็นทางการ"): a cover page, ตั้งค่า as a form, ledger tabs
@@ -153,6 +153,30 @@ test('a worked-out column says so in its header, not by grey alone; totals read 
   }
   const text = JSON.stringify(buildBookTemplate(PROFILES.agency, { year: 2026 }).sheets);
   assert.ok(!/\$[A-Z]+\$201\b/.test(text), 'no range stops at row 201');
+});
+
+test('our own sheets are read the way the template means them: an expense row gets its date, nothing lands in a tax ID', () => {
+  const cellsOf = (id: keyof typeof PROFILES, kind: 'job' | 'expense', record: Record<string, unknown>, samples: Record<number, string[]> = {}) => {
+    const readings = templateReadings(readTabs(live(buildBookTemplate(PROFILES[id], { year: 2026 }).sheets)));
+    assert.ok(readings, `${id} is recognised`);
+    const tab = chooseTab(mapOf('f', readings!), kind)!;
+    return Object.fromEntries(rowCells(tab, kind, record, samples).filter(cell => cell.value !== null).map(cell => [cell.header, cell.value]));
+  };
+  const coffee = { name: 'ค่ากาแฟ', amount: 60, category: 'อาหาร', date: '2026-11-13' };
+  assert.deepEqual(cellsOf('freelance', 'expense', coffee), { 'วันที่จ่ายเงิน': '2026-11-13', 'รายการ': 'ค่ากาแฟ', 'หมวด': 'อาหาร', 'จำนวนเงิน': 60 });
+  assert.deepEqual(cellsOf('freelance_vat', 'expense', coffee), { 'วันที่จ่ายเงิน': '2026-11-13', 'รายการ': 'ค่ากาแฟ', 'หมวด': 'อาหาร', 'มูลค่าก่อน VAT': 60 });
+  assert.deepEqual(cellsOf('production', 'expense', coffee), { 'วันที่จ่าย': '2026-11-13', 'หมวด': 'อาหาร', 'รายการ': 'ค่ากาแฟ', 'ก่อน VAT': 60 });
+  const job = { name: 'ตัดต่อคลิป', client: 'บริษัท ก จำกัด', value: 10000, whtRate: 3, payDate: '2026-11-10', paymentStatus: 'paid' };
+  assert.deepEqual(cellsOf('freelance', 'job', job, { 6: ['3%'] }),
+    { 'วันที่รับเงิน': '2026-11-10', 'ผู้จ่ายเงิน': 'บริษัท ก จำกัด', 'รายการ': 'ตัดต่อคลิป', 'ยอดก่อนหัก': 10000, 'อัตราหัก': '3%' });
+  assert.deepEqual(cellsOf('agency', 'job', { ...job, postDate: '2026-11-01' }),
+    { 'ชื่อแคมเปญ': 'ตัดต่อคลิป', 'ลูกค้า': 'บริษัท ก จำกัด', 'ค่าบริการก่อน VAT': 10000, 'วันเริ่ม': '2026-11-01' });
+  // Someone else's sheet is not taken for ours; ours with a column added after the last one still is.
+  assert.equal(templateReadings(readTabs([{ name: 'รายรับ', truncated: false, rows: [[{ raw: 'วันที่', text: 'วันที่' }, { raw: 'ยอด', text: 'ยอด' }]] }])), null);
+  const sheets = buildBookTemplate(PROFILES.freelance, { year: 2026 }).sheets;
+  const extended = live(sheets).map(tab => (tab.name === 'รายจ่าย' ? { ...tab, rows: [[...tab.rows[0], { raw: 'โปรเจกต์', text: 'โปรเจกต์' }], ...tab.rows.slice(1)] } : tab));
+  assert.ok(templateReadings(readTabs(extended)));
+  assert.equal(templateReadings(readTabs(live(buildBookTemplate(PROFILES.office, { year: 2026 }).sheets))), null, 'the office workbook keeps no personal records');
 });
 
 test('xlsx: the look is in the file — fonts by destination, no grid lines, joined cells, header printed on every page', () => {
