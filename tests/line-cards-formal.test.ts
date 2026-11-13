@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 // LINE cards are formal statements (owner, 2026-10-22: "clean ... ทางการ ... ไม่เอาน่ารักแล้ว", then
-// "เพิ่มลิควิดการ์ด ... เกรเดียนต์ ... สีสันแบบทางการ"): the brand symbol and name on a CI gradient band,
+// "เพิ่มลิควิดการ์ด ... เกรเดียนต์ ... สีสันแบบทางการ"): the brand symbol and name on a CI band (flat since 2026-11-13: no gradients),
 // a category chip with its icon, the official mascot standing on the band (no frame), and palette/theme colours.
 process.env.APP_URL = 'https://cards.example.com';
 const { lineCard, lineValueRow, LINE_CARD_COLORS, LINE_CARD_THEMES } = await import('../backend/src/services/lineCards.js');
@@ -23,10 +23,10 @@ const cards = {
 const palette = new Set(Object.values(LINE_CARD_COLORS).map(c => c.toUpperCase()));
 palette.add('#D6D3D1'); // the outline of secondary reminder buttons
 for (const theme of Object.values(LINE_CARD_THEMES)) for (const c of Object.values(theme)) palette.add(c.toUpperCase());
-const themeStarts = new Set(Object.values(LINE_CARD_THEMES).map(t => t.start));
+const themeColours = new Set<string>(Object.values(LINE_CARD_THEMES).map(t => t.center));
 
 for (const [name, card] of Object.entries(cards)) {
-  test(`${name}: CI gradient header with brand, icon and mascot, palette colours only`, () => {
+  test(`${name}: flat CI header with brand, icon and mascot, palette colours only, no gradient`, () => {
     const json = JSON.stringify(card);
     assert.ok(json.includes('/brand/logo01-v1/symbol-white.png'), 'white brand symbol in the header');
     assert.ok(json.includes('"กระรอกตุนเงิน"'), 'brand name in the header');
@@ -35,7 +35,8 @@ for (const [name, card] of Object.entries(cards)) {
     assert.ok(JSON.stringify((card as any).contents.header).includes('mascot-v6-'), 'the mascot is in the header');
     assert.ok(/\/line\/icons\/[a-z]+\.png/.test(json), 'the category chip has its icon');
     const header = (card as any).contents.header;
-    assert.ok(themeStarts.has(header.background.startColor), 'the header band uses one of the CI themes');
+    assert.ok(themeColours.has(header.backgroundColor), 'the header band uses one of the CI themes');
+    assert.ok(!json.includes('linearGradient'), 'no gradient anywhere on the card');
     // Plain colours must come from the palette; translucent white/black (8-digit) only lights the band.
     const colours = [...json.matchAll(/"(?:color|backgroundColor|borderColor|separatorColor|startColor|centerColor|endColor)":"(#[0-9A-Fa-f]{6})"/g)].map(m => m[1]);
     assert.ok(colours.length > 0);
@@ -55,8 +56,6 @@ test('an unknown category colour falls back to the text colour', () => {
 });
 
 test('money out is red, money in is green', () => {
-  const expense = JSON.stringify((cards.expense as any).contents.header.background);
-  const job = JSON.stringify((cards.jobSaved as any).contents.header.background);
-  assert.ok(expense.includes(LINE_CARD_THEMES.expense.center));
-  assert.ok(job.includes(LINE_CARD_THEMES.positive.center));
+  assert.equal((cards.expense as any).contents.header.backgroundColor, LINE_CARD_THEMES.expense.center);
+  assert.equal((cards.jobSaved as any).contents.header.backgroundColor, LINE_CARD_THEMES.positive.center);
 });

@@ -4,7 +4,7 @@ import type { LineMessage } from './line.js';
 // Buttons take the colour of their card's header (owner, 2026-11-13, a red รายจ่าย card with an orange-brown button:
 // "เห็นไหมว่าปุ่มกดสีมันต่างกันจริงๆ สีด้านบนการ์ดด้านบนสวยแล้ว" → "เก็บหัวสีแบบนี้ แก้ปุ่มให้เข้ากัน"). Applied once, to every
 // LINE message on its way out (push, reply and the 50 ทวิ push), so a card built anywhere — and any added later — follows it.
-// The header keeps its gradient; the button is that header's middle colour with white words. LINE draws its own buttons'
+// The button is its header's colour (flat since 2026-11-13) with white words. LINE draws its own buttons'
 // words in a colour it picks, so each button becomes a rounded box whose words are white by our own choice; a secondary
 // button becomes the same box in light grey, so buttons side by side stay the same height.
 

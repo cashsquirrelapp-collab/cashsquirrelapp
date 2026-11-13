@@ -86,16 +86,16 @@ export function lineAppLink(path: string, label = 'ดูรายละเอ�
   } catch { return undefined; }
 }
 
-// The CI gradient family of the app's "Liquid Amber" (goalsAmber.css), one per kind of event, so the
-// colour says what happened before a word is read (owner, 2026-10-22: "เพิ่มสีสัน ... แต่ทางการ").
-// Each runs dark to light; white text on the darker two thirds stays readable.
+// One header colour per kind of event, so the colour says what happened before a word is read (owner, 2026-10-22:
+// "เพิ่มสีสัน ... แต่ทางการ"). Flat since 2026-11-13 (owner: no gradients anywhere, flat brick on a neutral ground): each is
+// the middle of the gradient it replaced, the colour the buttons already took (lineTone.ts); white text reads on all of them.
 export const LINE_CARD_THEMES = {
-  brand: { start: '#8F3416', center: '#B8481A', end: '#E2672F' },
-  positive: { start: '#0D4A2E', center: '#17663F', end: '#2F8A5B' },
-  alert: { start: '#6E1A12', center: '#9A2A18', end: '#C4482B' },
+  brand: { center: '#B8481A' },
+  positive: { center: '#17663F' },
+  alert: { center: '#9A2A18' },
   // Money out is red (owner: "รายจ่ายควรเป็นสีแดง"), a brighter crimson than the overdue alert.
-  expense: { start: '#7A1426', center: '#B3261E', end: '#E0533F' },
-  neutral: { start: '#1C1917', center: '#36302C', end: '#5A524C' },
+  expense: { center: '#B3261E' },
+  neutral: { center: '#36302C' },
 } as const;
 type LineCardTheme = keyof typeof LINE_CARD_THEMES;
 // One category per card, in the header chip with its icon (Lucide, white PNGs in /line/icons,
@@ -153,14 +153,6 @@ export function lineCard(opts: {
         ] },
     ],
   };
-  // Two full-size layers under the content give the liquid sheen: light from the top left, depth
-  // toward the bottom right. They take no space and never cover text (content comes after them).
-  const sheen = [
-    { type: 'box', layout: 'vertical', position: 'absolute', offsetTop: '0px', offsetStart: '0px', width: '100%', height: '100%', contents: [],
-      background: { type: 'linearGradient', angle: '150deg', startColor: '#FFFFFF33', centerColor: '#FFFFFF00', centerPosition: '45%', endColor: '#FFFFFF00' } },
-    { type: 'box', layout: 'vertical', position: 'absolute', offsetTop: '0px', offsetStart: '0px', width: '100%', height: '100%', contents: [],
-      background: { type: 'linearGradient', angle: '0deg', startColor: '#00000026', centerColor: '#00000000', centerPosition: '55%', endColor: '#00000000' } },
-  ];
   // Beside an amount the mascot can be larger; beside a title it stays smaller so the text keeps its width.
   const figure = opts.metric ? 80 : 72;
   const titleBlock = (margin: string) => [
@@ -170,9 +162,8 @@ export function lineCard(opts: {
   return { type: 'flex', altText: opts.altText.slice(0, 400), contents: {
     type: 'bubble', size: 'mega',
     header: { type: 'box', layout: 'vertical', paddingAll: padding, paddingBottom: mascot ? '0px' : padding, spacing: 'xs',
-      background: { type: 'linearGradient', angle: '120deg', startColor: theme.start, centerColor: theme.center, centerPosition: '55%', endColor: theme.end },
+      backgroundColor: theme.center,
       contents: [
-        ...sheen,
         brand,
         // With an amount: title and a full-width hairline, then the amount with the mascot beside it.
         // Without one: the mascot stands beside the title.
