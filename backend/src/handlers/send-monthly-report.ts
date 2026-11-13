@@ -13,7 +13,7 @@ import { sendGmailEmailOutcome } from '../services/gmail.js';
 import { sendLineMessageToEmailOutcome } from '../services/line.js';
 import { attemptDelivery, notificationOutcomeCounts, recordChannelOutcome, type DeliveryOutcome } from '../services/notificationOutcome.js';
 import type { LineMessage } from '../services/line.js';
-import { lineAppLink, LINE_CARD_COLORS, LINE_CARD_THEMES } from '../services/lineCards.js';
+import { lineAppLink, LINE_CARD_COLORS, LINE_BRICK } from '../services/lineCards.js';
 import { buildLineCashSummary, formatMonthlyMoney, monthlyProfitNote } from '../services/lineCashSummary.js';
 import { monthlyProfitSummary } from '../../../shared/monthlySummary.js';
 import { roundMoney } from '../../../shared/wht.js';
@@ -61,7 +61,7 @@ function emailOrigin(): string | null {
 export function buildReportHtml(monthLabel: string, s: MonthlySummary): string {
   const monthly = monthlyProfitSummary(s);
   const C = LINE_CARD_COLORS;
-  const band = LINE_CARD_THEMES.brand.center;
+  const band = LINE_BRICK;
   const origin = emailOrigin();
   const page = isPhaseOneFeatureAvailable('report', false) ? { path: '/report', label: 'ดูรายงานในแอป' } : { path: '/dashboard', label: 'ดูภาพรวมในแอป' };
   // Light text on the band, solid: about 5.8:1 for white and 5.1:1 for the soft line on #B8481A.

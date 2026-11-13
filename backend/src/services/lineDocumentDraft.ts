@@ -2,7 +2,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { calculateDocumentTotals } from '../../../frontend/src/features/invoices/documentMath.js';
 import type { Invoice, InvoiceProfile } from '../../../shared/types.js';
 import { patchPrivate } from '../repositories/accounts.js';
-import { lineAppLink, lineCard, lineValueRow, LINE_CARD_COLORS } from './lineCards.js';
+import { lineAppLink, lineCard, lineValueRow, LINE_CARD_COLORS, documentCharacter } from './lineCards.js';
 import type { LineMessage } from './line.js';
 
 // Quotations and invoices from LINE as cards (owner, 2026-10-30, after a competitor's LINE: "อยากให้มันสร้างการ์ดได้
@@ -321,8 +321,8 @@ export function buildDocumentDraftCard(stored: StoredDocumentDraft, issuer: Part
     item.price > 0 ? `${item.quantity !== 1 || item.unit ? `${item.quantity.toLocaleString('en-US')} ${item.unit || 'หน่วย'} × ` : ''}${baht(item.price)}` : undefined));
   const optional = draft.client.name ? [!draft.client.address && 'ที่อยู่ลูกค้า', !draft.client.taxId && 'เลขผู้เสียภาษีลูกค้า'].filter(Boolean) : [];
   const card = lineCard({
-    title: name, character: 'document', compact: true,
-    subtitle: ready ? 'แบบร่าง · พร้อมสร้างเอกสาร' : 'แบบร่าง · ยังไม่ได้สร้างเอกสาร',
+    title: name, character: documentCharacter(draft.type), compact: true, tag: 'แบบร่าง',
+    subtitle: ready ? 'พร้อมสร้างเอกสาร' : 'ยังไม่ได้สร้างเอกสาร',
     metric: { label: 'ยอดชำระสุทธิ', value: totals.payable > 0 ? baht(totals.payable) : 'ยังไม่มียอด' },
     body: [
       issuerRow(issuer),
@@ -372,7 +372,7 @@ export function buildDocumentCreatedCard(record: Invoice): LineMessage {
   const totals = calculateDocumentTotals(record.items, record.vatRate, record.whtRate);
   const open = lineAppLink(`/invoice?${new URLSearchParams({ type: record.documentType, document: record.id })}`, 'ดูเอกสาร · ดาวน์โหลด PDF');
   const card = lineCard({
-    title: `สร้าง${name}แล้ว`, subtitle: record.documentNo, character: 'document', compact: true,
+    title: `สร้าง${name}แล้ว`, subtitle: record.documentNo, character: documentCharacter(record.documentType), compact: true, tag: 'สร้างแล้ว',
     metric: { label: 'ยอดชำระสุทธิ', value: baht(totals.payable) },
     body: [
       lineValueRow('ลูกค้า', record.client.name, { bold: false }),

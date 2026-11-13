@@ -183,6 +183,23 @@ card does not need:
 - LINE notification cards keep the CI gradient band (owner, 2026-10-22); their buttons follow this section: the one
   primary in orange, the rest grey, corners 10px. They share a template with the real LINE Flex messages
   (`frontend/src/features/assistant/LineCard.tsx` and `backend/src/services/lineCards.ts`, `lineReminders.ts`).
+- The real LINE Flex cards (2026-11-14, owner after a competitor's cards: "สีจืด", then "คุมธีม CI"). They are flat
+  and have no gradients. Each card carries:
+  - the brand symbol and name;
+  - the kind of card as a picture in the CI typeface (Prompt 700, `scripts/render-line-titles.mjs` →
+    `/line/titles-v1/`), because LINE writes words in the phone's font;
+  - a status pill (แบบร่าง, สร้างแล้ว, บันทึกแล้ว);
+  - the official mascot standing large on the right;
+  - the key amount at the top of the body in the card's colour.
+
+  Kinds differ only within the warm CI family:
+  - documents and notices sit on a deep header that steps by document: ใบเสนอราคา CI orange #C24A16, ใบแจ้งหนี้ and
+    overdue notices rust #8A3315, ใบเสร็จ espresso #4E2A1C with a gold ✓ ชำระแล้ว pill;
+  - money out and money in sit on warm pastels: รายจ่าย peach-pink #FCE1D9 with a red pill and amount, รายรับ pale
+    green #E7EFD8 with a green pill and amount.
+
+  Every main button is CI orange whatever the header (`lineTone.ts`); the rest are grey. The greeting band and the
+  monthly email keep their approved brick (`LINE_BRICK`).
 
 ### Forms
 

@@ -1,7 +1,7 @@
 import type { DocumentType } from '../../../shared/types.js';
 import { getSupabaseAdmin } from '../config/supabase.js';
 import type { LineMessage } from './line.js';
-import { lineAppLink, lineCard, lineSection, lineValueRow } from './lineCards.js';
+import { lineAppLink, lineCard, lineSection, lineValueRow, documentCharacter } from './lineCards.js';
 
 type RequestedType = Exclude<DocumentType, 'receiptTaxInvoice'>;
 export interface LineDocumentRequest { type: RequestedType; query: string }
@@ -90,7 +90,7 @@ export function buildLineDocumentMessages(request: LineDocumentRequest, results?
   if (request.query.length > 120) return [{ type: 'text', text: `พิมพ์ “ขอ${name}” ตามด้วยเลขเอกสารหรือชื่อลูกค้าสั้น ๆ เช่น “ขอ${name} ลูกค้าเอ”` }];
   if (!results) return [{ type: 'text', text: 'ตอนนี้ค้นหาเอกสารไม่สำเร็จครับ ลองขอเอกสารอีกครั้งภายหลัง ยังไม่ได้ส่งไฟล์หรือออกเอกสารใหม่' }];
   if (!results.documents.length) return [lineCard({
-    title: `ค้นหา${name}`, compact: true, character: 'document', altText: `ไม่พบ${name}ที่บันทึกไว้ในบัญชีส่วนตัว`,
+    title: `ค้นหา${name}`, compact: true, character: documentCharacter(request.type), altText: `ไม่พบ${name}ที่บันทึกไว้ในบัญชีส่วนตัว`,
     body: [lineSection(request.query ? `ไม่พบเอกสารที่ตรงกับ “${request.query}” ในบัญชีส่วนตัวที่เชื่อม LINE` : 'ยังไม่มีเอกสารประเภทนี้บันทึกไว้ในบัญชีส่วนตัวที่เชื่อม LINE')],
     footer: lineAppLink(`/invoice?type=${request.type}`, 'เปิดหน้าเอกสาร'),
     note: 'เปิดเอกสารของบัญชีที่เชื่อม LINE · ยังไม่ได้ออกเอกสารใหม่',
@@ -100,7 +100,7 @@ export function buildLineDocumentMessages(request: LineDocumentRequest, results?
     const params = new URLSearchParams({ type: tab, document: document.id, from: 'line' });
     return lineCard({
       title: document.documentType === 'receiptTaxInvoice' ? 'ใบเสร็จ / ใบกำกับภาษี' : names[tab],
-      compact: true, character: 'document', subtitle: document.documentNo.slice(0, 120) || 'ยังไม่ระบุเลขเอกสาร',
+      compact: true, character: documentCharacter(document.documentType), subtitle: document.documentNo.slice(0, 120) || 'ยังไม่ระบุเลขเอกสาร',
       altText: `${name} ${document.documentNo} · ${document.clientName} · เปิดเอกสาร / PDF`,
       body: [lineValueRow('ลูกค้า', document.clientName || 'ยังไม่ระบุลูกค้า', { bold: false }),
         lineValueRow('วันที่เอกสาร', document.createdDate || 'ยังไม่ระบุวันที่', { bold: false })],

@@ -167,7 +167,10 @@ test('the saved document has the app เลขา draft shape: unsigned, numbere
   assert.deepEqual([record.createdDate, record.dueDate, record.paymentTerm, record.whtRate], ['2026-10-30', '2026-11-29', 'เครดิต 30 วัน', 3]);
   assert.doesNotThrow(() => validateChanges([{ table: 'cashflow_invoices', id: record.id, op: 'set', version: null, data: record as any }]));
   const card = buildDocumentCreatedCard(record) as any;
-  assert.match(flex(card), /สร้างใบแจ้งหนี้แล้ว/);
+  // The kind is the CI-typeface title picture with a สร้างแล้ว pill; the words stay in the message's alt text.
+  assert.match(card.altText, /สร้างใบแจ้งหนี้แล้ว/);
+  assert.match(flex(card), /\/line\/titles-v1\/invoice\.png/);
+  assert.match(flex(card), /"สร้างแล้ว"/);
   assert.match(flex(card), new RegExp(record.documentNo));
   assert.match(flex(card), /ดูเอกสาร · ดาวน์โหลด PDF/);
   assert.match(flex(card), /openPath=%2Finvoice%3Ftype%3Dinvoice%26document%3D/);
@@ -290,7 +293,8 @@ test('the form saves one document for its draft, clears the draft, and sends the
   assert.deepEqual([record.client.name, record.items[0].quantity, record.items[0].price, record.paymentTerm], ['บริษัท แบรนด์เอ', 20, 300, 'เครดิต 30 วัน']);
   assert.equal(issuer, undefined, 'the saved issuer is kept as it is');
   assert.equal(calls.cleared.length, 1);
-  assert.match(JSON.stringify(calls.sent[0].contents), /สร้างใบเสนอราคาแล้ว/);
+  assert.match(calls.sent[0].altText, /สร้างใบเสนอราคาแล้ว/);
+  assert.match(JSON.stringify(calls.sent[0].contents), /\/line\/titles-v1\/quotation\.png/);
   assert.equal(state.body.document.id, record.id, 'the saved document goes back to be drawn as a picture');
 });
 
@@ -555,14 +559,16 @@ test('each type is saved as the app saves it: its own number prefix, a receipt d
     assert.doesNotThrow(() => validateChanges([{ table: 'cashflow_invoices', id: record.id, op: 'set', version: null, data: record as any }]), type);
   }
   const card = buildDocumentDraftCard(newDocumentDraft(parseLineDocumentCreate('ออกใบเสร็จ คุณบี ค่าตัดต่อ 5000 โอนแล้ว')!), ISSUER) as any;
-  assert.match(flex(card), /ใบเสร็จรับเงิน/);
+  assert.match(flex(card), /\/line\/titles-v1\/receipt\.png/);
+  assert.match(card.altText, /ใบเสร็จรับเงิน/);
   assert.match(flex(card), /วันที่รับเงิน.*วันนี้/);
   assert.match(flex(card), /วิธีชำระ/);
   assert.match(flex(card), /โอนเงิน/);
   assert.doesNotMatch(flex(card), /เครดิต/);
   assert.deepEqual(buttons(card), ['สร้างเอกสาร', 'แก้ไข / กรอกเพิ่ม', 'ยกเลิก']);
   const created = buildDocumentCreatedCard(buildLineDocumentRecord(newDocumentDraft(parseLineDocumentCreate('ออกใบเสร็จ คุณบี ค่าตัดต่อ 5000 โอนแล้ว')!).draft, documentIssuer(ISSUER), at, documentIdFor('0123456789abcdef'))) as any;
-  assert.match(flex(created), /สร้างใบเสร็จรับเงินแล้ว/);
+  assert.match(created.altText, /สร้างใบเสร็จรับเงินแล้ว/);
+  assert.match(flex(created), /\/line\/titles-v1\/receipt\.png/);
   assert.match(flex(created), /วันที่รับเงิน/);
   // typed afterwards: how it was paid; a tax invoice keeps its VAT
   assert.equal(applyDocumentFollowUp(parseLineDocumentCreate('ทำใบเสร็จ')!, 'เงินสด')!.paymentMethod, 'เงินสด');

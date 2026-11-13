@@ -1,5 +1,5 @@
 import type { LineMessage } from './line.js';
-import { LINE_CARD_COLORS as C, LINE_CARD_THEMES, lineAppLink } from './lineCards.js';
+import { LINE_CARD_COLORS as C, LINE_BRICK, lineAppLink } from './lineCards.js';
 
 // The first minute in LINE (owner, 2026-11-13: "ใช้ง่าย เข้าใจได้รวดเร็ว สะดวก", and different from the competitor's
 // banner-and-checklist welcome): a new friend gets two short lines and one question (ใช้แบบไหน), can type a record at once
@@ -80,7 +80,7 @@ export function greetingHeader(title: string, subtitle: string, pose = 'review')
   const city = asset('/line/greeting-city-v1.png');
   const mascot = asset(`/line/mascot-v6-${pose}.png`);
   const symbol = asset('/brand/logo01-v1/symbol-white.png');
-  const band = LINE_CARD_THEMES.brand.center;
+  const band = LINE_BRICK;
   return { type: 'box', layout: 'vertical', backgroundColor: band, paddingAll: '20px', paddingBottom: '0px', contents: [
       // The buildings stand along the bottom of the band, behind the words and the mascot.
       ...(city ? [{ type: 'image', url: city, size: 'full', aspectRatio: '4:1', aspectMode: 'fit', position: 'absolute', offsetStart: '0px', offsetEnd: '0px', offsetBottom: '0px' }] : []),
@@ -104,7 +104,7 @@ export function greetingHeader(title: string, subtitle: string, pose = 'review')
 export const SHEETS_TILE = () => greetingTile('document', 'มีชีตหรือ Excel อยู่แล้ว?', 'เชื่อม Google Sheets หรือส่งไฟล์ Excel มาได้ ไม่ต้องย้ายข้อมูล');
 
 export function buildTryWelcome(options: { sheets?: boolean } = {}): LineMessage[] {
-  const band = LINE_CARD_THEMES.brand.center;
+  const band = LINE_BRICK;
   return [{ type: 'flex', altText: 'ยินดีที่ได้รู้จักครับ ผมเลขากระรอก เลขาการเงินในแชท LINE ใช้แบบไหนครับ', contents: {
     type: 'bubble', size: 'mega', styles: { header: { backgroundColor: band }, body: { backgroundColor: '#FFFFFF' } },
     header: greetingHeader('ยินดีที่ได้รู้จักครับ', 'เลขาการเงินในแชท LINE ของคุณ'),

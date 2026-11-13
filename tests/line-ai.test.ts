@@ -220,7 +220,7 @@ test('LINE replies: a list of records becomes one CI card with its title, count,
   assert.ok(!card.includes('ธ.ค. 2569'), 'this year left off');
   assert.equal(reply[1].altText, 'มีงานค้างรับ 8 งาน รวม ฿36,000 ครับ');
   // Expenses get the expense card.
-  assert.ok(JSON.stringify(lineAssistantReply('รายจ่ายเดือนนี้ 2 รายการครับ\n\n- ค่าเน็ต · ฿599\n- ค่าไฟ · ฿1,200', [], now)).includes('"text":"รายจ่าย"'));
+  assert.ok(JSON.stringify(lineAssistantReply('รายจ่ายเดือนนี้ 2 รายการครับ\n\n- ค่าเน็ต · ฿599\n- ค่าไฟ · ฿1,200', [], now)).includes('/line/titles-v1/expense.png'));
 });
 
 test('LINE prompt: LINE TALK keeps the tone of VOICE and the user\'s profile in LINE, and only in LINE', async () => {

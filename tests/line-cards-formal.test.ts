@@ -1,9 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-// LINE cards are formal statements (owner, 2026-10-22: "clean ... ทางการ ... ไม่เอาน่ารักแล้ว", then
-// "เพิ่มลิควิดการ์ด ... เกรเดียนต์ ... สีสันแบบทางการ"): the brand symbol and name on a CI band (flat since 2026-11-13: no gradients),
-// a category chip with its icon, the official mascot standing on the band (no frame), and palette/theme colours.
+// LINE cards are formal statements (owner, 2026-10-22: "clean ... ทางการ"), livelier since 2026-11-14 after the competitor's cards:
+// the brand symbol and name, the kind of card as a picture in the CI typeface, a status pill, the official mascot standing
+// large on the right, all in the warm CI family (deep headers for documents and notices, pastel for money in and out),
+// flat (no gradients), every main button CI orange (lineTone.ts).
 process.env.APP_URL = 'https://cards.example.com';
 const { lineCard, lineValueRow, LINE_CARD_COLORS, LINE_CARD_THEMES } = await import('../backend/src/services/lineCards.js');
 const { buildDigestFlexMessage, findJobsNeedingAttention } = await import('../backend/src/services/lineReminders.js');
@@ -26,16 +27,17 @@ for (const theme of Object.values(LINE_CARD_THEMES)) for (const c of Object.valu
 const themeColours = new Set<string>(Object.values(LINE_CARD_THEMES).map(t => t.center));
 
 for (const [name, card] of Object.entries(cards)) {
-  test(`${name}: flat CI header with brand, icon and mascot, palette colours only, no gradient`, () => {
+  test(`${name}: flat CI header with brand, CI-typeface title picture and mascot, palette colours only, no gradient`, () => {
     const json = JSON.stringify(card);
-    assert.ok(json.includes('/brand/logo01-v1/symbol-white.png'), 'white brand symbol in the header');
-    assert.ok(json.includes('"กระรอกตุนเงิน"'), 'brand name in the header');
-    // The mascot appears once, standing on the header band (no frame).
-    assert.equal(json.match(/mascot-v6-/g)?.length, 1, 'one mascot');
-    assert.ok(JSON.stringify((card as any).contents.header).includes('mascot-v6-'), 'the mascot is in the header');
-    assert.ok(/\/line\/icons\/[a-z]+\.png/.test(json), 'the category chip has its icon');
     const header = (card as any).contents.header;
-    assert.ok(themeColours.has(header.backgroundColor), 'the header band uses one of the CI themes');
+    const pastel = header.backgroundColor === LINE_CARD_THEMES.expense.center || header.backgroundColor === LINE_CARD_THEMES.positive.center;
+    assert.ok(json.includes(pastel ? '/brand/logo01-v1/symbol-ci.png' : '/brand/logo01-v1/symbol-white.png'), 'brand symbol in the header');
+    assert.ok(json.includes('"กระรอกตุนเงิน"'), 'brand name in the header');
+    // The mascot appears once, standing in the header (no frame).
+    assert.equal(json.match(/mascot-v6-/g)?.length, 1, 'one mascot');
+    assert.ok(JSON.stringify(header).includes('mascot-v6-'), 'the mascot is in the header');
+    assert.ok(/\/line\/titles-v1\/[a-z-]+\.png/.test(JSON.stringify(header)), 'the kind of card as a CI-typeface picture');
+    assert.ok(themeColours.has(header.backgroundColor), 'the header uses one of the CI themes');
     assert.ok(!json.includes('linearGradient'), 'no gradient anywhere on the card');
     // Plain colours must come from the palette; translucent white/black (8-digit) only lights the band.
     const colours = [...json.matchAll(/"(?:color|backgroundColor|borderColor|separatorColor|startColor|centerColor|endColor)":"(#[0-9A-Fa-f]{6})"/g)].map(m => m[1]);
@@ -55,7 +57,35 @@ test('an unknown category colour falls back to the text colour', () => {
   assert.ok(!JSON.stringify(card).includes('#7C3AED'));
 });
 
-test('money out is red, money in is green', () => {
-  assert.equal((cards.expense as any).contents.header.backgroundColor, LINE_CARD_THEMES.expense.center);
-  assert.equal((cards.jobSaved as any).contents.header.backgroundColor, LINE_CARD_THEMES.positive.center);
+test('money out is a pastel red card, money in a pastel green one; the amount and pill carry the colour', () => {
+  const expense = (cards.expense as any).contents;
+  const job = (cards.jobSaved as any).contents;
+  assert.equal(expense.header.backgroundColor, LINE_CARD_THEMES.expense.center);
+  assert.equal(job.header.backgroundColor, LINE_CARD_THEMES.positive.center);
+  assert.equal(expense.body.contents[0].contents[1].color, LINE_CARD_COLORS.negative, 'the amount keeps the app red');
+  assert.equal(job.body.contents[0].contents[1].color, LINE_CARD_COLORS.positive, 'the amount keeps the app green');
+  assert.match(JSON.stringify(expense.header), /"text":"บันทึกแล้ว"/, 'a status title becomes the pill');
+});
+
+test('each document reads apart: quotation CI orange, invoice rust, receipt espresso, each with its own title picture', async () => {
+  const D = await import('../backend/src/services/lineDocumentDraft.js');
+  const card = (text: string) => (D.buildDocumentDraftCard(D.newDocumentDraft(D.parseLineDocumentCreate(text)!), { name: 'สตูดิโอ' }) as any).contents;
+  const quote = card('ขอใบเสนอราคา คุณบี ตัดต่อ 5000');
+  const invoice = card('ออกใบแจ้งหนี้ คุณบี ตัดต่อ 5000');
+  const receipt = card('ออกใบเสร็จ คุณบี ตัดต่อ 5000 โอนแล้ว');
+  assert.deepEqual([quote, invoice, receipt].map(c => c.header.backgroundColor),
+    [LINE_CARD_THEMES.brand.center, LINE_CARD_THEMES.alert.center, LINE_CARD_THEMES.espresso.center]);
+  for (const [c, key] of [[quote, 'quotation'], [invoice, 'invoice'], [receipt, 'receipt']] as const) {
+    assert.match(JSON.stringify(c.header), new RegExp(`/line/titles-v1/${key}\\.png`));
+    assert.match(JSON.stringify(c.header), /"text":"แบบร่าง"/);
+  }
+});
+
+test('without picture addresses the kind is written in words instead', async () => {
+  const saved = process.env.APP_URL;
+  delete process.env.APP_URL;
+  try {
+    const card = lineCard({ title: 'บันทึกรายจ่ายแล้ว', altText: 'x', character: 'spent', body: [] }) as any;
+    assert.match(JSON.stringify(card.contents.header), /"text":"รายจ่าย"/);
+  } finally { process.env.APP_URL = saved; }
 });

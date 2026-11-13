@@ -25,10 +25,11 @@ const summary: MonthlySummary = {
 };
 
 // LINE shows the same three numbers as the app's overview since package 26 (formal cards, 2026-10-22): received,
-// total expenses and net profit (4,000 − 8,000 = −4,000), the loss in the card's header. Since 2026-11-01 the email and
+// total expenses and net profit (4,000 − 8,000 = −4,000), the loss as the card's key amount (at the top of its body since
+// 2026-11-14). Since 2026-11-01 the email and
 // the Excel file show those same numbers too (they used to show the cash flow after goal transfers, −5,000, which did
 // not match the LINE card). A loss stays negative everywhere.
-const headerRow = (card: any, label: string) => card.contents.header.contents.flatMap((item: any) => item.contents ?? [])
+const headerRow = (card: any, label: string) => card.contents.body.contents
   .find((item: any) => item.contents?.[0]?.text === label);
 
 test('scheduled report outputs show the same negative net profit everywhere', () => {
