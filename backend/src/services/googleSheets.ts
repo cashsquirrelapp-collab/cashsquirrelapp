@@ -12,6 +12,9 @@ import { LIVE_READ, serialToDate, type GoogleFile, type LiveCell, type LiveTab }
 export const DRIVE_FILE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 export const GOOGLE_SCOPES = ['openid', 'email', DRIVE_FILE_SCOPE];
 export const SHEET_MIME = 'application/vnd.google-apps.spreadsheet';
+/** Google's own document and slides types: an uploaded Word or PowerPoint file is turned into one of these. */
+export const DOC_MIME = 'application/vnd.google-apps.document';
+export const SLIDES_MIME = 'application/vnd.google-apps.presentation';
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
@@ -235,12 +238,21 @@ export async function readSpreadsheet(token: string, fileId: string): Promise<Li
   }));
 }
 
-/** Uploads an Excel workbook into the person's Drive as a new Google Sheet (Google converts it, formulas and all). */
-/** mediaType: what the uploaded bytes are (an Excel workbook unless said; a CSV converts the same way). */
+/** Uploads an Excel workbook into the person's Drive as a new Google Sheet (Google converts it, formulas and all).
+ *  mediaType: what the uploaded bytes are (an Excel workbook unless said; a CSV converts the same way). */
 export async function createSpreadsheet(token: string, name: string, xlsx: Uint8Array, mediaType: string = XLSX_MIME): Promise<GoogleFile> {
+  return createGoogleFile(token, name, xlsx, mediaType, SHEET_MIME);
+}
+
+/**
+ * Uploads a file into the person's Drive as one of Google's own types (googleType: a Sheet, a Doc or Slides), which Google
+ * converts it into: an Excel / CSV file to a Sheet, a Word file to a Doc, a PowerPoint file to Slides. The drive.file
+ * permission covers files the app makes. The returned url opens it in the matching Google editor.
+ */
+export async function createGoogleFile(token: string, name: string, bytes: Uint8Array, mediaType: string, googleType: string): Promise<GoogleFile> {
   const boundary = `krarok${randomBytes(12).toString('hex')}`;
-  const head = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({ name, mimeType: SHEET_MIME })}\r\n--${boundary}\r\nContent-Type: ${mediaType}\r\n\r\n`;
-  const body = Buffer.concat([Buffer.from(head, 'utf8'), Buffer.from(xlsx), Buffer.from(`\r\n--${boundary}--`, 'utf8')]);
+  const head = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({ name, mimeType: googleType })}\r\n--${boundary}\r\nContent-Type: ${mediaType}\r\n\r\n`;
+  const body = Buffer.concat([Buffer.from(head, 'utf8'), Buffer.from(bytes), Buffer.from(`\r\n--${boundary}--`, 'utf8')]);
   const response = await call(`${UPLOAD}?uploadType=multipart&fields=id,name,webViewLink&supportsAllDrives=true`, {
     method: 'POST',
     headers: { ...auth(token), 'Content-Type': `multipart/related; boundary=${boundary}` },
@@ -249,7 +261,8 @@ export async function createSpreadsheet(token: string, name: string, xlsx: Uint8
   if (!response.ok) throw failure(response);
   const file = await json<{ id?: string; name?: string; webViewLink?: string }>(response);
   if (!file.id) throw new GoogleError('failed', 'Google made no file');
-  return { id: file.id, name: (file.name || name).slice(0, 300), url: file.webViewLink || `https://docs.google.com/spreadsheets/d/${file.id}/edit` };
+  const editor = googleType === DOC_MIME ? 'document' : googleType === SLIDES_MIME ? 'presentation' : 'spreadsheets';
+  return { id: file.id, name: (file.name || name).slice(0, 300), url: file.webViewLink || `https://docs.google.com/${editor}/d/${file.id}/edit` };
 }
 
 /** The few operations writing one row needs, for one spreadsheet (sheetWrite.ts uses them; Excel in OneDrive will give

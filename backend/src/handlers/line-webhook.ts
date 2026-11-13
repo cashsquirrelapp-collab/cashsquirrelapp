@@ -60,8 +60,8 @@ export function lineEventCommand(event: LineEvent): string | null {
     const data = event.postback?.data || '';
     // Payment buttons in the 08:00 reminder pass through as-is; the assistant records them.
     if (decodeVaultAction(data) || decodeDueAction(data) || decodeWht50Action(data)) return data;
-    // เปิดใน Google Sheets under the answer to a spreadsheet (services/lineSheetConvert.ts).
-    if (/^sheet:convert:\d{1,40}:[A-Za-z0-9_-]{0,240}$/.test(data)) return data;
+    // เปิดใน Google Sheets / Docs / Slides under the answer to a file (services/lineSheetConvert.ts).
+    if (/^(sheet:convert:|google:open:[sdp]:)\d{1,40}:[A-Za-z0-9_-]{0,240}$/.test(data)) return data;
     // ใช้แบบไหน, picked by a new friend before signing up (services/lineTry.ts).
     if (TRY_POSTBACK.test(data)) return data;
     // A welcome question answered later in the chat, or ไว้ก่อน on the sheet offer (services/lineNudges.ts).
@@ -264,8 +264,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           await complete();
           return;
         }
-        // เปิดใน Google Sheets (owner, 2026-11-13): the spreadsheet sent earlier becomes a Google Sheet in the person's Drive.
-        if (event.type === 'postback' && messageText.startsWith('sheet:convert:')) {
+        // เปิดใน Google Sheets / Docs / Slides (owner, 2026-11-13): the file sent earlier opens in Google in the person's Drive.
+        if (event.type === 'postback' && /^(sheet:convert:|google:open:)/.test(messageText)) {
           const convert = await import('../services/lineSheetConvert.js');
           const tap = convert.decodeSheetConvert(messageText);
           if (tap) { await send(await convert.convertLineSheet(lineUserId, tap, accessToken)); await complete(); return; }

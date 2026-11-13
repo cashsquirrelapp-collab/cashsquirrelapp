@@ -140,13 +140,16 @@ async function handleLineSheetFile(user: UserRow, event: LineFileEvent, token: s
     none: 'อ่านตารางได้แล้ว แต่ตอนนี้เลขายังเตรียมรายการให้ไม่ได้ครับ ลองส่งใหม่อีกครั้ง หรือนำเข้าที่ เมนู งาน › นำเข้าจาก Excel',
     failed: 'เลขาอ่านตารางนี้ไม่สำเร็จครับ ลองส่งใหม่อีกครั้ง', log: 'line-sheet',
   });
-  // เปิดใน Google Sheets under the answer, where the Sheets test feature is open to the account (lineSheetConvert.ts).
-  const convertible = await (deps.sheetsOpen ?? sheetsOpenFor)(user.user_id).catch(() => false);
-  if (convertible && messages.length) {
-    const last = messages[messages.length - 1] as LineMessage & { quickReply?: unknown };
-    messages[messages.length - 1] = { ...last, quickReply: { items: [sheetConvertTap(event.id!, name)] } } as LineMessage;
-  }
-  return messages;
+  return withGoogleTap(messages, user, event, name, deps);
+}
+
+/** เปิดใน Google Sheets / Docs / Slides under the answer to a file, where the Sheets test feature (which holds the Google
+ *  connection) is open to the account (lineSheetConvert.ts). */
+async function withGoogleTap(messages: LineMessage[], user: UserRow, event: LineFileEvent, name: string, deps: LineFileDeps): Promise<LineMessage[]> {
+  const open = await (deps.sheetsOpen ?? sheetsOpenFor)(user.user_id).catch(() => false);
+  if (!open || !messages.length || !event.id) return messages;
+  const last = messages[messages.length - 1] as LineMessage & { quickReply?: unknown };
+  return [...messages.slice(0, -1), { ...last, quickReply: { items: [sheetConvertTap(event.id, name)] } } as LineMessage];
 }
 
 /**
@@ -195,9 +198,10 @@ async function handleLineDocFile(user: UserRow, event: LineFileEvent, token: str
   let read: ReturnType<typeof documentText>;
   try { read = documentText(name, new Uint8Array(bytes)); }
   catch (error) { return [{ type: 'text', text: DOC_ERRORS[error instanceof DocumentFileError ? error.code : 'type'] }]; }
-  return askAboutText(user, name, read.text, LINE_DOC_REQUEST, deps, {
+  const messages = await askAboutText(user, name, read.text, LINE_DOC_REQUEST, deps, {
     none: 'อ่านเอกสารได้แล้ว แต่ตอนนี้เลขายังเตรียมรายการให้ไม่ได้ครับ ลองส่งใหม่อีกครั้ง', failed: 'เลขาอ่านเอกสารนี้ไม่สำเร็จครับ ลองส่งใหม่อีกครั้ง', log: 'line-doc',
   });
+  return withGoogleTap(messages, user, event, name, deps);
 }
 
 /** Replaceable parts, for tests. */
@@ -209,7 +213,7 @@ export interface LineFileDeps {
   remember?: typeof rememberFileProposals;
   saveHistory?: typeof saveChatHistory;
   rateLimit?: typeof rateLimit;
-  /** Whether the Sheets test feature is open to the account (the เปิดใน Google Sheets tap). */
+  /** Whether the Sheets test feature is open to the account (the เปิดใน Google … tap). */
   sheetsOpen?: (userId: string) => Promise<boolean>;
 }
 
