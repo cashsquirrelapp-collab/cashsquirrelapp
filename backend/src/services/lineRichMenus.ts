@@ -1,5 +1,7 @@
 import { isPhaseOneFeatureAvailable } from '../../../shared/featureAvailability.js';
 import { getSupabaseAdmin } from '../config/supabase.js';
+import { appOrigin } from '../config/env.js';
+import { lineSignupOn } from './lineFirst.js';
 import { isOwnerUserId } from '../repositories/roles.js';
 
 // The menu under the LINE chat (owner, 2026-10-24: "ปุ่มแนบเอกสารใน Line ให้เห็นแค่ของบัญชีแอดมิน นอกนั้นไม่สามารถ
@@ -17,15 +19,30 @@ import { isOwnerUserId } from '../repositories/roles.js';
 // 2026-11-12r: back to the 2026-11-03 pictures (the original squirrel) after a day with โมจิ; a new name, because the
 // 2026-11-03 menus still exist in LINE and a finished version is never made the default again.
 export const MENU_VERSION = '2026-11-12r';
-export type MenuKind = 'everyone' | 'admin';
-const NAME: Record<MenuKind, string> = { everyone: `กระรอกตุนเงิน ทุกบัญชี ${MENU_VERSION}`, admin: `กระรอกตุนเงิน แอดมิน ${MENU_VERSION}` };
-const IMAGE: Record<MenuKind, string> = { everyone: '/line/richmenu-ci-5-2026-11-03.jpg', admin: '/line/richmenu-ci-6-2026-11-03.jpg' };
+// With sign-up in LINE on (LINE_SIGNUP, owner 2026-11-13), a chat without an account gets its own small menu as LINE's
+// default: เริ่มใช้งาน, คุยกับเลขา (example sentences to tap, tried before signing up), รู้จักกระรอก. Every linked chat then
+// gets the members' menu attached to it (its pictures unchanged). With sign-up off, nothing changes.
+export type MenuKind = 'everyone' | 'admin' | 'guest';
+const NAME: Record<MenuKind, string> = { everyone: `กระรอกตุนเงิน ทุกบัญชี ${MENU_VERSION}`, admin: `กระรอกตุนเงิน แอดมิน ${MENU_VERSION}`, guest: `กระรอกตุนเงิน ยังไม่สมัคร ${MENU_VERSION}` };
+const IMAGE: Record<MenuKind, string> = { everyone: '/line/richmenu-ci-5-2026-11-03.jpg', admin: '/line/richmenu-ci-6-2026-11-03.jpg', guest: '/line/richmenu-guest-2026-11-13.jpg' };
+/** The tile the guest menu's คุยกับเลขา sends (lineTry.ts TRY_CHAT answers it). */
+export const GUEST_CHAT_TEXT = 'คุยกับเลขา';
+type MenuIds = Record<'everyone' | 'admin', string> & { guest?: string };
+const kinds = (): MenuKind[] => (lineSignupOn() ? ['everyone', 'admin', 'guest'] : ['everyone', 'admin']);
 const BULK = 500;
 
 const vaultOpenToAll = () => isPhaseOneFeatureAvailable('vault', false);
 
 /** The menu LINE shows: the same tiles and actions as the image (2500x1686). */
 export function menuPayload(kind: MenuKind, liffId: string) {
+  if (kind === 'guest') {
+    // 2500x843, LINE's compact size: the chat stays in view for someone who is only looking.
+    return { size: { width: 2500, height: 843 }, selected: true, name: NAME.guest, chatBarText: 'เริ่มใช้งาน', areas: [
+      { bounds: { x: 0, y: 0, width: 1336, height: 843 }, action: { type: 'uri', label: 'เริ่มใช้งาน', uri: `https://liff.line.me/${liffId}?start=1` } },
+      { bounds: { x: 1336, y: 0, width: 1164, height: 421 }, action: { type: 'message', label: 'คุยกับเลขา', text: GUEST_CHAT_TEXT } },
+      { bounds: { x: 1336, y: 421, width: 1164, height: 422 }, action: { type: 'uri', label: 'รู้จักกระรอก', uri: appOrigin() } },
+    ] };
+  }
   const liff = (path: string) => `https://liff.line.me/${liffId}?openPath=${encodeURIComponent(path)}`;
   const top = [
     { bounds: { x: 0, y: 0, width: 1450, height: 1120 }, action: { type: 'uri', label: 'เพิ่มงาน', uri: liff('/jobs?openAddJob=1') } },
@@ -62,7 +79,7 @@ async function ok(response: Response, what: string): Promise<Response> {
 async function findMenus(api: LineApi): Promise<Partial<Record<MenuKind, string>>> {
   const list = await (await ok(await api('richmenu/list'), 'menu list')).json() as { richmenus?: { richMenuId?: string; name?: string }[] };
   const found: Partial<Record<MenuKind, string>> = {};
-  for (const kind of ['everyone', 'admin'] as const) found[kind] = list.richmenus?.find(menu => menu.name === NAME[kind])?.richMenuId;
+  for (const kind of kinds()) found[kind] = list.richmenus?.find(menu => menu.name === NAME[kind])?.richMenuId;
   return found;
 }
 
@@ -83,22 +100,25 @@ async function createMenu(deps: MenuDeps, kind: MenuKind): Promise<string> {
   return id;
 }
 
-let known: { key: string; ids: Record<MenuKind, string> } | null = null;
+let known: { key: string; ids: MenuIds } | null = null;
 
-/** Both menus, published if needed, with the right one as LINE's default. null while another Worker is publishing. */
-export async function ensureLineMenus(deps: MenuDeps): Promise<Record<MenuKind, string> | null> {
-  const key = `line-menu:${MENU_VERSION}:${vaultOpenToAll() ? 'all' : 'admins'}`;
+/** The members' menu for a linked chat: the 6 tiles for everyone once the vault is open, else by admin or not. */
+const memberMenu = (ids: MenuIds, admin: boolean) => (vaultOpenToAll() || admin ? ids.admin : ids.everyone);
+
+/** The menus, published if needed, with the right one as LINE's default. null while another Worker is publishing. */
+export async function ensureLineMenus(deps: MenuDeps): Promise<MenuIds | null> {
+  const key = `line-menu:${MENU_VERSION}:${vaultOpenToAll() ? 'all' : 'admins'}${lineSignupOn() ? ':guest' : ''}`;
   if (known?.key === key) return known.ids;
   const claim = await deps.store.claim(key);
   if (claim !== 'claimed' && claim !== 'done') return null;
   const found = await findMenus(deps.api);
-  if (claim === 'done' && found.everyone && found.admin) {
-    known = { key, ids: found as Record<MenuKind, string> };
+  if (claim === 'done' && kinds().every(kind => found[kind])) {
+    known = { key, ids: found as MenuIds };
     return known.ids;
   }
-  for (const kind of ['everyone', 'admin'] as const) found[kind] ??= await createMenu(deps, kind);
-  const ids = found as Record<MenuKind, string>;
-  const wanted = ids[vaultOpenToAll() ? 'admin' : 'everyone'];
+  for (const kind of kinds()) found[kind] ??= await createMenu(deps, kind);
+  const ids = found as MenuIds;
+  const wanted = lineSignupOn() && ids.guest ? ids.guest : ids[vaultOpenToAll() ? 'admin' : 'everyone'];
   const current = await deps.api('user/all/richmenu');
   const currentId = current.ok ? (await current.json() as { richMenuId?: string }).richMenuId : null;
   if (currentId !== wanted) await ok(await deps.api(`user/all/richmenu/${wanted}`, { method: 'POST' }), 'default menu');
@@ -118,7 +138,15 @@ export async function syncLineMenuFor(lineUserId: string, deps: MenuDeps): Promi
   if (checked.has(lineUserId)) return;
   const ids = await ensureLineMenus(deps);
   if (!ids) return;
-  if (!vaultOpenToAll()) {
+  if (lineSignupOn() && ids.guest) {
+    // A linked chat wears the members' menu; a chat without an account falls back to the guest menu (LINE's default).
+    const userId = await deps.store.userIdForLine(lineUserId);
+    const current = await deps.api(`user/${encodeURIComponent(lineUserId)}/richmenu`);
+    const currentId = current.ok ? (await current.json() as { richMenuId?: string }).richMenuId : null;
+    const wanted = userId ? memberMenu(ids, await deps.store.isAdmin(userId)) : null;
+    if (wanted && currentId !== wanted) await ok(await deps.api(`user/${encodeURIComponent(lineUserId)}/richmenu/${wanted}`, { method: 'POST' }), 'member menu link');
+    if (!wanted && currentId) await ok(await deps.api(`user/${encodeURIComponent(lineUserId)}/richmenu`, { method: 'DELETE' }), 'menu unlink');
+  } else if (!vaultOpenToAll()) {
     const userId = await deps.store.userIdForLine(lineUserId);
     const admin = userId ? await deps.store.isAdmin(userId) : false;
     const current = await deps.api(`user/${encodeURIComponent(lineUserId)}/richmenu`);
@@ -136,6 +164,17 @@ export async function syncAllLineMenus(deps: MenuDeps): Promise<{ processed: num
   const ids = await ensureLineMenus(deps);
   if (!ids) return { processed: 0, sent: 0, skipped: 1, failed: 0 };
   const [links, admins] = await Promise.all([deps.store.linkedAccounts(), deps.store.adminIds()]);
+  if (lineSignupOn() && ids.guest) {
+    // Every linked chat gets the members' menu (the default is the guest one).
+    const groups = new Map<string, string[]>();
+    for (const link of links) { const menu = memberMenu(ids, admins.has(link.userId)); groups.set(menu, [...(groups.get(menu) ?? []), link.lineUserId]); }
+    for (const [menu, chats] of groups) {
+      for (let at = 0; at < chats.length; at += BULK) {
+        await ok(await deps.api('richmenu/bulk/link', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ richMenuId: menu, userIds: chats.slice(at, at + BULK) }) }), 'bulk link');
+      }
+    }
+    return { processed: links.length, sent: links.length, skipped: 0, failed: 0 };
+  }
   const adminChats = vaultOpenToAll() ? [] : links.filter(link => admins.has(link.userId)).map(link => link.lineUserId);
   const otherChats = links.map(link => link.lineUserId).filter(id => !adminChats.includes(id));
   for (let at = 0; at < adminChats.length; at += BULK) {

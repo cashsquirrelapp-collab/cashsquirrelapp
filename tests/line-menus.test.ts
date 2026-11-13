@@ -135,3 +135,55 @@ test('daily: admins\' chats get the admin menu in bulk, every other linked chat 
   assert.deepEqual(line.calls, ['DELETE user/U-admin/richmenu']);
   assert.deepEqual(scheduledPaths('0 2 * * *', Date.parse('2026-11-02T02:00:00Z')), ['/api/close-expired-accounts', '/api/setup-line-richmenu', '/api/advance-card-renewals']);
 });
+
+// Sign-up in LINE on (owner, 2026-11-13): a chat without an account gets its own small menu as LINE's default
+// (เริ่มใช้งาน, คุยกับเลขา, รู้จักกระรอก); every linked chat wears the members' menu, whose pictures stay as they are.
+process.env.APP_URL ??= 'https://staging.krarok.com';
+async function withSignup<T>(run: () => Promise<T> | T): Promise<T> {
+  const before = process.env.LINE_SIGNUP;
+  process.env.LINE_SIGNUP = 'enabled';
+  try { return await run(); } finally { if (before === undefined) delete process.env.LINE_SIGNUP; else process.env.LINE_SIGNUP = before; }
+}
+
+test('guest menu: three tiles on a 2500x843 picture under 1 MB — start in LIFF, the chat tile, the site', async () => {
+  const payload = menuPayload('guest', 'LIFF-1') as unknown as { size: { width: number; height: number }; chatBarText: string; areas: { bounds: { x: number; y: number; width: number; height: number }; action: Record<string, string> }[] };
+  assert.deepEqual(payload.size, { width: 2500, height: 843 });
+  assert.equal(payload.chatBarText, 'เริ่มใช้งาน');
+  assert.deepEqual(payload.areas.map(area => area.action.label), ['เริ่มใช้งาน', 'คุยกับเลขา', 'รู้จักกระรอก']);
+  assert.equal(payload.areas[0].action.uri, 'https://liff.line.me/LIFF-1?start=1');
+  assert.deepEqual(payload.areas[1].action, { type: 'message', label: 'คุยกับเลขา', text: 'คุยกับเลขา' });
+  assert.match(payload.areas[2].action.uri, /^https:\/\//);
+  // The tiles cover the picture exactly, with no gaps or overlaps.
+  assert.equal(payload.areas.reduce((sum, area) => sum + area.bounds.width * area.bounds.height, 0), 2500 * 843);
+  const image = readFileSync(new URL('../frontend/public/line/richmenu-guest-2026-11-13.jpg', import.meta.url));
+  assert.deepEqual([...image.subarray(0, 3)], [0xff, 0xd8, 0xff]);
+  assert.ok(image.length < 1_000_000);
+  let at = 2;
+  while (at < image.length && !(image[at] === 0xff && [0xc0, 0xc2].includes(image[at + 1]))) at += 2 + image.readUInt16BE(at + 2);
+  assert.deepEqual([image.readUInt16BE(at + 7), image.readUInt16BE(at + 5)], [2500, 843]);
+});
+
+test('sign-up on: the guest menu is LINE\'s default; linked chats get the members\' menu, one by one and daily', async () => {
+  await withSignup(async () => {
+    const line = fakeLine({ links: [{ lineUserId: 'U-admin', userId: 'admin-1' }, { lineUserId: 'U-member', userId: 'member-1' }], perUser: { 'U-guest': 'menu-old' } });
+    const ids = await ensureLineMenus(line.deps);
+    assert.ok(ids?.guest);
+    assert.equal(line.defaultMenu(), ids!.guest);
+    assert.ok(line.images.includes('/line/richmenu-guest-2026-11-13.jpg'));
+    await syncLineMenuFor('U-member', line.deps);
+    await syncLineMenuFor('U-guest', line.deps);
+    assert.equal(line.perUser['U-member'], vaultOpen ? ids!.admin : ids!.everyone, 'a member wears the members\' menu');
+    assert.equal(line.perUser['U-guest'], undefined, 'no account: back to the guest default');
+    line.calls.length = 0;
+    const daily = await syncAllLineMenus(line.deps);
+    assert.deepEqual(daily, { processed: 2, sent: 2, skipped: 0, failed: 0 });
+    assert.ok(line.calls.includes('POST richmenu/bulk/link'));
+    assert.ok(!line.calls.includes('POST richmenu/bulk/unlink'));
+  });
+  // Sign-up off (the real site today): no guest menu, the same as before.
+  clearLineMenuCache();
+  const off = fakeLine();
+  const ids = await ensureLineMenus(off.deps);
+  assert.equal(ids?.guest, undefined);
+  assert.ok(!off.images.includes('/line/richmenu-guest-2026-11-13.jpg'));
+});

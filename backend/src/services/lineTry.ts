@@ -122,3 +122,11 @@ export function buildTryWelcomeBack(first: TryDraft | null, name: string | null)
     { type: 'text', text, quickReply },
   ];
 }
+
+/** คุยกับเลขา on the guest menu: what to type, with sentences to tap; each one comes back as the card it would make. */
+export const TRY_CHAT = 'คุยกับเลขา';
+const TRY_EXAMPLES = ['ค่ากาแฟ 60', 'งานถ่ายรูป 5000', 'ค่าเช่ากล้อง 1200', 'ได้เงินค่าสอน 1500'];
+export function buildTryChat(): LineMessage {
+  return { type: 'text', text: 'พิมพ์บอกเลขาได้เลยครับ ชื่อรายการกับจำนวนเงิน เลขาจะทำการ์ดให้ดูก่อน ยังไม่บันทึกจนกว่าคุณจะกดเก็บไว้\nลองแตะตัวอย่างด้านล่างก็ได้',
+    quickReply: { items: TRY_EXAMPLES.map(text => ({ type: 'action' as const, action: { type: 'message' as const, label: text, text } })) } };
+}

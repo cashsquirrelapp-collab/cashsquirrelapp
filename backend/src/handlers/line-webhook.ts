@@ -7,7 +7,7 @@ import { supabaseAdmin } from '../config/supabase.js';
 import { findUserByLineId, getQuickReply, handleAssistantMessage, isProUser, prefetchLinkedContext } from '../services/lineAssistant.js';
 import { buildLineStart, buildLineWelcome } from '../services/lineLinkCards.js';
 import { freeMonthlyTokens, lineSignupOn } from '../services/lineFirst.js';
-import { TRY_POSTBACK, buildTryPreview, buildTryPrompt, buildTryWelcome, parseTry, type UseType } from '../services/lineTry.js';
+import { TRY_CHAT, TRY_POSTBACK, buildTryChat, buildTryPreview, buildTryPrompt, buildTryWelcome, parseTry, type UseType } from '../services/lineTry.js';
 import type { LineMessage } from '../services/line.js';
 import { toneLineMessages } from '../services/lineTone.js';
 import { decodeLineDraftAction } from '../services/lineDraftReview.js';
@@ -317,9 +317,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (lineSignupOn() && !looksLikeCode) {
           // A new friend: the use they picked gets an example to try; a typed record shows the card it would make, kept
           // with one tap at sign-up; anything else gets the เริ่มใช้งาน card.
+          // คุยกับเลขา on the guest menu: sentences to tap, each answered with the card it would make.
           const picked = TRY_POSTBACK.exec(messageText.trim());
           const tried = picked ? null : parseTry(messageText);
-          await send([picked ? buildTryPrompt(picked[1] as UseType) : tried ? buildTryPreview(tried, null, process.env.LIFF_ID) : buildLineStart(process.env.LIFF_ID)]);
+          await send([messageText.trim() === TRY_CHAT ? buildTryChat()
+            : picked ? buildTryPrompt(picked[1] as UseType) : tried ? buildTryPreview(tried, null, process.env.LIFF_ID) : buildLineStart(process.env.LIFF_ID)]);
         } else {
           await send([{ type: 'text', text: replyText }]);
         }

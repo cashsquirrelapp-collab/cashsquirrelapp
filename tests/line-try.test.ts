@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTryPreview, buildTryPrompt, buildTryWelcome, buildTryWelcomeBack, decodeTry, encodeTry, parseTry, TRY_POSTBACK } from '../backend/src/services/lineTry.js';
+import { buildTryChat, buildTryPreview, buildTryPrompt, buildTryWelcome, buildTryWelcomeBack, decodeTry, encodeTry, parseTry, TRY_CHAT, TRY_POSTBACK } from '../backend/src/services/lineTry.js';
 import { lineEventCommand } from '../backend/src/handlers/line-webhook.js';
 import { settingsFor } from '../backend/src/services/lineSignup.js';
 
@@ -66,4 +66,15 @@ test('the use picked is kept with the welcome answers and chooses the app menu u
   assert.equal(personal.userPersona, 'employee');
   assert.equal(settingsFor({ use: 'company', skippedAtStep: 2 }, new Date()).userPersona, 'freelance');
   assert.equal(settingsFor({ use: 'personal', workType: 'student' }, new Date()).userPersona, 'university');
+});
+
+test('คุยกับเลขา on the guest menu: what to type, and every example sentence comes back as a card to keep', () => {
+  const message = buildTryChat() as any;
+  assert.equal(TRY_CHAT, 'คุยกับเลขา');
+  assert.match(message.text, /ชื่อรายการกับจำนวนเงิน/);
+  assert.ok(!/\p{Extended_Pictographic}/u.test(message.text));
+  const examples = message.quickReply.items.map((item: any) => item.action.text);
+  assert.ok(examples.length >= 3);
+  for (const text of examples) assert.ok(parseTry(text), text);
+  assert.equal(parseTry('ได้เงินค่าสอน 1500')?.kind, 'income');
 });
