@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { strFromU8, unzipSync } from 'fflate';
-import { buildBookTemplate, TEMPLATE_INFO, upgradeTemplateMap } from '../shared/bookTemplates';
+import { buildBookTemplate, DATE_CHECK, TAX_ID_CHECK, TEMPLATE_INFO, upgradeTemplateMap } from '../shared/bookTemplates';
 import { BUSINESS_VERSION, type BusinessProfile } from '../shared/businessProfile';
-import { buildXlsx, STYLE_DEFS, type Cell, type SheetSpec } from '../shared/xlsxWriter';
+import { buildXlsx, columnLetter, STYLE_DEFS, type Cell, type RuleValidation, type SheetSpec } from '../shared/xlsxWriter';
 import { forTemplate, mapOf, readTabs, templateReadings } from '../frontend/src/features/labs/sheetMap';
 import { chooseCategory, chooseTab, rowCells } from '../shared/sheetRow';
 import { sheetMapSchema } from '../shared/googleSheets';
@@ -47,7 +47,7 @@ test('every workbook: a cover page naming each tab, ตั้งค่า as a f
     assert.match(String(styleOf(settings.rows[2][1])), /^input/);
     for (const sheet of sheets.filter(s => s.freezeRows === 1)) {
       assert.ok(sheet.rows[0].every(cell => styleOf(cell) === 'header'), `${id}/${sheet.name}: brick header in row 1`);
-      assert.equal(sheet.rows.length, 201, `${id}/${sheet.name}: 200 ruled rows`);
+      assert.equal(sheet.rows.length, 1001, `${id}/${sheet.name}: 1,000 ruled rows`);
       assert.equal(sheet.gridlines, false);
       assert.deepEqual(sheet.print, { landscape: true, repeatHeader: true });
       // Formula columns are grey (never typed over); the others are ruled white cells.
@@ -143,7 +143,7 @@ test('สร้างชีตใหม่ให้: a sheet made from a templat
   assert.notEqual(chooseTab(loose, 'expense')?.name, TEMPLATE_INFO.production.writes.expense);
 });
 
-test('a worked-out column says so in its header, not by grey alone; totals read far past the 200 ruled rows', () => {
+test('a worked-out column says so in its header, not by grey alone; totals read far past the 1,000 ruled rows', () => {
   for (const profile of Object.values(PROFILES)) {
     for (const sheet of buildBookTemplate(profile, { year: 2026 }).sheets.filter(s => s.freezeRows === 1)) {
       sheet.rows[1].forEach((cell, j) => {
@@ -153,7 +153,7 @@ test('a worked-out column says so in its header, not by grey alone; totals read 
     }
   }
   const text = JSON.stringify(buildBookTemplate(PROFILES.agency, { year: 2026 }).sheets);
-  assert.ok(!/\$[A-Z]+\$201\b/.test(text), 'no range stops at row 201');
+  assert.ok(!/\$[A-Z]+\$(201|1001)\b/.test(text), 'no range stops at the last ruled row');
 });
 
 test('our own sheets are read the way the template means them: an expense row gets its date, nothing lands in a tax ID', () => {
@@ -253,15 +253,39 @@ test('xlsx: the look is in the file — fonts by destination, no grid lines, joi
   const styles = strFromU8(excel['xl/styles.xml']);
   assert.match(styles, /FFE65F2B/);
   assert.match(styles, /<bottom style="double">/, 'a double rule under totals');
-  assert.match(styles, /formatCode="#,##0.00;-#,##0.00;&quot;–&quot;"/, 'a dash for nothing in worked-out figures');
+  assert.match(styles, /formatCode="#,##0.00;\(#,##0.00\);&quot;–&quot;"/, 'negatives in brackets, a dash for nothing in worked-out figures');
+  assert.match(styles, /formatCode="#,##0.00;\(#,##0.00\)"/, 'negatives in brackets in typed amounts');
   const cover = strFromU8(excel['xl/worksheets/sheet1.xml']);
   assert.match(cover, /showGridLines="0"/);
-  assert.match(cover, /<mergeCells count="\d+"><mergeCell ref="B\d+:C\d+"\/>/);
+  assert.ok(!cover.includes('<mergeCells'), 'no joined cells on the cover: long lines wrap in column B');
   assert.match(cover, /<row r="1" ht="5" customHeight="1">/);
   const workbook = strFromU8(excel['xl/workbook.xml']);
   assert.match(workbook, /<definedName name="_xlnm.Print_Titles" localSheetId="2">'งาน'!\$1:\$1<\/definedName>/);
   const jobs = strFromU8(excel['xl/worksheets/sheet3.xml']);
   assert.match(jobs, /<pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"\/>/);
-  assert.match(jobs, /<c r="B200" s="\d+"\/>/, 'empty ruled rows down to 200');
+  assert.match(jobs, /<c r="B1001" s="\d+"\/>/, 'empty ruled rows down to 1,000');
   assert.match(styles, /<xf numFmtId="49"/, 'a text format for tax IDs');
+});
+
+test('what is typed is checked: tax IDs by their check digit, branch codes, and Gregorian dates only', () => {
+  const sheets = buildBookTemplate(PROFILES.freelance_vat, { year: 2026 }).sheets;
+  const income = sheets.find(sheet => sheet.name === 'รายรับ')!;
+  const rules = (income.validations ?? []).filter(v => !('list' in v)) as RuleValidation[];
+  const at = (header: string) => columnLetter(income.rows[0].findIndex(cell => String((cell as { v: string }).v) === header));
+  const date = rules.find(v => v.range === `${at('วันที่รับเงิน')}2:${at('วันที่รับเงิน')}5000`)!;
+  assert.deepEqual([date.date, date.warn, date.title], [{ from: '2000-01-01', to: '2100-12-31' }, undefined, DATE_CHECK.title], 'a Buddhist-era year is refused');
+  assert.match(date.error, /ปี ค\.ศ\. เช่น 13\/11\/2026/);
+  for (const v of rules.filter(rule => rule.custom)) {
+    assert.ok(v.warn, `${v.range}: asked about, never refused`);
+    assert.match(v.custom!, /^IFERROR\(AND\(LEN\([A-Z]+2\)=(13|5),/);
+  }
+  const settings = sheets.find(sheet => sheet.name === 'ตั้งค่า')!;
+  const id = settings.validations!.find(v => !('list' in v)) as RuleValidation;
+  assert.equal(id.title, TAX_ID_CHECK.title);
+  assert.match(String((settings.rows[Number(id.range.replace(/\D/g, '')) - 1][0] as { v: string }).v), /เลข.*ผู้เสียภาษี/, 'the check sits on the tax ID box');
+  // The weights 13 down to 2 and the check digit, as the formula reads them.
+  assert.match(id.custom!, /MID\(B\d+,1,1\)\*13\+MID\(B\d+,2,1\)\*12\+.*MID\(B\d+,12,1\)\*2,11\),10\)=--MID\(B\d+,13,1\)/);
+  const xml = strFromU8(unzipSync(buildXlsx(sheets))['xl/worksheets/sheet3.xml']);
+  assert.match(xml, /<dataValidation type="date" operator="between" allowBlank="1" showErrorMessage="1" errorStyle="stop" errorTitle="วันที่" error="[^"]+" sqref="A2:A5000"><formula1>36526<\/formula1><formula2>73415<\/formula2><\/dataValidation>/);
+  assert.match(xml, /<dataValidation type="custom" allowBlank="1" showErrorMessage="1" errorStyle="warning"/);
 });

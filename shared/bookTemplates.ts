@@ -1,6 +1,6 @@
 import { isThaiPublicHoliday } from './calendar.js';
 import { hasSection40_5to8, templateFor, type BusinessProfile, type TemplateId } from './businessProfile.js';
-import { columnLetter, type Cell, type CellStyle, type SheetSpec } from './xlsxWriter.js';
+import { columnLetter, isListValidation, type Cell, type CellStyle, type SheetSpec, type Validation } from './xlsxWriter.js';
 import type { SheetMap } from './googleSheets.js';
 
 // สร้างชีตตามประเภทธุรกิจ (owner, 2026-11-12, plan phase 1; research report "เทมเพลตบัญชีตามประเภทธุรกิจ 2568"). Five
@@ -28,7 +28,7 @@ export const TEMPLATE_INFO: Record<TemplateId, { title: string; who: string; tab
   office: { title: 'สำนักงานบัญชี', who: 'ผู้รับทำบัญชีหรือสำนักงานที่ดูแลหลายกิจการ', tabs: ['ลูกค้า', 'เช็กลิสต์เอกสาร', 'ยื่นแบบรายเดือน', 'ติดตามเอกสาร', 'ปิดงบประจำปี', 'ตั้งค่า'], writes: {} },
 };
 
-const ROWS = 200;
+const ROWS = 1000;
 const LAST = ROWS + 1;
 /** How far totals and look-ups read: well past the 200 ruled rows, so rows added below them are never left out. */
 const END = 5000;
@@ -49,6 +49,23 @@ const MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มี�
 /** Lines of wrapped text a cell this wide needs (Thai, roughly 1.15 characters per width unit), as a row height. */
 const tall = (text: string, width: number, line = 17) => Math.max(1, Math.ceil(text.length / (width * 1.15))) * line + 8;
 
+// What is typed is checked as it is typed (owner, 2026-11-13, from the international template research). A tax ID is 13
+// digits whose last one is the check digit (the civil registry formula the Revenue Department uses: the first twelve
+// weighted 13 down to 2, eleven minus the sum mod 11, mod 10); a wrong one is asked about, never refused, since a
+// foreign client has none. A branch code is 5 digits (00000 = head office). A date must fall in 2000–2100, so a
+// Buddhist-era year typed as 13/11/2569 is refused with the way to fix it: SUMIFS by month and year need real dates.
+const taxIdRule = (ref: string) => {
+  const digit = (n: number) => `MID(${ref},${n},1)`;
+  const weighted = Array.from({ length: 12 }, (_, i) => `${digit(i + 1)}*${13 - i}`).join('+');
+  return `IFERROR(AND(LEN(${ref})=13,ISNUMBER(--${ref}),MOD(11-MOD(${weighted},11),10)=--${digit(13)}),FALSE())`;
+};
+const branchRule = (ref: string) => `IFERROR(AND(LEN(${ref})=5,ISNUMBER(--${ref})),FALSE())`;
+export const TAX_ID_CHECK = { title: 'ตรวจเลขผู้เสียภาษี', error: 'เลขประจำตัวผู้เสียภาษีต้องเป็นตัวเลข 13 หลัก และหลักสุดท้ายต้องตรงกับเลขตรวจสอบ ตรวจกับใบกำกับภาษีหรือบัตรอีกครั้ง' };
+const BRANCH_CHECK = { title: 'รหัสสาขา', error: 'รหัสสาขาเป็นตัวเลข 5 หลัก เช่น 00000 สำนักงานใหญ่ หรือ 00001 สาขาที่ 1' };
+export const DATE_CHECK = { title: 'วันที่', error: 'กรอกวันที่เป็นปี ค.ศ. เช่น 13/11/2026 (ปี พ.ศ. ลบ 543) ชีตจึงรวมยอดตามเดือนได้ถูก' };
+const DATE_RANGE = { from: '2000-01-01', to: '2100-12-31' };
+const taxIdCheck = (range: string, ref: string): Validation => ({ range, custom: taxIdRule(ref), ...TAX_ID_CHECK, warn: true });
+
 /** id: a tax ID or branch code column (text, keeps leading zeros). t: what the column means to เลขา when it adds a row
  *  (a sheet-map target such as date, name, amount); any other column is left alone. */
 interface Col { h: string; w: number; s?: CellStyle; list?: string[]; f?: (r: number) => string; id?: boolean; t?: string }
@@ -58,7 +75,7 @@ const columnStyle = (c: Col): CellStyle => (c.f ? CALC[c.s ?? 'money'] ?? 'calc'
 /** A worked-out column says so in its header too, not by grey alone (accessibility: colour is never the only cue). */
 export const CALC_MARK = ' (คำนวณ)';
 
-/** A data tab like a printed ledger: the brick header row (frozen, printed on every page), then 200 ruled rows with the
+/** A data tab like a printed ledger: the brick header row (frozen, printed on every page), then 1,000 ruled rows with the
  *  formula columns filled in grey and the drop-downs set. The header stays in row 1: เลขา writes the rows below it. */
 function table(name: string, cols: Col[], rows: Cell[][], tabColor = TAB.input): SheetSpec {
   const styles = cols.map(columnStyle);
@@ -78,7 +95,14 @@ function table(name: string, cols: Col[], rows: Cell[][], tabColor = TAB.input):
     name, rows: [header, ...body], widths: cols.map(c => c.w), freezeRows: 1, columnStyles: Object.fromEntries(styles.map((s, j) => [j, s])), tabColor,
     targets: cols.map(c => (c.f ? 'keep' : c.t ?? 'keep')),
     heights: { 0: 34 }, defaultHeight: 21, gridlines: false, print: { landscape: true, repeatHeader: true },
-    validations: cols.flatMap((c, j) => (c.list ? [{ range: `${columnLetter(j)}2:${columnLetter(j)}${END}`, list: c.list }] : [])),
+    validations: cols.flatMap((c, j): Validation[] => {
+      const letter = columnLetter(j); const range = `${letter}2:${letter}${END}`; const ref = `${letter}2`;
+      if (c.list) return [{ range, list: c.list }];
+      if (c.id && /ผู้เสียภาษี/.test(c.h)) return [taxIdCheck(range, ref)];
+      if (c.id && /สาขา/.test(c.h)) return [{ range, custom: branchRule(ref), ...BRANCH_CHECK, warn: true }];
+      if (!c.f && c.s === 'date') return [{ range, date: DATE_RANGE, ...DATE_CHECK }];
+      return [];
+    }),
   };
 }
 
@@ -89,8 +113,10 @@ function settingsTab(title: string, pairs: [string, Cell][], extra: Cell[][] = [
   const idBox = (label: string, value: Cell): Cell => (/เลข.*ผู้เสียภาษี/.test(label) ? { v: typeof value === 'string' ? value : '', s: 'inputText' } : box(value));
   const heights: Record<number, number> = { 0: 34, 1: 22 };
   pairs.forEach((_, i) => { heights[i + 2] = 26; });
+  const checks = pairs.flatMap(([label], i): Validation[] => (/เลข.*ผู้เสียภาษี/.test(label) ? [taxIdCheck(`B${i + 3}`, `B${i + 3}`)] : []));
   return {
     name: 'ตั้งค่า', tabColor: TAB.start, widths: [32, 40, 4, 26, 16, 16, 30], gridlines: false, heights, defaultHeight: 21,
+    ...(checks.length ? { validations: checks } : {}),
     rows: [[{ v: title, s: 'title' }], [{ v: 'กรอกช่องสีขาว ตัวเลขในแท็บอื่นใช้ข้อมูลจากหน้านี้', s: 'subtitle' }],
       ...pairs.map(([label, value]) => [{ v: label, s: 'label' }, idBox(label, value)] as Cell[]), ...extra],
   };
@@ -128,10 +154,11 @@ const TAB_GUIDE: Record<string, [string, string]> = {
 
 /** The cover page (วิธีใช้): the workbook's name and year, its tabs, the steps, what the colours mean. */
 function howTo(info: { title: string; who: string }, tabs: string[], lines: string[], yearLabel: string): SheetSpec {
-  const rows: Cell[][] = []; const heights: Record<number, number> = {}; const merges: string[] = [];
-  const add = (row: Cell[], height?: number, merge?: string) => {
+  // No joined cells (owner, 2026-11-13, from the research: they break sorting, copying and screen readers): a long line
+  // wraps inside column B, the widest one.
+  const rows: Cell[][] = []; const heights: Record<number, number> = {};
+  const add = (row: Cell[], height?: number) => {
     if (height) heights[rows.length] = height;
-    if (merge) merges.push(merge.replace(/#/g, String(rows.length + 1)));
     rows.push(row);
   };
   const section = (title: string) => { add([null], 14); add([{ v: title, s: 'section' }, { v: '', s: 'section' }, { v: '', s: 'section' }], 28); add([null], 8); };
@@ -150,16 +177,16 @@ function howTo(info: { title: string; who: string }, tabs: string[], lines: stri
   section('เริ่มใช้งาน');
   lines.forEach((line, i) => {
     const text = line.replace(/^\d+\.\s*/, '');
-    add([{ v: i + 1, s: 'step' }, { v: text, s: 'text' }], tall(text, 86), 'B#:C#');
+    add([{ v: i + 1, s: 'step' }, { v: text, s: 'text' }], tall(text, 62));
   });
   section('สีในชีต');
   ([['ช่องสีขาว', 'choice', 'กรอกเองได้'], ['ช่องสีเทา', 'calcText', 'ชีตคำนวณให้ อย่าพิมพ์ทับ'], ['หัวตาราง', 'header', 'ชื่อคอลัมน์ เลขากระรอกใช้หาช่องที่จะลงรายการ ไม่ควรแก้'], ['มีลูกศร ▾', 'choice', 'คลิกแล้วเลือกจากรายการ']] as const)
-    .forEach(([sample, style, meaning]) => add([{ v: sample, s: style }, { v: meaning, s: 'text' }], 26, 'B#:C#'));
+    .forEach(([sample, style, meaning]) => add([{ v: sample, s: style }, { v: meaning, s: 'text' }], Math.max(26, tall(meaning, 62))));
   add([null], 18);
   const disclaimer = 'ชีตนี้ช่วยจดและสรุปตัวเลข ไม่ได้ยื่นแบบแทนคุณ ตัวเลขภาษีเป็นประมาณการ ตรวจกับนักบัญชีหรือกรมสรรพากรก่อนยื่นจริง';
-  add([{ v: disclaimer, s: 'note' }], tall(disclaimer, 104, 15), 'A#:C#');
-  add([{ v: 'สร้างโดยกระรอกตุนเงิน · krarok.com', s: 'note' }], 18, 'A#:C#');
-  return { name: 'วิธีใช้', widths: [20, 62, 22], tabColor: TAB.start, gridlines: false, heights, merges, defaultHeight: 21, rows, print: {} };
+  add([null, { v: disclaimer, s: 'note' }], tall(disclaimer, 62, 15));
+  add([null, { v: 'สร้างโดยกระรอกตุนเงิน · krarok.com', s: 'note' }], 18);
+  return { name: 'วิธีใช้', widths: [20, 62, 22], tabColor: TAB.start, gridlines: false, heights, defaultHeight: 21, rows, print: {} };
 }
 
 // The header of a report, as on the Revenue Department's forms: who keeps it and their tax ID, the place of business and
@@ -669,7 +696,7 @@ export function templateShapes() {
       const sheet = sheets.find(item => item.name === name)!;
       // The category column's drop-down, so เลขา writes one of its words.
       const choices: Record<number, string[]> = {};
-      for (const validation of sheet.validations ?? []) {
+      for (const validation of (sheet.validations ?? []).filter(isListValidation)) {
         const at = /^([A-Z]+)\d/.exec(validation.range)?.[1];
         const index = at ? [...at].reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0) - 1 : -1;
         if (index >= 0 && sheet.targets?.[index] === 'category') choices[index] = validation.list;

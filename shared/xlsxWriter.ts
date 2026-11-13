@@ -14,6 +14,17 @@ export type Cell =
   | { f: string; s?: CellStyle }
   | { date: string; s?: CellStyle };
 
+/** A drop-down list for a range such as "C2:C500" (short lists, written inline). */
+export interface ListValidation { range: string; list: string[] }
+/**
+ * A rule the typed value must follow, with the words shown when it does not (owner, 2026-11-13: tax IDs, dates).
+ * custom: a formula written for the range's top-left cell (TRUE = fine). date: between two YYYY-MM-DD days.
+ * warn: Excel asks and lets it stand, Google marks it; otherwise the value is refused.
+ */
+export interface RuleValidation { range: string; custom?: string; date?: { from: string; to: string }; title: string; error: string; warn?: boolean }
+export type Validation = ListValidation | RuleValidation;
+export const isListValidation = (v: Validation): v is ListValidation => 'list' in v;
+
 export interface SheetSpec {
   name: string;
   rows: Cell[][];
@@ -21,8 +32,8 @@ export interface SheetSpec {
   widths?: number[];
   /** Rows kept on screen while scrolling (the header). */
   freezeRows?: number;
-  /** Drop-down lists: a range such as "C2:C500" and its choices (short lists, written inline). */
-  validations?: { range: string; list: string[] }[];
+  /** Checks on what is typed: drop-down lists, a formula that must hold, or a date range. */
+  validations?: Validation[];
   /** Number formats for whole columns from a row down (0-based column index → style). */
   columnStyles?: Record<number, CellStyle>;
   /** The tab colour (hex without #). */
@@ -87,9 +98,10 @@ export const STYLE_DEFS: Record<CellStyle, StyleDef> = {
   inputText: { format: 'text', border: 'input', h: 'left', v: 'center', indent: 1 },
 };
 export const NUMBER_FORMATS: Record<NumberFormat, { id: number; code: string }> = {
-  money: { id: 164, code: '#,##0.00' },
+  // Negative amounts in brackets, as accounts are printed (owner, 2026-11-13, from the international template research).
+  money: { id: 164, code: '#,##0.00;(#,##0.00)' },
   date: { id: 165, code: 'dd/mm/yyyy' },
-  moneyDash: { id: 166, code: '#,##0.00;-#,##0.00;"–"' },
+  moneyDash: { id: 166, code: '#,##0.00;(#,##0.00);"–"' },
   percent: { id: 9, code: '0%' },
   text: { id: 49, code: '@' },
 };
@@ -131,6 +143,18 @@ function cellXml(cell: Cell, ref: string, columnStyle?: CellStyle): string {
     : `<c r="${ref}" s="${style}" t="inlineStr"><is><t xml:space="preserve">${esc(cell.v)}</t></is></c>`;
 }
 
+function validationXml(v: Validation): string {
+  if (isListValidation(v)) {
+    return `<dataValidation type="list" allowBlank="1" showErrorMessage="0" sqref="${v.range}"><formula1>"${esc(v.list.map(item => item.replace(/[",]/g, ' ')).join(','))}"</formula1></dataValidation>`;
+  }
+  // Excel keeps an error title to 32 characters and the message to 225.
+  const words = `showErrorMessage="1" errorStyle="${v.warn ? 'warning' : 'stop'}" errorTitle="${esc(v.title.slice(0, 32))}" error="${esc(v.error.slice(0, 225))}"`;
+  if (v.date) {
+    return `<dataValidation type="date" operator="between" allowBlank="1" ${words} sqref="${v.range}"><formula1>${excelDate(v.date.from)}</formula1><formula2>${excelDate(v.date.to)}</formula2></dataValidation>`;
+  }
+  return `<dataValidation type="custom" allowBlank="1" ${words} sqref="${v.range}"><formula1>${esc((v.custom ?? 'TRUE').replace(/^=/, ''))}</formula1></dataValidation>`;
+}
+
 function sheetXml(sheet: SheetSpec): string {
   const grid = sheet.gridlines === false ? ' showGridLines="0"' : '';
   const freeze = sheet.freezeRows ? `<sheetViews><sheetView${grid} workbookViewId="0"><pane ySplit="${sheet.freezeRows}" topLeftCell="A${sheet.freezeRows + 1}" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A${sheet.freezeRows + 1}" sqref="A${sheet.freezeRows + 1}"/></sheetView></sheetViews>`
@@ -144,7 +168,7 @@ function sheetXml(sheet: SheetSpec): string {
     return cells || ht ? `<row r="${r + 1}"${ht}>${cells}</row>` : '';
   }).join('');
   const validations = sheet.validations?.length
-    ? `<dataValidations count="${sheet.validations.length}">${sheet.validations.map(v => `<dataValidation type="list" allowBlank="1" showErrorMessage="0" sqref="${v.range}"><formula1>"${esc(v.list.map(item => item.replace(/[",]/g, ' ')).join(','))}"</formula1></dataValidation>`).join('')}</dataValidations>`
+    ? `<dataValidations count="${sheet.validations.length}">${sheet.validations.map(validationXml).join('')}</dataValidations>`
     : '';
   const merges = sheet.merges?.length ? `<mergeCells count="${sheet.merges.length}">${sheet.merges.map(ref => `<mergeCell ref="${ref}"/>`).join('')}</mergeCells>` : '';
   const fit = sheet.print ? '<pageSetUpPr fitToPage="1"/>' : '';

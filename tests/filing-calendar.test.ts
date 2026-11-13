@@ -110,8 +110,8 @@ test('workbooks: each business gets its template with the tabs the plan lists, e
   assert.equal(income.rows[1][1], 'ลูกค้า ก', 'the record replaces the examples');
   assert.equal(income.rows[1][6], '3%');
   assert.match(String((income.rows[1][7] as { f: string }).f), /ROUND\(F2\*IF\(ISNUMBER\(G2\)/, 'withheld tax is a formula');
-  assert.equal(income.rows.length, 201, '200 rows ready');
-  assert.ok(income.validations!.some(v => v.range === 'G2:G5000' && v.list.includes('3%')), 'drop-downs reach the rows added below the 200');
+  assert.equal(income.rows.length, 1001, '1,000 rows ready');
+  assert.ok(income.validations!.some(v => v.range === 'G2:G5000' && 'list' in v && v.list.includes('3%')), 'drop-downs reach the rows added below the 1,000');
 });
 
 test('xlsx: a real workbook with styles, frozen headers, drop-downs and Thai tab names', () => {
