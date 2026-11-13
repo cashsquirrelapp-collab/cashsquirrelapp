@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookmarkCheck, Check, ExternalLink, FilePlus2, FileSpreadsheet, FolderOpen, Lock, RefreshCw, ShieldCheck, Unplug, Upload } from 'lucide-react';
+import { BookmarkCheck, Check, ExternalLink, FileSpreadsheet, Lock, RefreshCw, ShieldCheck, Unplug, Upload } from 'lucide-react';
 import type { GoogleStatus, LiveTab } from '../../../../shared/googleSheets';
 import type { LabState } from '../../../../shared/labs';
 import { labOn } from '../../../../shared/labs';
@@ -253,12 +253,12 @@ function GoogleSource({ open, account, mapOn, writeOn = false, result, onCreateT
     body = (
       <div className="lab-gs-choose">
         <button type="button" className="lab-gs-option" disabled={busy !== null} onClick={choose} data-testid="sheets-pick">
-          <FolderOpen className="h-5 w-5" aria-hidden="true" />
+          <PartnerLogo kind="drive" size={22} />
           <span><b>{tr("เลือกไฟล์ที่มีอยู่")}</b><small>{tr("ชีตบัญชีที่คุณใช้อยู่ใน Google Drive")}</small></span>
         </button>
         {onCreateTemplate && (
           <button type="button" className="lab-gs-option" disabled={busy !== null} onClick={onCreateTemplate}>
-            <FilePlus2 className="h-5 w-5" aria-hidden="true" />
+            <PartnerLogo kind="sheets" size={22} />
             <span><b>{tr("สร้างชีตใหม่")}</b><small>{tr("ตอบ 6 ข้อ แล้วได้ชีตบัญชีตามประเภทธุรกิจใน Google Drive ของคุณ")}</small></span>
           </button>
         )}

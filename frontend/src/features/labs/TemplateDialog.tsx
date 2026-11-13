@@ -1,5 +1,5 @@
 import React from 'react';
-import { CloudUpload, Download, ExternalLink } from 'lucide-react';
+import { Download, ExternalLink } from 'lucide-react';
 import type { AppSettings, Expense, Job } from '../../../../shared/types';
 import { readBusinessProfile, templateFor, type BusinessProfile } from '../../../../shared/businessProfile';
 import { TEMPLATE_INFO, buildBookTemplate, type TemplateData } from '../../../../shared/bookTemplates';
@@ -10,6 +10,7 @@ import { tr } from '../../i18n/tr';
 import { googleApi, toBase64 } from '../../services/google';
 import type { GoogleFile } from '../../../../shared/googleSheets';
 import { BusinessQuestions } from './BusinessQuestions';
+import { PartnerLogo } from '../../components/brand/PartnerLogo';
 import './labs.css';
 
 // สร้างชีตตามประเภทธุรกิจ (ฟีเจอร์ทดลอง, plan phase 1): the six answers pick one of the five workbooks
@@ -119,7 +120,7 @@ export function TemplateDialog({ open, onClose, settings, onSaveProfile, jobs, e
           <div className="lab-tpl-foot">
             {drive && connected && (
               <button type="button" className="lab-btn is-primary" disabled={creating} onClick={() => void makeInDrive()} data-testid="template-drive">
-                <CloudUpload className="h-4 w-4" />{creating ? tr("กำลังสร้างใน Google Drive…") : tr("สร้างใน Google Drive")}
+                <span className="lab-logo-chip" aria-hidden="true"><PartnerLogo kind="drive" size={14} /></span>{creating ? tr("กำลังสร้างใน Google Drive…") : tr("สร้างใน Google Drive")}
               </button>
             )}
             <button type="button" className={`lab-btn${drive && connected ? '' : ' is-primary'}`} onClick={make}><Download className="h-4 w-4" />{tr("ดาวน์โหลดไฟล์ Excel")}</button>
@@ -131,7 +132,7 @@ export function TemplateDialog({ open, onClose, settings, onSaveProfile, jobs, e
           )}
           {created && (
             <div role="status" className="lab-note is-brick lab-tpl-created">
-              <span>{tr("สร้างใน Google Drive แล้ว: {0}", created.name)}</span>
+              <span className="lab-tpl-created-name"><PartnerLogo kind="drive" size={18} />{tr("สร้างใน Google Drive แล้ว: {0}", created.name)}</span>
               <span className="lab-tpl-created-actions">
                 <a className="lab-btn" href={created.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-4 w-4" />{tr("เปิดในชีต")}</a>
                 {drive && <button type="button" className="lab-btn" onClick={drive.onOpenSheets}>{tr("ดูแผนที่ชีต")}</button>}

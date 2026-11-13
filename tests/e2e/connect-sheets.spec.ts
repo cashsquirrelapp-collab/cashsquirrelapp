@@ -132,3 +132,12 @@ test('the promise says rows are written on confirm where writing is on, and read
   await expect(page.getByTestId('sheets-panel')).toContainText('เขียนเฉพาะแถวที่คุณกดยืนยันในการ์ด');
   await expect(page.getByTestId('sheets-panel')).not.toContainText('ตอนนี้อ่านอย่างเดียว');
 });
+
+test('the real Google Drive icon shows where a file is picked from Drive', async ({ page }) => {
+  await openPage(page, '/connect-sheets');
+  const panel = page.getByTestId('sheets-panel');
+  await panel.getByRole('button', { name: 'เชื่อมบัญชี Google' }).click();
+  await expect(panel.getByTestId('sheets-pick').locator('img')).toHaveAttribute('src', '/brand/partners/google-drive.png');
+  expect((await page.request.get('/brand/partners/google-drive.png')).status()).toBe(200);
+  await page.screenshot({ path: 'test-results/connect-sheets-drive-phone.png' });
+});
