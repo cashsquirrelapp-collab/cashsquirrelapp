@@ -6,6 +6,8 @@
 
 import type * as XLSXModule from 'xlsx';
 import { maskPersonalLines, maskTable } from '../../../../shared/privacyMask';
+import { openDocumentXmlText, slideXmlText, stripTags, tidy, wordTables, wordXmlText } from '../../../../shared/officeText';
+export { openDocumentXmlText, slideXmlText, wordTables, wordXmlText };
 
 type XLSX = typeof XLSXModule;
 export type TextKind = 'sheet' | 'doc' | 'slides' | 'text';
@@ -64,23 +66,6 @@ export function decodeText(data: ArrayBuffer | Uint8Array): string {
   try { return new TextDecoder('windows-874').decode(bytes); } catch { return new TextDecoder('utf-8').decode(bytes); }
 }
 
-const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
-function decodeEntities(text: string): string {
-  return text.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, code: string) => {
-    if (code[0] === '#') {
-      const value = code[1].toLowerCase() === 'x' ? parseInt(code.slice(2), 16) : parseInt(code.slice(1), 10);
-      return Number.isFinite(value) && value > 0 && value < 0x110000 ? String.fromCodePoint(value) : '';
-    }
-    return ENTITIES[code.toLowerCase()] ?? whole;
-  });
-}
-/** Lines trimmed, no run of more than one empty line. */
-function tidy(text: string): string {
-  return text.replace(/\r\n?/g, '\n').split('\n').map(line => line.replace(/[ \t]+$/g, '').replace(/(\s*\|\s*)+$/, '')).join('\n')
-    .replace(/\n{3,}/g, '\n\n').trim();
-}
-const stripTags = (xml: string) => decodeEntities(xml.replace(/<[^>]+>/g, ''));
-
 // ── Word, OpenDocument and PowerPoint: XML inside a zip ─────────────────────────────────────────────────────────
 type Zip = { FullPaths: string[]; FileIndex: { content?: unknown }[] };
 function openZip(xlsx: XLSX, data: ArrayBuffer): Zip {
@@ -94,32 +79,6 @@ function zipText(zip: Zip, test: RegExp): { path: string; text: string }[] {
     .map(entry => ({ path: entry.path, text: new TextDecoder('utf-8').decode(entry.content as Uint8Array) }));
 }
 
-/** A table cell's paragraphs on one line, cells apart with " | ", one row per line. */
-function cellsFlat(xml: string, cell: RegExp, paragraphEnd: RegExp): string {
-  return xml.replace(cell, inner => `${stripTags(inner.replace(paragraphEnd, ' ')).replace(/\s+/g, ' ').trim()} | `);
-}
-export function wordXmlText(xml: string): string {
-  const body = xml.replace(/<w:(instrText|delText)\b[^>]*>[\s\S]*?<\/w:\1>/g, '');
-  const flat = cellsFlat(body, /<w:tc(?:\s[^>]*)?>[\s\S]*?<\/w:tc>/g, /<\/w:p>/g)
-    .replace(/<\/w:tr>/g, '\n').replace(/<w:tab\/>/g, '\t').replace(/<w:(br|cr)\b[^>]*\/>/g, '\n').replace(/<\/w:p>/g, '\n');
-  return tidy(stripTags(flat));
-}
-/** The tables of a Word document, each as rows of cell text (nested tables are read as text inside their cell). */
-export function wordTables(xml: string): string[][][] {
-  return [...xml.matchAll(/<w:tbl>[\s\S]*?<\/w:tbl>/g)].map(table => [...table[0].matchAll(/<w:tr(?:\s[^>]*)?>[\s\S]*?<\/w:tr>/g)]
-    .map(row => [...row[0].matchAll(/<w:tc(?:\s[^>]*)?>[\s\S]*?<\/w:tc>/g)].map(cell => stripTags(cell[0].replace(/<\/w:p>/g, ' ')).replace(/\s+/g, ' ').trim()))
-    .filter(row => row.some(Boolean)));
-}
-export function openDocumentXmlText(xml: string): string {
-  const body = xml.replace(/<office:annotation\b[\s\S]*?<\/office:annotation>/g, '');
-  const flat = cellsFlat(body, /<table:table-cell(?:\s[^>]*)?>[\s\S]*?<\/table:table-cell>/g, /<\/text:(p|h)>/g)
-    .replace(/<\/table:table-row>/g, '\n').replace(/<text:tab\s*\/>/g, '\t').replace(/<text:line-break\s*\/>/g, '\n')
-    .replace(/<text:s(?:\s[^>]*)?\/>/g, ' ').replace(/<\/text:(p|h)>/g, '\n');
-  return tidy(stripTags(flat));
-}
-export function slideXmlText(xml: string): string {
-  return tidy(stripTags(xml.replace(/<a:br\b[^>]*\/>/g, '\n').replace(/<\/a:p>/g, '\n')));
-}
 export function htmlText(html: string): string {
   const body = html.replace(/<(script|style|head|noscript|template)\b[\s\S]*?<\/\1>/gi, '').replace(/<!--[\s\S]*?-->/g, '');
   const flat = body.replace(/<\/(td|th)>/gi, ' | ').replace(/<br\s*\/?>/gi, '\n').replace(/<\/(p|div|li|tr|h[1-6]|section|article|table|ul|ol)>/gi, '\n');

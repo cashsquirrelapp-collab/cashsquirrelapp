@@ -14,6 +14,7 @@ import { rateLimit } from '../security/rateLimit.js';
 import { lineAreaOpen } from './lineLaunch.js';
 import { isPhaseOneFeatureAvailable } from '../../../shared/featureAvailability.js';
 import { SheetFileError, sheetFileKind, spreadsheetText } from '../../../shared/sheetFileText.js';
+import { DocumentFileError, documentFileKind, documentText } from '../../../shared/documentFileText.js';
 
 type AttachKind = 'wht50' | 'contract' | 'expense' | 'other';
 export type VaultAction = { step: 'choose'; kind: AttachKind; fileId: string }
@@ -130,20 +131,61 @@ async function handleLineSheetFile(user: UserRow, event: LineFileEvent, token: s
   try { read = spreadsheetText(name, new Uint8Array(bytes)); }
   catch (error) { return [{ type: 'text', text: SHEET_ERRORS[error instanceof SheetFileError ? error.code : 'type'] }]; }
   if (read.dataRows > LINE_SHEET_ROWS) return [sheetImportCard(name, read.dataRows, read.tabs)];
+  return askAboutText(user, name, read.text, LINE_SHEET_REQUEST, deps, {
+    none: 'อ่านตารางได้แล้ว แต่ตอนนี้เลขายังเตรียมรายการให้ไม่ได้ครับ ลองส่งใหม่อีกครั้ง หรือนำเข้าที่ เมนู งาน › นำเข้าจาก Excel',
+    failed: 'เลขาอ่านตารางนี้ไม่สำเร็จครับ ลองส่งใหม่อีกครั้ง', log: 'line-sheet',
+  });
+}
+
+/**
+ * A file read into text on the server (a spreadsheet or a document), given to เลขา like a file in the app's chat: its
+ * answer and confirmation cards come back, the chat history keeps "[ส่งไฟล์] name". The same file allowance as pictures.
+ */
+async function askAboutText(user: UserRow, name: string, text: string, request: string, deps: LineFileDeps, words: { none: string; failed: string; log: string }): Promise<LineMessage[]> {
   try {
     await (deps.rateLimit ?? rateLimit)('assistant-file', user.user_id, 25, 600);
-    const file = checkAttachment({ name, mimeType: 'text/plain', data: Buffer.from(read.text, 'utf8').toString('base64') });
-    const answer = deps.answer ?? (async (account, text, history, files) => (await import('../ai/lineBridge.js')).lineAssistantAnswer(account, text, history, {}, files));
-    const answered = await answer(user, LINE_SHEET_REQUEST, recentChatHistory(user), [file]);
-    if (!answered) return [{ type: 'text', text: 'อ่านตารางได้แล้ว แต่ตอนนี้เลขายังเตรียมรายการให้ไม่ได้ครับ ลองส่งใหม่อีกครั้ง หรือนำเข้าที่ เมนู งาน › นำเข้าจาก Excel' }];
+    const file = checkAttachment({ name, mimeType: 'text/plain', data: Buffer.from(text, 'utf8').toString('base64') });
+    const answer = deps.answer ?? (async (account, said, history, files) => (await import('../ai/lineBridge.js')).lineAssistantAnswer(account, said, history, {}, files));
+    const answered = await answer(user, request, recentChatHistory(user), [file]);
+    if (!answered) return [{ type: 'text', text: words.none }];
     try { await (deps.saveHistory ?? saveChatHistory)(user, `[ส่งไฟล์] ${name}`.slice(0, 200), answered.text.slice(0, 1000)); }
-    catch { console.error('line-sheet: chat history not saved'); }
+    catch { console.error(`${words.log}: chat history not saved`); }
     return answered.messages.slice(0, 5);
   } catch (error) {
     const failure = error as { status?: number; message?: string } | null;
-    console.error('line-sheet: reading the spreadsheet failed', { status: failure?.status ?? null });
-    return [{ type: 'text', text: failure?.status && failure.status < 500 && failure.message ? failure.message : 'เลขาอ่านตารางนี้ไม่สำเร็จครับ ลองส่งใหม่อีกครั้ง' }];
+    console.error(`${words.log}: reading the file failed`, { status: failure?.status ?? null });
+    return [{ type: 'text', text: failure?.status && failure.status < 500 && failure.message ? failure.message : words.failed }];
   }
+}
+
+/** A Word or PowerPoint file: เลขา prepares a card for any money it holds, or says in a line what the file is about. */
+export const LINE_DOC_REQUEST = 'ช่วยอ่านเอกสารนี้ ถ้ามีรายรับหรือรายจ่าย เช่น ใบเสนอราคา ใบแจ้งหนี้ หรือใบเสร็จ ให้เตรียมบันทึกให้ ถ้าไม่มีรายการเงิน ให้บอกสั้น ๆ ว่าเอกสารนี้เกี่ยวกับอะไร';
+const DOC_ERRORS: Record<DocumentFileError['code'], string> = {
+  type: 'เปิดไฟล์นี้ไม่ได้ครับ ไฟล์อาจเสียหายหรือมีรหัสผ่าน ลองบันทึกเป็น PDF แล้วส่งใหม่',
+  empty: 'ไม่พบข้อความในไฟล์นี้ครับ ถ้าเป็นรูปสแกน ให้ส่งเป็นรูปหรือ PDF แทน',
+  big: 'ไฟล์นี้ใหญ่เกินไปครับ ลองบันทึกเป็น PDF แล้วส่งใหม่',
+};
+
+/**
+ * A Word or PowerPoint file sent in LINE (owner, 2026-11-13: "ส่งไฟล์ Word / PowerPoint ใน LINE"): its words read on the
+ * server as the app's chat reads them (shared/documentFileText.ts, personal data masked), then เลขา prepares its cards,
+ * as for a spreadsheet. A .doc / .ppt / Pages / Keynote file is asked to be saved as .docx / .pptx or PDF. The document
+ * vault keeps pictures and PDFs only, so the file itself is not kept.
+ */
+async function handleLineDocFile(user: UserRow, event: LineFileEvent, token: string, deps: LineFileDeps): Promise<LineMessage[]> {
+  const name = (event.fileName || 'เอกสาร.docx').replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 120);
+  if (documentFileKind(name) === 'old') {
+    return [{ type: 'text', text: 'ตอนนี้ในแชท LINE เลขาอ่านไฟล์ Word แบบ .docx และ PowerPoint แบบ .pptx ได้ครับ ไฟล์นี้ให้เปิดแล้วบันทึกเป็น .docx / .pptx หรือ PDF ก่อนส่ง' }];
+  }
+  let bytes: Buffer;
+  try { bytes = await (deps.read ?? readLineFile)(event.id!, token); }
+  catch { return [{ type: 'text', text: 'ยังรับไฟล์ไม่สำเร็จครับ กรุณาส่งใหม่อีกครั้ง' }]; }
+  let read: ReturnType<typeof documentText>;
+  try { read = documentText(name, new Uint8Array(bytes)); }
+  catch (error) { return [{ type: 'text', text: DOC_ERRORS[error instanceof DocumentFileError ? error.code : 'type'] }]; }
+  return askAboutText(user, name, read.text, LINE_DOC_REQUEST, deps, {
+    none: 'อ่านเอกสารได้แล้ว แต่ตอนนี้เลขายังเตรียมรายการให้ไม่ได้ครับ ลองส่งใหม่อีกครั้ง', failed: 'เลขาอ่านเอกสารนี้ไม่สำเร็จครับ ลองส่งใหม่อีกครั้ง', log: 'line-doc',
+  });
 }
 
 /** Replaceable parts, for tests. */
@@ -172,6 +214,8 @@ export async function handleLineFileMessage(lineUserId: string, event: LineFileE
   if ('type' in access) return [access];
   // A spreadsheet is read into text for เลขา (the vault keeps pictures and PDFs only).
   if (event.type === 'file' && sheetFileKind(event.fileName || '')) return handleLineSheetFile(access.user, event, token, deps);
+  // So is a Word or PowerPoint file.
+  if (event.type === 'file' && documentFileKind(event.fileName || '')) return handleLineDocFile(access.user, event, token, deps);
   let bytes: Buffer;
   let saved: { id: string; fileName: string };
   try {
