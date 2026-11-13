@@ -49,10 +49,10 @@ test('a filled draft opens with what the card knew, and creating it sends the ch
   await expect(page.locator('#document-issuer-fields')).toBeHidden();
   await expect(page.locator('#doc-client-name')).toHaveValue('บริษัท แบรนด์เอ');
   await expect(page.locator('#doc-item-qty-0')).toHaveValue('20');
-  await expect(page.locator('#document-summary-amount')).toHaveText('฿6,000.00');
+  await expect(page.locator('#doc-payable')).toHaveText('฿6,000.00');
   await expect(page.locator('.kind-tabs')).toBeHidden(); // no job / expense tabs on a document
   await page.getByRole('button', { name: '30 วัน' }).click();
-  await page.locator('#doc-vat').selectOption('7');
+  await page.locator('#doc-vat-pick').getByRole('radio', { name: 'VAT 7%' }).click();
   await expect(page.locator('#doc-payable')).toHaveText('฿6,420.00');
   await page.getByRole('button', { name: 'สร้างใบเสนอราคา' }).click();
   await expect(page.getByRole('heading', { name: 'สร้างใบเสนอราคาแล้ว' })).toBeVisible({ timeout: 20_000 });

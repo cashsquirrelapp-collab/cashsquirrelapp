@@ -40,6 +40,16 @@
     if (focusId && field(focusId)) field(focusId).focus(); else box.focus();
   }
   function clearError() { field('document-error-box').style.display = 'none'; }
+  // Rows of choices on the slip (design D, owner 2026-11-13): the hidden input keeps the value the form reads.
+  function setPick(groupId, chosen) {
+    var group = field(groupId); var selected = chosen === undefined || chosen === null ? '' : String(chosen);
+    Array.from(group.children).forEach(function (button) { button.setAttribute('aria-checked', String(button.getAttribute('data-value') === selected)); });
+    field(group.getAttribute('data-input')).value = selected;
+  }
+  function slipDate() {
+    try { return 'จากแชท LINE · ' + new Intl.DateTimeFormat('th-TH', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Bangkok' }).format(new Date()); }
+    catch (error) { return 'จากแชท LINE'; }
+  }
   // A query value from the LIFF link itself or from LINE's liff.state (read only, never followed).
   // LIFF may rewrite the address during init, so the address as first opened is kept too (this file runs before it).
   var firstSearch = window.location.search;
@@ -89,11 +99,6 @@
     field('doc-wht-label').textContent = 'หัก ณ ที่จ่าย ' + t.whtRate + '%';
     field('doc-wht-amount').textContent = '−' + baht(t.wht);
     field('doc-payable').textContent = baht(t.payable);
-    field('document-summary-amount').textContent = baht(t.payable);
-    var named = state.items.filter(function (item) { return item.description.trim(); });
-    field('document-summary-name').textContent = value('doc-client-name')
-      ? value('doc-client-name') + (named.length ? ' · ' + named[0].description + (named.length > 1 ? ' และอีก ' + (named.length - 1) + ' รายการ' : '') : '')
-      : 'ยังไม่ได้กรอกลูกค้า';
     state.items.forEach(function (item, at) {
       var line = field('doc-item-line-' + at);
       if (line) line.textContent = 'รวม ' + baht((Number(item.quantity) || 0) * (Number(item.price) || 0));
@@ -101,7 +106,7 @@
   }
 
   function input(id, type, label, initial, options) {
-    var wrap = document.createElement('div'); if (options && options.wide) wrap.className = 'wide';
+    var wrap = document.createElement('div'); wrap.className = options && options.wide ? 'fl full' : 'fl';
     var title = document.createElement('label'); title.htmlFor = id; title.textContent = label;
     if (options && options.required) { var star = document.createElement('span'); star.setAttribute('aria-hidden', 'true'); star.textContent = ' *'; title.append(star); }
     var control = document.createElement('input'); control.type = type; control.id = id; control.value = initial === undefined || initial === null ? '' : String(initial);
@@ -114,9 +119,9 @@
   function renderItems() {
     var list = field('document-items'); list.replaceChildren();
     state.items.forEach(function (item, at) {
-      var box = document.createElement('div'); box.className = 'doc-item';
-      var head = document.createElement('div'); head.className = 'doc-item-head';
-      var name = document.createElement('span'); name.textContent = 'รายการ ' + (at + 1);
+      var box = document.createElement('div'); box.className = 'slip-item';
+      var head = document.createElement('div'); head.className = 'slip-item-head';
+      var name = document.createElement('span'); name.textContent = 'รายการที่ ' + (at + 1);
       head.append(name);
       if (state.items.length > 1) {
         var remove = document.createElement('button'); remove.type = 'button'; remove.textContent = 'ลบ';
@@ -124,18 +129,19 @@
         remove.addEventListener('click', function () { state.items.splice(at, 1); renderItems(); updateTotals(); });
         head.append(remove);
       }
-      var description = input('doc-item-desc-' + at, 'text', 'รายละเอียด', item.description, { required: true, placeholder: 'เช่น ถ่ายรูปสินค้า' });
-      var grid = document.createElement('div'); grid.className = 'doc-item-grid';
+      var description = input('doc-item-desc-' + at, 'text', 'รายละเอียด', item.description, { wide: true, placeholder: 'เช่น ถ่ายรูปสินค้า' });
+      var grid = document.createElement('div'); grid.className = 'slip-grid';
       var quantity = input('doc-item-qty-' + at, 'number', 'จำนวน', item.quantity, { step: 'any' });
       var unit = input('doc-item-unit-' + at, 'text', 'หน่วย', item.unit || '', { placeholder: 'เช่น รูป งาน' });
-      var price = input('doc-item-price-' + at, 'number', 'ราคาต่อหน่วย (บาท)', item.price || '', { required: true, wide: true });
+      var price = input('doc-item-price-' + at, 'number', 'ราคาต่อหน่วย (บาท)', item.price || '', { wide: true, placeholder: '0.00' });
+      price.control.classList.add('money');
       description.control.addEventListener('input', function () { item.description = description.control.value; updateTotals(); });
       quantity.control.addEventListener('input', function () { item.quantity = Number(quantity.control.value) || 0; updateTotals(); });
       unit.control.addEventListener('input', function () { item.unit = unit.control.value; });
       price.control.addEventListener('input', function () { item.price = Number(price.control.value) || 0; updateTotals(); });
-      grid.append(quantity.wrap, unit.wrap, price.wrap);
-      var line = document.createElement('div'); line.className = 'doc-item-line'; line.id = 'doc-item-line-' + at;
-      box.append(head, description.wrap, grid, line);
+      grid.append(description.wrap, quantity.wrap, unit.wrap, price.wrap);
+      var line = document.createElement('div'); line.className = 'slip-item-line'; line.id = 'doc-item-line-' + at;
+      box.append(head, grid, line);
       list.append(box);
     });
     field('document-add-item').classList.toggle('hidden', state.items.length >= MAX_ITEMS);
@@ -202,21 +208,23 @@
     state.type = NAMES[draft.type] ? draft.type : 'quotation';
     var name = NAMES[state.type];
     field('document-title').textContent = name;
+    field('document-meta').textContent = slipDate();
     field('document-submit-btn').textContent = 'สร้าง' + name;
     document.title = name + ' · Krarok Tunngern';
     if (draft.heard) { field('document-heard-text').textContent = 'จากข้อความของคุณ: “' + draft.heard + '”'; field('document-heard').classList.remove('hidden'); }
     fillIssuer(issuer);
     ['name', 'address', 'taxId', 'phone'].forEach(function (key) { field('doc-client-' + key).value = client[key] || ''; });
     field('doc-client-branch').value = client.branch || '';
-    field('doc-vat').value = String(draft.vatRate === 7 || isTax() ? 7 : 0);
+    setPick('doc-vat-pick', draft.vatRate === 7 || isTax() ? '7' : '0');
     field('doc-vat').disabled = isTax();
+    Array.from(field('doc-vat-pick').children).forEach(function (button) { button.disabled = isTax(); });
     field('doc-vat-fixed').classList.toggle('hidden', !isTax());
     field('doc-credit-wrap').classList.toggle('hidden', isReceipt());
     field('doc-paid-wrap').classList.toggle('hidden', !isReceipt());
     field('doc-paid-date').value = /^\d{4}-\d{2}-\d{2}$/.test(draft.paidDate || '') ? draft.paidDate : bangkokToday();
     field('doc-paid-method').value = draft.paymentMethod || '';
     renderMethods();
-    field('doc-wht').value = String([1, 2, 3, 5].indexOf(draft.whtRate) >= 0 ? draft.whtRate : 0);
+    setPick('doc-wht-pick', String([1, 2, 3, 5].indexOf(draft.whtRate) >= 0 ? draft.whtRate : 0));
     state.creditTerm = TERMS.indexOf(draft.creditTerm) >= 0 ? draft.creditTerm : 0;
     if (draft.creditTerm && TERMS.indexOf(draft.creditTerm) < 0) { TERMS.push(draft.creditTerm); TERMS.sort(function (a, b) { return a - b; }); state.creditTerm = draft.creditTerm; }
     field('doc-note').value = draft.note || '';
@@ -291,10 +299,9 @@
       status('เปิดแบบร่างไม่ได้', (data.error || 'แบบร่างนี้หมดเวลาหรือมีแบบร่างใหม่แล้ว') + '\nกลับไปแชทแล้วพิมพ์ “ทำใบเสนอราคา” เพื่อเริ่มใหม่', 'urgent', true); return;
     }
     fill(data);
-    document.body.classList.add('draft-mode');
+    document.body.classList.add('draft-mode', 'slip-mode');
     ['job-card', 'expense-card'].forEach(function (id) { field(id).classList.add('hidden'); });
     field('document-card').classList.remove('hidden');
-    field('return-chat-btn').classList.remove('hidden');
     // สร้างเอกสาร on a complete card opens here to create at once (so the picture can be drawn); anything missing shows the form.
     if (linkParam('create') === '1' && state.issuerComplete) {
       clearError();
@@ -312,7 +319,13 @@
       state.items.push({ description: '', quantity: 1, unit: '', price: 0 }); renderItems();
       var last = field('doc-item-desc-' + (state.items.length - 1)); if (last) last.focus();
     });
-    ['doc-vat', 'doc-wht', 'doc-client-name'].forEach(function (id) { field(id).addEventListener('input', updateTotals); field(id).addEventListener('change', updateTotals); });
+    field('doc-client-name').addEventListener('input', updateTotals);
+    ['doc-vat-pick', 'doc-wht-pick'].forEach(function (id) {
+      field(id).addEventListener('click', function (event) {
+        var button = event.target.closest('button[data-value]'); if (!button || button.disabled || state.submitting) return;
+        setPick(id, button.getAttribute('data-value')); clearError(); updateTotals();
+      });
+    });
     field('doc-paid-method').addEventListener('input', renderMethods);
     field('document-submit-btn').addEventListener('click', function () { submit(false); });
     field('document-issuer-edit').addEventListener('click', function () {

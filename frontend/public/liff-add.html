@@ -78,26 +78,6 @@
 
   /* The document form (liff-document.js): a quotation or invoice draft from the LINE chat, everything on one page. */
   #document-card .card-header { background:linear-gradient(115deg,#FFFDF9 25%,#FFF1E1 73%,#FFD7B8); }
-  .doc-section { font-size:13px; font-weight:600; margin:23px 0 4px; padding-top:19px; border-top:1px dashed var(--border); }
-  .doc-section:first-of-type { margin-top:4px; }
-  .doc-known { background:var(--faint); border:1px solid var(--border); border-radius:12px; padding:11px 13px; margin-top:10px; font-size:13px; line-height:1.5; }
-  .doc-known-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
-  .doc-known-head b { overflow-wrap:anywhere; }
-  .doc-known-head button { flex:none; border:1px solid var(--border); background:#fff; color:var(--text); border-radius:999px; padding:5px 13px; font-size:12px; font-weight:600; min-height:32px; margin:-4px -4px 0 0; }
-  .doc-known p { margin:5px 0 0; color:var(--muted); font-size:12px; line-height:1.55; overflow-wrap:anywhere; white-space:pre-line; }
-  .doc-sub { font-size:12px; font-weight:600; margin:21px 0 0; }
-  .doc-heard { margin:0 0 4px; }
-  .doc-item { border:1px solid var(--border); border-radius:14px; padding:12px; margin-top:10px; background:#FFFEFC; }
-  .doc-item-head { display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--muted); font-weight:600; }
-  .doc-item-head button { border:0; background:transparent; color:#9B3D28; font-size:12px; padding:6px 4px; min-height:32px; }
-  .doc-item label { margin-top:10px; }
-  .doc-item-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-  .doc-item-grid .wide { grid-column:1 / -1; }
-  .doc-item-line { text-align:right; font-family:'IBM Plex Sans',var(--font); font-size:12px; color:var(--muted); margin-top:8px; }
-  .doc-add { display:block; width:100%; margin-top:10px; padding:11px; border:1px dashed #D8B79B; border-radius:12px; background:#FFFBF5; color:var(--text); font-size:13px; font-weight:600; min-height:46px; }
-  .doc-terms { display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
-  .doc-terms button { border:1px solid var(--border); background:#fff; color:var(--text); border-radius:999px; padding:7px 13px; font-size:12px; min-height:36px; }
-  .doc-terms button[aria-pressed="true"] { background:var(--text); border-color:var(--text); color:#fff; font-weight:600; }
   /* While LINE opens a page: the app's own opening logo (index.html .splash, boot-skeleton.js), not a mascot (owner, 2026-11-13). */
       .splash{position:fixed;inset:0;z-index:2147483000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-bottom:6vh;background:#FAFAF9;transition:opacity .45s ease,visibility .45s}
       .splash.dark{background:#17181B}
@@ -174,6 +154,27 @@
   .slip-btn { flex:1; min-height:52px; border-radius:10px; font-size:16px; font-weight:600; line-height:1.4; padding:12px; }
   .slip-btn.ghost { background:#fff; color:#1C1917; border:1px solid #D6D3D1; }
   .slip-btn.primary { flex:2; background:#C24A16; color:#fff; border:0; }
+  .slip-heard { margin:14px 0 0; padding:8px 12px; border-left:3px solid #E65F2B; background:#F5F4F2; border-radius:2px 6px 6px 2px; font-size:12px; line-height:1.55; color:#57534E; }
+  .slip-heard p { margin:0; overflow-wrap:anywhere; }
+  .slip-help { margin:8px 0 0; }
+  .slip-known { padding:10px 0; border-bottom:1px solid #D6D3D1; font-size:15px; line-height:1.5; }
+  .slip-known-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
+  .slip-known-head b { font-weight:600; overflow-wrap:anywhere; }
+  .slip-known-head button { flex:none; border:0; background:transparent; color:#C24A16; font-size:13px; font-weight:600; line-height:1.45; padding:4px 0 4px 10px; min-height:32px; }
+  .slip-known p { margin:4px 0 0; color:#6B6560; font-size:12px; line-height:1.6; white-space:pre-line; overflow-wrap:anywhere; }
+  .slip-sub { margin:16px 0 0; font-size:12px; font-weight:600; line-height:1.5; color:#1C1917; }
+  .slip-item { margin-top:10px; padding-top:10px; border-top:1px solid #E7E5E4; }
+  .slip-item:first-child { border-top:0; padding-top:2px; }
+  .slip-item-head { display:flex; justify-content:space-between; align-items:center; min-height:32px; font-size:12px; font-weight:700; line-height:1.45; color:#1C1917; }
+  .slip-item-head button { border:0; background:transparent; color:#B3261E; font-size:12px; font-weight:600; padding:6px 0 6px 10px; min-height:32px; }
+  .slip-item-line { text-align:right; font-family:'Prompt',var(--font); font-size:13px; line-height:1.5; color:#57534E; margin-top:6px; }
+  .slip-add { display:block; width:100%; margin-top:12px; min-height:44px; border:1px dashed #BDB8B2; border-radius:6px; background:#fff; color:#1C1917; font-size:14px; font-weight:600; line-height:1.45; }
+  .fl-group { display:contents; }
+  .fl-group.hidden { display:none!important; }
+  .pick button[aria-pressed="true"] { background:#1C1917; color:#fff; font-weight:600; }
+  .pick button:disabled { cursor:default; opacity:1; color:#A8A29E; background:#F5F4F2; }
+  .pick button[aria-checked="true"]:disabled { background:#57534E; color:#fff; }
+  .slip .fl .pick + input { margin-top:6px; }
   .hidden { display:none!important; }
 </style>
 </head>
@@ -246,91 +247,79 @@
     </div>
     <div class="slip-actions"><button type="button" class="slip-btn ghost" data-close>กลับไปแชท</button><button type="button" class="slip-btn primary" id="expense-submit-btn">ยืนยันบันทึก</button></div>
   </section>
-  <section id="document-card" class="card hidden" aria-labelledby="document-title">
-    <div class="card-header"><img class="mascot-peek" src="/line/mascot-v6-document.png" alt="" aria-hidden="true" />
-      <div class="eyebrow">เอกสารจากแชท</div>
-      <h1 class="card-title" id="document-title">ใบเสนอราคา</h1>
-      <p class="card-subtitle">กรอกส่วนที่ยังขาดในหน้าเดียว แล้วกดสร้างเอกสาร</p>
-    </div>
-    <div class="draft-summary" aria-label="ยอดของเอกสาร">
-      <div class="summary-label">ยอดชำระสุทธิ</div>
-      <div class="summary-amount income" id="document-summary-amount">฿0</div>
-      <div class="summary-name" id="document-summary-name">ยังไม่มีรายการ</div>
-      <div class="summary-state">แบบร่าง · ยังไม่ได้สร้างเอกสาร</div>
-    </div>
-    <div class="tip-box doc-heard hidden" id="document-heard"><p id="document-heard-text"></p></div>
+  <section id="document-card" class="slip hidden" aria-labelledby="document-title">
+    <div class="slip-sheet">
+      <div class="slip-head">
+        <div class="slip-logo"><img src="/brand/logo01-v1/symbol-ci.svg" alt="" /><div>กระรอกตุนเงิน<small>เลขาการเงิน</small></div></div>
+        <span class="slip-stamp">แบบร่าง</span>
+      </div>
+      <div class="slip-title"><h1 id="document-title">ใบเสนอราคา</h1><span class="slip-meta" id="document-meta">จากแชท LINE</span></div>
+      <div class="slip-heard hidden" id="document-heard"><p id="document-heard-text"></p></div>
 
-    <h2 class="doc-section">ผู้ออกเอกสาร</h2>
-    <div class="doc-known hidden" id="document-issuer-known">
-      <div class="doc-known-head"><b id="document-issuer-name"></b><button type="button" id="document-issuer-edit">แก้ไข</button></div>
-      <p id="document-issuer-details"></p>
-    </div>
-    <div id="document-issuer-fields" class="hidden">
-      <p class="helper" id="document-issuer-help"></p>
-      <label for="doc-issuer-name">ชื่อธุรกิจหรือชื่อของคุณ <span aria-hidden="true">*</span></label>
-      <input type="text" id="doc-issuer-name" maxlength="200" autocomplete="organization" placeholder="เช่น นายออมสิน ดีแท้ หรือ บริษัท สัญญารัก จำกัด" />
-      <label for="doc-issuer-address">ที่อยู่ออกเอกสาร / ที่อยู่จดทะเบียน <span aria-hidden="true">*</span></label>
-      <textarea id="doc-issuer-address" maxlength="500" rows="2" autocomplete="street-address"></textarea>
-      <label for="doc-issuer-taxId">เลขประจำตัวผู้เสียภาษี <span aria-hidden="true">*</span></label>
-      <input type="text" id="doc-issuer-taxId" maxlength="20" inputmode="numeric" placeholder="13 หลัก" />
-      <label for="doc-issuer-phone">เบอร์โทรศัพท์ติดต่อ <span aria-hidden="true">*</span></label>
-      <input type="text" id="doc-issuer-phone" maxlength="40" inputmode="tel" autocomplete="tel" placeholder="เช่น 089-999-9999" />
-      <label for="doc-issuer-email">อีเมล <span class="optional">ไม่บังคับ</span></label>
-      <input type="text" id="doc-issuer-email" maxlength="200" inputmode="email" autocomplete="email" />
-      <p class="doc-sub">ช่องทางรับเงิน <span class="optional">ไม่บังคับ</span></p>
-      <p class="helper">บัญชีที่ลูกค้าใช้โอนเงิน แสดงท้ายเอกสาร</p>
-      <label for="doc-issuer-bankName">ชื่อธนาคาร</label>
-      <input type="text" id="doc-issuer-bankName" maxlength="100" placeholder="เช่น กสิกรไทย หรือ พร้อมเพย์" />
-      <label for="doc-issuer-bankAccount">เลขที่บัญชี</label>
-      <input type="text" id="doc-issuer-bankAccount" maxlength="40" inputmode="numeric" placeholder="เช่น 123-4-56789-0" />
-      <label for="doc-issuer-bankAccountName">ชื่อบัญชี</label>
-      <input type="text" id="doc-issuer-bankAccountName" maxlength="200" />
-    </div>
+      <div class="slip-sec">ผู้ออกเอกสาร</div>
+      <div class="slip-known hidden" id="document-issuer-known">
+        <div class="slip-known-head"><b id="document-issuer-name"></b><button type="button" id="document-issuer-edit">แก้ไข</button></div>
+        <p id="document-issuer-details"></p>
+      </div>
+      <div id="document-issuer-fields" class="hidden">
+        <p class="helper slip-help" id="document-issuer-help"></p>
+        <div class="slip-grid">
+        <div class="fl full"><label for="doc-issuer-name">ชื่อธุรกิจหรือชื่อของคุณ</label><input type="text" id="doc-issuer-name" maxlength="200" autocomplete="organization" placeholder="เช่น นายออมสิน ดีแท้ หรือ บริษัท สัญญารัก จำกัด" /></div>
+        <div class="fl full"><label for="doc-issuer-address">ที่อยู่ออกเอกสาร / ที่อยู่จดทะเบียน</label><textarea id="doc-issuer-address" maxlength="500" rows="2" autocomplete="street-address"></textarea></div>
+        <div class="fl"><label for="doc-issuer-taxId">เลขประจำตัวผู้เสียภาษี</label><input type="text" id="doc-issuer-taxId" maxlength="20" inputmode="numeric" placeholder="13 หลัก" /></div>
+        <div class="fl"><label for="doc-issuer-phone">เบอร์โทรศัพท์</label><input type="text" id="doc-issuer-phone" maxlength="40" inputmode="tel" autocomplete="tel" placeholder="เช่น 089-999-9999" /></div>
+        <div class="fl full"><label for="doc-issuer-email">อีเมล</label><input type="text" id="doc-issuer-email" maxlength="200" inputmode="email" autocomplete="email" placeholder="ไม่บังคับ" /></div>
+        </div>
+        <p class="slip-sub">ช่องทางรับเงิน <span class="optional">ไม่บังคับ · แสดงท้ายเอกสาร ให้ลูกค้าโอนเงิน</span></p>
+        <div class="slip-grid">
+        <div class="fl"><label for="doc-issuer-bankName">ชื่อธนาคาร</label><input type="text" id="doc-issuer-bankName" maxlength="100" placeholder="เช่น กสิกรไทย หรือ พร้อมเพย์" /></div>
+        <div class="fl"><label for="doc-issuer-bankAccount">เลขที่บัญชี</label><input type="text" id="doc-issuer-bankAccount" maxlength="40" inputmode="numeric" placeholder="เช่น 123-4-56789-0" /></div>
+        <div class="fl full"><label for="doc-issuer-bankAccountName">ชื่อบัญชี</label><input type="text" id="doc-issuer-bankAccountName" maxlength="200" /></div>
+        </div>
+      </div>
 
-    <h2 class="doc-section">ลูกค้า</h2>
-    <label for="doc-client-name">ชื่อลูกค้าหรือบริษัท <span aria-hidden="true">*</span></label>
-    <input type="text" id="doc-client-name" maxlength="200" placeholder="เช่น บริษัท แบรนด์เอ จำกัด" />
-    <label for="doc-client-address">ที่อยู่ <span class="optional">ไม่บังคับ</span></label>
-    <textarea id="doc-client-address" maxlength="500" rows="2"></textarea>
-    <label for="doc-client-taxId">เลขประจำตัวผู้เสียภาษี <span class="optional">ไม่บังคับ</span></label>
-    <input type="text" id="doc-client-taxId" maxlength="20" inputmode="numeric" />
-    <label for="doc-client-branch">สาขา <span class="optional">ไม่บังคับ</span></label>
-    <input type="text" id="doc-client-branch" maxlength="100" placeholder="เช่น สำนักงานใหญ่" />
-    <label for="doc-client-phone">เบอร์โทร <span class="optional">ไม่บังคับ</span></label>
-    <input type="text" id="doc-client-phone" maxlength="40" inputmode="tel" />
+      <div class="slip-sec">ลูกค้า</div>
+      <div class="slip-grid">
+        <div class="fl full"><label for="doc-client-name">ชื่อลูกค้าหรือบริษัท</label><input type="text" id="doc-client-name" maxlength="200" placeholder="เช่น บริษัท แบรนด์เอ จำกัด" /></div>
+        <div class="fl full"><label for="doc-client-address">ที่อยู่</label><textarea id="doc-client-address" maxlength="500" rows="2" placeholder="ไม่บังคับ"></textarea></div>
+        <div class="fl"><label for="doc-client-taxId">เลขประจำตัวผู้เสียภาษี</label><input type="text" id="doc-client-taxId" maxlength="20" inputmode="numeric" placeholder="ไม่บังคับ" /></div>
+        <div class="fl"><label for="doc-client-branch">สาขา</label><input type="text" id="doc-client-branch" maxlength="100" placeholder="เช่น สำนักงานใหญ่" /></div>
+        <div class="fl full"><label for="doc-client-phone">เบอร์โทร</label><input type="text" id="doc-client-phone" maxlength="40" inputmode="tel" placeholder="ไม่บังคับ" /></div>
+      </div>
 
-    <h2 class="doc-section">รายการ</h2>
-    <div id="document-items"></div>
-    <button type="button" class="doc-add" id="document-add-item">+ เพิ่มรายการ</button>
+      <div class="slip-sec">รายการ</div>
+      <div id="document-items"></div>
+      <button type="button" class="slip-add" id="document-add-item">+ เพิ่มรายการ</button>
 
-    <h2 class="doc-section">ภาษีและการชำระเงิน</h2>
-    <label for="doc-vat">ภาษีมูลค่าเพิ่ม (VAT)</label>
-    <select id="doc-vat"><option value="0">ไม่มี VAT</option><option value="7">VAT 7%</option></select>
-    <p class="helper hidden" id="doc-vat-fixed">ใบกำกับภาษีคิด VAT 7% เสมอ</p>
-    <label for="doc-wht">หัก ณ ที่จ่าย</label>
-    <select id="doc-wht"><option value="0">0% · ไม่มีหัก</option><option value="1">1%</option><option value="2">2%</option><option value="3">3%</option><option value="5">5%</option></select>
-    <div id="doc-credit-wrap">
-      <label id="doc-credit-label">เครดิตเทอม</label>
-      <div class="doc-terms" role="group" aria-labelledby="doc-credit-label" id="document-terms"></div>
+      <div class="slip-sec">ภาษีและการชำระเงิน</div>
+      <div class="slip-grid">
+        <div class="fl full"><span class="fl-label" id="doc-vat-label">ภาษีมูลค่าเพิ่ม (VAT)</span>
+          <div class="pick" id="doc-vat-pick" role="radiogroup" aria-labelledby="doc-vat-label" tabindex="-1" data-input="doc-vat"><button type="button" role="radio" data-value="0">ไม่มี VAT</button><button type="button" role="radio" data-value="7">VAT 7%</button></div>
+          <input type="hidden" id="doc-vat" value="0" />
+          <p class="helper hidden" id="doc-vat-fixed">ใบกำกับภาษีคิด VAT 7% เสมอ</p></div>
+        <div class="fl full"><span class="fl-label" id="doc-wht-label-text">หัก ณ ที่จ่าย</span>
+          <div class="pick" id="doc-wht-pick" role="radiogroup" aria-labelledby="doc-wht-label-text" tabindex="-1" data-input="doc-wht"><button type="button" role="radio" data-value="0">ไม่มี</button><button type="button" role="radio" data-value="1">1%</button><button type="button" role="radio" data-value="2">2%</button><button type="button" role="radio" data-value="3">3%</button><button type="button" role="radio" data-value="5">5%</button></div>
+          <input type="hidden" id="doc-wht" value="0" /></div>
+        <div class="fl full" id="doc-credit-wrap"><span class="fl-label" id="doc-credit-label">เครดิตเทอม</span>
+          <div class="pick" role="group" aria-labelledby="doc-credit-label" id="document-terms"></div></div>
+        <div id="doc-paid-wrap" class="fl-group hidden">
+          <div class="fl full"><label for="doc-paid-date">วันที่รับชำระเงิน</label><input type="date" id="doc-paid-date" /></div>
+          <div class="fl full"><label id="doc-method-label" for="doc-paid-method">วิธีชำระเงิน <span class="optional">ไม่บังคับ</span></label>
+            <div class="pick" role="group" aria-labelledby="doc-method-label" id="document-methods"></div>
+            <input type="text" id="doc-paid-method" maxlength="100" placeholder="หรือพิมพ์เอง เช่น โอนเข้าบัญชีกสิกรไทย" /></div>
+        </div>
+        <div class="fl full"><label for="doc-note">หมายเหตุ</label><textarea id="doc-note" maxlength="2000" rows="2" placeholder="เช่น ราคานี้รวมค่าเดินทางแล้ว"></textarea></div>
+      </div>
+      <div class="slip-lines" aria-label="สรุปยอดเอกสาร">
+        <div class="ln"><span>รวมก่อนภาษี</span><i></i><span id="doc-subtotal">฿0.00</span></div>
+        <div class="ln" id="doc-vat-row"><span>VAT 7%</span><i></i><span id="doc-vat-amount">฿0.00</span></div>
+        <div class="ln" id="doc-wht-row"><span id="doc-wht-label">หัก ณ ที่จ่าย</span><i></i><span id="doc-wht-amount">−฿0.00</span></div>
+        <div class="ln total"><span>ยอดชำระสุทธิ</span><i></i><span id="doc-payable">฿0.00</span></div>
+      </div>
+      <div class="error" id="document-error-box" role="alert" tabindex="-1"></div>
+      <p class="slip-note">สร้างเป็นเอกสารในแอป ยังไม่ได้ส่งให้ลูกค้า แก้ไขต่อได้ภายหลัง</p>
     </div>
-    <div id="doc-paid-wrap" class="hidden">
-      <label for="doc-paid-date">วันที่รับชำระเงิน <span aria-hidden="true">*</span></label>
-      <input type="date" id="doc-paid-date" />
-      <label id="doc-method-label" for="doc-paid-method">วิธีชำระเงิน <span class="optional">ไม่บังคับ</span></label>
-      <div class="doc-terms" role="group" aria-labelledby="doc-method-label" id="document-methods"></div>
-      <input type="text" id="doc-paid-method" maxlength="100" placeholder="หรือพิมพ์เอง เช่น โอนเข้าบัญชีกสิกรไทย" style="margin-top:8px" />
-    </div>
-    <label for="doc-note">หมายเหตุ <span class="optional">ไม่บังคับ</span></label>
-    <textarea id="doc-note" maxlength="2000" rows="2" placeholder="เช่น ราคานี้รวมค่าเดินทางแล้ว"></textarea>
-    <div class="receipt-box" aria-label="สรุปยอดเอกสาร">
-      <div class="receipt-row"><span>รวมก่อนภาษี</span><span id="doc-subtotal">฿0</span></div>
-      <div class="receipt-row" id="doc-vat-row"><span>VAT 7%</span><span id="doc-vat-amount">฿0</span></div>
-      <div class="receipt-row" id="doc-wht-row"><span id="doc-wht-label">หัก ณ ที่จ่าย</span><span id="doc-wht-amount">−฿0</span></div>
-      <div class="receipt-row total"><span>ยอดชำระสุทธิ</span><span id="doc-payable">฿0</span></div>
-    </div>
-    <div class="error" id="document-error-box" role="alert" tabindex="-1"></div>
-    <div class="nav-row"><button type="button" class="btn btn-primary" id="document-submit-btn">สร้างใบเสนอราคา</button></div>
-    <p class="save-caption">สร้างเป็นเอกสารในแอป ยังไม่ได้ส่งให้ลูกค้า แก้ไขต่อได้ภายหลัง</p>
+    <div class="slip-actions"><button type="button" class="slip-btn ghost" data-close>กลับไปแชท</button><button type="button" class="slip-btn primary" id="document-submit-btn">สร้างใบเสนอราคา</button></div>
   </section>
   <button type="button" class="return-btn hidden" id="return-chat-btn">กลับไปแชท</button>
 </main>
