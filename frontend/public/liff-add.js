@@ -2,26 +2,19 @@
   'use strict';
   var submissionId = crypto.randomUUID();
   var currentKind = 'job';
-  var jobStep = 1;
   var ready = false;
   var submitting = false;
   var draftReference = null;
   var draftLoaded = false;
   // Sign-up inside LINE (owner, 2026-11-13): offered when the server says so (/api/liff-config signup).
   var signupOffered = false;
-  var JOB_TIPS = {
-    1: 'เริ่มจากชื่องานและลูกค้า แล้วเลือกประเภทงาน',
-    2: 'ใส่มูลค่างานเต็ม และเลือกสถานะตามเงินที่ได้รับจริง',
-    3: 'ระบุเครดิตเทอมและรายละเอียดเพิ่มเติม แล้วตรวจทานก่อนบันทึก',
-  };
-  var JOB_STEP_NAMES = ['รายละเอียด', 'ยอดรับเงิน', 'เงื่อนไข'];
   var field = function (id) { return document.getElementById(id); };
   var valueOf = function (id) { return field(id).value.trim(); };
   var roundMoney = function (value) { return Math.round((value + Number.EPSILON) * 100) / 100; };
   var hasCentsPrecision = function (value) { return Number.isFinite(value) && value === roundMoney(value); };
 
   function fmtCurrency(value) {
-    return '฿' + (Number.isFinite(value) ? value : 0).toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    return '฿' + (Number.isFinite(value) ? value : 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
   function setValue(id, value) { field(id).value = value === undefined || value === null ? '' : String(value); }
   function ensureOption(id, value, fallback) {
@@ -35,37 +28,28 @@
   }
 
   function mascotUrl(reaction) { return '/line/mascot-v6-' + reaction + '.png'; }
-  function updateFormMascot(kind, reaction) {
-    var pose = reaction || (kind === 'expense' ? 'spent' : draftLoaded || jobStep === 3 ? 'review' : 'working');
-    field(kind + '-mascot').src = mascotUrl(pose);
-  }
 
-  function renderStepsRow() {
-    var row = field('job-steps-row'); row.replaceChildren();
-    for (var i = 1; i <= 3; i++) {
-      var pill = document.createElement('div'); pill.className = 'step-pill ' + (i < jobStep ? 'done' : i === jobStep ? 'current' : '');
-      if (i === jobStep) pill.setAttribute('aria-current', 'step');
-      var dot = document.createElement('span'); dot.className = 'step-dot'; dot.textContent = i < jobStep ? '✓' : String(i);
-      var label = document.createElement('span'); label.className = 'step-label'; label.textContent = JOB_STEP_NAMES[i - 1]; pill.append(dot, label); row.append(pill);
-      if (i < 3) { var line = document.createElement('div'); line.className = 'step-line'; line.setAttribute('aria-hidden', 'true'); row.append(line); }
-    }
-  }
+  // The job and expense forms open only for a draft from the chat, as one formal slip (design D, owner 2026-11-13).
   function setKind(kind) {
     if (draftReference && draftLoaded && kind !== draftReference.kind) return;
     currentKind = kind;
-    field('tab-income').classList.toggle('active', kind === 'job'); field('tab-income').setAttribute('aria-pressed', String(kind === 'job'));
-    field('tab-expense').classList.toggle('active', kind === 'expense'); field('tab-expense').setAttribute('aria-pressed', String(kind === 'expense'));
     field('job-card').classList.toggle('hidden', kind !== 'job'); field('expense-card').classList.toggle('hidden', kind !== 'expense');
   }
-  function jobStepTo(step) {
-    jobStep = Math.min(3, Math.max(1, step));
-    document.querySelectorAll('.step-fields[data-job-step]').forEach(function (el) { el.classList.toggle('visible', draftLoaded || Number(el.getAttribute('data-job-step')) === jobStep); });
-    field('job-step-eyebrow').textContent = draftLoaded ? 'รายการจากแชท · งาน / รายรับ' : 'ขั้นตอน ' + jobStep + ' จาก 3';
-    field('job-tip-text').textContent = JOB_TIPS[jobStep];
-    field('job-back-btn').classList.toggle('hidden', draftLoaded || jobStep === 1);
-    field('job-next-btn').textContent = draftLoaded || jobStep === 3 ? 'ยืนยันบันทึก' : 'ถัดไป';
-    field('job-save-caption').classList.toggle('hidden', !draftLoaded && jobStep !== 3);
-    updateFormMascot('job'); renderStepsRow(); updateReceipt();
+  // A row of choices standing in for a select: the hidden input keeps the value the rest of the form reads.
+  function setPick(groupId, value) {
+    var group = field(groupId); var selected = value === undefined || value === null ? '' : String(value);
+    if (selected && !Array.from(group.children).some(function (button) { return button.getAttribute('data-value') === selected; })) {
+      // A rate the draft carries but the row does not offer (2%): shown as its own choice, never dropped.
+      var extra = document.createElement('button'); extra.type = 'button'; extra.setAttribute('role', 'radio'); extra.setAttribute('data-value', selected); extra.textContent = selected + '%';
+      var after = Array.from(group.children).find(function (button) { return Number(button.getAttribute('data-value')) > Number(selected); });
+      group.insertBefore(extra, after || null);
+    }
+    Array.from(group.children).forEach(function (button) { button.setAttribute('aria-checked', String(button.getAttribute('data-value') === selected)); });
+    field(group.getAttribute('data-input')).value = selected;
+  }
+  function slipDate() {
+    try { return 'จากแชท LINE · ' + new Intl.DateTimeFormat('th-TH', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Bangkok' }).format(new Date()); }
+    catch (error) { return 'จากแชท LINE'; }
   }
   function updateReceipt() {
     var value = Number(valueOf('job-value')) || 0;
@@ -75,41 +59,39 @@
     var status = valueOf('job-paymentStatus');
     var received = status === 'paid' ? net : status === 'partial' ? Number(valueOf('job-receivedAmount')) || 0 : 0;
     field('received-amount-field').classList.toggle('hidden', status !== 'partial');
+    field('credit-field').classList.toggle('full', status !== 'partial');
     field('job-receivedAmount').required = status === 'partial';
     field('receipt-value').textContent = fmtCurrency(value);
     field('receipt-wht-row').classList.toggle('hidden', rate === 0);
-    field('receipt-wht-row').querySelector('span').textContent = 'หัก ณ ที่จ่าย (' + rate + '%)';
+    field('receipt-wht-row').querySelector('span').textContent = 'หัก ณ ที่จ่าย ' + rate + '%';
     field('receipt-wht').textContent = '−' + fmtCurrency(wht);
     field('receipt-net').textContent = fmtCurrency(net);
     field('receipt-received').textContent = status ? fmtCurrency(received) : 'ยังไม่เลือก';
     field('receipt-pending').textContent = status ? fmtCurrency(roundMoney(Math.max(0, net - received))) : 'ยังไม่เลือก';
-    field('job-summary-amount').textContent = fmtCurrency(value);
-    field('job-summary-name').textContent = valueOf('job-name') || 'กรอกชื่องาน';
   }
   function updateExpenseSummary() {
     var amount = Number(valueOf('expense-amount')) || 0;
-    field('expense-summary-amount').textContent = (amount > 0 ? '−' : '') + fmtCurrency(amount);
+    field('expense-summary-amount').textContent = fmtCurrency(amount);
     field('expense-summary-name').textContent = valueOf('expense-name') || 'รายการใหม่';
   }
   function showError(kind, message, focusId) {
     var box = field(kind + '-error-box'); box.textContent = message; box.style.display = 'block';
-    updateFormMascot(kind, 'urgent');
     if (focusId) field(focusId).focus(); else box.focus();
   }
-  function clearError(kind) { field(kind + '-error-box').style.display = 'none'; updateFormMascot(kind); }
-  function validateJob(step) {
-    if ((!step || step === 1) && !valueOf('job-name')) { showError('job', 'กรุณากรอกชื่องาน', 'job-name'); return false; }
-    if (!step || step === 2) {
+  function clearError(kind) { field(kind + '-error-box').style.display = 'none'; }
+  function validateJob() {
+    if (!valueOf('job-name')) { showError('job', 'กรุณากรอกชื่องาน', 'job-name'); return false; }
+    {
       var value = Number(valueOf('job-value')); var rate = Number(valueOf('job-whtRate')); var status = valueOf('job-paymentStatus');
       if (!Number.isFinite(value) || value <= 0) { showError('job', 'กรุณากรอกมูลค่างานมากกว่า 0 บาท', 'job-value'); return false; }
       if (!hasCentsPrecision(value)) { showError('job', 'มูลค่างานระบุทศนิยมได้ไม่เกิน 2 ตำแหน่ง', 'job-value'); return false; }
-      if (!Number.isFinite(rate) || rate < 0 || rate > 100) { showError('job', 'กรุณาเลือกอัตราหัก ณ ที่จ่ายให้ถูกต้อง', 'job-whtRate'); return false; }
-      if (['paid', 'partial', 'pending'].indexOf(status) === -1) { showError('job', 'กรุณาเลือกสถานะการรับเงินก่อนยืนยัน', 'job-paymentStatus'); return false; }
+      if (!Number.isFinite(rate) || rate < 0 || rate > 100) { showError('job', 'กรุณาเลือกอัตราหัก ณ ที่จ่ายให้ถูกต้อง', 'job-wht-pick'); return false; }
+      if (['paid', 'partial', 'pending'].indexOf(status) === -1) { showError('job', 'กรุณาเลือกสถานะการรับเงินก่อนยืนยัน', 'job-status-pick'); return false; }
       var received = Number(valueOf('job-receivedAmount')); var net = roundMoney(value - roundMoney(value * rate / 100));
       if (status === 'partial' && (!Number.isFinite(received) || received <= 0 || received >= net)) { showError('job', 'ยอดรับบางส่วนต้องมากกว่า 0 และน้อยกว่ายอดหลังหัก ณ ที่จ่าย หากรับครบแล้วให้เลือก “รับเงินครบแล้ว”', 'job-receivedAmount'); return false; }
       if (status === 'partial' && !hasCentsPrecision(received)) { showError('job', 'ยอดรับบางส่วนระบุทศนิยมได้ไม่เกิน 2 ตำแหน่ง', 'job-receivedAmount'); return false; }
     }
-    if (!step || step === 3) {
+    {
       var credit = Number(valueOf('job-creditTerm'));
       if (!Number.isInteger(credit) || credit < 0 || credit > 3650) { showError('job', 'เครดิตเทอมต้องเป็นจำนวนเต็มตั้งแต่ 0 ถึง 3,650 วัน', 'job-creditTerm'); return false; }
     }
@@ -118,10 +100,7 @@
   function jobNext() {
     if (!ready || submitting) return;
     clearError('job');
-    if (draftLoaded) { if (validateJob()) submitJob(); return; }
-    if (!validateJob(jobStep)) return;
-    if (jobStep < 3) { jobStepTo(jobStep + 1); return; }
-    submitJob();
+    if (validateJob()) submitJob();
   }
   // While a page opens: the app's opening logo with one line under it (owner, 2026-11-13: the logo, not a mascot).
   function showLoading(caption) {
@@ -284,26 +263,23 @@
     return { kind: kind, key: key.toLowerCase() };
   }
   function populateDraft(kind, draft) {
-    document.body.classList.add('draft-mode');
-    setKind(kind); field('return-chat-btn').classList.remove('hidden');
-    field('tab-income').disabled = true; field('tab-expense').disabled = true;
+    document.body.classList.add('draft-mode', 'slip-mode');
+    setKind(kind);
+    field(kind === 'expense' ? 'expense-meta' : 'job-meta').textContent = slipDate();
     if (kind === 'expense') {
-      field('expense-eyebrow').textContent = 'รายการจากแชท · รายจ่าย'; field('expense-title').textContent = 'ตรวจสอบและแก้ไข';
-      field('expense-subtitle').textContent = 'แก้ข้อมูลด้านล่างได้เลย ก่อนยืนยันบันทึก';
       setValue('expense-name', draft.name); setValue('expense-amount', draft.amount); setValue('expense-note', draft.note);
       ensureOption('expense-category', draft.category, 'อื่นๆ');
       field('category-help').textContent = draft.category ? 'หมวดหมู่นี้มาจากรายการร่าง กรุณาตรวจสอบและเปลี่ยนได้ตามต้องการ' : 'ยังไม่ได้ระบุหมวดหมู่ เลือกหมวดที่เหมาะกับรายการนี้ได้เลย';
       updateExpenseSummary();
     } else {
-      field('job-title').textContent = 'ตรวจสอบและแก้ไข'; field('job-subtitle').textContent = 'รายละเอียดทั้งหมดอยู่ด้านล่าง ตรวจยอดและสถานะก่อนบันทึก';
-      field('job-summary').classList.remove('hidden');
       setValue('job-name', draft.name); setValue('job-client', draft.client); setValue('job-value', draft.value);
       setValue('job-creditTerm', draft.creditTerm == null ? 0 : draft.creditTerm); setValue('job-receivedAmount', draft.receivedAmount); setValue('job-note', draft.note);
-      ensureOption('job-type', draft.type, 'ยังไม่ระบุ'); ensureOption('job-whtRate', draft.whtRate, '0');
+      ensureOption('job-type', draft.type, 'ยังไม่ระบุ');
+      var rate = Number(draft.whtRate); setPick('job-wht-pick', Number.isFinite(rate) && rate >= 0 && rate <= 100 ? String(rate) : '0');
       var status = ['paid', 'partial', 'pending'].indexOf(draft.paymentStatus) >= 0 ? draft.paymentStatus : '';
-      setValue('job-paymentStatus', status);
+      setPick('job-status-pick', status);
       field('payment-help').textContent = status ? 'สถานะจากรายการร่าง เปลี่ยนให้ตรงกับเงินที่ได้รับจริงได้' : 'รายการร่างยังไม่ระบุสถานะ กรุณาเลือกเองก่อนยืนยัน';
-      jobStepTo(3);
+      updateReceipt();
     }
   }
   async function loadDraft(reference) {
@@ -324,7 +300,6 @@
     if (!ready || submitting || (draftReference && !draftLoaded)) return;
     submitting = true; button.disabled = true;
     var originalText = button.textContent; button.textContent = 'กำลังบันทึก…';
-    updateFormMascot(kind, 'working');
     payload.requestId = submissionId;
     if (draftLoaded) { payload.action = 'confirm-draft'; payload.draftKind = draftReference.kind; payload.draftKey = draftReference.key; }
     try {
@@ -368,10 +343,15 @@
 
   ['job-value', 'job-whtRate', 'job-receivedAmount', 'job-paymentStatus', 'job-name'].forEach(function (id) { field(id).addEventListener('input', updateReceipt); field(id).addEventListener('change', updateReceipt); });
   ['expense-name', 'expense-amount'].forEach(function (id) { field(id).addEventListener('input', updateExpenseSummary); });
-  field('tab-income').addEventListener('click', function () { setKind('job'); }); field('tab-expense').addEventListener('click', function () { setKind('expense'); });
-  field('job-back-btn').addEventListener('click', function () { clearError('job'); jobStepTo(jobStep - 1); });
+  ['job-wht-pick', 'job-status-pick'].forEach(function (id) {
+    field(id).addEventListener('click', function (event) {
+      var button = event.target.closest('button[data-value]'); if (!button || !ready || submitting) return;
+      setPick(id, button.getAttribute('data-value')); clearError('job'); updateReceipt();
+    });
+  });
+  document.querySelectorAll('[data-close]').forEach(function (button) { button.addEventListener('click', closeLiff); });
   field('job-next-btn').addEventListener('click', jobNext); field('expense-submit-btn').addEventListener('click', submitExpense); field('return-chat-btn').addEventListener('click', closeLiff);
-  renderStepsRow(); updateReceipt(); updateExpenseSummary();
+  setPick('job-wht-pick', '0'); setPick('job-status-pick', ''); updateReceipt(); updateExpenseSummary();
 
   (function splash() {
     // The opening logo as the app shows it: dark when the app is dark, the name once its typeface is in.

@@ -1,0 +1,117 @@
+import { expect, test, type Page } from '@playwright/test';
+import { textOverlapIssues } from './textOverlap';
+
+// Job and expense drafts from the chat open as one formal slip (owner, 2026-11-13, design D: "แบบ D ชอบๆ"): no
+// รายรับ / รายจ่าย switch and no steps, the draft filled in, rows of choices instead of drop-downs for หัก ณ ที่จ่าย and
+// the payment state, a running total with dotted leaders, and กลับไปแชท beside ยืนยันบันทึก. LINE's SDK and the server's
+// answers are stood in; the server side is tested in tests/line-*.test.ts.
+
+const drafts: Record<string, { kind: 'job' | 'expense'; draft: Record<string, unknown> }> = {
+  job: { kind: 'job', draft: { name: 'งานตัดต่อ', client: 'นาย A', value: 5000, whtRate: 3, paymentStatus: 'pending', creditTerm: 30, type: 'Video Production', note: '' } },
+  bare: { kind: 'job', draft: { name: 'งานตัดต่อ', value: 5000 } },
+  oddRate: { kind: 'job', draft: { name: 'ออกแบบโลโก้', client: 'บริษัท แบรนด์เอ จำกัด', value: 12000, whtRate: 2, paymentStatus: 'paid' } },
+  expense: { kind: 'expense', draft: { name: 'ค่ากาแฟลูกค้า', amount: 120, category: 'อาหาร/รับรองลูกค้า', note: '' } },
+};
+
+async function open(page: Page, scenario: keyof typeof drafts) {
+  const sent: any[] = [];
+  const closed: string[] = [];
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.exposeFunction('__closed', () => closed.push('closed'));
+  await page.route('https://static.line-scdn.net/**', route => route.fulfill({ contentType: 'text/javascript',
+    body: 'window.liff={init:async()=>{},isLoggedIn:()=>true,isInClient:()=>true,getIDToken:()=>"token",closeWindow(){window.__closed()},login(){}};' }));
+  await page.route('**/api/liff-config', route => route.fulfill({ json: { liffId: 'test-liff' } }));
+  const { kind, draft } = drafts[scenario];
+  await page.route('**/api/liff-submit', route => {
+    const body = route.request().postDataJSON(); sent.push(body);
+    if (body.action === 'load-draft') return route.fulfill({ json: { ok: true, kind, draft } });
+    return route.fulfill({ json: { ok: true, notificationSent: true } });
+  });
+  await page.goto(`/liff-add.html?draftKind=${kind}&draftKey=0123456789abcdef`);
+  await expect(page.locator(`#${kind}-card`)).toBeVisible();
+  await page.evaluate(() => document.fonts.ready);
+  return { sent, closed };
+}
+
+test('a job draft opens as the slip, filled in, with no switch and no steps', async ({ page }) => {
+  await open(page, 'job');
+  await expect(page.locator('#expense-card')).toBeHidden();
+  await expect(page.locator('.kind-tabs')).toHaveCount(0);
+  await expect(page.locator('#job-title')).toHaveText('บันทึกงาน');
+  await expect(page.locator('#job-meta')).toContainText('จากแชท LINE · ');
+  await expect(page.locator('.slip-stamp').first()).toHaveText('แบบร่าง');
+  await expect(page.locator('#job-name')).toHaveValue('งานตัดต่อ');
+  await expect(page.locator('#job-client')).toHaveValue('นาย A');
+  await expect(page.locator('#job-type')).toHaveValue('Video Production');
+  await expect(page.locator('#job-creditTerm')).toHaveValue('30');
+  await expect(page.locator('#job-wht-pick [aria-checked="true"]')).toHaveText('3%');
+  await expect(page.locator('#job-status-pick [aria-checked="true"]')).toHaveText('ยังไม่ได้รับ');
+  await expect(page.locator('#received-amount-field')).toBeHidden();
+  await expect(page.locator('#receipt-value')).toHaveText('฿5,000.00');
+  await expect(page.locator('#receipt-wht-row')).toContainText('หัก ณ ที่จ่าย 3%');
+  await expect(page.locator('#receipt-wht')).toHaveText('−฿150.00');
+  await expect(page.locator('#receipt-net')).toHaveText('฿4,850.00');
+  await expect(page.locator('#receipt-pending')).toHaveText('฿4,850.00');
+  // No green anywhere on the slip (owner: green is not the brand's colour).
+  const green = await page.locator('#job-card').evaluate(card => [...card.querySelectorAll('*')].some(el => {
+    const style = getComputedStyle(el);
+    return [style.color, style.backgroundColor, style.borderBottomColor].some(c => { const m = c.match(/\d+/g); return !!m && Number(m[1]) > Number(m[0]) + 30 && Number(m[1]) > Number(m[2]) + 30; });
+  }));
+  expect(green).toBe(false);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: 'artifacts/liff-slip-job.png', fullPage: true });
+});
+
+test('choosing มัดจำแล้ว asks how much came in and the total follows; ยืนยันบันทึก sends what the slip shows', async ({ page }) => {
+  const { sent } = await open(page, 'job');
+  await page.locator('#job-status-pick').getByRole('radio', { name: 'มัดจำแล้ว' }).click();
+  await expect(page.locator('#received-amount-field')).toBeVisible();
+  await page.locator('#job-wht-pick').getByRole('radio', { name: 'ไม่มี' }).click();
+  await expect(page.locator('#receipt-wht-row')).toBeHidden();
+  await page.locator('#job-next-btn').click();
+  await expect(page.locator('#job-error-box')).toContainText('ยอดรับบางส่วน');
+  await page.locator('#job-receivedAmount').fill('2000');
+  await expect(page.locator('#receipt-received')).toHaveText('฿2,000.00');
+  await expect(page.locator('#receipt-pending')).toHaveText('฿3,000.00');
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await page.screenshot({ path: 'artifacts/liff-slip-job-partial.png', fullPage: true });
+  // Leave the amount field first: a full-page screenshot moves the page when it loses focus during the tap.
+  await page.locator('#job-receivedAmount').blur();
+  await page.locator('#job-next-btn').click();
+  await expect(page.locator('#status-view')).toContainText('บันทึกสำเร็จ');
+  const saved = sent.find(body => body.action === 'confirm-draft');
+  expect(saved).toMatchObject({ kind: 'job', draftKind: 'job', name: 'งานตัดต่อ', client: 'นาย A', value: '5000', whtRate: '0', paymentStatus: 'partial', receivedAmount: '2000', creditTerm: '30' });
+});
+
+test('a draft without a payment state asks for one before saving; a rate the row lacks is kept as its own choice', async ({ page, context }) => {
+  const { sent } = await open(page, 'bare');
+  await expect(page.locator('#job-status-pick [aria-checked="true"]')).toHaveCount(0);
+  await expect(page.locator('#receipt-pending')).toHaveText('ยังไม่เลือก');
+  await page.locator('#job-next-btn').click();
+  await expect(page.locator('#job-error-box')).toContainText('กรุณาเลือกสถานะการรับเงิน');
+  await expect(page.locator('#job-status-pick')).toBeFocused();
+  expect(sent.some(body => body.action === 'confirm-draft')).toBe(false);
+  const second = await context.newPage();
+  const other = await open(second, 'oddRate');
+  await expect(second.locator('#job-wht-pick [aria-checked="true"]')).toHaveText('2%');
+  await expect(second.locator('#job-wht-pick button')).toHaveText(['ไม่มี', '1%', '2%', '3%', '5%']);
+  await second.locator('#job-next-btn').click();
+  await expect(second.locator('#status-view')).toContainText('บันทึกสำเร็จ');
+  expect(other.sent.find(body => body.action === 'confirm-draft')).toMatchObject({ whtRate: '2', paymentStatus: 'paid', receivedAmount: 0 });
+});
+
+test('an expense draft opens as the slip; กลับไปแชท closes the window without saving', async ({ page }) => {
+  const { sent, closed } = await open(page, 'expense');
+  await expect(page.locator('#job-card')).toBeHidden();
+  await expect(page.locator('#expense-title')).toHaveText('บันทึกรายจ่าย');
+  await expect(page.locator('#expense-name')).toHaveValue('ค่ากาแฟลูกค้า');
+  await expect(page.locator('#expense-category')).toHaveValue('อาหาร/รับรองลูกค้า');
+  await expect(page.locator('#expense-summary-amount')).toHaveText('฿120.00');
+  await expect(page.locator('#expense-summary-name')).toHaveText('ค่ากาแฟลูกค้า');
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await page.screenshot({ path: 'artifacts/liff-slip-expense.png', fullPage: true });
+  await page.locator('#expense-card').getByRole('button', { name: 'กลับไปแชท' }).click();
+  expect(closed).toEqual(['closed']);
+  expect(sent.some(body => body.action === 'confirm-draft')).toBe(false);
+});

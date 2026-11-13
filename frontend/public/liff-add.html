@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@600&text=%E0%B8%81%E0%B8%A3%E0%B8%B0%E0%B8%A3%E0%B8%AD%E0%B8%81%E0%B8%95%E0%B8%B8%E0%B8%99%E0%B9%80%E0%B8%87%E0%B8%B4%E0%B8%99&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&display=swap" rel="stylesheet" />
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <style>
   :root { --bg:#FFF9F3; --card:#fff; --text:#352015; --muted:#77675d; --faint:#F9F5EF; --border:#EBDDD0; --accent:#EB5E29; --accent-soft:#FFF0E5; --expense:#AD4426; --positive:#236E51; --mint:#E9F4DC; --font:'IBM Plex Sans Thai','IBM Plex Sans',ui-sans-serif,system-ui,-apple-system,sans-serif; }
@@ -22,15 +22,9 @@
   .page { max-width:520px; margin:0 auto; padding:16px 16px 32px; }
   .brand { display:flex; align-items:center; gap:8px; font-weight:600; font-size:12px; margin-bottom:13px; color:var(--text); }
   .brand img { width:29px; height:29px; }
-  .kind-tabs { display:flex; padding:4px; gap:4px; background:#fff; border:1px solid var(--border); border-radius:15px; margin-bottom:14px; }
-  .kind-tab { flex:1; padding:10px 6px; border:0; background:transparent; border-radius:11px; font-size:13px; font-weight:500; color:var(--muted); min-height:43px; }
-  .kind-tab.active { color:#fff; background:var(--text); font-weight:600; }
-  .kind-tab.active::before { content:''; display:inline-block; width:6px; height:6px; margin-right:7px; border-radius:50%; background:#FFAC73; vertical-align:middle; }
   .card { background:var(--card); border:1px solid var(--border); border-radius:23px; overflow:hidden; padding:20px; box-shadow:0 6px 0 #EDDCCD4D; }
   .card-header { position:relative; isolation:isolate; margin:-20px -20px 18px; padding:12px 103px 14px 18px; min-height:92px; background:linear-gradient(115deg,#FFFDF9 25%,#FFF1E1 73%,#FFD7B8); overflow:hidden; border-bottom:1px solid #F0DDCB; }
-  #expense-card .card-header { background:linear-gradient(115deg,#FFFDF9 25%,#FFF0E7 73%,#FFD3C0); }
   .card-header::before { content:''; position:absolute; width:88px; height:88px; right:-3px; bottom:-13px; border-radius:28px; transform:rotate(-12deg); background:#FBDCCB; z-index:-1; }
-  #expense-card .card-header::before { background:#FFD3B2; transform:rotate(12deg); }
   .card-header::after { content:'✦'; position:absolute; right:83px; top:9px; color:#D96731; font-size:19px; transform:rotate(-15deg); z-index:-1; }
   /* Small half-body stickers peek from the edge, leaving the form in focus. */
   .mascot-peek { position:absolute; width:110px; height:110px; object-fit:contain; right:-2px; bottom:-26px; pointer-events:none; filter:drop-shadow(0 2px 0 #FFFFFFB8); }
@@ -40,20 +34,10 @@
   .step-eyebrow,.eyebrow { font-size:11px; color:var(--accent); font-weight:600; }
   .card-title { font-weight:700; font-size:24px; letter-spacing:-.5px; line-height:1.4; margin:6px 0 7px; }
   .card-subtitle { font-size:13px; color:var(--muted); margin:0; }
-  .steps-row { display:flex; align-items:center; gap:5px; margin:0 0 17px; }
-  .step-pill { display:flex; align-items:center; gap:5px; flex:1; }
-  .step-dot { display:grid; place-items:center; width:24px; height:24px; border-radius:8px; background:var(--faint); border:1px solid var(--border); color:var(--muted); font-size:11px; flex-shrink:0; }
-  .step-pill.current .step-dot { background:var(--text); border-color:var(--text); color:#fff; }
-  .step-pill.done .step-dot { background:var(--accent-soft); border-color:#F2C2AC; color:#C24A16; }
-  .step-label { color:var(--muted); font-size:10px; }
-  .step-pill.current .step-label { font-weight:600; color:var(--text); }
-  .step-line { height:1px; background:var(--border); width:7px; flex-shrink:0; }
   .tip-box { color:#635347; background:#F3F2F0; border-left:3px solid #E65F2B; border-radius:4px 10px 10px 4px; font-size:11px; padding:10px 12px; margin-bottom:18px; }
   .tip-box p { margin:0; }
   .draft-summary { position:relative; background:linear-gradient(110deg,#F5FAED,#FAFCF7); border:1px solid #DDE8CF; border-radius:16px; padding:13px 15px; margin:0 0 18px; }
-  #expense-card .draft-summary { background:linear-gradient(110deg,#FFF0E5,#FFFAF5); border-color:#F0DACA; }
   .draft-summary::before { content:''; position:absolute; width:5px; height:27px; background:#B6CA8C; right:15px; top:16px; border-radius:3px; transform:rotate(13deg); box-shadow:9px 2px 0 #D9E6BF; }
-  #expense-card .draft-summary::before { background:#F49464; box-shadow:9px 2px 0 #FFD0B4; }
   .draft-summary .summary-label { color:#6D6257; font-size:11px; }
   .summary-amount { font-family:'IBM Plex Sans',var(--font); font-size:32px; font-weight:700; letter-spacing:-1px; line-height:1.2; color:var(--expense); overflow-wrap:anywhere; margin:5px 28px 4px 0; }
   .summary-amount.income { color:var(--text); }
@@ -69,25 +53,15 @@
   select { padding-right:25px; }
   textarea { resize:vertical; min-height:75px; }
   .helper { font-size:10px; color:var(--muted); margin:6px 0 0; line-height:1.6; }
-  .money-field { position:relative; }
-  .money-field input { padding-left:34px; font-family:'IBM Plex Sans',var(--font); font-weight:600; background:#FFFBF5; border-color:#E1C4A7; }
-  .money-symbol { position:absolute; left:13px; top:12px; font-size:16px; color:#A46B43; pointer-events:none; }
-  .section-heading { display:none; font-size:13px; font-weight:600; margin:23px 0 14px; padding-top:19px; border-top:1px dashed var(--border); }
-  .draft-mode .section-heading { display:block; }
-  .step-fields { display:none; }
-  .step-fields.visible,.draft-mode .step-fields { display:block; }
-  .draft-mode #job-steps-row,.draft-mode #job-back-btn,.draft-mode .kind-tabs,.draft-mode #job-tip { display:none!important; }
   .receipt-box { background:#F8F9F0; border:1px solid #E3E6D6; border-radius:13px; padding:13px; margin-top:17px; }
   .receipt-row { display:flex; justify-content:space-between; gap:15px; padding:4px 0; font-size:11px; color:var(--muted); }
   .receipt-row span:last-child { font-family:'IBM Plex Sans',var(--font); white-space:nowrap; }
   .receipt-row.total { color:var(--text); font-weight:600; border-top:1px dashed #D4D9C4; margin-top:7px; padding-top:10px; }
-  #receipt-received { color:var(--positive); font-weight:600; }
   .nav-row { display:flex; gap:9px; margin-top:22px; }
   .btn { display:block; padding:13px 14px; border:0; border-radius:12px; font-size:14px; font-weight:600; flex:1; min-height:48px; }
   .btn-primary { background:var(--accent); color:#fff; box-shadow:0 3px 0 #B9441B; }
   .btn-primary:hover { background:#DF5422; }
   .btn-primary:active { transform:translateY(1px); box-shadow:0 2px 0 #B9441B; }
-  .btn-back { background:#FFF9F2; color:var(--text); border:1px solid var(--border); }
   .save-caption { color:var(--muted); font-size:10px; text-align:center; margin:11px 0 0; }
   .return-btn { display:block; width:100%; border:0; color:var(--muted); background:transparent; padding:13px; font-size:12px; margin-top:7px; }
   .error { color:#9B3D28; font-size:12px; margin-top:15px; background:#FFF0EB; border:1px solid #F0C9B9; padding:11px; border-radius:10px; display:none; }
@@ -155,93 +129,122 @@
       @keyframes splashDot{0%,100%{opacity:.25;transform:translateY(0)}50%{opacity:1;transform:translateY(-3px)}}
       @keyframes splashOut{to{transform:scale(1.18)}}
       @media (prefers-reduced-motion:reduce){.splash-mark{opacity:1;transform:none;animation:none}.splash-glow,.splash-ring{display:none}.splash.has-name .splash-name{animation:splashFade .3s forwards;transform:none}.splash-dots i{animation:none;opacity:.6}.splash.is-leaving .splash-stage{animation:none}}
+  /* Job and expense drafts from the chat as a formal slip on a neutral ground (owner, 2026-11-13, design D: "ชอบ"). */
+  body.slip-mode { background:#ECEAE7; }
+  .slip-mode .page { padding:14px 12px 28px; }
+  .slip-mode .page > .brand { display:none; }
+  .slip-sheet { background:#fff; border:1px solid #DEDBD7; border-radius:6px; padding:22px 20px; color:#1C1917; }
+  .slip-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+  .slip-logo { display:flex; align-items:center; gap:8px; font:600 15px/1.4 'Prompt',var(--font); }
+  .slip-logo img { width:26px; height:26px; flex:0 0 26px; }
+  .slip-logo small { display:block; font:400 11px/1.45 var(--font); color:#6B6560; }
+  .slip-stamp { border:1.5px solid #E65F2B; color:#C24A16; font-size:11px; font-weight:700; line-height:1.45; padding:3px 9px; border-radius:4px; white-space:nowrap; }
+  .slip-title { margin-top:20px; padding-bottom:14px; border-bottom:2px solid #1C1917; display:flex; flex-wrap:wrap; justify-content:space-between; align-items:baseline; gap:4px 12px; }
+  .slip-title h1 { margin:0; font:700 24px/1.4 'Prompt',var(--font); letter-spacing:-.2px; }
+  .slip-meta { font-size:12px; line-height:1.5; color:#6B6560; }
+  .slip-sec { margin-top:20px; font-size:12px; font-weight:700; line-height:1.45; color:#C24A16; letter-spacing:.3px; }
+  .slip-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); column-gap:16px; }
+  .slip .fl { padding:10px 0 6px; border-bottom:1px solid #D6D3D1; min-width:0; }
+  .slip .fl.full { grid-column:1 / -1; }
+  .slip .fl:focus-within { border-bottom-color:#E65F2B; }
+  .slip .fl label,.slip .fl-label { display:block; margin:0; font-size:11px; font-weight:400; line-height:1.45; color:#6B6560; }
+  .slip .fl input,.slip .fl select,.slip .fl textarea { display:block; width:100%; border:0; border-radius:0; background-color:transparent; padding:2px 0 4px; min-height:36px; font-size:16px; line-height:1.5; color:#1C1917; }
+  .slip .fl input:focus,.slip .fl select:focus,.slip .fl textarea:focus { outline:0; background-color:transparent; }
+  .slip .fl select { -webkit-appearance:none; appearance:none; background:transparent url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%236B6560' stroke-width='1.6'/%3E%3C/svg%3E") no-repeat right 2px center / 12px 8px; padding-right:22px; }
+  .slip .fl textarea { min-height:52px; resize:vertical; }
+  .slip .fl input::placeholder,.slip .fl textarea::placeholder { color:#A8A29E; }
+  .slip .fl input.money { font:600 20px/1.45 'Prompt',var(--font); }
+  .slip .helper { font-size:11px; color:#6B6560; margin:6px 0 2px; line-height:1.5; }
+  .pick { display:flex; margin-top:6px; border:1px solid #D6D3D1; border-radius:6px; overflow:hidden; }
+  .pick button { flex:1; min-width:0; min-height:42px; border:0; background:#fff; color:#1C1917; font-size:13px; line-height:1.45; padding:6px 2px; }
+  .pick button + button { border-left:1px solid #D6D3D1; }
+  .pick button[aria-checked="true"] { background:#1C1917; color:#fff; font-weight:600; }
+  .pick:focus { outline:2px solid #E65F2B; outline-offset:2px; }
+  .slip-lines { margin-top:14px; font-size:14px; line-height:1.5; }
+  .slip-lines .ln { display:flex; align-items:baseline; gap:6px; padding:5px 0; }
+  .slip-lines .ln i { flex:1; min-width:12px; border-bottom:1.5px dotted #D6D3D1; transform:translateY(-4px); }
+  .slip-lines .ln span:last-child { font-family:'Prompt',var(--font); white-space:nowrap; }
+  .slip-lines .ln span.plain { font-family:var(--font); white-space:normal; text-align:right; overflow-wrap:anywhere; max-width:62%; }
+  .slip-lines .ln.total { margin-top:6px; padding-top:10px; border-top:3px double #1C1917; font-weight:700; font-size:16px; }
+  .slip-lines .ln.total i { border:0; }
+  .slip-lines .ln.total span:last-child { color:#C24A16; font-size:20px; }
+  .slip-note { margin:18px 0 0; font-size:11px; line-height:1.6; color:#6B6560; }
+  .slip .error { margin-top:14px; }
+  .slip-actions { display:flex; gap:10px; margin-top:16px; }
+  .slip-btn { flex:1; min-height:52px; border-radius:10px; font-size:16px; font-weight:600; line-height:1.4; padding:12px; }
+  .slip-btn.ghost { background:#fff; color:#1C1917; border:1px solid #D6D3D1; }
+  .slip-btn.primary { flex:2; background:#C24A16; color:#fff; border:0; }
   .hidden { display:none!important; }
 </style>
 </head>
 <body>
 <main class="page hidden" id="form-view">
   <div class="brand"><img src="/brand/logo01-v1/symbol-ci.svg" alt="" /><span>กระรอกตุนเงิน · เลขาการเงิน</span></div>
-  <div class="kind-tabs" role="group" aria-label="ประเภทรายการ">
-    <button type="button" class="kind-tab active" id="tab-income" aria-pressed="true">รายรับ / งาน</button>
-    <button type="button" class="kind-tab" id="tab-expense" aria-pressed="false">รายจ่าย</button>
-  </div>
-  <section id="job-card" class="card" aria-labelledby="job-title">
-    <div class="card-header"><img class="mascot-peek" id="job-mascot" src="/line/mascot-v6-working.png" alt="" aria-hidden="true" />
-      <div class="step-eyebrow" id="job-step-eyebrow">ขั้นตอน 1 จาก 3</div>
-      <h1 class="card-title" id="job-title">เพิ่มงานใหม่</h1>
-      <p class="card-subtitle" id="job-subtitle">ให้เลขาจดงาน ลูกค้า และกำหนดรับเงินให้คุณ</p>
-    </div>
-    <div class="draft-summary hidden" id="job-summary" aria-label="สรุปรายการร่าง">
-      <div class="summary-label">มูลค่างานเต็ม</div>
-      <div class="summary-amount income" id="job-summary-amount">฿0</div>
-      <div class="summary-name" id="job-summary-name"></div>
-      <div class="summary-state">รายการร่าง · ยังไม่ได้บันทึก</div>
-    </div>
-    <div class="steps-row" id="job-steps-row" aria-label="ขั้นตอนบันทึกงาน"></div>
-    <div class="tip-box" id="job-tip"><p id="job-tip-text">เริ่มจากชื่องานและลูกค้า แล้วเลือกประเภทงาน</p></div>
-    <div class="step-fields visible" data-job-step="1">
-      <label for="job-name">ชื่องาน <span aria-hidden="true">*</span></label>
-      <input type="text" id="job-name" placeholder="เช่น ถ่ายภาพสินค้า" maxlength="500" required autocomplete="off" />
-      <label for="job-client">ลูกค้า <span class="optional">ไม่บังคับ</span></label>
-      <input type="text" id="job-client" placeholder="ชื่อลูกค้าหรือบริษัท" maxlength="500" autocomplete="off" />
-      <label for="job-type">ประเภทงาน</label>
-      <select id="job-type">
+  <section id="job-card" class="slip" aria-labelledby="job-title">
+    <div class="slip-sheet">
+      <div class="slip-head">
+        <div class="slip-logo"><img src="/brand/logo01-v1/symbol-ci.svg" alt="" /><div>กระรอกตุนเงิน<small>เลขาการเงิน</small></div></div>
+        <span class="slip-stamp">แบบร่าง</span>
+      </div>
+      <div class="slip-title"><h1 id="job-title">บันทึกงาน</h1><span class="slip-meta" id="job-meta">จากแชท LINE</span></div>
+      <div class="slip-sec">รายละเอียดงาน</div>
+      <div class="slip-grid">
+        <div class="fl full"><label for="job-name">ชื่องาน</label><input type="text" id="job-name" placeholder="เช่น ถ่ายภาพสินค้า" maxlength="500" required autocomplete="off" /></div>
+        <div class="fl"><label for="job-client">ลูกค้า</label><input type="text" id="job-client" placeholder="ไม่บังคับ" maxlength="500" autocomplete="off" /></div>
+        <div class="fl"><label for="job-type">ประเภทงาน</label><select id="job-type">
         <option value="ยังไม่ระบุ">ยังไม่ระบุ</option><option>Sponsored Post</option><option>Video Production</option><option>Digital Product</option><option>Consulting / Advisory</option><option>งานทั่วไปอื่นๆ</option>
-      </select>
-    </div>
-    <div class="step-fields" data-job-step="2">
-      <h2 class="section-heading">ยอดและการรับเงิน</h2>
-      <label for="job-value">มูลค่าค่าจ้างเต็ม <span aria-hidden="true">*</span></label>
-      <div class="money-field"><span class="money-symbol">฿</span><input type="number" id="job-value" placeholder="0.00" min="0.01" step="0.01" inputmode="decimal" required /></div>
-      <label for="job-whtRate">หัก ณ ที่จ่าย</label>
-      <select id="job-whtRate"><option value="0">0% · ไม่มีหัก</option><option value="1">1%</option><option value="3">3%</option><option value="5">5%</option></select>
-      <label for="job-paymentStatus">สถานะการรับเงิน <span aria-hidden="true">*</span></label>
-      <select id="job-paymentStatus" required aria-describedby="payment-help">
-        <option value="">เลือกสถานะการรับเงิน</option><option value="paid">รับเงินครบแล้ว</option><option value="partial">รับมัดจำ / บางส่วนแล้ว</option><option value="pending">ยังไม่ได้รับเงิน</option>
-      </select>
-      <p class="helper" id="payment-help">เลือกตามเงินที่ได้รับจริง</p>
-      <div id="received-amount-field" class="hidden">
-        <label for="job-receivedAmount">รับเงินมาแล้ว</label>
-        <div class="money-field"><span class="money-symbol">฿</span><input type="number" id="job-receivedAmount" placeholder="0.00" min="0.01" step="0.01" inputmode="decimal" /></div>
+      </select></div>
       </div>
-      <div class="receipt-box" id="job-receipt" aria-label="รายละเอียดการรับเงิน">
-        <div class="receipt-row"><span>มูลค่างานเต็ม</span><span id="receipt-value">฿0</span></div>
-        <div class="receipt-row" id="receipt-wht-row"><span>หัก ณ ที่จ่าย (0%)</span><span id="receipt-wht">−฿0</span></div>
-        <div class="receipt-row"><span>ยอดหลังหัก ณ ที่จ่าย</span><span id="receipt-net">฿0</span></div>
-        <div class="receipt-row"><span>รับแล้ว</span><span id="receipt-received">ยังไม่เลือก</span></div>
-        <div class="receipt-row total"><span>รอรับเงิน</span><span id="receipt-pending">ยังไม่เลือก</span></div>
+      <div class="slip-sec">ค่าจ้างและการรับเงิน</div>
+      <div class="slip-grid">
+        <div class="fl full"><label for="job-value">มูลค่าค่าจ้างเต็ม (บาท)</label><input type="number" id="job-value" class="money" placeholder="0.00" min="0.01" step="0.01" inputmode="decimal" required /></div>
+        <div class="fl full"><span class="fl-label" id="job-wht-label">หัก ณ ที่จ่าย</span>
+          <div class="pick" id="job-wht-pick" role="radiogroup" aria-labelledby="job-wht-label" tabindex="-1" data-input="job-whtRate"><button type="button" role="radio" data-value="0">ไม่มี</button><button type="button" role="radio" data-value="1">1%</button><button type="button" role="radio" data-value="3">3%</button><button type="button" role="radio" data-value="5">5%</button></div>
+          <input type="hidden" id="job-whtRate" value="0" /></div>
+        <div class="fl full"><span class="fl-label" id="job-status-label">สถานะการรับเงิน</span>
+          <div class="pick" id="job-status-pick" role="radiogroup" aria-labelledby="job-status-label" aria-describedby="payment-help" tabindex="-1" data-input="job-paymentStatus"><button type="button" role="radio" data-value="paid">รับครบแล้ว</button><button type="button" role="radio" data-value="partial">มัดจำแล้ว</button><button type="button" role="radio" data-value="pending">ยังไม่ได้รับ</button></div>
+          <input type="hidden" id="job-paymentStatus" value="" />
+          <p class="helper" id="payment-help">เลือกตามเงินที่ได้รับจริง</p></div>
+        <div class="fl full" id="credit-field"><label for="job-creditTerm">เครดิตเทอม (วัน)</label><input type="number" id="job-creditTerm" value="0" min="0" max="3650" step="1" inputmode="numeric" aria-describedby="credit-help" /><p class="helper" id="credit-help">นับจากวันส่งงาน ไม่มีเครดิตเทอมใส่ 0</p></div>
+        <div class="fl hidden" id="received-amount-field"><label for="job-receivedAmount">รับเงินมาแล้ว (บาท)</label><input type="number" id="job-receivedAmount" class="money" placeholder="0.00" min="0.01" step="0.01" inputmode="decimal" /></div>
+        <div class="fl full"><label for="job-note">หมายเหตุ</label><textarea id="job-note" maxlength="2000" placeholder="ไม่บังคับ"></textarea></div>
       </div>
+      <div class="slip-lines" id="job-receipt" aria-label="สรุปยอด">
+        <div class="ln"><span>มูลค่างาน</span><i></i><span id="receipt-value">฿0.00</span></div>
+        <div class="ln" id="receipt-wht-row"><span>หัก ณ ที่จ่าย 0%</span><i></i><span id="receipt-wht">−฿0.00</span></div>
+        <div class="ln"><span>ยอดหลังหัก</span><i></i><span id="receipt-net">฿0.00</span></div>
+        <div class="ln"><span>รับแล้ว</span><i></i><span id="receipt-received">ยังไม่เลือก</span></div>
+        <div class="ln total"><span>ยอดรอรับ</span><i></i><span id="receipt-pending">ยังไม่เลือก</span></div>
+      </div>
+      <div class="error" id="job-error-box" role="alert" tabindex="-1"></div>
+      <p class="slip-note">บันทึกเข้าบัญชีกระรอกตุนเงินของคุณเมื่อกดยืนยันเท่านั้น แก้ไขต่อได้ในแอป</p>
     </div>
-    <div class="step-fields" data-job-step="3">
-      <h2 class="section-heading">เงื่อนไขและรายละเอียดเพิ่มเติม</h2>
-      <label for="job-creditTerm">เครดิตเทอม <span class="optional">วัน</span></label>
-      <input type="number" id="job-creditTerm" value="0" min="0" max="3650" step="1" inputmode="numeric" aria-describedby="credit-help" />
-      <p class="helper" id="credit-help">จำนวนวันที่รอรับเงินหลังส่งงาน หากไม่มีเครดิตเทอมใส่ 0</p>
-      <label for="job-note">หมายเหตุ <span class="optional">ไม่บังคับ</span></label>
-      <textarea id="job-note" maxlength="2000" placeholder="รายละเอียดที่อยากเก็บไว้กับงานนี้"></textarea>
-    </div>
-    <div class="error" id="job-error-box" role="alert" tabindex="-1"></div>
-    <div class="nav-row"><button type="button" class="btn btn-back hidden" id="job-back-btn">ย้อนกลับ</button><button type="button" class="btn btn-primary" id="job-next-btn">ถัดไป</button></div>
-    <p class="save-caption hidden" id="job-save-caption">บันทึกเมื่อคุณกดยืนยันเท่านั้น</p>
+    <div class="slip-actions"><button type="button" class="slip-btn ghost" data-close>กลับไปแชท</button><button type="button" class="slip-btn primary" id="job-next-btn">ยืนยันบันทึก</button></div>
   </section>
-  <section id="expense-card" class="card hidden" aria-labelledby="expense-title">
-    <div class="card-header"><img class="mascot-peek" id="expense-mascot" src="/line/mascot-v6-spent.png" alt="" aria-hidden="true" /><div class="eyebrow" id="expense-eyebrow">รายจ่าย</div><h1 class="card-title" id="expense-title">เพิ่มรายจ่าย</h1><p class="card-subtitle" id="expense-subtitle">กรอกข้อมูลแล้วตรวจยอดก่อนบันทึก</p></div>
-    <div class="draft-summary" aria-label="สรุปรายจ่าย">
-      <div class="summary-label">ยอดรายจ่าย</div><div class="summary-amount" id="expense-summary-amount">฿0</div><div class="summary-name" id="expense-summary-name">รายการใหม่</div><div class="summary-state">ยังไม่ได้บันทึก</div>
-    </div>
-    <div class="field"><label for="expense-name">ชื่อรายการ <span aria-hidden="true">*</span></label><input type="text" id="expense-name" placeholder="เช่น กาแฟ" maxlength="500" required autocomplete="off" /></div>
-    <label for="expense-category">หมวดหมู่</label>
-    <select id="expense-category" aria-describedby="category-help">
+  <section id="expense-card" class="slip hidden" aria-labelledby="expense-title">
+    <div class="slip-sheet">
+      <div class="slip-head">
+        <div class="slip-logo"><img src="/brand/logo01-v1/symbol-ci.svg" alt="" /><div>กระรอกตุนเงิน<small>เลขาการเงิน</small></div></div>
+        <span class="slip-stamp">แบบร่าง</span>
+      </div>
+      <div class="slip-title"><h1 id="expense-title">บันทึกรายจ่าย</h1><span class="slip-meta" id="expense-meta">จากแชท LINE</span></div>
+      <div class="slip-sec">รายละเอียดรายจ่าย</div>
+      <div class="slip-grid">
+        <div class="fl full"><label for="expense-name">ชื่อรายการ</label><input type="text" id="expense-name" placeholder="เช่น กาแฟ" maxlength="500" required autocomplete="off" /></div>
+        <div class="fl full"><label for="expense-category">หมวดหมู่</label><select id="expense-category" aria-describedby="category-help">
       <option>ค่าอุปกรณ์/ซอฟต์แวร์</option><option>ค่าโฆษณา/ยิงแอด</option><option>ค่าเดินทาง/น้ำมัน</option><option>อาหาร/รับรองลูกค้า</option><option>จ้างงานต่อ (Outsource)</option><option>ภาษี/ธรรมเนียม</option><option>ค่าบริการ/สาธารณูปโภค</option><option selected>อื่นๆ</option>
-    </select>
-    <p class="helper" id="category-help">เลือกหมวดหมู่ที่เหมาะกับรายการนี้ เปลี่ยนได้ก่อนบันทึก</p>
-    <label for="expense-amount">จำนวนเงิน <span aria-hidden="true">*</span></label>
-    <div class="money-field"><span class="money-symbol">฿</span><input type="number" id="expense-amount" placeholder="0.00" min="0.01" step="0.01" inputmode="decimal" required /></div>
-    <label for="expense-note">หมายเหตุ <span class="optional">ไม่บังคับ</span></label>
-    <textarea id="expense-note" maxlength="2000" placeholder="รายละเอียดเพิ่มเติม"></textarea>
-    <div class="error" id="expense-error-box" role="alert" tabindex="-1"></div>
-    <div class="nav-row"><button type="button" class="btn btn-primary" id="expense-submit-btn">ยืนยันบันทึก</button></div>
-    <p class="save-caption">บันทึกเมื่อคุณกดยืนยันเท่านั้น</p>
+    </select><p class="helper" id="category-help">เลือกหมวดหมู่ที่เหมาะกับรายการนี้ เปลี่ยนได้ก่อนบันทึก</p></div>
+        <div class="fl full"><label for="expense-amount">จำนวนเงิน (บาท)</label><input type="number" id="expense-amount" class="money" placeholder="0.00" min="0.01" step="0.01" inputmode="decimal" required /></div>
+        <div class="fl full"><label for="expense-note">หมายเหตุ</label><textarea id="expense-note" maxlength="2000" placeholder="ไม่บังคับ"></textarea></div>
+      </div>
+      <div class="slip-lines" aria-label="สรุปรายจ่าย">
+        <div class="ln"><span>รายการ</span><i></i><span id="expense-summary-name" class="plain">รายการใหม่</span></div>
+        <div class="ln total"><span>ยอดรายจ่าย</span><i></i><span id="expense-summary-amount">฿0.00</span></div>
+      </div>
+      <div class="error" id="expense-error-box" role="alert" tabindex="-1"></div>
+      <p class="slip-note">บันทึกเข้าบัญชีกระรอกตุนเงินของคุณเมื่อกดยืนยันเท่านั้น แก้ไขต่อได้ในแอป</p>
+    </div>
+    <div class="slip-actions"><button type="button" class="slip-btn ghost" data-close>กลับไปแชท</button><button type="button" class="slip-btn primary" id="expense-submit-btn">ยืนยันบันทึก</button></div>
   </section>
   <section id="document-card" class="card hidden" aria-labelledby="document-title">
     <div class="card-header"><img class="mascot-peek" src="/line/mascot-v6-document.png" alt="" aria-hidden="true" />

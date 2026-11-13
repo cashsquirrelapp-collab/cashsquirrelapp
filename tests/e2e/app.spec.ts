@@ -169,7 +169,7 @@ test('LIFF form loads under production CSP without inline handlers, and a draft 
  await expect(page.locator('#expense-card')).toBeVisible();
  await expect(page.locator('#job-card')).toBeHidden();
  await expect(page.locator('#expense-name')).toHaveValue('ค่ากาแฟลูกค้า');
- await expect(page.locator('#tab-income')).toBeDisabled();
+ await expect(page.locator('.kind-tabs')).toHaveCount(0); // a draft opens as its own slip, with no รายรับ / รายจ่าย switch
  expect(await page.locator('[onclick]').count()).toBe(0);
  expect(errors).toEqual([]);
 });

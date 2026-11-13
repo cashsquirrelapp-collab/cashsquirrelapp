@@ -293,7 +293,6 @@
     fill(data);
     document.body.classList.add('draft-mode');
     ['job-card', 'expense-card'].forEach(function (id) { field(id).classList.add('hidden'); });
-    document.querySelector('.kind-tabs').classList.add('hidden');
     field('document-card').classList.remove('hidden');
     field('return-chat-btn').classList.remove('hidden');
     // สร้างเอกสาร on a complete card opens here to create at once (so the picture can be drawn); anything missing shows the form.
