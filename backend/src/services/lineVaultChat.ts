@@ -13,6 +13,7 @@ import { cardGroupMessage, lineAssistantReply } from '../ai/lineFormat.js';
 import { rateLimit } from '../security/rateLimit.js';
 import { lineAreaOpen } from './lineLaunch.js';
 import { isPhaseOneFeatureAvailable } from '../../../shared/featureAvailability.js';
+import { SheetFileError, sheetFileKind, spreadsheetText } from '../../../shared/sheetFileText.js';
 
 type AttachKind = 'wht50' | 'contract' | 'expense' | 'other';
 export type VaultAction = { step: 'choose'; kind: AttachKind; fileId: string }
@@ -88,6 +89,62 @@ export function fileSavedCard(fileId: string, fileName: string): LineMessage {
 
 /** What a person sending a picture or PDF in LINE asks of เลขา, in their words. */
 export const LINE_FILE_REQUEST = 'ช่วยอ่านไฟล์นี้ แล้วเตรียมบันทึกรายรับหรือรายจ่ายให้หน่อย';
+/** A spreadsheet in LINE: เลขา prepares a card for each record row (at most LINE_SHEET_ROWS of them). */
+export const LINE_SHEET_REQUEST = 'ช่วยอ่านตารางในไฟล์นี้ แล้วเตรียมบันทึกรายรับหรือรายจ่ายให้ทุกแถวที่เป็นรายการ แถวหัวตารางและแถวรวมไม่ต้องบันทึก';
+/** More rows than this go to the app's import (one go, columns matched there) instead of a card per row in the chat. */
+export const LINE_SHEET_ROWS = 20;
+
+/** A long spreadsheet: the app's นำเข้าจาก Excel takes the whole file at once. */
+export function sheetImportCard(fileName: string, rows: number, tabs: number): LineMessage {
+  return lineCard({
+    title: `ไฟล์นี้มี ${rows.toLocaleString('en-US')} แถว`, subtitle: fileName, character: 'document', compact: true,
+    altText: `ไฟล์ ${fileName} มี ${rows} แถว นำเข้าทีเดียวได้ที่ เมนู งาน › นำเข้าจาก Excel`,
+    body: [
+      { type: 'text', text: `ในแชท เลขาเตรียมให้ครั้งละไม่เกิน ${LINE_SHEET_ROWS} แถว ไฟล์ยาวแบบนี้${tabs > 1 ? ` (${tabs} แท็บ)` : ''} นำเข้าทีเดียวได้ที่ เมนู งาน › นำเข้าจาก Excel ระบบจับคอลัมน์ให้ และให้ตรวจก่อนบันทึก`, size: 'sm', color: LINE_CARD_COLORS.muted, wrap: true },
+    ],
+    ...(lineAppLink('/jobs', 'เปิดหน้างาน') ? { footer: lineAppLink('/jobs', 'เปิดหน้างาน')! } : {}),
+  });
+}
+
+const SHEET_ERRORS: Record<SheetFileError['code'], string> = {
+  type: 'เปิดไฟล์นี้ไม่ได้ครับ ไฟล์อาจเสียหายหรือมีรหัสผ่าน ลองบันทึกเป็น .xlsx หรือ .csv แล้วส่งใหม่',
+  empty: 'ไม่พบข้อมูลในไฟล์นี้ครับ',
+  big: 'ไฟล์ตารางนี้ใหญ่เกินไปครับ นำเข้าได้ที่ เมนู งาน › นำเข้าจาก Excel ในแอป',
+};
+
+/**
+ * A spreadsheet sent in LINE (owner, 2026-11-13: "รับไฟล์ Excel ทางแชท"): read on the server into the text the app's chat
+ * makes (shared/sheetFileText.ts, personal data masked), then เลขา prepares its confirmation cards, as for a PDF. A long
+ * file goes to the app's import instead (no tokens spent); an .xls / .ods / Numbers file is asked to be saved as .xlsx.
+ * The document vault keeps pictures and PDFs only, so the spreadsheet itself is not kept.
+ */
+async function handleLineSheetFile(user: UserRow, event: LineFileEvent, token: string, deps: LineFileDeps): Promise<LineMessage[]> {
+  const name = (event.fileName || 'ตาราง.xlsx').replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 120);
+  if (sheetFileKind(name) === 'old') {
+    return [{ type: 'text', text: 'ตอนนี้ในแชท LINE เลขาอ่านไฟล์ .xlsx และ .csv ได้ครับ ไฟล์นี้ให้เปิดใน Excel หรือ Google Sheets แล้วบันทึกเป็น .xlsx ก่อนส่ง หรือส่งในแชทเลขาบนเว็บ' }];
+  }
+  let bytes: Buffer;
+  try { bytes = await (deps.read ?? readLineFile)(event.id!, token); }
+  catch { return [{ type: 'text', text: 'ยังรับไฟล์ไม่สำเร็จครับ กรุณาส่งใหม่อีกครั้ง' }]; }
+  let read: ReturnType<typeof spreadsheetText>;
+  try { read = spreadsheetText(name, new Uint8Array(bytes)); }
+  catch (error) { return [{ type: 'text', text: SHEET_ERRORS[error instanceof SheetFileError ? error.code : 'type'] }]; }
+  if (read.dataRows > LINE_SHEET_ROWS) return [sheetImportCard(name, read.dataRows, read.tabs)];
+  try {
+    await (deps.rateLimit ?? rateLimit)('assistant-file', user.user_id, 25, 600);
+    const file = checkAttachment({ name, mimeType: 'text/plain', data: Buffer.from(read.text, 'utf8').toString('base64') });
+    const answer = deps.answer ?? (async (account, text, history, files) => (await import('../ai/lineBridge.js')).lineAssistantAnswer(account, text, history, {}, files));
+    const answered = await answer(user, LINE_SHEET_REQUEST, recentChatHistory(user), [file]);
+    if (!answered) return [{ type: 'text', text: 'อ่านตารางได้แล้ว แต่ตอนนี้เลขายังเตรียมรายการให้ไม่ได้ครับ ลองส่งใหม่อีกครั้ง หรือนำเข้าที่ เมนู งาน › นำเข้าจาก Excel' }];
+    try { await (deps.saveHistory ?? saveChatHistory)(user, `[ส่งไฟล์] ${name}`.slice(0, 200), answered.text.slice(0, 1000)); }
+    catch { console.error('line-sheet: chat history not saved'); }
+    return answered.messages.slice(0, 5);
+  } catch (error) {
+    const failure = error as { status?: number; message?: string } | null;
+    console.error('line-sheet: reading the spreadsheet failed', { status: failure?.status ?? null });
+    return [{ type: 'text', text: failure?.status && failure.status < 500 && failure.message ? failure.message : 'เลขาอ่านตารางนี้ไม่สำเร็จครับ ลองส่งใหม่อีกครั้ง' }];
+  }
+}
 
 /** Replaceable parts, for tests. */
 export interface LineFileDeps {
@@ -113,6 +170,8 @@ export async function handleLineFileMessage(lineUserId: string, event: LineFileE
   if (event.fileSize && event.fileSize > VAULT_MAX_BYTES) return [{ type: 'text', text: 'ไฟล์ใหญ่เกิน 10 MB กรุณาลดขนาดแล้วส่งใหม่ครับ' }];
   const access = await (deps.owner ?? owner)(lineUserId);
   if ('type' in access) return [access];
+  // A spreadsheet is read into text for เลขา (the vault keeps pictures and PDFs only).
+  if (event.type === 'file' && sheetFileKind(event.fileName || '')) return handleLineSheetFile(access.user, event, token, deps);
   let bytes: Buffer;
   let saved: { id: string; fileName: string };
   try {
