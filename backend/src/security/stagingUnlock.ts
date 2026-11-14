@@ -1,4 +1,4 @@
-import { stagingBaseReady, type StagingEnvironment } from './staging.js';
+import { stagingBaseReady, stagingProviderReady, type StagingEnvironment } from './staging.js';
 
 // The owner's test account on staging.krarok.com gets what the owner's account has on the real site — every feature,
 // the admin level and Pro — without any database row or payment (owner, 2026-11-13: "ปรับในเซตติ้งให้มันปลดล็อกทั้งหมด
@@ -13,3 +13,13 @@ export function stagingUnlocked(userId: unknown, env: StagingEnvironment = proce
 
 /** The subscription row an unlocked test account reads as: an admin-given Pro with no end date. */
 export const STAGING_PRO = { status: 'active', plan: 'admin_grant', current_period_end: null } as const;
+
+/**
+ * The owner's own LINE on the test site (STAGING_LINE_USER_ID, the only LINE the test site may message) belongs to the
+ * owner, so the account linked to it is the owner's test account too (owner, 2026-11-14: "เอาของบัญชี staging ของกูที่
+ * กูคุยกับมึงอยู่", the account made by signing up in that LINE chat). Only with the unlock switched on; never on the real site.
+ */
+export function stagingOwnerLine(lineUserId: unknown, env: StagingEnvironment = process.env): boolean {
+  return stagingBaseReady(env) && env.STAGING_UNLOCK === 'enabled' && stagingProviderReady('line', env) &&
+    typeof lineUserId === 'string' && lineUserId.length > 0 && lineUserId === env.STAGING_LINE_USER_ID;
+}

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import ts from 'typescript';
-import { STAGING_PRO, stagingUnlocked } from '../backend/src/security/stagingUnlock.js';
+import { STAGING_PRO, stagingOwnerLine, stagingUnlocked } from '../backend/src/security/stagingUnlock.js';
 
 // The owner's test account on staging.krarok.com is unlocked by two test-site settings (owner, 2026-11-13: "ปรับใน
 // เซตติ้งให้มันปลดล็อกทั้งหมด ไม่ต้องเติมโปร"). The real site can never meet the rule, whatever is set on it.
@@ -39,8 +39,16 @@ test('the real site is never unlocked, even with both settings copied onto it', 
   assert.equal(stagingUnlocked(ID, unlock), false);
 });
 
-test('the unlocked account has the owner\'s เลขา allowance on the test site', async () => {
-  const { readFileSync } = await import('node:fs');
-  const source = readFileSync(new URL('../backend/src/ai/supabaseDb.ts', import.meta.url), 'utf8');
-  assert.match(source, /if \(stagingUnlocked\(user\.id\)\) return \{ plan: 'admin'/);
+test('the account linked to the owner\'s own LINE on the test site counts as the owner\'s; nowhere else, never without the unlock', () => {
+  const OWNER_LINE = 'U' + '0123456789abcdef'.repeat(2);
+  const line = { STAGING_LINE: 'enabled', LINE_CHANNEL_ID: '2012039027', LIFF_ID: '2012039027-abcdEFGH',
+    LINE_CHANNEL_SECRET: 's'.repeat(32), LINE_CHANNEL_ACCESS_TOKEN: 't'.repeat(40), STAGING_LINE_USER_ID: OWNER_LINE };
+  assert.equal(stagingOwnerLine(OWNER_LINE, { ...staging, ...unlock, ...line }), true);
+  assert.equal(stagingOwnerLine('U' + 'f'.repeat(32), { ...staging, ...unlock, ...line }), false, 'another LINE');
+  assert.equal(stagingOwnerLine(OWNER_LINE, { ...staging, ...line }), false, 'the unlock is off');
+  assert.equal(stagingOwnerLine(OWNER_LINE, { ...production, ...unlock, ...line }), false, 'the real site');
+  assert.equal(stagingOwnerLine(undefined, { ...staging, ...unlock, ...line, STAGING_LINE_USER_ID: undefined }), false);
+  // เลขา's plan reads it: the owner's allowance for that account.
+  const source = fs.readFileSync('backend/src/ai/supabaseDb.ts', 'utf8');
+  assert.match(source, /if \(stagingUnlocked\(user\.id\) \|\| await linkedToOwnerLine\(user\.id\)\) return \{ plan: 'admin'/);
 });
