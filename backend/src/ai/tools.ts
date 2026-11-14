@@ -23,6 +23,7 @@ import { RECORD_ACTION_TOOLS, executeRecordAction, isRecordActionTool } from './
 import { NAVIGATION_TOOLS, executeNavigationTool, isNavigationTool, featureNavigation } from './navigation.js';
 import { ALL_JOBS, prepareProposal, type Proposal, type ProposalKind } from './proposals.js';
 import { calculateJobFinancialEdit } from './jobFinancialEdit.js';
+import { SLIP_PARAMETER, duplicateNote, slipCard, slipFacts } from './slipProposal.js';
 import type { AskKind, AskQuestion } from '../../../shared/askQuestions.js';
 import { CREDIT_TERM_PRESETS } from '../../../shared/creditTerms.js';
 export type { Proposal, ProposalKind } from './proposals.js';
@@ -145,9 +146,11 @@ const ACTION_TOOLS: ToolSpec[] = [
     installments: { type: 'array', maxItems: 24, description: 'Payment in installments (งวด), as the app job form does: one entry per installment in order. Leave amount out when the user did not say it: the unpaid rest is split equally. With installments, payment_status, credit term and pay_date are not needed.',
       items: { type: 'object', properties: { amount: numArg('Baht for this installment (after withholding, optional)'), due_date: str('YYYY-MM-DD the installment is due'), paid: { type: 'boolean', description: 'true = already received' }, paid_date: str('YYYY-MM-DD it was received (paid ones; default today)') } } },
     type: str('Job type (optional)'), note: str('Note (optional)'),
+    slip: SLIP_PARAMETER,
   }, ['name', 'value']) },
   { name: 'propose_record_payment', description: 'Prepare recording money received for a job: in full, or a partial amount. For a job paid in installments (งวด), partial with the installment\'s amount ticks that installment as received, and full ticks every one left. Needs job_id (from search_jobs). Nothing is saved until the user confirms.', parameters: obj({
     job_id: str('job_id from search_jobs'), mode: { type: 'string', enum: ['full', 'partial'] }, amount: numArg('Amount received, for partial'), date: str('Date received, YYYY-MM-DD (optional, default today)'),
+    slip: SLIP_PARAMETER,
   }, ['job_id', 'mode']) },
   { name: 'propose_record_payments', description: "Prepare recording money received IN FULL for SEVERAL jobs at once, one card per job (owner, 2026-10-28: many items are done for the user, never sent back to a page to tick one by one). Pass job_ids (from search_jobs/account_data), or all_unpaid:true when the user means every job still waiting for payment. Optional date YYYY-MM-DD (default today). For a partial amount use propose_record_payment for that job. At most 50 per call; the result says how many remain.", parameters: obj({
     job_ids: { type: 'array', items: { type: 'string' }, maxItems: 50, description: 'job_id values from search_jobs' },
@@ -163,6 +166,7 @@ const ACTION_TOOLS: ToolSpec[] = [
     delivery_date: str('Delivery/planned delivery date YYYY-MM-DD'), remind_date: str('Reminder YYYY-MM-DD, or empty string to clear'),
     delivered: { type: 'boolean', description: 'Whether the job has actually been delivered; true requires a known delivery date' },
     type: str('Job type'), credit_term_days: { type: 'integer', minimum: 0, maximum: 3650, description: 'Credit days from delivery; recalculates the unpaid due date using the existing holiday preference' },
+    slip: SLIP_PARAMETER,
   }, ['job_id']) },
   { name: 'propose_delete_job', description: 'Prepare deleting one job. Needs job_id. The card tells the user what disappears; nothing is deleted until they confirm.', parameters: obj({ job_id: str('job_id from search_jobs') }, ['job_id']) },
   { name: 'propose_delete_all_jobs', description: "Prepare deleting EVERY job of the account at once, in ONE card. Only when the user clearly asks for all of their jobs/projects to go (ลบงานทั้งหมด, ลบทุกโปรเจกต์); for one or some named jobs use propose_delete_job once per job. The card shows how many jobs and their total; the user's one go-ahead (the card's button, or typing ยืนยัน) deletes them. No password. Documents and expenses stay.", parameters: obj({}, []) },
@@ -380,6 +384,18 @@ export function createToolbox(context: ToolContext) {
   const loadVaultFiles = context.loadVaultFiles ? () => (vaultRead ??= context.loadVaultFiles!()) : undefined;
 
   const propose = async (kind: ProposalKind, job: Job, record: Record<string, unknown> | null, title: string, changes: Proposal['changes']): Promise<ToolOutcome> => {
+    // From a transfer slip (2026-11-14): the account the money came into and the slip's reference, kept on the job, and
+    // a slip already recorded said on the card before it is saved again.
+    let duplicate: ReturnType<typeof slipCard>['duplicate'] = null;
+    if (record && (kind === 'add_job' || kind === 'record_payment' || kind === 'edit_job') && current?.args.slip) {
+      const facts = slipFacts(current.args.slip);
+      if (facts.account) record.account = facts.account;
+      if (facts.ref) record.slipRefs = [...new Set([...(Array.isArray(job.slipRefs) ? job.slipRefs : []), facts.ref])].slice(-200);
+      const slip = slipCard(facts, { accountNames: (user.settings as { accountNames?: Record<string, string> } | undefined)?.accountNames,
+        expenses: (user.expenses || []) as { id?: string }[], jobs: jobs(), except: job.id });
+      duplicate = slip.duplicate;
+      changes = [...slip.first, ...changes, ...slip.last];
+    }
     if (record) {
       // Older jobs can lack fields the app now requires; fill them the way the app's job form does.
       record.type ??= 'ยังไม่ระบุ';
@@ -391,7 +407,8 @@ export function createToolbox(context: ToolContext) {
         return fail(`ข้อมูลไม่ผ่านการตรวจของแอป${fields.length ? ` (${[...new Set(fields)].join(', ')})` : ''}`);
       }
     }
-    return prepareProposal(context, { kind, id: job.id, record, title, changes });
+    const outcome = await prepareProposal(context, { kind, id: job.id, record, title, changes });
+    return duplicate && outcome.result && typeof outcome.result === 'object' ? { ...outcome, result: { ...outcome.result as Record<string, unknown>, ...duplicateNote(duplicate) } } : outcome;
   };
 
   const execute = async (call: ToolCall): Promise<ToolOutcome> => {

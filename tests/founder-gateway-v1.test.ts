@@ -237,6 +237,7 @@ test('gateway: prompt version and bytes remain unchanged by the knowledge connec
   // secretary-v25 (owner, 2026-10-31): the ใบ 50 ทวิ follow-up and FILES TO KEEP (attach_file) rules added; none removed.
   // secretary-v24 (owner, 2026-10-31): SELF, เลขากระรอก never calls itself AI and never claims to be a person.
   // secretary-v23 (owner, 2026-10-28): the feedback menu is called แจ้งปัญหา (was บอกเรา).
+  // secretary-v31 (owner, 2026-11-14): transfer slips carry slip {bank, account_last4, reference}; duplicate_slip is said.
   // secretary-v22 (owner, 2026-10-28): the saved issuer profile comes with the document rules (ISSUER), no read step.
   // secretary-v21 (owner, 2026-10-28): document rules with a document in the chat, CLOSING LINE (a step of cards ends the turn).
   // secretary-v20 (owner, 2026-10-28, fewer tokens): change rules with the action route, file rules with a file, PAST WORK.
@@ -244,9 +245,9 @@ test('gateway: prompt version and bytes remain unchanged by the knowledge connec
   // replaces the remembered PREFERRED NAME. secretary-v17 (owner-approved
   // 2026-10-26, Accounting Brain): one ACCOUNTING REFERENCE slot added after FOUNDER;
   // every existing rule is byte-identical and a message without that slot builds exactly the v16 prompt.
-  assert.equal(PROMPT_VERSION, 'secretary-v30');
+  assert.equal(PROMPT_VERSION, 'secretary-v31');
   const prompt = await readFile(new URL('../backend/src/ai/prompt.ts', import.meta.url));
-  // Captured before the approved gateway-only connection; recaptured for secretary-v30 (LINE emoji line, owner 2026-11-13).
+  // Captured before the approved gateway-only connection; recaptured for secretary-v31 (slip account + reference, owner 2026-11-14).
   // No dependency on a local audit folder.
-  assert.equal(createHash('sha256').update(prompt).digest('hex'), '9715bc828659047898fb44d610f3693d8285cf12aad28a41a4095e3a507fda8d');
+  assert.equal(createHash('sha256').update(prompt).digest('hex'), '8f7587376663f3caf0d6c4524529715f7bc5807e448bb79ed0c01e0f8ce3a748');
 });

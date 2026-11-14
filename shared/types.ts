@@ -38,6 +38,10 @@ export interface Job {
   /** The account chose not to chase a 50 ทวิ for this job (owner, 2026-11-04: "ปุ่มไม่ต้องตามใบนี้รายงาน"): it is not
    *  waited on or reminded; its withheld tax still counts, shown apart from what a certificate backs. */
   wht50NotNeeded?: boolean;
+  /** The person's own account the client paid into, read from the slip: bank + last four digits only (shared/slipAccounts.ts). */
+  account?: { bank: string; last4: string };
+  /** Reference numbers of the slips recorded on this job, so the same slip is not recorded twice. */
+  slipRefs?: string[];
   whtDocId?: string; // Reference to a withholding tax document in settings.whtDocuments
   excludeHolidays?: boolean; // ไม่นับวันหยุดราชการและเสาร์-อาทิตย์ ในการคำนวณวันดีล/เครดิตเทอม
   followUpCount?: number; // จำนวนครั้งที่ติดตามทวงถามเครดิตเทอม
@@ -143,6 +147,8 @@ export interface TaxYearInputs {
 }
 
 export interface AppSettings {
+  /** Names the person gave their bank accounts, by "BANK:1234" (shared/slipAccounts.ts accountKey). */
+  accountNames?: Record<string, string>;
   monthlyExpense: number; // kept in sync as the sum of fixedExpenseItems whenever that list is edited
   fixedExpenseItems?: FixedExpenseItem[]; // itemized breakdown of the fixed monthly cost
   monthlyRevenueGoal: number;
@@ -232,6 +238,10 @@ export interface Expense {
   amount: number;
   date: string; // YYYY-MM-DD
   note?: string;
+  /** The person's own account the money left from, read from its slip: bank + last four digits only (shared/slipAccounts.ts). */
+  account?: { bank: string; last4: string };
+  /** The slip's reference number (เลขที่รายการ), so the same slip is not recorded twice. */
+  slipRef?: string;
 }
 
 export interface InvoiceItem {

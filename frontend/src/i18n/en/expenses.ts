@@ -74,4 +74,11 @@ export const expenses: Record<string, string> = {
   'เฉพาะแอดมิน': 'Admins only',
   'มีสลิปแล้ว {0} ไฟล์': '{0} slip(s) kept',
   'กำลังแนบสลิป {0}/{1}…': 'Attaching slips {0}/{1}…',
+  // Slips by account (SlipAccounts.tsx)
+  "บัญชี: ทั้งหมด": "Account: All",
+  "ตั้งชื่อบัญชี": "Name accounts",
+  "บัญชีที่อ่านได้จากสลิป": "Accounts read from slips",
+  "บัญชีที่อ่านได้จากสลิป แสดงแค่ธนาคารกับเลข 4 ตัวท้าย ตั้งชื่อให้จำง่ายได้ เช่น บัญชีธุรกิจ": "Accounts read from slips show only the bank and the last 4 digits. Give them names that are easy to remember, such as Business account",
+  "เช่น บัญชีธุรกิจ": "e.g. Business account",
+  "ชื่อของ {0}": "Name of {0}",
 };

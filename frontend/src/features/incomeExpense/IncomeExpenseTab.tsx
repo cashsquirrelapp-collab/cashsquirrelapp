@@ -18,6 +18,8 @@ import { LEGACY_FIXED_NAME, buildExpenseMonth, sortExpenseRows, type ExpenseRow,
 import { IncomeExportDialog } from '../report/IncomeExport';
 import { ExpenseSlipMark, ExpenseSlips } from '../vault/ExpenseSlips';
 import { useVault } from '../vault/VaultProvider';
+import { AccountNamesDialog, AccountTag } from './SlipAccounts';
+import { accountKey, accountLabel, accountsInUse, recordAccount } from '../../../../shared/slipAccounts';
 
 import { tr, T } from '../../i18n/tr';
 // รายจ่าย: the one place to record and review spending. Expenses only -- money from jobs lives
@@ -94,6 +96,9 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
   const [category, setCategory] = React.useState('all');
   const [sort, setSort] = React.useState<ExpenseSort>('recent');
   const [search, setSearch] = React.useState('');
+  // Slips by account (2026-11-14): with two accounts or more the rows show which one, and the list filters by it.
+  const [account, setAccount] = React.useState('all');
+  const [namesOpen, setNamesOpen] = React.useState(false);
   const [drawer, setDrawer] = React.useState<{ expense: Expense | null; preset?: { name: string; amount: number; recurring: boolean } } | null>(null);
   const [detail, setDetail] = React.useState<ExpenseRow | null>(null);
   const [manageOpen, setManageOpen] = React.useState(false);
@@ -118,13 +123,27 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
   const slipIds = (row: ExpenseRow): string[] => row.fromSettings ? [fixedSlipId(row.id)] : [row.id,
     ...(row.recurring ? (settings.fixedExpenseItems || []).filter(item => item.name.trim().toLowerCase() === row.name.trim().toLowerCase()).map(item => fixedSlipId(`fixed-${item.id}`)) : [])];
   const query = search.trim().toLowerCase();
+  const accounts = React.useMemo(() => accountsInUse(expenses).map(item => item.account), [expenses]);
+  const showAccounts = accounts.length >= 2;
+  const accountOfRow = (row: ExpenseRow) => {
+    if (row.fromSettings) return null;
+    const expense = expenses.find(e => e.id === row.id);
+    return expense ? recordAccount(expense) : null;
+  };
+  const accountFilter = showAccounts ? account : 'all';
   const rows = sortExpenseRows(month.rows.filter(r =>
     (typeFilter === 'all' || (typeFilter === 'recurring' ? r.recurring : !r.recurring))
     && (category === 'all' || (!r.fromSettings && categoryLabel(r.category) === category))
+    && (accountFilter === 'all' || (() => { const own = accountOfRow(r); return Boolean(own && accountKey(own) === accountFilter); })())
     && (!query || r.name.toLowerCase().includes(query) || (r.note || '').toLowerCase().includes(query))), sort);
+  const tagFor = (row: ExpenseRow, className = '') => {
+    const own = showAccounts ? accountOfRow(row) : null;
+    // On its own line under the name, as the note is.
+    return own ? <span className={`block min-w-0 ${className}`}><AccountTag account={own} names={settings.accountNames} /></span> : null;
+  };
   // Only real production categories (plus any historical label still in use this month).
   const categoryOptions = Array.from(new Set([...EXPENSE_CATEGORIES, ...month.rows.filter(r => r.category).map(r => categoryLabel(r.category))]));
-  const filtersActive = typeFilter !== 'all' || category !== 'all' || Boolean(query);
+  const filtersActive = typeFilter !== 'all' || category !== 'all' || accountFilter !== 'all' || Boolean(query);
 
   const openAdd = (preset?: { name: string; amount: number; recurring: boolean }) => setDrawer({ expense: null, preset });
   const openEdit = (id: string) => { const expense = expenses.find(e => e.id === id); if (expense) setDrawer({ expense }); };
@@ -262,6 +281,8 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
         />
       )}
       {manageOpen && <RecurringManager settings={settings} onUpdateSettings={props.onUpdateSettings} onClose={() => setManageOpen(false)} />}
+      <AccountNamesDialog open={namesOpen} onClose={() => setNamesOpen(false)} accounts={accounts} names={settings.accountNames}
+        onSave={accountNames => props.onUpdateSettings({ ...settings, accountNames })} />
       <ExpenseDrawer
         open={drawer !== null}
         expense={drawer?.expense ?? null}
@@ -314,6 +335,7 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
                   <b>{tr(row.name)}<ExpenseSlipMark ids={slipIds(row)} /></b>
                   {/* Every row says whether it is a monthly cost or a one-off (owner, 2026-10-20), as the desktop table does. */}
                   <p><span className={`ksm-typepill ${row.recurring ? 'is-recurring' : 'is-general'}`}>{row.recurring ? tr("ประจำ") : tr("ทั่วไป")}</span>{row.fromSettings ? tr("ตั้งไว้ · ยังไม่บันทึกจ่าย") : `${dateText(row, true)} · ${categoryText(row.category)}`}</p>
+                  {tagFor(row, 'mt-0.5')}
                 </span>
                 <strong>{formatCurrency(row.amount)}</strong>
                 <KsIcon name="chevron" size={16} />
@@ -325,7 +347,7 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
             <h3>{month.rows.length === 0 ? tr("ยังไม่มีรายจ่าย") : tr("ไม่มีรายจ่ายที่ตรงกับตัวกรองนี้")}</h3>
             {month.rows.length === 0
               ? <p>{tr("เพิ่มรายการเมื่อมีค่าใช้จ่ายเกิดขึ้น")}</p>
-              : filtersActive && <button type="button" className="ksm-link" onClick={() => { setTypeFilter('all'); setCategory('all'); setSearch(''); }}>{tr("ล้างตัวกรอง")}</button>}
+              : filtersActive && <button type="button" className="ksm-link" onClick={() => { setTypeFilter('all'); setCategory('all'); setAccount('all'); setSearch(''); }}>{tr("ล้างตัวกรอง")}</button>}
           </div>
         )}
         <p className="ksm-caption">{tr("รายจ่ายชื่อเดียวกันที่บันทึกแล้วในเดือน จะใช้แทนยอดตั้งไว้ ไม่บวกซ้ำ")}</p>
@@ -343,6 +365,14 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
                   {categoryOptions.map(c => <option key={c} value={c}>{tr(c)}</option>)}
                 </select>
               </label>
+              {showAccounts && (
+                <label><span>{tr("บัญชี")}</span>
+                  <select value={accountFilter} onChange={(e) => setAccount(e.target.value)} data-testid="account-filter">
+                    <option value="all">{tr("ทั้งหมด")}</option>
+                    {accounts.map(item => <option key={accountKey(item)} value={accountKey(item)}>{accountLabel(item, settings.accountNames)}</option>)}
+                  </select>
+                </label>
+              )}
               <label><span>{tr("เรียงตาม")}</span>
                 <select value={sort} onChange={(e) => setSort(e.target.value as ExpenseSort)}>
                   {SORTS.map(option => <option key={option.key} value={option.key}>{tr(option.label)}</option>)}
@@ -355,6 +385,11 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
                 <span className="ksm-grow"><b>{tr("จัดการรายจ่ายประจำ")}</b><p>{tr("ค่าใช้จ่ายที่ตั้งไว้ทุกเดือน")}</p></span>
                 <KsIcon name="chevron" size={16} />
               </button>
+              {showAccounts && <button type="button" onClick={() => { setToolsOpen(false); setNamesOpen(true); }} data-testid="account-names-open">
+                <span className="ksm-list-icon"><KsIcon name="receipt" /></span>
+                <span className="ksm-grow"><b>{tr("ตั้งชื่อบัญชี")}</b><p>{tr("บัญชีที่อ่านได้จากสลิป")}</p></span>
+                <KsIcon name="chevron" size={16} />
+              </button>}
               {fullFeatureAccess && <button type="button" onClick={() => { setToolsOpen(false); props.onSwitchTab('report'); }}>
                 <span className="ksm-list-icon"><KsIcon name="chart" /></span>
                 <span className="ksm-grow"><b>{tr("ดูรายงานรายจ่าย")}</b><p>{tr("สรุปตามเดือนและหมวดหมู่")}</p></span>
@@ -443,6 +478,20 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
             </select>
             <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-brand-muted" />
           </div>
+          {showAccounts && (
+            <div className="relative min-w-0 flex-1 sm:flex-none">
+              <select aria-label={tr("บัญชี")} value={accountFilter} onChange={(e) => setAccount(e.target.value)} className={`${select} w-full sm:w-auto sm:max-w-[200px]`} data-testid="account-filter">
+                <option value="all">{tr("บัญชี: ทั้งหมด")}</option>
+                {accounts.map(item => <option key={accountKey(item)} value={accountKey(item)}>{accountLabel(item, settings.accountNames)}</option>)}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-brand-muted" />
+            </div>
+          )}
+          {showAccounts && (
+            <button type="button" onClick={() => setNamesOpen(true)} className="h-10 shrink-0 rounded-xl px-2 text-[13px] font-medium text-brand-muted underline underline-offset-4 hover:text-brand-text cursor-pointer" data-testid="account-names-open">
+              {tr("ตั้งชื่อบัญชี")}
+            </button>
+          )}
           <div className="relative min-w-0 flex-1 sm:flex-none">
             <select aria-label={tr("เรียงตาม")} value={sort} onChange={(e) => setSort(e.target.value as ExpenseSort)} className={`${select} w-full sm:w-auto`}>
               {SORTS.map(s => <option key={s.key} value={s.key}>{tr("เรียงตาม: {0}", tr(s.label))}</option>)}
@@ -466,7 +515,7 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
           ) : (
             <>
               <p className="text-sm text-brand-muted">{tr("ไม่มีรายจ่ายที่ตรงกับตัวกรองนี้")}</p>
-              {filtersActive && <button type="button" onClick={() => { setTypeFilter('all'); setCategory('all'); setSearch(''); }} className="h-9 rounded-xl border border-brand-border px-4 text-xs text-brand-text hover:bg-brand-faint cursor-pointer">{tr("ล้างตัวกรอง")}</button>}
+              {filtersActive && <button type="button" onClick={() => { setTypeFilter('all'); setCategory('all'); setAccount('all'); setSearch(''); }} className="h-9 rounded-xl border border-brand-border px-4 text-xs text-brand-text hover:bg-brand-faint cursor-pointer">{tr("ล้างตัวกรอง")}</button>}
             </>
           )}
         </div>
@@ -486,7 +535,7 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
                 {rows.map(row => (
                   <tr key={row.id} data-expense-id={row.id} onClick={() => setDetail(row)}
                     className={`cursor-pointer border-b border-brand-border transition-colors last:border-b-0 hover:bg-brand-faint/60 ${highlightId === row.id ? 'job-spotlight' : ''}`}>
-                    <td className="truncate px-4 py-2.5 font-medium text-brand-text">{tr(row.name)}<ExpenseSlipMark ids={slipIds(row)} />{row.note && <span className="block truncate text-[11px] font-normal text-brand-muted">{row.note}</span>}</td>
+                    <td className="truncate px-4 py-2.5 font-medium text-brand-text">{tr(row.name)}<ExpenseSlipMark ids={slipIds(row)} />{row.note && <span className="block truncate text-[11px] font-normal text-brand-muted">{row.note}</span>}{tagFor(row, 'mt-0.5 font-normal')}</td>
                     <td className="whitespace-nowrap px-3 py-2.5 text-brand-muted">{dateText(row)}</td>
                     <td className="px-3 py-2.5"><TypeBadge recurring={row.recurring} /></td>
                     <td className="truncate px-3 py-2.5 text-brand-muted">{row.fromSettings ? tr("ตั้งไว้ทุกเดือน") : categoryText(row.category)}</td>
@@ -506,6 +555,7 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
                   <p className="shrink-0 font-mono text-sm font-semibold text-brand-text">{formatCurrency(row.amount)}</p>
                 </div>
                 <p className="mt-0.5 truncate text-xs text-brand-muted">{dateText(row, true)} · {row.fromSettings ? tr("ตั้งไว้ทุกเดือน") : categoryText(row.category)}</p>
+                {tagFor(row, 'mt-1')}
                 <div className="mt-1.5 flex items-center justify-between"><TypeBadge recurring={row.recurring} />{menuButton(row)}</div>
               </li>
             ))}

@@ -8,6 +8,7 @@ import type { Goal } from '../../../shared/types.js';
 import type { ToolContext } from './tools.js';
 import type { ToolOutcome, ToolSpec } from './types.js';
 import { prepareProposal, type ProposalKind } from './proposals.js';
+import { duplicateNote, slipArgSchema, slipCard, slipFacts } from './slipProposal.js';
 
 const text = z.string().trim().min(1).max(500);
 const note = z.string().max(2000);
@@ -18,7 +19,7 @@ const id = z.string().min(1).max(128);
 const expenseFields = { name: text, amount: money.positive(), category: text, date: day, note: note.optional() };
 const goalFields = { name: text, target: money.positive(), type: z.enum(['save', 'invest', 'emergency', 'buy']), deadline: day };
 const schemas = {
-  propose_add_expense: z.object(expenseFields).strict(),
+  propose_add_expense: z.object({ ...expenseFields, slip: slipArgSchema.optional() }).strict(),
   propose_edit_expense: z.object({ expense_id: id, ...z.object(expenseFields).partial().shape }).strict().refine(v => Object.keys(v).length > 1),
   propose_delete_expense: z.object({ expense_id: id }).strict(),
   propose_add_goal: z.object(goalFields).strict(),
@@ -89,12 +90,20 @@ export async function executeRecordAction(name: string, args: Record<string, unk
     if (name !== 'propose_add_expense' && !old) return fail('ไม่พบรายจ่ายนี้ในบัญชีของคุณ');
     if (name === 'propose_delete_expense') return prepare('delete_expense', String(old!.id), null, 'ลบรายจ่าย', [
       { label: 'รายการ', value: String(old!.name) }, { label: 'ยอดที่จะลบ', value: baht(old!.amount) }]);
-    const { expense_id: _ignored, ...fields } = input;
+    const { expense_id: _ignored, slip: _slip, ...fields } = input;
     const value: Record<string, unknown> = { ...(old || {}), ...fields, id: old?.id || randomUUID(), note: input.note ?? old?.note ?? '' };
     value.amount = roundMoney(Number(value.amount));
-    return prepare(name === 'propose_add_expense' ? 'add_expense' : 'edit_expense', String(value.id), value, name === 'propose_add_expense' ? 'เพิ่มรายจ่าย' : 'แก้ไขรายจ่าย', [
+    // From a transfer slip (2026-11-14): the account it left from and its reference, so the same slip is caught next time.
+    const facts = slipFacts(input.slip);
+    if (facts.account) value.account = facts.account;
+    if (facts.ref) value.slipRef = facts.ref;
+    const slip = slipCard(facts, { accountNames: record(user.settings).accountNames as Record<string, string> | undefined, expenses: records(user.expenses), jobs: records(user.jobs), except: String(value.id) });
+    const outcome = await prepare(name === 'propose_add_expense' ? 'add_expense' : 'edit_expense', String(value.id), value, name === 'propose_add_expense' ? 'เพิ่มรายจ่าย' : 'แก้ไขรายจ่าย', [
+      ...slip.first,
       { label: 'รายการ', value: String(value.name) }, { label: 'จำนวนเงิน', value: baht(value.amount) },
-      { label: 'หมวดหมู่', value: String(value.category) }, { label: 'วันที่', value: String(value.date) }, { label: 'หมายเหตุ', value: String(value.note) || '—' }]);
+      { label: 'หมวดหมู่', value: String(value.category) }, { label: 'วันที่', value: String(value.date) }, { label: 'หมายเหตุ', value: String(value.note) || '—' },
+      ...slip.last]);
+    return slip.duplicate && outcome.result && typeof outcome.result === 'object' ? { ...outcome, result: { ...outcome.result as Record<string, unknown>, ...duplicateNote(slip.duplicate) } } : outcome;
   }
 
   if (name.includes('goal')) {
