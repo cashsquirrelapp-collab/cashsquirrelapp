@@ -180,6 +180,8 @@
     }
     var target = new URL(result.destination, window.location.origin);
     if (target.origin !== window.location.origin || target.hash) throw new Error('ปลายทางไม่ถูกต้อง');
+    // The app carries on this logo instead of starting it again (boot-skeleton.js).
+    try { sessionStorage.setItem('krarok:splash', String(Date.now())); } catch (error) { /* it starts again */ }
     window.location.replace(target.href);
   }
   // ใช้แบบไหน and a record tried in the chat ride in the เก็บไว้ link (services/lineTry.ts); the server checks them again.
@@ -391,6 +393,12 @@
     // The opening logo as the app shows it: dark when the app is dark, the name once its typeface is in.
     var view = field('loading-view');
     try { if (localStorage.getItem('cashflow_dark_mode') === 'true') view.classList.add('dark'); } catch (error) {}
+    // On screen moments ago in this tab (the app before this page): carry on as it ends, never the entrance again.
+    try {
+      var last = Number(sessionStorage.getItem('krarok:splash')) || 0;
+      if (last && Date.now() - last < 20000) view.classList.add('is-settled', 'has-name');
+      sessionStorage.setItem('krarok:splash', String(Date.now()));
+    } catch (error) { /* it plays as usual */ }
     var named = false;
     var name = function () { if (!named) { named = true; view.classList.add('has-name'); } };
     if (document.fonts && document.fonts.load) document.fonts.load('600 24px Prompt', 'กระรอกตุนเงิน').then(name, name);

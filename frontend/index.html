@@ -46,6 +46,13 @@
       .splash-dots i:nth-child(3){animation-delay:.3s}
       .splash-caption{margin:18px 0 0;padding:0 24px;font:500 14px/1.5 'IBM Plex Sans Thai',sans-serif;color:#78716C;text-align:center;opacity:0;animation:splashFade .4s ease .6s forwards}
       .splash.dark .splash-caption{color:#A8A29E}
+      /* Already on screen once in this visit (LINE's page before the app, or an earlier wait): the logo as its entrance ends,
+         never the entrance again (owner, 2026-11-14: "เด้งหน้าโหลดประมาณ 3 หน้า ... เอาหน้าเดียวไปเลย"). */
+      .splash.is-settled .splash-glow{opacity:.9;transform:none;animation:none}
+      .splash.is-settled .splash-ring{opacity:0;animation:none}
+      .splash.is-settled .splash-mark{opacity:1;transform:none;animation:splashBreathe 2.4s ease-in-out infinite}
+      .splash.is-settled .splash-name{opacity:1;transform:none;animation:none}
+      .splash.is-settled .splash-dots,.splash.is-settled .splash-caption{opacity:1;animation:none}
       .splash.is-leaving{opacity:0;visibility:hidden}
       .splash.is-leaving .splash-stage{animation:splashOut .45s cubic-bezier(.4,0,.2,1) forwards}
       @keyframes splashIn{0%{opacity:0;transform:scale(.55) rotate(-18deg)}55%{opacity:1}100%{opacity:1;transform:scale(1) rotate(0)}}

@@ -190,3 +190,11 @@ test('a draft paid in instalments opens on แบ่งงวด with its count,
   const saved = sent.find(body => body.action === 'confirm-draft');
   expect([saved.paymentStatus, saved.installmentCount, saved.installmentFirstPaid, saved.installmentFirstDue]).toEqual(['installment', '4', true, null]);
 });
+
+test('LINE\'s page carries on the logo the app was showing moments before, instead of starting it again', async ({ page }) => {
+  await page.addInitScript(() => { if (!sessionStorage.getItem('test:once')) { sessionStorage.setItem('test:once', '1'); sessionStorage.setItem('krarok:splash', String(Date.now())); } });
+  await page.route('https://static.line-scdn.net/**', route => route.fulfill({ contentType: 'text/javascript', body: 'window.liff={init:()=>new Promise(()=>{}),isLoggedIn:()=>true,isInClient:()=>true};' }));
+  await page.route('**/api/liff-config', route => route.fulfill({ json: { liffId: 'test-liff' } }));
+  await page.goto('/liff-add.html?openPath=%2F');
+  await expect(page.locator('#loading-view')).toHaveClass(/is-settled/);
+});

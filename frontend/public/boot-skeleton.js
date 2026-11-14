@@ -9,13 +9,23 @@
     var dark = localStorage.getItem('cashflow_dark_mode') === 'true';
     var standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
     var signedIn = localStorage.getItem('cashflow_signed_in') === '1';
-    if ((signedIn || standalone) && !/^\/(login|recover|privacy|line-start|connect-sheets)/.test(path)) showSplash(dark);
+    // The logo was on screen moments ago in this tab (LINE's page before the app, or the app before LINE's page,
+    // liff-add.js and src/app/splash.ts keep the time): carry on from where it is, never its entrance a second time
+    // (owner, 2026-11-14: "เด้งหน้าโหลดประมาณ 3 หน้า ... เอาหน้าเดียวไปเลย"). Opened from LINE, it shows for anyone.
+    var last = 0;
+    try { last = Number(sessionStorage.getItem('krarok:splash')) || 0; } catch (e) { /* none */ }
+    var recent = last > 0 && Date.now() - last < 20000;
+    if ((signedIn || standalone || recent) && !/^\/(login|recover|privacy|line-start|connect-sheets)/.test(path)) showSplash(dark, recent);
   } catch (e) { /* storage blocked: blank until the app loads */ }
 
-  function showSplash(dark) {
+  function showSplash(dark, settled) {
     var el = document.createElement('div');
     el.id = 'app-splash';
-    el.className = 'splash' + (dark ? ' dark' : '');
+    el.className = 'splash' + (dark ? ' dark' : '') + (settled ? ' is-settled has-name' : '');
+    if (settled) el.setAttribute('data-settled', '1');
+    // Seen once in this page: any later wait shows it as it ends (src/app/splash.ts); the next page in this tab too.
+    document.documentElement.setAttribute('data-splash-seen', '1');
+    try { sessionStorage.setItem('krarok:splash', String(Date.now())); } catch (e) { /* none */ }
     el.setAttribute('role', 'status');
     el.setAttribute('aria-label', 'กำลังเปิดกระรอกตุนเงิน');
     el.setAttribute('data-shown-at', String(Date.now()));

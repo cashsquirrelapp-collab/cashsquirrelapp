@@ -10,13 +10,15 @@ const snapshot = { jobs: [], expenses: [], goals: [], invoices: [], settings: { 
 const versions = { cashflow_jobs: {}, cashflow_expenses: {}, cashflow_goals: {}, cashflow_invoices: {}, cashflow_documents: { settings: 1 } };
 const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1';
 
-async function open(page: Page, { signedInBefore = true, dataDelay = 1500, path = '/' } = {}) {
+async function open(page: Page, { signedInBefore = true, dataDelay = 1500, path = '/', fromLine = false } = {}) {
   let releaseData: () => void = () => {};
   const dataGate = new Promise<void>(resolve => { releaseData = resolve; });
-  await page.addInitScript(before => {
+  await page.addInitScript(([before, line]) => {
     localStorage.setItem('cashflow_language', 'th'); localStorage.setItem('cashflow_dark_mode', 'false');
     if (before) localStorage.setItem('cashflow_signed_in', '1');
-  }, signedInBefore);
+    // LINE's page (liff-add.js) was showing the logo just before it opened the app.
+    if (line && !sessionStorage.getItem('test:line-once')) { sessionStorage.setItem('test:line-once', '1'); sessionStorage.setItem('krarok:splash', String(Date.now())); }
+  }, [signedInBefore, fromLine] as const);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.route('**/*', route => (['127.0.0.1', 'localhost'].includes(new URL(route.request().url()).hostname) || /fonts\.(googleapis|gstatic)\.com/.test(route.request().url()) ? route.continue() : route.abort()));
   await page.route('**/api/**', route => route.fulfill({ json: {} }));
@@ -74,3 +76,30 @@ for (const [label, width, height] of [['computer', 1280, 800], ['iPad', 1024, 76
     await expect(page.getByText('มูลค่างานเดือนนี้').first()).toBeVisible();
   });
 }
+
+// One logo when the app opens (owner, 2026-11-14: "เด้งหน้าโหลดประมาณ 3 หน้า ... เอาหน้าเดียวไปเลย"): when it was on
+// screen moments ago in the tab (LINE's page before the app, or the other way round), the next page carries it on as it
+// ends instead of playing the entrance again, even for an account not yet signed in here; a normal opening plays it once.
+test.describe('one logo', () => {
+  test.use({ userAgent: IPHONE, viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  test('opened from LINE: the logo carries on as it ends, then hands over', async ({ page }) => {
+    await open(page, { signedInBefore: false, fromLine: true });
+    const splash = page.locator('#app-splash');
+    await expect(splash).toHaveClass(/is-settled/);
+    await expect(splash).toHaveAttribute('data-settled', '1');
+    await expect(splash.locator('.splash-name')).toHaveCSS('opacity', '1');
+    await expect(splash).toHaveCount(0, { timeout: 8000 });
+    // The time it was last on screen is kept for the next page in this tab.
+    expect(await page.evaluate(() => Date.now() - Number(sessionStorage.getItem('krarok:splash')))).toBeLessThan(20000);
+  });
+
+  test('a normal opening plays the entrance once and marks the page as having shown it', async ({ page }) => {
+    await open(page);
+    const splash = page.locator('#app-splash');
+    await expect(splash).toBeVisible();
+    await expect(splash).not.toHaveClass(/is-settled/);
+    await expect(page.locator('html')).toHaveAttribute('data-splash-seen', '1');
+    await expect(splash).toHaveCount(0, { timeout: 8000 });
+  });
+});
