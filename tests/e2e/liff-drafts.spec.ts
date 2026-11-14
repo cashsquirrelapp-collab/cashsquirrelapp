@@ -198,3 +198,24 @@ test('LINE\'s page carries on the logo the app was showing moments before, inste
   await page.goto('/liff-add.html?openPath=%2F');
   await expect(page.locator('#loading-view')).toHaveClass(/is-settled/);
 });
+
+// Opening the app from LINE (owner, 2026-11-14: "หน้าโหลด 3 ชั้น ... ทำแค่หน้าเดียว"): LINE's page loads once (its
+// liff.state is put on the address before liff.init, so LIFF has no second load to make), shows the logo alone, and hands
+// over to the app. The stand-in LIFF loads the page again whenever liff.state is still there, as LIFF does.
+test('from LINE into the app: LINE\'s page loads once, the logo alone, then the app', async ({ page }) => {
+  const loads: string[] = [];
+  page.on('request', request => { if (request.resourceType() === 'document') loads.push(new URL(request.url()).pathname + new URL(request.url()).search); });
+  await page.route('https://static.line-scdn.net/**', route => route.fulfill({ contentType: 'text/javascript', body: `window.liff={
+    init:function(){ var p=new URLSearchParams(location.search); var s=p.get('liff.state'); if(s){ location.replace(location.pathname+s); return new Promise(function(){}); } return Promise.resolve(); },
+    isLoggedIn:function(){return true}, isInClient:function(){return true}, getIDToken:function(){return 'token'}, closeWindow:function(){}, login:function(){} };` }));
+  await page.route('**/api/liff-config', route => route.fulfill({ json: { liffId: 'test-liff' } }));
+  let caption = 'unset';
+  await page.route('**/api/line-session', async route => {
+    caption = await page.locator('#loading-caption').evaluate(el => getComputedStyle(el).display);
+    return route.fulfill({ json: { ok: true, destination: '/privacy.html?from=line' } });
+  });
+  await page.goto('/liff-add.html?liff.state=%3FopenPath%3D%252Fapp');
+  await page.waitForURL('**/privacy.html?from=line');
+  expect(loads.filter(path => path.startsWith('/liff-add.html'))).toEqual(['/liff-add.html?liff.state=%3FopenPath%3D%252Fapp']);
+  expect(caption).toBe('none');
+});

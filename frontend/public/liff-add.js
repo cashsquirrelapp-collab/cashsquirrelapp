@@ -160,7 +160,8 @@
     return null;
   }
   async function openLinkedApp(destination) {
-    showLoading('กำลังเปิดบัญชีที่เชื่อมกับ LINE');
+    // The logo alone, laid out as the app's own opening logo, so this page and the app read as one screen.
+    showLoading('');
     var idToken = liff.getIDToken();
     if (!idToken) throw new Error('ไม่พบข้อมูลยืนยันตัวตน กรุณาเปิดใหม่จาก LINE');
     var response = await fetch('/api/line-session', {
@@ -404,7 +405,24 @@
     if (document.fonts && document.fonts.load) document.fonts.load('600 24px Prompt', 'กระรอกตุนเงิน').then(name, name);
     setTimeout(name, 1400);
   })();
+  // LINE opens this page with what to do in liff.state ("?openPath=/app"), and liff.init() then loads the page a second
+  // time at that address: the opening logo came up three times on the way into the app (owner, 2026-11-14: "หน้าโหลด
+  // 3 ชั้น ... ทำแค่หน้าเดียวไม่ได้เหรอ"). The query is ours, so it is put on this address first (LINE's sign-in data in the
+  // # stays as it is) and LIFF has nothing left to load again. A liff.state with a path of its own is left to LIFF.
+  function foldLiffState() {
+    var params = new URLSearchParams(window.location.search);
+    var state = params.get('liff.state');
+    if (!state || !window.history || !window.history.replaceState) return;
+    var at = state.indexOf('?');
+    var path = at >= 0 ? state.slice(0, at) : (state.charAt(0) === '?' ? '' : state);
+    if (path && path !== '/') return;
+    params.delete('liff.state');
+    new URLSearchParams(at >= 0 ? state.slice(at + 1) : '').forEach(function (value, key) { if (!params.has(key)) params.set(key, value); });
+    var query = params.toString();
+    window.history.replaceState(window.history.state, '', window.location.pathname + (query ? '?' + query : '') + window.location.hash);
+  }
   (async function init() {
+    foldLiffState();
     // LIFF can rewrite its redirect query during init. Keep the original only as a fallback;
     // all values are identifiers, and are verified against the signed-in owner by the API.
     var originalSearch = window.location.search;
