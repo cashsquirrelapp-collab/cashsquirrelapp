@@ -94,7 +94,7 @@ export function chooseCategory(category: string, name: string, choices: string[]
 }
 
 /** The value one mapped column gets for this record, before any formatting to the column's own style. */
-function valueFor(column: SheetMapColumn, kind: RowKind, record: Record<string, unknown>, samples: string[], mixed: boolean): string | number | null {
+export function valueFor(column: SheetMapColumn, kind: RowKind, record: Record<string, unknown>, samples: string[], mixed: boolean): string | number | null {
   const target = column.target;
   if (kind === 'expense') {
     switch (target) {

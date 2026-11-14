@@ -22,7 +22,7 @@ const PREVIEW = {
   cells: ['12/11/2569', 'ค่าเช่ากล้อง', 'ค่าอุปกรณ์/ซอฟต์แวร์', '1,200', null],
 };
 
-async function open(page: Page, size: { width: number; height: number }, labsOn: string[]) {
+async function open(page: Page, size: { width: number; height: number }, labsOn: string[], preview: Record<string, unknown> = PREVIEW, values?: { header: string; text: string }[]) {
   const googlePosts: Record<string, unknown>[] = [];
   let undone = false;
   await page.addInitScript(id => {
@@ -54,8 +54,8 @@ async function open(page: Page, size: { width: number; height: number }, labsOn:
   await page.route('**/api/google', async route => {
     const body = route.request().postDataJSON() as Record<string, unknown>;
     googlePosts.push(body);
-    if (body.action === 'preview') return route.fulfill({ json: { preview: PREVIEW } });
-    const write = { status: undone ? 'undone' : 'written', file: PREVIEW.file, url: PREVIEW.url, tab: 'รายจ่าย', row: 5, canUndo: !undone };
+    if (body.action === 'preview') return route.fulfill({ json: { preview } });
+    const write = { status: undone ? 'undone' : 'written', file: PREVIEW.file, url: PREVIEW.url, tab: 'รายจ่าย', row: 5, canUndo: !undone, ...(values ? { values } : {}) };
     if (body.action === 'written') return route.fulfill({ json: { write } });
     if (body.action === 'undo') { undone = true; return route.fulfill({ json: { undone: true, write: { ...write, status: 'undone', canUndo: false } } }); }
     return route.fulfill({ json: {} });
@@ -107,6 +107,24 @@ for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'p
     expect(googlePosts.map(post => post.action)).toEqual(['preview', 'written', 'undo']);
   });
 }
+
+// สูตรของลูกค้า (owner, 2026-11-14): the formula cell shows what the customer's own formula will make of the row, a
+// difference from the app is said plainly, and after the write the card says what the sheet worked out.
+test('the card shows what the sheet\'s formula will make of the row, where it differs from the app, and what the sheet worked out', async ({ page }) => {
+  const preview = { ...PREVIEW, computed: [null, null, null, null, '2,099.00'], differs: [{ header: 'สะสม', sheet: '2,099.00', app: '1,200.00' }] };
+  await open(page, { width: 1440, height: 900 }, ['sheets', 'sheetMap', 'sheetWrite'], preview, [{ header: 'สะสม', text: '2,099.00' }]);
+  await ask(page, 'ค่าเช่ากล้อง 1200 วันนี้');
+  const card = page.getByTestId('sheet-row-preview');
+  await expect(card.locator('td.is-computed')).toHaveText('2,099.00ตามสูตร');
+  await expect(card).not.toContainText('คำนวณเอง');
+  await expect(card.getByRole('note')).toContainText('สูตรในชีตคิดต่างจากแอป');
+  await expect(card.getByRole('note')).toContainText('สะสม: ชีตจะได้ 2,099.00 ส่วนในแอปเป็น 1,200.00');
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await card.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: 'test-results/labs-sheet-formula-computer.png' });
+  await page.getByRole('button', { name: 'ยืนยันเขียนลงชีต' }).click();
+  await expect(page.getByTestId('sheet-row-done')).toContainText('ชีตคิดได้ สะสม 2,099.00');
+});
 
 test('without the feature the card is as before and Google is never asked', async ({ page }) => {
   const { googlePosts } = await open(page, { width: 1440, height: 900 }, ['sheets', 'sheetMap']);

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, ExternalLink, Loader2, Undo2 } from 'lucide-react';
+import { Check, ExternalLink, Info, Loader2, Undo2 } from 'lucide-react';
 import { labOn } from '../../../../shared/labs';
 import { tr } from '../../i18n/tr';
 import { getCurrentAccount } from '../../services/api';
@@ -96,13 +96,29 @@ export function SheetPreviewBlock({ preview, phase, write }: { preview: SheetRow
             ))}
             <tr className={`is-new${undone ? ' is-undone' : ''}`}>
               <th>{preview.row}</th>
-              {preview.cells.map((cell, index) => (
-                <td key={index} className={cell === null ? 'is-num is-auto' : isMoney(cell) ? 'is-num' : undefined}>{cell === null ? tr("คำนวณเอง") : cell}</td>
-              ))}
+              {preview.cells.map((cell, index) => {
+                // A formula cell: what the customer's own formula will make of it, when the app can read the formula.
+                const computed = cell === null ? preview.computed?.[index] ?? null : null;
+                return (
+                  <td key={index} className={cell === null ? `is-num is-auto${computed ? ' is-computed' : ''}` : isMoney(cell) ? 'is-num' : undefined}>
+                    {cell !== null ? cell : computed ? <>{computed}<small>{tr("ตามสูตร")}</small></> : tr("คำนวณเอง")}
+                  </td>
+                );
+              })}
             </tr>
           </tbody>
         </table>
       </div>
+      {!written && !undone && Boolean(preview.differs?.length) && (
+        <div className="lab-sp-differs" role="note">
+          <Info size={15} aria-hidden="true" />
+          <div>
+            <b>{tr("สูตรในชีตคิดต่างจากแอป")}</b>
+            {preview.differs!.map(item => <p key={item.header}>{tr("{0}: ชีตจะได้ {1} ส่วนในแอปเป็น {2}", item.header, item.sheet, item.app)}</p>)}
+            <p className="is-muted">{tr("ตัวเลขในชีตเป็นไปตามสูตรของคุณ เลขาไม่แก้สูตรให้")}</p>
+          </div>
+        </div>
+      )}
       {!written && !undone && <p className="lab-sp-note">{formulas.length
         ? tr("คอลัมน์ {0} เป็นสูตร น้องเลขาจะไม่เขียนทับ · บันทึกในแอปด้วย", formulas.join(', '))
         : tr("แถวอื่นในชีตไม่ถูกแก้ · บันทึกในแอปด้วย")}</p>}
@@ -120,6 +136,7 @@ export function SheetDoneBlock({ sheet, extra }: { sheet: SheetRow; extra?: Reac
       <p>{write.status === 'undone'
         ? tr("ย้อนกลับแล้ว แถว {0} ในชีตว่างแล้ว รายการในแอปยังอยู่", write.row)
         : <><Check className="h-4 w-4" aria-hidden="true" />{tr("ลงชีต {0} › {1} แถว {2} แล้ว", write.file, write.tab, write.row)}</>}</p>
+      {write.status === 'written' && Boolean(write.values?.length) && <span className="lab-sp-undo-note">{tr("ชีตคิดได้ {0}", write.values!.map(item => `${item.header} ${item.text}`).join(' · '))}</span>}
       {write.status === 'written' && write.canUndo && <span className="lab-sp-undo-note">{tr("ย้อนกลับได้ภายใน 30 นาที แถวในชีตจะว่างเหมือนเดิม")}</span>}
       <div className="lab-sr-actions">
         {write.url && <a className="lab-btn is-primary" href={write.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-4 w-4" />{write.status === 'written' ? tr("ดูในชีต") : tr("เปิดชีต")}</a>}

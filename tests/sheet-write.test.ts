@@ -61,7 +61,7 @@ test('sheet row: dates follow the column (Thai Buddhist-year text stays text), s
   assert.equal(displayValue(null), '');
 });
 
-function fakeOps(sheet: Record<string, string[][]>, formulas: Record<string, Set<string>> = {}) {
+function fakeOps(sheet: Record<string, string[][]>, formulas: Record<string, Set<string>> = {}, formulaText: Record<string, Record<string, string>> = {}) {
   const calls: { op: string; args: unknown[] }[] = [];
   const ops: SheetOps = {
     async lastRow(tab, columns) { calls.push({ op: 'lastRow', args: [tab, columns] }); const rows = sheet[tab]; let last = 0; rows.forEach((row, index) => { if (columns.some(column => (row[column] ?? '') !== '')) last = index + 1; }); return last; },
@@ -71,6 +71,7 @@ function fakeOps(sheet: Record<string, string[][]>, formulas: Record<string, Set
     async copyFormulas(tab, from, to, columns) { calls.push({ op: 'copy', args: [tab, from, to, columns] }); return columns.map(column => `${tab}!${column}${to}`); },
     async clear(tab, cells) { calls.push({ op: 'clear', args: [tab, cells] }); },
     async tabId(tab) { return tab === 'รายจ่าย' ? 7 : 0; },
+    async formulaTexts(tab, row, columns) { return Object.fromEntries(columns.filter(column => formulas[tab]?.has(`${row}:${column}`)).map(column => [column, formulaText[tab]?.[`${row}:${column}`] ?? '=1'])); },
   };
   return { ops, calls };
 }
@@ -97,6 +98,28 @@ test('sheet write: the row goes under the last data row (formula-only rows do no
   assert.equal(preview.cells[5], null);
   assert.equal(preview.columns[5].letter, 'F');
   assert.equal(preview.cells[0], '12/11/2569');
+});
+
+test('สูตรของลูกค้า: the preview shows what the sheet\'s formula will make of the new row, and where it differs from the app', async () => {
+  const sheet = { รายรับ: [
+    ['รายรับปี 2569'], [], ['วันที่', 'ลูกค้า', 'รายการ', 'ยอดก่อนหัก', 'หัก %', 'ภาษีหัก', 'สถานะ'],
+    ['3/10/2569', 'บริษัท ข', 'ตัดต่อ', '5,000.00', '3%', '150.00', 'ได้รับเงินแล้ว'],
+  ] };
+  // F4 holds =D4*3% (the rate written into the formula, not read from E): copied down it becomes =D5*3%.
+  const { ops } = fakeOps(sheet, { รายรับ: new Set(['4:5']) }, { รายรับ: { '4:5': '=D4*3%' } });
+  const plan = (await planRow(ops, MAP, 'job', JOB))!;
+  assert.deepEqual(plan.computed, { 5: 300 });
+  const preview = previewOf(plan, { name: 'บัญชีร้าน', url: 'https://docs.google.com/spreadsheets/d/x/edit' });
+  assert.equal(preview.cells[5], null, 'never typed');
+  assert.equal(preview.computed[5], '300.00', 'shown the way the column shows money');
+  assert.deepEqual(preview.differs, [], 'the app withholds 3% too: nothing to say');
+  // A job the app does not withhold on: the sheet\'s formula still takes 3%, and the card says so.
+  const noWht = (await planRow(ops, MAP, 'job', { ...JOB, whtRate: 0 }))!;
+  assert.deepEqual(previewOf(noWht, { name: 'บัญชีร้าน', url: 'x' }).differs, [{ header: 'ภาษีหัก', sheet: '300.00', app: '0.00' }]);
+  // A formula the reader cannot follow stays "คำนวณเอง".
+  const lookup = fakeOps(sheet, { รายรับ: new Set(['4:5']) }, { รายรับ: { '4:5': "=VLOOKUP(B4,'ลูกค้า'!A:C,3,FALSE)*D4" } });
+  const unknown = (await planRow(lookup.ops, MAP, 'job', JOB))!;
+  assert.equal(previewOf(unknown, { name: 'บัญชีร้าน', url: 'x' }).computed[5], null);
 });
 
 test('sheet write: an empty tab starts right under the header; a map without a tab for the record writes nothing', async () => {

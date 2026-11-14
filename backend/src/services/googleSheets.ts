@@ -283,6 +283,8 @@ export interface SheetOps {
   clear(tab: string, cells: string[]): Promise<void>;
   /** Google's id of the tab (#gid=), for a link that opens it. */
   tabId(tab: string): Promise<number>;
+  /** The formulas of these columns in one row, as written ("=D6-E6"); columns without one are left out. */
+  formulaTexts(tab: string, row: number, columns: number[]): Promise<Record<number, string>>;
 }
 
 const columnName = (index: number): string => { let s = '', n = index + 1; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
@@ -325,6 +327,13 @@ export function googleOps(token: string, fileId: string): SheetOps {
       const reply = await get<{ values?: unknown[][] }>(`${SHEETS}/${id}/values/${encodeURIComponent(range(tab, `A${row}:${columnName(last)}${row}`))}?valueRenderOption=FORMULA`);
       const cells = reply.values?.[0] || [];
       return new Set(columns.filter(column => String(cells[column] ?? '').startsWith('=')));
+    },
+    async formulaTexts(tab, row, columns) {
+      if (!columns.length || row < 1) return {};
+      const last = Math.max(...columns);
+      const reply = await get<{ values?: unknown[][] }>(`${SHEETS}/${id}/values/${encodeURIComponent(range(tab, `A${row}:${columnName(last)}${row}`))}?valueRenderOption=FORMULA`);
+      const cells = reply.values?.[0] || [];
+      return Object.fromEntries(columns.filter(column => String(cells[column] ?? '').startsWith('=')).map(column => [column, String(cells[column]).slice(0, 500)]));
     },
     async write(tab, row, cells) {
       if (!cells.length) return [];

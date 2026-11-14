@@ -181,6 +181,11 @@ export const labs: Record<string, string> = {
   'บันทึกแล้วครับ เลขาจะอ่านชีตนี้ตามนี้': 'Saved. Krarok Assistant reads this sheet this way.',
   'ใช้ตามนี้': 'Use this',
   'ดูทั้งตาราง': 'See the full table',
+  'ตามสูตร': 'by formula',
+  'สูตรในชีตคิดต่างจากแอป': 'Your sheet\'s formula counts this differently from the app',
+  '{0}: ชีตจะได้ {1} ส่วนในแอปเป็น {2}': '{0}: the sheet will show {1}; the app has {2}',
+  'ตัวเลขในชีตเป็นไปตามสูตรของคุณ เลขาไม่แก้สูตรให้': 'The sheet follows your own formula; Krarok Assistant does not change it.',
+  'ชีตคิดได้ {0}': 'Your sheet worked out {0}',
   // หน้างานจากชีต (SheetSource.tsx).
   'อ่านชีตไม่ได้ จะลองใหม่เมื่อกลับมาที่หน้านี้': 'Could not read the sheet; it is tried again when you come back to this page.',
   'อัปเดต {0}': 'Updated {0}',

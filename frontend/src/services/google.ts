@@ -8,10 +8,14 @@ export interface SheetRowPreview {
   before: { row: number; cells: string[] }[];
   /** The new row's cells as shown; null where the sheet's formula fills it. */
   cells: (string | null)[];
+  /** What the sheet's formulas will show there, read by the app's formula reader; null where it cannot tell. */
+  computed?: (string | null)[];
+  /** Formula columns that will come out different from the app's own figure. */
+  differs?: { header: string; sheet: string; app: string }[];
 }
 /** What became of the sheet write of a confirmed card. */
 export type SheetRowWrite =
-  | { status: 'written' | 'undone'; file: string; url: string; tab: string; row: number; canUndo: boolean }
+  | { status: 'written' | 'undone'; file: string; url: string; tab: string; row: number; canUndo: boolean; values?: { header: string; text: string }[] }
   | { status: 'failed'; error: string };
 
 // ฟีเจอร์ทดลอง, phase 2: the account's Google connection (backend/src/handlers/google.ts). The browser never holds the

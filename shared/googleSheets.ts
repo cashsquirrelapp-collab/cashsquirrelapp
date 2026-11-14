@@ -86,6 +86,8 @@ export interface SheetWrite {
   /** The tab's id and the last column written, so the card's ดูในชีต opens that very row. */
   gid?: number;
   span?: number;
+  /** What the sheet's own formulas showed in the row right after it was written, read back ("ภาษีหัก 90.00"). */
+  sheetValues?: { header: string; text: string }[];
 }
 export const UNDO_MS = 30 * 60_000;
 const sheetWriteSchema = z.object({
@@ -100,6 +102,7 @@ const sheetWriteSchema = z.object({
   undone: z.boolean().optional(),
   gid: z.number().int().min(0).max(2_147_483_647).optional(),
   span: z.number().int().min(0).max(LIVE_READ.columns).optional(),
+  sheetValues: z.array(z.object({ header: z.string().max(200), text: z.string().max(100) })).max(10).optional(),
 });
 
 /** The kept record (server only). */

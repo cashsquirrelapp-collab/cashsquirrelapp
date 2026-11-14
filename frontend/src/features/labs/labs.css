@@ -369,3 +369,12 @@
 .lab-ask-go { justify-self: start; margin-left: 44px; }
 .lab-ask-table { justify-self: start; margin-left: 44px; padding: 0; border: 0; background: none; font-size: 13px; line-height: 1.5; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .lab-ask-table:hover { color: var(--text); }
+
+/* สูตรของลูกค้า: what the customer's formula will show in a formula cell, and where it differs from the app. */
+.lab-sp-table tr.is-new td.is-computed { color: var(--text); font-style: normal; }
+.lab-sp-table td.is-computed small { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 6px; background: var(--faint); color: var(--muted); font-size: 10.5px; font-weight: 500; line-height: 17px; }
+.lab-sp-differs { display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border-radius: 12px; background: var(--lab-tint); color: var(--text); font-size: 13px; line-height: 1.5; }
+.lab-sp-differs > svg { flex: none; margin-top: 3px; color: var(--lab-brick-ink); }
+.lab-sp-differs b { display: block; font-weight: 600; }
+.lab-sp-differs p { margin: 2px 0 0; overflow-wrap: anywhere; }
+.lab-sp-differs p.is-muted { color: var(--muted); font-size: 12.5px; }
