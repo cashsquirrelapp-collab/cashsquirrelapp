@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, ExternalLink, Undo2 } from 'lucide-react';
+import { Check, ExternalLink, Loader2, Undo2 } from 'lucide-react';
 import { labOn } from '../../../../shared/labs';
 import { tr } from '../../i18n/tr';
 import { getCurrentAccount } from '../../services/api';
@@ -127,6 +127,19 @@ export function SheetDoneBlock({ sheet, extra }: { sheet: SheetRow; extra?: Reac
         {extra}
       </div>
       {sheet.problem && <p className="lab-sr-note is-red">{sheet.problem}</p>}
+    </div>
+  );
+}
+
+/** ✓ ยืนยันเขียนลงชีต · แก้ไข · ยกเลิก under the sheet (kept here, so เลขา's page words never name the test feature). */
+export function SheetActions({ working, onConfirm, onEdit, onCancel }: { working: boolean; onConfirm: () => void; onEdit?: () => void; onCancel?: () => void }) {
+  return (
+    <div className="lab lab-sp-actions">
+      <button type="button" className="is-primary" onClick={onConfirm} disabled={working}>
+        {working ? <Loader2 size={15} className="animate-spin" aria-hidden="true" /> : <Check size={15} aria-hidden="true" />}{working ? tr("กำลังเขียน…") : tr("ยืนยันเขียนลงชีต")}
+      </button>
+      {onEdit && <button type="button" onClick={onEdit}>{tr("แก้ไข")}</button>}
+      {onCancel && <button type="button" onClick={onCancel}>{tr("ยกเลิก")}</button>}
     </div>
   );
 }

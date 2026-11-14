@@ -5,7 +5,7 @@ import { VAULT_ATTACHED_EVENT, VAULT_ATTACH_EVENT, asFile, chatFileFor, type Vau
 import { saveAccountName } from './accountName';
 import { tr, T } from '../../i18n/tr';
 import { partyAnswer, paymentAnswer, thaiDateAnswer, type AskQuestion, type PartyValues } from '../../../../shared/askQuestions';
-import { SheetDoneBlock, SheetPreviewBlock, useSheetRow, type SheetPhase } from '../labs/SheetRowCard';
+import { SheetActions, SheetDoneBlock, SheetPreviewBlock, useSheetRow, type SheetPhase } from '../labs/SheetRowCard';
 import { isPendingConfirm, type ChatCard, type ConfirmCard, type DocumentCard, type EditField, type MoneyChartCard, type OfficialLinkCard, type ProjectCard, type QuestionsCard, type RenameCard, type SummaryCard, type AttachCard, type SourcesCard, type MessageDraftCard } from './assistantMock';
 import { formatTHB } from '../../../../shared/thb';
 import { isValidWhtRate } from '../../../../shared/wht';
@@ -534,13 +534,7 @@ function Confirm({ card, state, onConfirm, onCancel, onAsk, confirmedPath, onNav
       {/* No row to show yet: what the sheet still needs (nothing for accounts without the feature). */}
       {live && !editing && !sheetMode && state === 'pending' && sheet.hint && <p className="lab lab-sr-note">{sheet.hint}</p>}
       {sheetMode && (state === 'pending' || state === 'working') ? (
-        <div className="lab lab-sp-actions">
-          <button type="button" className="is-primary" onClick={() => onConfirm()} disabled={state === 'working'}>
-            {state === 'working' ? <Loader2 size={15} className="animate-spin" aria-hidden="true" /> : <Check size={15} aria-hidden="true" />}{state === 'working' ? tr("กำลังเขียน…") : tr("ยืนยันเขียนลงชีต")}
-          </button>
-          {canEdit && <button type="button" onClick={() => startEdit()}>{tr("แก้ไข")}</button>}
-          {onCancel && state === 'pending' && <button type="button" onClick={onCancel}>{tr("ยกเลิก")}</button>}
-        </div>
+        <SheetActions working={state === 'working'} onConfirm={() => onConfirm()} onEdit={canEdit ? () => startEdit() : undefined} onCancel={onCancel && state === 'pending' ? onCancel : undefined} />
       ) : sheetMode && state === 'done' ? (
         <SheetDoneBlock sheet={sheet} extra={confirmedPath ? <button type="button" className="lab-btn" onClick={() => onNavigate(confirmedPath)}>{openLabel(confirmedPath)}</button> : undefined} />
       ) : editing ? (
