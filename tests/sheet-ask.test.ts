@@ -51,6 +51,7 @@ test('sheet ask: a sheet understood in full gets one ใช้ตามนี้
   const setup = sheetSetupOf(readTabs([plain]));
   assert.match(sheetIntroText('บัญชี **ร้าน** [x](/jobs)', setup), /^อ่านชีต \*\*บัญชี ร้าน x \(\/jobs\)\*\* แล้วครับ เข้าใจทั้งหมด/);
   assert.match(sheetIntroText('บัญชี', setup), /ถ้าถูกต้อง กดใช้ตามนี้ได้เลยครับ$/);
+  assert.match(sheetIntroText('ชีตบัญชี_ฟรีแลนซ์_2569', setup), /^อ่านชีต \*\*ชีตบัญชี_ฟรีแลนซ์_2569\*\* /, 'a file name keeps its underscores');
   const card = questionCard('c_2', setup, 0, 'sheet-1')!;
   assert.equal(card.phase, 'go');
   assert.deepEqual(cardOptions(card).map(option => option.label), ['ใช้ตามนี้']);

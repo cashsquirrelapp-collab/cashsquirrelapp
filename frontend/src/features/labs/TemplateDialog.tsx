@@ -47,7 +47,8 @@ export function TemplateDialog({ open, onClose, settings, onSaveProfile, jobs, e
   jobs?: Job[];
   expenses?: Expense[];
   /** เชื่อม Google Sheets is on: offer สร้างใน Google Drive (or the way to connect first). */
-  drive?: { account: string; onOpenSheets: () => void };
+  /** onAskInChat (แผนที่ชีต on): the sheet just made goes straight to เลขา's chat, which reads it and asks there. */
+  drive?: { account: string; onOpenSheets: () => void; onAskInChat?: (fileName: string) => void };
 }) {
   const profile = readBusinessProfile(settings.business);
   const [editing, setEditing] = React.useState(false);
@@ -87,6 +88,8 @@ export function TemplateDialog({ open, onClose, settings, onSaveProfile, jobs, e
       const { built, bytes } = build('Sarabun');
       const status = await googleApi.createTemplate(drive.account, built.fileName.replace(/\.xlsx$/i, ''), toBase64(bytes));
       setCreated(status.file ?? null);
+      // Owner, 2026-11-14: "สร้างชีตใหม่ก็ให้เด้งไปแชทด้วย", as a picked sheet does.
+      if (drive.onAskInChat && status.file && status.map?.fileId !== status.file.id) drive.onAskInChat(status.file.name);
     } catch (error) { setDriveError((error as Error).message || tr("กรุณาลองใหม่อีกครั้ง")); }
     finally { setCreating(false); }
   };

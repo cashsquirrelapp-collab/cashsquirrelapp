@@ -1047,7 +1047,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             : <Note>{tr("ฟีเจอร์ทดลองเปิดให้เฉพาะบัญชีทดสอบ")}</Note>}
           {isAccount && labs.tester && <TemplateDialog open={templateOpen} onClose={() => setTemplateOpen(false)} settings={settings}
             onSaveProfile={profile => onUpdateSettings({ ...settings, business: profile })} jobs={jobs} expenses={expenses}
-            drive={labs.on.includes('sheets') ? { account: session.user.id, onOpenSheets: () => { setTemplateOpen(false); setSheetsSource('google'); setSheetsOpen(true); } } : undefined} />}
+            drive={labs.on.includes('sheets') ? { account: session.user.id, onOpenSheets: () => { setTemplateOpen(false); setSheetsSource('google'); setSheetsOpen(true); },
+              onAskInChat: labs.on.includes('sheetMap') ? fileName => { requestSheetAsk(session.user.id, fileName); setTemplateOpen(false); onSwitchTab('assistant'); } : undefined } : undefined} />}
           {isAccount && (labs.on.includes('sheets') || labs.on.includes('excel')) && <SheetsPanel open={sheetsOpen} onClose={() => { setSheetsOpen(false); setGoogleResult(null); }} account={session.user.id} labs={labs}
             result={googleResult} initialSource={sheetsSource} onCreateTemplate={labs.on.includes('templates') ? () => { setSheetsOpen(false); setTemplateOpen(true); } : undefined}
             onAskInChat={fileName => { requestSheetAsk(session.user.id, fileName); setSheetsOpen(false); setGoogleResult(null); onSwitchTab('assistant'); }} />}

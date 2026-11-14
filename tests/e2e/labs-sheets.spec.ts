@@ -222,11 +222,25 @@ test('the bookkeeping workbook goes straight into Google Drive and becomes the s
   const dialog = page.getByTestId('template-dialog');
   await expect(dialog).toBeVisible();
   await dialog.getByTestId('template-drive').click();
-  await expect(dialog.getByRole('status')).toContainText('สร้างใน Google Drive แล้ว');
+  await expect.poll(() => posts.some(post => post.action === 'createTemplate')).toBe(true);
   const created = posts.find(post => post.action === 'createTemplate')!;
   expect(String(created.name)).toMatch(/^ชีตบัญชี_/);
   expect(String(created.xlsx).startsWith('UEsD')).toBe(true);
+  // Made and not mapped yet: straight to เลขา's chat, as a picked sheet (owner, 2026-11-14).
+  await page.waitForURL(/\/assistant/);
+  await expect(page.getByTestId('template-dialog')).toHaveCount(0);
+  await expect(page.getByRole('log', { name: 'บทสนทนากับเลขากระรอก' })).toContainText('อ่านชีต ชีตบัญชี_');
   expect(await textOverlapIssues(page)).toEqual([]);
+});
+
+test('without the sheet map switch, a sheet made in Google Drive stays in the window with ดูแผนที่ชีต', async ({ page }) => {
+  await open(page, { width: 1440, height: 900 }, { connected: true, labsOn: ['sheets', 'templates'] });
+  const panel = await openPanel(page);
+  await panel.getByRole('button', { name: /สร้างชีตใหม่/ }).click();
+  const dialog = page.getByTestId('template-dialog');
+  await dialog.getByTestId('template-drive').click();
+  await expect(dialog.getByRole('status')).toContainText('สร้างใน Google Drive แล้ว');
+  expect(page.url()).toContain('/settings');
   await dialog.getByRole('button', { name: 'ดูแผนที่ชีต' }).click();
   await expect(page.getByTestId('sheets-panel')).toContainText('ชีตบัญชี_');
 });

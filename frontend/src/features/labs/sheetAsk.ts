@@ -28,7 +28,7 @@ export type SheetAskCard = {
 export type SheetAskOption = { label: string; target?: ColumnTarget; no?: true };
 
 /** A file, tab or column name as plain text in เลขา's message (no Markdown of its own). */
-const plain = (name: string) => name.replace(/[*`[\]|_]/g, ' ').replace(/\s+/g, ' ').trim();
+const plain = (name: string) => name.replace(/[*`[\]|]/g, ' ').replace(/\s+/g, ' ').trim();
 
 /** What เลขา says first: what it read, the formula columns it leaves alone, and how many questions follow. */
 export function sheetIntroText(fileName: string, setup: SheetSetup): string {
