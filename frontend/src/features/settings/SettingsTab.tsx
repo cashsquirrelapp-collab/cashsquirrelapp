@@ -15,6 +15,7 @@ import { LabsSettings } from './LabsSettings';
 import { TemplateDialog } from '../labs/TemplateDialog';
 import { SheetsPanel } from '../labs/SheetsPanel';
 import { requestSheetAsk } from '../labs/sheetAsk';
+import { LOGIN_EMAIL_RESULTS, LoginEmailForm } from './LoginEmailForm';
 import { useLabs } from '../../services/labs';
 import { wht50ReminderOn } from '../../../../shared/notifDefaults';
 import { authClient } from '../../services/auth';
@@ -637,6 +638,16 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     else setGoogleResult(null);
   }, [googleResult, labs.tester, labs.on]);
 
+  // The link in the "add an email" message comes back to /settings?loginEmail=added|taken|expired: the profile page says so once.
+  const [loginEmailResult] = React.useState<string | null>(() => {
+    try { const value = new URLSearchParams(window.location.search).get('loginEmail'); return value && LOGIN_EMAIL_RESULTS[value] ? value : null; } catch { return null; }
+  });
+  React.useEffect(() => {
+    if (!loginEmailResult) return;
+    try { const url = new URL(window.location.href); url.searchParams.delete('loginEmail'); window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash); } catch { /* the address keeps its query */ }
+    setView('profile');
+  }, [loginEmailResult]);
+
   const openView = (next: SettingsView) => {
     setView(!lineAccess && next === 'line' ? 'home' : next);
     document.getElementById('main-content')?.scrollTo({ top: 0 });
@@ -709,8 +720,14 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     className={`${uiPrimaryButton} shrink-0 px-5 text-[13px]`}>{profileBusy ? tr("กำลังบันทึก…") : tr("บันทึกชื่อ")}</button>
                 </div>
               </Field>
-              <Field label={tr("อีเมล")} hint={tr("ใช้สำหรับเข้าสู่ระบบและรับแจ้งเตือน แก้ไขไม่ได้")}>
+              <Field label={tr("อีเมล")} hint={isLineOnlyEmail(session?.user?.email) ? tr("ตอนนี้เข้าใช้ผ่าน LINE เพิ่มอีเมลและรหัสผ่านไว้ จะเข้าสู่ระบบบนเว็บได้ด้วย") : tr("ใช้สำหรับเข้าสู่ระบบและรับแจ้งเตือน แก้ไขไม่ได้")}>
+                {loginEmailResult && (
+                  <p role={LOGIN_EMAIL_RESULTS[loginEmailResult].ok ? 'status' : 'alert'} className={`mb-2 rounded-[10px] border px-3.5 py-2.5 text-[13px] leading-[1.6] ${LOGIN_EMAIL_RESULTS[loginEmailResult].ok ? 'border-[#BFE3CB] bg-[#EEF8F1] text-[#0A6B31] dark:border-[#1F5A35] dark:bg-[#12291B] dark:text-[#86E0A6]' : 'border-[#F1C7C7] bg-[#FDF1F1] text-[#B03030] dark:border-[#5A2323] dark:bg-[#2A1515] dark:text-[#F19A9A]'}`} data-testid="login-email-result">
+                    {tr(LOGIN_EMAIL_RESULTS[loginEmailResult].text)}
+                  </p>
+                )}
                 <p className="rounded-[10px] border border-brand-border bg-brand-faint px-3.5 py-2.5 text-[14px] text-brand-text">{isLineOnlyEmail(session?.user?.email) ? tr("บัญชี LINE (เข้าใช้ผ่าน LINE)") : session?.user?.email || '—'}</p>
+                {isLineOnlyEmail(session?.user?.email) && session?.user?.id && <LoginEmailForm accountId={session.user.id} />}
               </Field>
               <Field label="User ID" hint={tr("ใช้สำหรับค้นหาคุณและเชิญเข้ากลุ่ม แก้ไขไม่ได้")}>
                 <div className="flex items-center justify-between gap-3 rounded-[10px] border border-brand-border bg-brand-faint px-3.5 py-2.5">

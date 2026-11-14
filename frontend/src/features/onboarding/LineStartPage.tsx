@@ -1,7 +1,8 @@
 import React from 'react';
 import WelcomeOnboarding, { type OnboardingResult } from './WelcomeOnboarding';
 import LineQuickStart, { readKeep, type QuickUse } from './LineQuickStart';
-import { tr } from '../../i18n/tr';
+import LineLinkExisting from './LineLinkExisting';
+import { tr, trServer } from '../../i18n/tr';
 
 // /line-start — signing up inside LINE with the website's own welcome screens (owner, 2026-11-13: "อยากให้มันเป็น UI
 // ทรานซิชั่นเหมือนที่เราทำในเว็บไซต์ไว้"). The LINE page (liff-add.js) checks the LINE identity, leaves its one-hour ID
@@ -30,6 +31,8 @@ export default function LineStartPage() {
   // nothing is sent and no account is made.
   const [preview] = React.useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('preview'));
   const [previewDone, setPreviewDone] = React.useState(false);
+  // มีบัญชีอยู่แล้ว (owner, 2026-11-14: one account however you come in): link the website's account instead of a new one.
+  const [linking, setLinking] = React.useState(false);
   // The website's own welcome, every question (owner, 2026-11-13: "กูชอบธีมเดิม มึงไปตัดของกูออกทำไม", after the one-tap
   // screen had become the default): where records are kept now (Google Sheets, Excel…) is asked, so the chat can offer to
   // connect them. The one-tap screen stays on ?quick=1.
@@ -83,6 +86,23 @@ export default function LineStartPage() {
     window.location.replace(target && target.origin === window.location.origin && !target.hash ? target.href : '/liff-add.html?done=1');
   };
 
+  const linkExisting = async ({ email, password }: { email: string; password: string }) => {
+    if (!handoff) throw new Error(tr("กรุณาเปิดหน้านี้ใหม่จากแชท LINE"));
+    const body: Record<string, unknown> = { action: 'link', idToken: handoff.idToken, email, password, agreed: true };
+    if (handoff.destination) body.destination = handoff.destination;
+    const response = await fetch('/api/line-signup', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Protection': '1' },
+      body: JSON.stringify(body),
+    });
+    const reply = await response.json().catch(() => ({})) as { error?: string; destination?: string | null };
+    if (!response.ok) throw new Error(reply.error ? trServer(reply.error) : tr("เชื่อมบัญชีไม่สำเร็จ กรุณาลองอีกครั้ง"));
+    try { sessionStorage.removeItem(LINE_SIGNUP_KEY); } catch { /* the token expires on its own */ }
+    // The done screen for a moment, then where they were going, or back to the chat.
+    const target = reply.destination ? new URL(reply.destination, window.location.origin) : null;
+    window.setTimeout(() => window.location.replace(target && target.origin === window.location.origin && !target.hash ? target.href : '/liff-add.html?done=1'), 1200);
+  };
+
   if (preview) {
     if (previewDone) return (
       <main style={{ minHeight: '100svh', display: 'grid', placeItems: 'center', padding: 24, background: '#FFFFFF', color: '#1C1917', textAlign: 'center' }}>
@@ -93,8 +113,9 @@ export default function LineStartPage() {
         </div>
       </main>
     );
-    if (!full) return <LineQuickStart mobile={mobile} initialName="" initialUse={null} keep={readKeep(new URLSearchParams(window.location.search).get('keep'))} onStart={async () => { setPreviewDone(true); }} />;
-    return <WelcomeOnboarding mode="line" mobile={mobile} accountName="" showUnreleased={showUnreleased} onFinish={async () => { setPreviewDone(true); }} onSkip={async () => undefined} onClose={() => undefined} />;
+    if (linking) return <LineLinkExisting mobile={mobile} onLink={async () => { setPreviewDone(true); }} onBack={() => setLinking(false)} />;
+    if (!full) return <LineQuickStart mobile={mobile} initialName="" initialUse={null} keep={readKeep(new URLSearchParams(window.location.search).get('keep'))} onStart={async () => { setPreviewDone(true); }} onHaveAccount={() => setLinking(true)} />;
+    return <WelcomeOnboarding mode="line" mobile={mobile} accountName="" showUnreleased={showUnreleased} onFinish={async () => { setPreviewDone(true); }} onSkip={async () => undefined} onClose={() => undefined} onHaveAccount={() => setLinking(true)} />;
   }
   if (!handoff) {
     return (
@@ -106,6 +127,7 @@ export default function LineStartPage() {
       </main>
     );
   }
-  if (!full) return <LineQuickStart mobile={mobile} initialName={handoff.name} initialUse={handoff.use} keep={readKeep(handoff.keep)} onStart={quick} />;
-  return <WelcomeOnboarding mode="line" mobile={mobile} accountName={handoff.name} showUnreleased={showUnreleased} onFinish={finish} onSkip={async () => undefined} onClose={() => undefined} />;
+  if (linking) return <LineLinkExisting mobile={mobile} onLink={linkExisting} onBack={() => setLinking(false)} />;
+  if (!full) return <LineQuickStart mobile={mobile} initialName={handoff.name} initialUse={handoff.use} keep={readKeep(handoff.keep)} onStart={quick} onHaveAccount={() => setLinking(true)} />;
+  return <WelcomeOnboarding mode="line" mobile={mobile} accountName={handoff.name} showUnreleased={showUnreleased} onFinish={finish} onSkip={async () => undefined} onClose={() => undefined} onHaveAccount={() => setLinking(true)} />;
 }

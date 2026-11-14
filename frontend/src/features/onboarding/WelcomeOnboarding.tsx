@@ -167,9 +167,11 @@ type Props = {
   onClose: () => void;
   /** Goals of features not open to this account yet (shared/onboarding.ts UNRELEASED_GOALS) are offered only when true. */
   showUnreleased?: boolean;
+  /** 'line': มีบัญชีอยู่แล้ว, the way to link an account made on the website instead (LineLinkExisting.tsx). */
+  onHaveAccount?: () => void;
 };
 
-export default function WelcomeOnboarding({ mode, mobile, accountName = '', previous, onFinish, onSkip, onClose, showUnreleased = false }: Props) {
+export default function WelcomeOnboarding({ mode, mobile, accountName = '', previous, onFinish, onSkip, onClose, showUnreleased = false, onHaveAccount }: Props) {
   const reduce = useReducedMotion() ?? false;
   const [step, setStep] = React.useState(0);
   const [answers, setAnswers] = React.useState<OnboardingAnswers>(() => answersOf(previous));
@@ -318,6 +320,7 @@ export default function WelcomeOnboarding({ mode, mobile, accountName = '', prev
             {nameError || tr("ใช้ทั้งในแอปและ LINE ไม่ใช้แทนชื่อจริงในเอกสาร")}
           </p>
           {errorLine}
+          {line && onHaveAccount && <button type="button" className="wob-have-account" onClick={onHaveAccount} data-testid="line-have-account">{tr("เคยใช้บนเว็บแล้ว? เชื่อมบัญชีเดิม")}</button>}
         </div>
       </div>
     </div>

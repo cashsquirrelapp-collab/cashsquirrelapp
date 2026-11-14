@@ -38,6 +38,7 @@ const policies: Record<string, { group: string; limit: number }> = {
   auth: { group: 'auth', limit: 30 },
   'password-reset-email': { group: 'reset', limit: 10 },
   'password-reset-line': { group: 'reset', limit: 10 },
+  'account-email': { group: 'reset', limit: 10 },
   'recover-account': { group: 'reset', limit: 10 },
   'feedback-public': { group: 'feedback-public', limit: 10 },
   'public-stats': { group: 'public-stats', limit: 30 },

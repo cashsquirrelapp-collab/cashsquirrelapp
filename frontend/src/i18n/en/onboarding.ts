@@ -150,4 +150,17 @@ export const onboarding: Record<string, string> = {
   "ฟรีแลนซ์ / ร้านค้า": "Freelance / shop",
   "บริษัท / สำนักงาน": "Company / office",
   "ให้เลขาเรียกคุณว่า": "What should the assistant call you",
+  // มีบัญชีอยู่แล้ว (LineLinkExisting.tsx)
+  "เคยใช้บนเว็บแล้ว? เชื่อมบัญชีเดิม": "Already use the website? Link that account",
+  "ยังไม่มีบัญชี สมัครใหม่": "No account yet? Sign up",
+  "เชื่อมกับบัญชีเดิม": "Link your existing account",
+  "เข้าสู่ระบบด้วยอีเมลและรหัสผ่านที่ใช้บนเว็บ แล้ว LINE นี้จะใช้บัญชีเดิมของคุณ ข้อมูลเดิมอยู่ครบ": "Sign in with the email and password you use on the website. This LINE will then use your existing account, with all your records",
+  "กำลังเชื่อมบัญชี…": "Linking…",
+  "เชื่อมบัญชี": "Link account",
+  "กดปุ่มนี้คือยินยอมให้เชื่อม LINE นี้กับบัญชีของคุณ เพื่อบันทึกรายการและรับแจ้งเตือนทาง LINE ตาม": "By tapping this you agree to link this LINE to your account, to record items and get reminders in LINE, under the",
+  "ยกเลิกการเชื่อมต่อได้ทุกเมื่อที่หน้าตั้งค่า": "You can disconnect at any time in Settings",
+  "สมัครด้วย Google ไว้? เปิดเว็บกระรอกตุนเงินแล้วเข้าสู่ระบบ ไปที่ ตั้งค่า › เชื่อมต่อ LINE เพื่อเชื่อมบัญชีแทน": "Signed up with Google? Open the Krarok website, sign in, and go to Settings › LINE connection to link instead",
+  "เชื่อมบัญชีแล้วครับ": "Account linked",
+  "เชื่อมบัญชีไม่สำเร็จ กรุณาลองอีกครั้ง": "The account could not be linked. Please try again",
+  "กรุณาใส่รหัสผ่าน": "Please enter your password",
 };

@@ -50,6 +50,7 @@ import consent from '../handlers/consent.js';
 import referral from '../handlers/referral.js';
 import labs from '../handlers/labs.js';
 import google, { googleCallback } from '../handlers/google.js';
+import accountEmail from '../handlers/account-email.js';
 const routes:Record<string,Handler>={auth,data,groups,profile,account,billing,'recover-account':recoverAccount,'close-expired-accounts':closeExpiredAccounts,'admin-users':adminUsers,'admin-analytics':adminAnalytics,'confirm-email':confirmEmail,'usage-analytics':usageAnalytics,vault,'vault-upload':vaultUpload,'vault-file':vaultFile,'download-report':download,'line-session':lineSession,'liff-config':liffConfig,'liff-submit':liffSubmit,'line-link-code':lineLink,'line-signup':lineSignup,'line-handoff':lineHandoff,'line-webhook':lineWebhook,notify,'password-reset-email':reset,'password-reset-line':reset,'send-monthly-report':report,'send-overdue-digest':digest,'send-admin-profit-report':adminProfitReport,'advance-card-renewals':advanceCardRenewals,'setup-line-richmenu':setup,'stripe-webhook':stripe};
 const rawRoutes=new Set(['stripe-webhook','line-webhook','vault-upload']);
 routes.feedback = feedback;
@@ -75,6 +76,8 @@ routes.referral = referral;
 routes.labs = labs;
 routes.google = google;
 routes['google/callback'] = googleCallback;
+// An account made in LINE adds an email and a password for the website (owner, 2026-11-14).
+routes['account-email'] = accountEmail;
 export function routeHandler(route:string):Handler {
  return withGuard(async(req,res)=>{
   const handler=Object.hasOwn(routes,route)?routes[route]:undefined;if(!handler)throw new HttpError(404,'API not found');
@@ -87,7 +90,7 @@ export function routeHandler(route:string):Handler {
    try{req.body=raw.length?JSON.parse(raw.toString()):{};}catch{throw new HttpError(400,'Invalid JSON');}
   }
   await handler(req,res);
- },{csrf:['line-session','line-signup','line-handoff','auth','data','groups','profile','account','billing','recover-account','admin-users','admin-analytics','admin-stripe-finance','admin-payment-readiness','admin-profit-live','admin-ai-credit','admin-activity','broadcast','usage-analytics','line-link-code','password-reset-email','password-reset-line','notify','vault','vault-upload','feedback','feedback-public','assistant','consent','referral','labs','google'].includes(route)});
+ },{csrf:['line-session','line-signup','line-handoff','auth','data','groups','profile','account','billing','recover-account','admin-users','admin-analytics','admin-stripe-finance','admin-payment-readiness','admin-profit-live','admin-ai-credit','admin-activity','broadcast','usage-analytics','line-link-code','password-reset-email','password-reset-line','notify','vault','vault-upload','feedback','feedback-public','assistant','consent','referral','labs','google','account-email'].includes(route)});
 }
 export default withGuard(async(req:VercelRequest,res:VercelResponse)=>{
  const route=req.query.route;

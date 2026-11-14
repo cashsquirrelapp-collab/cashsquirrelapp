@@ -31,8 +31,10 @@ export function readKeep(value: string | null | undefined): QuickKeep | null {
 
 const baht = (amount: number) => `฿${amount.toLocaleString('th-TH', { maximumFractionDigits: 2 })}`;
 
-export default function LineQuickStart({ mobile, initialName, initialUse, keep, onStart }: {
+export default function LineQuickStart({ mobile, initialName, initialUse, keep, onStart, onHaveAccount }: {
   mobile: boolean; initialName: string; initialUse: QuickUse | null; keep: QuickKeep | null;
+  /** มีบัญชีอยู่แล้ว: link an account made on the website instead (LineLinkExisting.tsx). */
+  onHaveAccount?: () => void;
   /** Signs up; throws with the server's own words when it cannot. */
   onStart: (input: { name: string; use: QuickUse | null }) => Promise<void>;
 }) {
@@ -91,6 +93,7 @@ export default function LineQuickStart({ mobile, initialName, initialUse, keep, 
                 {tr("ข้อมูลใช้เพื่อตอบคุณเท่านั้น ไม่ถูกนำไปฝึก AI เลขาบันทึกเมื่อคุณกดยืนยันเท่านั้น ไม่ต้องใช้อีเมล")}
               </p>
               {error && <p className="wob-error" role="alert"><AlertCircle size={15} aria-hidden="true" />{error}</p>}
+              {onHaveAccount && <button type="button" className="wob-have-account" onClick={onHaveAccount} disabled={busy} data-testid="line-have-account">{tr("เคยใช้บนเว็บแล้ว? เชื่อมบัญชีเดิม")}</button>}
             </form>
           </div>
         </div>

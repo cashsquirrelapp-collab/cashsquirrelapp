@@ -240,3 +240,43 @@ test('one tap asks for a name of two letters, and works without a pick or a trie
   await page.waitForURL(/liff-add\.html\?done=1/, { timeout: 15_000 });
   expect(sent.find(item => item.url === 'line-signup')?.body).toEqual({ idToken: 'token', name: 'ปาร์ค', skippedAtStep: 2, agreed: true, use: 'company' });
 });
+
+for (const device of [{ name: 'phone', width: 390 }, { name: 'iPad', width: 768 }]) {
+  test(`มีบัญชีอยู่แล้ว: the LINE chat is linked to the website account instead of making a new one (${device.name})`, async ({ page }) => {
+    const sent = await open(page, { width: device.width, reply: { ok: true, created: false, linked: true, destination: null } });
+    await expect(page).toHaveURL(/\/line-start$/);
+    await page.getByTestId('line-have-account').click();
+    const form = page.getByTestId('line-link-existing');
+    await expect(form.getByRole('heading', { name: 'เชื่อมกับบัญชีเดิม' })).toBeVisible();
+    await loadLayoutFonts(page);
+    await page.waitForTimeout(2200); // the heading and the line under it rise into place first
+    expect(await textOverlapIssues(page)).toEqual([]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+    await page.screenshot({ path: `test-results/line-link-existing-${device.name}.png` });
+    // Back to signing up and in again: nothing is lost.
+    await form.getByRole('button', { name: 'ยังไม่มีบัญชี สมัครใหม่' }).click();
+    await expect(page.locator('#wob-name')).toBeVisible();
+    await page.getByTestId('line-have-account').click();
+    await page.locator('#lq-email').fill('park@example.com');
+    await page.locator('#lq-password').fill('krarok2569');
+    await page.getByTestId('line-link-existing-go').click();
+    await expect(page.getByText('เชื่อมบัญชีแล้วครับ')).toBeVisible();
+    await page.waitForURL(/liff-add\.html\?done=1/, { timeout: 15_000 });
+    expect(sent.filter(item => item.url === 'line-signup').map(item => item.body)).toEqual([
+      { action: 'link', idToken: 'token', email: 'park@example.com', password: 'krarok2569', agreed: true },
+    ]);
+    expect(await page.evaluate(() => sessionStorage.getItem('krarok_line_signup'))).toBeNull();
+  });
+}
+
+test('มีบัญชีอยู่แล้ว: a wrong password shows the server\'s words and the person can try again', async ({ page }) => {
+  await open(page, { status: 401, reply: { error: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' } });
+  await expect(page).toHaveURL(/\/line-start$/);
+  await page.getByTestId('line-have-account').click();
+  await page.locator('#lq-email').fill('park@example.com');
+  await page.locator('#lq-password').fill('wrong-guess1');
+  await page.getByTestId('line-link-existing-go').click();
+  await expect(page.locator('.wob-error')).toHaveText('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+  await expect(page.getByTestId('line-link-existing-go')).toHaveText('เชื่อมบัญชี');
+  await expect(page).toHaveURL(/\/line-start$/);
+});

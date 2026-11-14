@@ -150,6 +150,16 @@ function handlerDeps(over: Partial<LineSignupHandlerDeps> = {}) {
     store: () => { log.push('store'); },
     revoke: async () => { log.push('revoke'); },
     welcome: async () => { log.push('welcome'); },
+    existing: {
+      signIn: async (email, password) => (email === 'park@example.com' && password === 'krarok2569' ? { userId: 'web-user', session: { access_token: 'pw' } as any, mfa: false }
+        : email === 'mfa@example.com' && password === 'krarok2569' ? { userId: 'mfa-user', session: { access_token: 'pw' } as any, mfa: true }
+        : email === 'other-line@example.com' && password === 'krarok2569' ? { userId: 'linked-user', session: { access_token: 'pw' } as any, mfa: false } : null),
+      lineOf: async userId => (userId === 'linked-user' ? 'U' + 'f'.repeat(32) : null),
+      accountOf: async () => null,
+      link: async (userId, lineUserId) => { log.push(`link:${userId}:${lineUserId === LINE_ID}`); },
+      consent: async userId => { log.push(`consent:${userId}`); },
+      welcome: async () => { log.push('linked-welcome'); },
+    },
     ...over,
   };
   return { deps, log };
@@ -233,4 +243,37 @@ test('a new account gets the Sheets features through stagingLabs, after its sett
     if (before.mode !== undefined) process.env.STAGING_MODE = before.mode;
     process.env.APP_URL = before.url;
   }
+});
+
+test('มีบัญชีอยู่แล้ว: the LINE chat is linked to the website account (no second account), signed in through LINE', async () => {
+  const { deps, log } = handlerDeps();
+  const res = fakeResponse();
+  await createLineSignupHandler(deps)(request({ action: 'link', idToken: 'good', email: ' Park@Example.com ', password: 'krarok2569', agreed: true }), res);
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.body, { ok: true, created: false, linked: true, destination: null });
+  // The password's own session is dropped; the LINE session is the one kept, as every LINE sign-in.
+  assert.deepEqual(log, ['link:web-user:true', 'consent:web-user', 'revoke', 'issue', 'store', 'linked-welcome']);
+  assert.ok(!log.includes('signup'), 'no new account');
+});
+
+test('มีบัญชีอยู่แล้ว: a wrong password, two-step accounts, an account on another LINE, or a LINE already linked link nothing', async () => {
+  const cases: [Record<string, unknown>, Partial<LineSignupHandlerDeps>, number][] = [
+    [{ email: 'park@example.com', password: 'wrong-guess1' }, {}, 401],
+    [{ email: 'mfa@example.com', password: 'krarok2569' }, {}, 403],
+    [{ email: 'other-line@example.com', password: 'krarok2569' }, {}, 409],
+    [{ email: 'park@example.com', password: 'krarok2569', agreed: false }, {}, 400],
+    [{ email: 'park@example.com', password: 'krarok2569', idToken: 'forged' }, {}, 401],
+  ];
+  for (const [body, over, status] of cases) {
+    const { deps, log } = handlerDeps(over);
+    const res = fakeResponse();
+    await createLineSignupHandler(deps)(request({ action: 'link', idToken: 'good', agreed: true, ...body }), res);
+    assert.equal(res.statusCode, status, JSON.stringify(body));
+    assert.ok(!log.some(line => line.startsWith('link:') || line === 'store'), JSON.stringify(log));
+  }
+  const already = handlerDeps();
+  already.deps.existing = { ...already.deps.existing, accountOf: async () => 'someone' };
+  const res = fakeResponse();
+  await createLineSignupHandler(already.deps)(request({ action: 'link', idToken: 'good', email: 'park@example.com', password: 'krarok2569', agreed: true }), res);
+  assert.equal(res.statusCode, 409);
 });
