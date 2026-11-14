@@ -11,6 +11,7 @@ import { dueActionOutcome, duePartialOutcome, dueRefFromDigestId } from '../serv
 import { confirmProposal, handleMessage, MESSAGE_RATE, reviseProposal, usageStatus } from '../ai/service.js';
 import { appendTurns, BROWSER_CONVERSATION_ID, CONVERSATION_ID, deleteConversations, INBOX_MESSAGES, inboxConversationId, listConversations, loadConversation, replaceStoredCard, updateConversation, type StoredTurn } from '../ai/conversations.js';
 import { assistantPlan, supabaseAssistantDb } from '../ai/supabaseDb.js';
+import { CONTINUE_ID, openInApp } from '../ai/lineContinue.js';
 import { transcribeVoice, VOICE_MAX_BASE64 } from '../ai/transcription.js';
 import { COLUMN_FIELDS, MAX_COLUMNS, MAX_SAMPLES, suggestColumns } from '../ai/columnMapping.js';
 import { IMPORT_CHAT_ISSUES, IMPORT_CHAT_KINDS, IMPORT_CHAT_TARGETS, importChat } from '../ai/importChat.js';
@@ -59,6 +60,8 @@ const actionSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('conversation-update'), id: z.string().regex(CONVERSATION_ID),
     title: z.string().trim().min(1).max(120).optional(), pinned: z.boolean().optional(), archived: z.boolean().optional() }).strict(),
   z.object({ action: z.literal('conversations-delete'), ids: z.array(z.string().regex(CONVERSATION_ID)).min(1).max(100) }).strict(),
+  // ทำต่อในแอป from LINE (ai/lineContinue.ts): the conversation LINE kept opens as one chat here. No model call, no tokens.
+  z.object({ action: z.literal('continue-line'), id: z.string().regex(CONTINUE_ID) }).strict(),
   z.object({
     action: z.literal('transcribe'),
     audio: z.object({ mimeType: z.literal('audio/wav'), data: z.string().min(4).max(VOICE_MAX_BASE64) }).strict(),
@@ -188,6 +191,13 @@ export default withGuard(async (req, res) => {
     await rateLimit('assistant-confirm', user.id, 30, 60);
     await updateConversation(user.id, body.id, body);
     res.json({ ok: true });
+    return;
+  }
+  if (body.action === 'continue-line') {
+    await rateLimit('assistant-confirm', user.id, 30, 60);
+    const opened = await openInApp(user.id, body.id);
+    if (!opened) throw new HttpError(404, 'ลิงก์นี้หมดเวลาแล้ว พิมพ์บอกเลขาต่อในแอปได้เลย', 'line_continue_gone');
+    res.json(opened);
     return;
   }
   if (body.action === 'conversations-delete') {

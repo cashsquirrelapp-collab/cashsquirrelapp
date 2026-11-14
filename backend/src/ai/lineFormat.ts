@@ -180,21 +180,30 @@ export function parseAssistantCommand(text: string): { action: 'confirm' | 'canc
 }
 
 type ConfirmationCard = Extract<AssistantCard, { kind: 'confirm' }>;
-function confirmationPreview(card: ConfirmationCard): LineMessage {
+/**
+ * ทำต่อในแอป (owner's plan, item 4, 2026-11-14): the link that opens this LINE conversation as a chat in the app, with the
+ * same cards (ai/lineContinue.ts). `oversized` is set when a confirmation card was too long for LINE.
+ */
+export interface ReplyContext { continueLink?: { label: string; uri: string }; oversized?: boolean }
+function confirmationPreview(card: ConfirmationCard, context: ReplyContext): LineMessage {
+  context.oversized = true;
   return lineCard({
     title: card.title.length > 160 ? `${card.title.slice(0, 159)}…` : card.title,
     subtitle: 'รายละเอียดแสดงไม่ครบ · ยังไม่บันทึก', character: 'review', compact: true,
     body: card.changes.slice(0, 4).map(row => lineValueRow(row.label.slice(0, 120), row.value, { bold: false })),
-    note: 'รายการนี้ยาวเกินกว่าจะแสดงครบใน LINE จึงไม่มีปุ่มยืนยัน เปิดเลขาในแอปแล้วขอให้เตรียมรายการใหม่ เพื่อตรวจรายละเอียดครบก่อนยืนยัน',
-    footer: lineAppLink('/assistant', 'เปิดเลขาในแอป'),
+    // With ทำต่อในแอป the same card opens in the app's chat, complete, and is confirmed there.
+    note: context.continueLink
+      ? 'รายการนี้ยาวเกินกว่าจะแสดงครบใน LINE กด “ทำต่อในแอป” เพื่อเปิดแชทนี้ในแอป ตรวจรายละเอียดครบ แล้วยืนยันได้ที่นั่น'
+      : 'รายการนี้ยาวเกินกว่าจะแสดงครบใน LINE จึงไม่มีปุ่มยืนยัน เปิดเลขาในแอปแล้วขอให้เตรียมรายการใหม่ เพื่อตรวจรายละเอียดครบก่อนยืนยัน',
+    footer: context.continueLink ?? lineAppLink('/assistant', 'เปิดเลขาในแอป'),
     altText: `ยังไม่บันทึก: ${card.title} · ต้องตรวจรายละเอียดครบในแอป`,
   });
 }
 
-function confirmationMessage(card: ConfirmationCard): LineMessage {
+function confirmationMessage(card: ConfirmationCard, context: ReplyContext): LineMessage {
   if (!card.changes.length || card.changes.length > CONFIRM_MAX_ROWS || card.title.length > CONFIRM_MAX_TEXT
     || card.changes.some(row => row.label.length > CONFIRM_MAX_TEXT || row.value.length > CONFIRM_MAX_TEXT)) {
-    return confirmationPreview(card);
+    return confirmationPreview(card, context);
   }
   const message = lineCard({
     title: card.title, subtitle: 'รอยืนยัน · ยังไม่บันทึก', character: 'review', compact: true,
@@ -217,10 +226,10 @@ function confirmationMessage(card: ConfirmationCard): LineMessage {
     ] },
   };
   return new TextEncoder().encode(JSON.stringify(message.contents)).length <= CONFIRM_MAX_BYTES
-    ? message : confirmationPreview(card);
+    ? message : confirmationPreview(card, context);
 }
 
-function cardMessage(card: AssistantCard): LineMessage | null {
+function cardMessage(card: AssistantCard, context: ReplyContext): LineMessage | null {
   if (card.kind === 'official_link') {
     // An official website from the fixed list, looked up again by id: LINE shows it as text it links by itself.
     const site = OFFICIAL_LINKS[card.id];
@@ -286,7 +295,7 @@ function cardMessage(card: AssistantCard): LineMessage | null {
     });
   }
   if (card.kind === 'confirm') {
-    return confirmationMessage(card);
+    return confirmationMessage(card, context);
   }
   if (card.kind === 'questions') {
     // One question at a time with taps (owner, 2026-11-14), never a numbered list: the first here, the rest asked by the
@@ -305,8 +314,8 @@ const jsonBytes = (value: unknown) => new TextEncoder().encode(JSON.stringify(va
  * none is lost to LINE's five-message limit (owner, 2026-10-24: one card per job for a request about many jobs).
  * Every bubble keeps its own buttons. Returns how many did not fit.
  */
-function cardMessages(cards: AssistantCard[], room: number): { messages: LineMessage[]; left: number } {
-  const all = cards.map(cardMessage).filter((message): message is LineMessage => Boolean(message));
+function cardMessages(cards: AssistantCard[], room: number, context: ReplyContext): { messages: LineMessage[]; left: number } {
+  const all = cards.map(card => cardMessage(card, context)).filter((message): message is LineMessage => Boolean(message));
   if (all.length <= 1) return { messages: all.slice(0, room), left: Math.max(0, all.length - room) };
   const messages: LineMessage[] = [];
   let group: Extract<LineMessage, { type: 'flex' }>[] = [];
@@ -485,6 +494,26 @@ export function cardGroupMessage(groupId: string, cards: AssistantCard[], files:
 }
 
 export function lineAssistantReply(text: string, cards: AssistantCard[], now = new Date()): LineMessage[] {
+  return shapeLineReply(text, cards, now).messages;
+}
+
+/** The card under a LINE answer that opens the conversation in the app's chat: what is there and one button. */
+export function continueCard(link: { label: string; uri: string }, why: 'cards' | 'detail', left = 0): LineMessage {
+  const said = why === 'detail'
+    ? 'เปิดแชทนี้ต่อในแอป พร้อมเรื่องที่คุยไว้ ดูแบบละเอียด มีกราฟและตารางครบ'
+    : left > 0 ? `อีก ${left} รายการอยู่ในแชทเดียวกันในแอป ตรวจรายละเอียดและยืนยันได้ครบที่นั่น` : 'เปิดแชทนี้ต่อในแอป ตรวจรายละเอียดครบ แล้วยืนยันได้ที่นั่น';
+  return lineCard({ title: 'ทำต่อในแอป', subtitle: 'บทสนทนาเดิมเปิดต่อในเลขาในแอป', character: 'guide', compact: true,
+    body: [{ type: 'text', text: said, size: 'sm', color: LINE_CARD_COLORS.text, wrap: true }],
+    altText: why === 'detail' ? 'ทำต่อในแอป: ดูแบบละเอียดในเลขาในแอป' : `ทำต่อในแอป: ตรวจและยืนยัน${left > 0 ? `อีก ${left} รายการ` : 'รายการ'}ในเลขาในแอป`, footer: link });
+}
+
+/**
+ * The LINE answer, and what did not fit: `left` cards LINE had no room for, `oversized` when a confirmation card was too
+ * long to confirm in LINE. With `options.continueLink`, those (or `options.why` 'detail') end with ทำต่อในแอป instead.
+ */
+export function shapeLineReply(text: string, cards: AssistantCard[], now = new Date(), options: { continueLink?: { label: string; uri: string }; why?: 'cards' | 'detail' } = {}):
+  { messages: LineMessage[]; left: number; oversized: boolean } {
+  const context: ReplyContext = { continueLink: options.continueLink };
   const buddhistYear = new Date(now.getTime() + 7 * 3600_000).getUTCFullYear() + 543;
   const segments = segmentsOf(shapedLines(text), buddhistYear);
   const recordAt = segments.findIndex(isRecordList);
@@ -501,8 +530,15 @@ export function lineAssistantReply(text: string, cards: AssistantCard[], now = n
   } else {
     out.push(...talkBubbles(textOf(segments), now, cards.length ? 2 : 4).map(part => ({ type: 'text' as const, text: part.slice(0, LINE_TEXT_MAX) })));
   }
-  const { messages: cardsOut, left } = cardMessages(cards, LINE_MAX_MESSAGES - out.length - 1);
+  const { messages: cardsOut, left } = cardMessages(cards, LINE_MAX_MESSAGES - out.length - 1, context);
   const messages: LineMessage[] = [...out, ...cardsOut];
-  if (left > 0) messages.push({ type: 'text', text: `มีอีก ${left} รายการ เปิดดูในเลขาในแอปได้ครับ` });
-  return messages.length ? messages.slice(0, LINE_MAX_MESSAGES) : [{ type: 'text', text: 'ขออภัยครับ ตอนนี้ยังตอบไม่ได้ ลองพิมพ์ใหม่อีกครั้งนะครับ' }];
+  const link = context.continueLink;
+  // The last place is kept for this line: more cards than LINE shows, or ทำต่อในแอป when the answer goes on in the app (a
+  // card too long for LINE already carries the button in its own footer).
+  if (link && (left > 0 || (options.why === 'detail' && !context.oversized))) messages.push(continueCard(link, left > 0 ? 'cards' : 'detail', left));
+  else if (left > 0) messages.push({ type: 'text', text: `มีอีก ${left} รายการ เปิดดูในเลขาในแอปได้ครับ` });
+  return {
+    messages: messages.length ? messages.slice(0, LINE_MAX_MESSAGES) : [{ type: 'text', text: 'ขออภัยครับ ตอนนี้ยังตอบไม่ได้ ลองพิมพ์ใหม่อีกครั้งนะครับ' }],
+    left, oversized: Boolean(context.oversized),
+  };
 }

@@ -1,4 +1,4 @@
-const APP_PATHS = new Set(['/', '/app', '/jobs', '/report', '/receivables', '/incomeExpense', '/vault', '/line-documents', '/wht50', '/calendar', '/invoice']);
+const APP_PATHS = new Set(['/', '/app', '/jobs', '/report', '/receivables', '/incomeExpense', '/vault', '/line-documents', '/wht50', '/calendar', '/invoice', '/assistant']);
 const DOCUMENT_TYPES = new Set(['quotation', 'invoice', 'receipt', 'taxInvoice']);
 
 /** A destination is navigation only; it never grants access to the named document. */
@@ -36,6 +36,11 @@ export function safeLineDestination(value: unknown): string | undefined {
     if (id !== null && (!type || !id || id.length > 128 || /[\p{Cc}\p{Cf}]/u.test(id) || ['__proto__', 'constructor', 'prototype'].includes(id))) return undefined;
     if (type) query.set('type', type);
     if (id) query.set('document', id);
+  }
+  // ทำต่อในแอป (backend/src/ai/lineContinue.ts): which LINE conversation to open; the server checks it is this account's own.
+  if (url.pathname === '/assistant') {
+    const id = url.searchParams.get('continue');
+    if (id && /^[A-Za-z0-9_-]{22}$/.test(id)) query.set('continue', id);
   }
   query.set('from', 'line');
   return `${url.pathname}?${query}`;

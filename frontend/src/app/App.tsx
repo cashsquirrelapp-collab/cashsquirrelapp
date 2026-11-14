@@ -4,6 +4,7 @@ import type { AssistantTransport } from '../features/assistant/assistantApi';
 import { safeAssistantPath } from '../features/assistant/assistantNavigation';
 import type { LineInboxApi } from '../features/assistant/lineInbox';
 import type { ChatHandoff } from '../features/assistant/chatHandoff';
+import { rememberLineContinue } from '../features/assistant/lineContinue';
 import { notePage } from '../features/assistant/greeting';
 import { CARD_CONSENT_VERSION, type CardOptions } from '../../../shared/cardConsent';
 import { proPricePartsForCharge, proPricing, type ProPeriod } from '../../../shared/proPricing';
@@ -493,6 +494,8 @@ const PHONE_PAGE_TITLES: Partial<Record<string, string>> = { plans: T("แพ็
 
 // A shared invite link (krarok.com/?ref=SQ-…) keeps its code on this device for the new account (shared/referral.ts).
 if (typeof window !== 'undefined') rememberSharedCode();
+// ทำต่อในแอป from LINE keeps its conversation id on this tab before the address changes (assistant/lineContinue.ts).
+if (typeof window !== 'undefined') rememberLineContinue();
 
 export default function App() {
   const { t, language, toggleLanguage } = useLanguage();

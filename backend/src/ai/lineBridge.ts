@@ -3,7 +3,8 @@ import type { LineMessage } from '../services/line.js';
 import { lineAppLink, lineCard, lineValueRow } from '../services/lineCards.js';
 import type { UserRow } from '../services/lineAssistant.js';
 import { aiConfig, aiConfigFor } from './config.js';
-import { lineAssistantReply } from './lineFormat.js';
+import { lineAssistantReply, shapeLineReply } from './lineFormat.js';
+import { continueTurns, continueWhy, keepForApp } from './lineContinue.js';
 import { LINE_CARD_COLORS } from '../services/lineCards.js';
 import { rateLimit } from '../security/rateLimit.js';
 import { confirmProposal, handleMessage, MESSAGE_RATE, thaiDay, usageStatus, type AssistantDb, type PlanInfo, type UsageStatus } from './service.js';
@@ -39,6 +40,8 @@ export interface LineBridgeDeps {
   consented?: (userId: string) => Promise<boolean>;
   /** Keeps เลขา's questions while LINE asks them one at a time (services/lineAiQuestions.ts); tests stand in for it. */
   keepQuestions?: (userId: string, state: PendingAiQuestions) => Promise<void>;
+  /** Keeps the conversation for ทำต่อในแอป and gives the link's id (ai/lineContinue.ts); tests stand in for it. */
+  keepForApp?: typeof keepForApp;
 }
 
 /**
@@ -98,7 +101,18 @@ export async function lineAssistantAnswer(user: UserRow, text: string, history: 
       try { await (deps.keepQuestions ?? keepQuestions)(user.user_id, pendingAiQuestions(asking.questions)); }
       catch { console.error('line-assistant: questions not kept'); }
     }
-    const messages = lineAssistantReply(asking && reply.text.trim() === QUESTIONS_LEAD ? '' : reply.text, reply.cards);
+    const shown = asking && reply.text.trim() === QUESTIONS_LEAD ? '' : reply.text;
+    let shaped = shapeLineReply(shown, reply.cards);
+    // ทำต่อในแอป (owner's plan, item 4): an answer LINE cannot give complete goes on in the app's chat with this conversation.
+    const why = continueWhy({ text, history, asking: Boolean(asking), left: shaped.left, oversized: shaped.oversized });
+    if (why) {
+      try {
+        const id = await (deps.keepForApp ?? keepForApp)(user.user_id, why, continueTurns(history, text, files, { text: reply.text, cards: reply.cards }));
+        const link = lineAppLink(`/assistant?continue=${id}`, 'ทำต่อในแอป');
+        if (link) shaped = shapeLineReply(shown, reply.cards, undefined, { continueLink: link, why });
+      } catch { console.error('line-assistant: the conversation was not kept for the app'); }
+    }
+    const messages = shaped.messages;
     // Running low: say so under the answer, with the same number the app shows (never under a question).
     const limit = plan.plan === 'trial' ? config.trialTokens : plan.tokens ?? config.proTokensPerCycle;
     if (!asking && reply.tokensLeft !== null && reply.tokensLeft <= Math.max(5, Math.round(limit * 0.1))) {

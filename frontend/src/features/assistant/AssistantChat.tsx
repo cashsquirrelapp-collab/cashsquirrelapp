@@ -40,6 +40,7 @@ import './assistant.css';
 import { noteAssistantSent } from './proGuideEvents';
 import { SheetAskProvider, useSheetAsk } from '../labs/SheetChatAsk';
 import { onSheetAsk, takeSheetAsk } from '../labs/sheetAsk';
+import { takeLineContinue } from './lineContinue';
 
 /** The longest message เลขา takes (a pasted list is fine); the server allows the same (handlers/assistant.ts). */
 const MAX_MESSAGE = 6000;
@@ -207,6 +208,15 @@ function withInbox(list: Conversation[], inbox: LineInbox, openId: string | null
   return list.map(conversation => (conversation.kind === 'line' && (conversation.sample || conversation.awaitingInbox)
     ? { ...conversation, sample: false, awaitingInbox: false, messages, unread: openId === conversation.id ? 0 : unreadToday }
     : conversation));
+}
+
+/** What became of each confirmation card of a stored chat since (saved, cancelled, or no longer open). */
+function storedCardStates(list: ChatMessage[]): Record<string, ConfirmState> {
+  const states: Record<string, ConfirmState> = {};
+  for (const message of list) for (const card of message.cards ?? []) {
+    if (card.kind === 'confirm' && card.status && card.status !== 'pending') states[card.id] = card.status === 'applied' ? 'done' : card.status === 'cancelled' ? 'cancelled' : 'expired';
+  }
+  return states;
 }
 
 export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = false, previewTools = false, onPreviewBirth, onPreviewGuide, onOpenNotifications, onUpgrade, referral, onNavigate, transport: given, liveNote, lineInbox, accountId, workspaceSlug, fullFeatureAccess, floating = false, onExpand, onAutoNavigate, handoff, onHandoff, connecting = false, briefing }: Props) {
@@ -708,6 +718,34 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
     return onSheetAsk(take);
   }, [accountId, startSheetAsk]);
 
+  // ทำต่อในแอป from LINE (lineContinue.ts, owner's plan item 4): the conversation LINE kept opens here as a chat of its own,
+  // with the same cards to confirm. Nothing is sent to เลขา until the person writes; after analysis the box suggests the
+  // detailed version. A link that is gone says so under the box.
+  const [lineGone, setLineGone] = React.useState(false);
+  React.useEffect(() => {
+    if (!live || !accountId || !transport.continueFromLine) return;
+    const pending = takeLineContinue();
+    if (!pending) return;
+    let alive = true;
+    setOpening(true);
+    transport.continueFromLine(pending).then(chat => {
+      if (!alive) return;
+      setConfirmStates(current => ({ ...storedCardStates(chat.messages), ...current }));
+      const reopened = savedCards(chat.messages.flatMap(message => message.cards ?? []), navigationRef.current.navigationContext);
+      if (Object.keys(reopened.paths).length) setConfirmedPaths(current => ({ ...reopened.paths, ...current }));
+      const opened: Conversation = { id: chat.conversationId, title: chat.title, group: 'today', sample: false, messages: chat.messages, loaded: true, fromLine: true };
+      // Kept first even when the history arrives after it (the server lists the same chat, not yet loaded).
+      carriedRef.current = opened;
+      setConversations(list => [opened, ...(list ?? []).filter(conversation => conversation.id !== opened.id)]);
+      setCurrentId(opened.id);
+      atBottom.current = true;
+      const last = [...chat.messages].reverse().find(message => message.from === 'bot');
+      if (last?.cards?.some(card => card.kind === 'confirm' && (!card.status || card.status === 'pending'))) setMode('awaiting');
+      if (chat.why === 'detail') window.setTimeout(() => onDraftRef.current(tr("ขอแบบละเอียด")), 0);
+    }).catch(() => { if (alive) setLineGone(true); }).finally(() => { if (alive) setOpening(false); });
+    return () => { alive = false; };
+  }, [live, accountId, transport]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const openConversation = (conversationId: string | null) => {
     voice.cancel(); voice.clearReview(); voice.clearError();
     abortRef.current?.abort();
@@ -728,11 +766,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
       setOpening(true);
       const target = conversationId!;
       void transport.loadMessages(target).then(list => {
-        const states: Record<string, ConfirmState> = {};
-        for (const message of list) for (const card of message.cards ?? []) {
-          if (card.kind === 'confirm' && card.status && card.status !== 'pending') states[card.id] = card.status === 'applied' ? 'done' : card.status === 'cancelled' ? 'cancelled' : 'expired';
-        }
-        setConfirmStates(current => ({ ...states, ...current }));
+        setConfirmStates(current => ({ ...storedCardStates(list), ...current }));
         const reopened = savedCards(list.flatMap(message => message.cards ?? []), navigationRef.current.navigationContext);
         if (Object.keys(reopened.paths).length) setConfirmedPaths(current => ({ ...reopened.paths, ...current }));
         setConversations(current => current?.map(conversation => (conversation.id === target ? { ...conversation, messages: list, loaded: true } : conversation)) ?? current);
@@ -1168,6 +1202,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
           ) : (
             <ol className="asx-thread">
               {current?.sample && <li className="asx-sample-banner">{tr("บทสนทนาตัวอย่าง · ข้อมูลทั้งหมดเป็นข้อมูลสมมติ")}</li>}
+              {current?.fromLine && <li className="asx-day is-from-line" data-testid="from-line"><span>{tr("ต่อจากที่คุยใน LINE")}</span></li>}
               {messages.map((message, n) => [
                 // LINE-style date chips between days.
                 (n === 0 || dayKey(messages[n - 1].at) !== dayKey(message.at)) && <li key={`day-${message.id}`} className="asx-day"><span>{dayLabel(message.at)}</span></li>,
@@ -1355,6 +1390,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                 </>}
               </form>
               <p className="asx-hint">{voice.active ? (voice.phase === 'transcribing' ? tr("ถอดข้อความเสร็จแล้วตรวจแก้ได้ก่อนส่ง") : tr("หยุดแล้วถอดข้อความ · ใช้โทเค็น · สูงสุด 2 นาที")) : live ? (lapsed ? tr("Pro หมดอายุแล้ว ใช้โทเคนที่เหลือได้จนหมด ต่ออายุ Pro เพื่อรับโทเคนใหม่") : tr("เลขาตอบผิดได้บ้าง โปรดตรวจก่อนกดยืนยัน · คำตอบเป็นข้อมูลประกอบ ไม่ใช่คำปรึกษาทางภาษี บัญชี หรือกฎหมาย")) : waiting ? tr("กำลังเชื่อมต่อเลขากระรอก…") : tr("ตัวอย่างหน้าจอ · คำตอบเป็นข้อมูลตัวอย่าง ยังไม่ได้เชื่อมต่อเลขากระรอก")}</p>
+              {lineGone && <p className="asx-hint" role="status" data-testid="line-continue-gone">{tr("ลิงก์จาก LINE หมดเวลาแล้ว พิมพ์บอกเลขาต่อได้เลย")}</p>}
               {!live && !waiting && liveNote && <p className="asx-hint is-admin" role="status">{tr("สำหรับแอดมิน: เลขา AI ยังไม่เปิดในบัญชีนี้ · {0}", liveNote)}</p>}
           </>}
         </div>

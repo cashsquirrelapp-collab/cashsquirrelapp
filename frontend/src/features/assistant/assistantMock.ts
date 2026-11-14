@@ -64,7 +64,9 @@ export type ChatGroup = 'today' | 'yesterday' | 'week' | 'earlier';
 /** `loaded: false`: a stored chat whose messages are fetched when it is opened. */
 export type Conversation = { id: string; title: string; group: ChatGroup; sample: boolean; messages: ChatMessage[]; kind?: 'line'; unread?: number; pinned?: boolean; archived?: boolean; loaded?: boolean;
   /** The notifications thread of a real account whose own notices have not arrived (or could not load): no sample in it. */
-  awaitingInbox?: boolean };
+  awaitingInbox?: boolean;
+  /** Opened just now from LINE's ทำต่อในแอป (lineContinue.ts): the chat says it goes on from LINE. */
+  fromLine?: boolean };
 export const LINE_THREAD_ID = 'line-notices';
 export type TokenBalance = { remaining: number; total: number; refillsOn: string };
 

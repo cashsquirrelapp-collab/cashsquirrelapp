@@ -50,6 +50,8 @@ export interface AssistantTransport {
   revise?(card: ConfirmCard, edits: Record<string, string>): Promise<ConfirmCard>;
   /** Optional: a stored conversation's messages, fetched when it is opened. */
   loadMessages?(conversationId: string): Promise<ChatMessage[]>;
+  /** Optional: ทำต่อในแอป from LINE (lineContinue.ts): the LINE conversation as a chat in the history, with its cards. */
+  continueFromLine?(id: string): Promise<{ conversationId: string; title: string; why: 'cards' | 'detail'; messages: ChatMessage[] }>;
 }
 
 /** Today, yesterday, the last 7 days or earlier, in Bangkok time. */
@@ -66,6 +68,11 @@ export function splitMemo(cards: unknown[] | undefined): { cards?: ChatCard[]; m
   const memo = list.find((card): card is MemoCard => card.kind === 'memo')?.text;
   const shown = list.filter((card): card is ChatCard => card.kind !== 'memo');
   return { ...(shown.length ? { cards: shown } : {}), ...(memo ? { memo } : {}) };
+}
+/** A message as the account's history keeps it, as the chat shows it. */
+function fromStored(message: StoredMessage): ChatMessage {
+  return { id: message.id, from: message.role === 'user' ? 'me' as const : 'bot' as const, text: message.text, at: Date.parse(message.at),
+    ...splitMemo(message.cards), ...(message.attachment?.files?.length ? { attachments: message.attachment.files } : message.attachment ? { attachment: { name: message.attachment.name, kind: message.attachment.kind } } : {}) };
 }
 /** One earlier message as เลขา reads it: a file by its name, and what was read from it before the answer. */
 export function historyText(message: ChatMessage): string {
@@ -217,8 +224,13 @@ export function createLiveTransport(options: { account: string; status: Assistan
     // The account's stored chats (2026-10-24), after the notifications thread; their messages load when opened.
     async loadMessages(conversationId) {
       const reply = await apiJson<{ messages: StoredMessage[] }>(`/api/assistant?view=conversation&id=${encodeURIComponent(conversationId)}`, { headers });
-      return reply.messages.map(message => ({ id: message.id, from: message.role === 'user' ? 'me' as const : 'bot' as const, text: message.text, at: Date.parse(message.at),
-        ...splitMemo(message.cards), ...(message.attachment?.files?.length ? { attachments: message.attachment.files } : message.attachment ? { attachment: { name: message.attachment.name, kind: message.attachment.kind } } : {}) }));
+      return reply.messages.map(fromStored);
+    },
+    async continueFromLine(id) {
+      if (getCurrentAccount() !== options.account) throw new AssistantRequestError(tr('บัญชีที่ใช้อยู่เปลี่ยนไปแล้ว'));
+      const reply = await post<{ conversationId: string; title: string; why: 'cards' | 'detail'; messages: StoredMessage[] }>({ action: 'continue-line', id });
+      if (typeof reply?.conversationId !== 'string' || !Array.isArray(reply.messages)) throw new AssistantRequestError('continue');
+      return { conversationId: reply.conversationId, title: reply.title || tr('ต่อจาก LINE'), why: reply.why === 'detail' ? 'detail' : 'cards', messages: reply.messages.map(fromStored) };
     },
     async send(input, onDelta, signal, onCards) {
       active(signal);
