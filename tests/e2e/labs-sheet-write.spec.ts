@@ -3,8 +3,10 @@ import { textOverlapIssues } from './textOverlap';
 import { loadLayoutFonts } from './testFonts';
 
 // บันทึกลงชีตของคุณ (ฟีเจอร์ทดลอง sheetWrite; owner, 2026-11-12: "บันทึกผ่านเลขากระรอกแชท … ในแชทกระรอกในเว็บได้"): a
-// confirmation card of a new expense shows the customer's sheet with the new row tinted ("จะกรอกตรงนี้", formula cells
-// "คำนวณเอง"); after ยืนยัน it says where the row went and offers ย้อนกลับ. Without the feature the card is as before.
+// confirmation card of a new expense becomes the customer's sheet, as the prototype's ask screen (owner, 2026-11-14:
+// "อันนี้เลย"): full width, "เพิ่ม 1 แถว · file › tab · ยังไม่ได้เขียน", the new row tinted under the last rows, formula
+// cells "คำนวณเอง", ✓ ยืนยันเขียนลงชีต; after it the table says เขียนแล้ว, with เปิดชีต and ย้อนกลับ. Without the feature
+// the card is as before.
 // The backend and Google are mocked; no AI is called.
 
 test.use({ serviceWorkers: 'block' });
@@ -76,17 +78,25 @@ for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'p
     await ask(page, 'ค่าเช่ากล้อง 1200 วันนี้');
     const preview = page.getByTestId('sheet-row-preview');
     await expect(preview).toBeVisible();
-    await expect(preview).toContainText('จะบันทึกลงชีต บัญชีร้าน 2569 › รายจ่าย ด้วย');
-    await expect(preview).toContainText('จะกรอกตรงนี้ · แถว 5');
+    await expect(preview).toContainText('เพิ่ม 1 แถว · บัญชีร้าน 2569 › รายจ่าย');
+    await expect(preview).toContainText('ยังไม่ได้เขียน');
+    await expect(preview).toContainText('E สะสม (สูตร)');
     await expect(preview).toContainText('คำนวณเอง');
     await expect(preview).toContainText('ค่าเดินทาง');
+    await expect(preview).toContainText('คอลัมน์ E เป็นสูตร น้องเลขาจะไม่เขียนทับ');
+    // The card takes the chat's width (the prototype's look), not the narrow card.
+    const card = page.locator('.asx-rcard.is-confirm.is-sheet');
+    const [cardWidth, bodyWidth] = await card.evaluate(el => [el.getBoundingClientRect().width, el.parentElement!.getBoundingClientRect().width]);
+    expect(Math.abs(cardWidth - bodyWidth)).toBeLessThan(2);
+    await expect(card.locator('.asx-rcard-rows')).toHaveCount(0);
     expect(googlePosts[0]).toEqual({ action: 'preview', proposalId: PROPOSAL });
     expect(await textOverlapIssues(page)).toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
     await preview.scrollIntoViewIfNeeded();
     await page.screenshot({ path: `test-results/labs-sheet-write-${device.name}.png` });
 
-    await page.locator('.asx-rcard.is-confirm .asx-pill-btn.is-primary').click();
+    await page.getByRole('button', { name: 'ยืนยันเขียนลงชีต' }).click();
+    await expect(preview).toContainText('เขียนแล้ว');
     const done = page.getByTestId('sheet-row-done');
     await expect(done).toContainText('ลงชีต บัญชีร้าน 2569 › รายจ่าย แถว 5 แล้ว');
     await expect(done.getByRole('link', { name: 'เปิดชีต' })).toHaveAttribute('href', PREVIEW.url);

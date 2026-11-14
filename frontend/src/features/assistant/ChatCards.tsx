@@ -5,7 +5,7 @@ import { VAULT_ATTACHED_EVENT, VAULT_ATTACH_EVENT, asFile, chatFileFor, type Vau
 import { saveAccountName } from './accountName';
 import { tr, T } from '../../i18n/tr';
 import { partyAnswer, paymentAnswer, thaiDateAnswer, type AskQuestion, type PartyValues } from '../../../../shared/askQuestions';
-import { SheetRowCard } from '../labs/SheetRowCard';
+import { SheetDoneBlock, SheetPreviewBlock, useSheetRow, type SheetPhase } from '../labs/SheetRowCard';
 import { isPendingConfirm, type ChatCard, type ConfirmCard, type DocumentCard, type EditField, type MoneyChartCard, type OfficialLinkCard, type ProjectCard, type QuestionsCard, type RenameCard, type SummaryCard, type AttachCard, type SourcesCard, type MessageDraftCard } from './assistantMock';
 import { formatTHB } from '../../../../shared/thb';
 import { isValidWhtRate } from '../../../../shared/wht';
@@ -433,6 +433,11 @@ function Confirm({ card, state, onConfirm, onCancel, onAsk, confirmedPath, onNav
   const editScroll = React.useRef<HTMLDivElement>(null);
   const editorId = React.useId();
   const action = primaryAction(card);
+  // ฟีเจอร์ทดลอง บันทึกลงชีตของคุณ: with a row to show, the card is the customer's sheet itself (labs/SheetRowCard.tsx).
+  const sheetPhase: SheetPhase = live && !editing && (state === 'pending' || state === 'working' || state === 'done') ? state : 'other';
+  const sheet = useSheetRow(card.id, sheetPhase);
+  const sheetMode = live && !editing && sheet.on && Boolean(sheet.preview)
+    && (state === 'pending' || state === 'working' || (state === 'done' && sheet.write?.status !== 'failed'));
   React.useEffect(() => { if (editing) requestAnimationFrame(() => box.current?.scrollIntoView({ block: 'nearest' })); }, [editing]);
   React.useEffect(() => { if (editScroll.current) editScroll.current.scrollTop = 0; }, [activeSection]);
   const startEdit = (group?: string) => {
@@ -467,8 +472,9 @@ function Confirm({ card, state, onConfirm, onCancel, onAsk, confirmedPath, onNav
   };
   const kindIcon = card.changes.some(row => row.label === 'เอกสาร') ? FileText : card.title.startsWith('เพิ่มงาน') ? Briefcase : ListChecks;
   return (
-    <div ref={box} className={`asx-rcard is-confirm is-${state}${editing ? ' is-editing' : ''}`} aria-busy={saving || state === 'working'}>
-      <Head icon={kindIcon} title={card.title} state={{ tone: STATE_OF[state], text: stateText[state] }} />
+    <div ref={box} className={`asx-rcard is-confirm is-${state}${editing ? ' is-editing' : ''}${sheetMode ? ' is-sheet' : ''}`} aria-busy={saving || state === 'working'}>
+      {sheetMode ? <SheetPreviewBlock preview={sheet.preview!} phase={sheetPhase} write={sheet.write} />
+        : <Head icon={kindIcon} title={card.title} state={{ tone: STATE_OF[state], text: stateText[state] }} />}
       {editing ? <div className="asx-edit-sections">
         {sections.length > 1 && <div className="asx-edit-tabs" role="tablist" aria-label={tr("ส่วนของเอกสาร")}>
           {sections.map((item, index) => <button key={item.id} type="button" role="tab" id={`${editorId}-${item.id}-tab`} aria-controls={`${editorId}-panel`} aria-selected={section.id === item.id}
@@ -524,10 +530,20 @@ function Confirm({ card, state, onConfirm, onCancel, onAsk, confirmedPath, onNav
           </fieldset>
         </div>
         {problem && <p className="asx-edit-problem" role="alert"><AlertCircle size={14} />{problem}</p>}
-      </div> : <ConfirmPreview card={card} onEditParty={canEdit ? startEdit : undefined} />}
-      {/* ฟีเจอร์ทดลอง บันทึกลงชีตของคุณ: the row this card writes into the customer's sheet (nothing for everyone else). */}
-      {live && !editing && <SheetRowCard proposalId={card.id} phase={state === 'pending' || state === 'working' || state === 'done' ? state : 'other'} />}
-      {editing ? (
+      </div> : sheetMode ? null : <ConfirmPreview card={card} onEditParty={canEdit ? startEdit : undefined} />}
+      {/* No row to show yet: what the sheet still needs (nothing for accounts without the feature). */}
+      {live && !editing && !sheetMode && state === 'pending' && sheet.hint && <p className="lab lab-sr-note">{sheet.hint}</p>}
+      {sheetMode && (state === 'pending' || state === 'working') ? (
+        <div className="lab lab-sp-actions">
+          <button type="button" className="is-primary" onClick={() => onConfirm()} disabled={state === 'working'}>
+            {state === 'working' ? <Loader2 size={15} className="animate-spin" aria-hidden="true" /> : <Check size={15} aria-hidden="true" />}{state === 'working' ? tr("กำลังเขียน…") : tr("ยืนยันเขียนลงชีต")}
+          </button>
+          {canEdit && <button type="button" onClick={() => startEdit()}>{tr("แก้ไข")}</button>}
+          {onCancel && state === 'pending' && <button type="button" onClick={onCancel}>{tr("ยกเลิก")}</button>}
+        </div>
+      ) : sheetMode && state === 'done' ? (
+        <SheetDoneBlock sheet={sheet} extra={confirmedPath ? <button type="button" className="lab-btn" onClick={() => onNavigate(confirmedPath)}>{openLabel(confirmedPath)}</button> : undefined} />
+      ) : editing ? (
         <div className="asx-rcard-actions">
           <button type="button" className="asx-pill-btn is-primary" onClick={() => void saveEdit()} disabled={saving}>
             {saving && <Loader2 size={14} className="animate-spin" aria-hidden="true" />}{tr("ตรวจสอบข้อมูล")}
@@ -554,6 +570,8 @@ function Confirm({ card, state, onConfirm, onCancel, onAsk, confirmedPath, onNav
           {state === 'expired' && <><p>{tr("รายการนี้หมดเวลายืนยันแล้ว ขอให้เลขาเตรียมใหม่ได้")}</p>{onAsk && <button type="button" className="asx-pill-btn" onClick={() => onAsk(tr("ช่วยเตรียม \"{0}\" ใหม่อีกครั้ง", card.title))}>{tr("เตรียมใหม่")}</button>}</>}
         </div>
       )}
+      {/* Written to the sheet with no preview on this card (an older card, or the preview did not load). */}
+      {live && !sheetMode && state === 'done' && sheet.write && <SheetDoneBlock sheet={sheet} />}
     </div>
   );
 }

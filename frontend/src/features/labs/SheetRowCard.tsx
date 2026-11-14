@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, ExternalLink, FileSpreadsheet, Lock, Pencil, Undo2 } from 'lucide-react';
+import { Check, ExternalLink, Undo2 } from 'lucide-react';
 import { labOn } from '../../../../shared/labs';
 import { tr } from '../../i18n/tr';
 import { getCurrentAccount } from '../../services/api';
@@ -7,14 +7,27 @@ import { googleApi, type SheetRowPreview, type SheetRowWrite } from '../../servi
 import { useLabs } from '../../services/labs';
 import './labs.css';
 
-// บันทึกลงชีตของคุณ on เลขา's confirmation card (ฟีเจอร์ทดลอง sheetWrite, plan phase 3; the owner's favourite card from the
-// prototype): before ยืนยัน, the customer's own sheet as it is (header, the last rows) with the new row tinted under them,
-// "จะกรอกตรงนี้", and formula cells marked as the sheet's own. After ยืนยัน, where it went, เปิดชีต and ย้อนกลับ for 30
-// minutes. Only for accounts with the feature on and a sheet ready; everyone else sees the card exactly as before.
+// บันทึกลงชีตของคุณ on เลขา's confirmation card (ฟีเจอร์ทดลอง sheetWrite, plan phase 3), laid out as the prototype's ask
+// screen (owner, 2026-11-14, with a photo of it: the first version was "ช่องเล็กเกิน ... ไม่สมจริง ... อันนี้เลย"): the card
+// takes the chat's full width; its head names the file and tab with "ยังไม่ได้เขียน"; the customer's sheet as it is, the
+// column letters with their headers, the last rows faded and the new row tinted green; formula cells "คำนวณเอง"; a note on
+// the formula columns; then ✓ ยืนยันเขียนลงชีต · แก้ไข · ยกเลิก. After ยืนยัน the same table says เขียนแล้ว, with เปิดชีต and
+// ย้อนกลับ for 30 minutes. Only for accounts with the feature on and a sheet ready; everyone else sees the card as before.
 
-type Phase = 'pending' | 'working' | 'done' | 'other';
+export type SheetPhase = 'pending' | 'working' | 'done' | 'other';
 
-export function SheetRowCard({ proposalId, phase }: { proposalId: string; phase: Phase }) {
+export interface SheetRow {
+  on: boolean;
+  preview: SheetRowPreview | null;
+  hint: string | null;
+  write: SheetRowWrite | null;
+  undoing: boolean;
+  problem: string | null;
+  undo: () => Promise<void>;
+}
+
+/** The preview before ยืนยัน and the write after, for one confirmation card. */
+export function useSheetRow(proposalId: string, phase: SheetPhase): SheetRow {
   const account = getCurrentAccount() ?? null;
   const labs = useLabs(account);
   const on = Boolean(account) && labOn(labs, 'sheetWrite');
@@ -42,7 +55,6 @@ export function SheetRowCard({ proposalId, phase }: { proposalId: string; phase:
     return () => { live = false; };
   }, [on, account, proposalId, phase]);
 
-  if (!on) return null;
   const undo = async () => {
     if (!account) return;
     setUndoing(true); setProblem(null);
@@ -50,48 +62,71 @@ export function SheetRowCard({ proposalId, phase }: { proposalId: string; phase:
     catch (error) { setProblem((error as Error).message || tr("กรุณาลองใหม่อีกครั้ง")); }
     finally { setUndoing(false); }
   };
+  return { on, preview, hint, write, undoing, problem, undo };
+}
 
-  if (phase === 'done') {
-    if (!write) return null;
-    if (write.status === 'failed') return <p className="lab lab-sr-note is-red" role="status">{tr("บันทึกในแอปแล้ว แต่ยังไม่ได้ลงชีต: {0}", tr(write.error))}</p>;
-    return (
-      <div className="lab lab-sr-done" role="status" data-testid="sheet-row-done">
-        <p>{write.status === 'undone'
-          ? tr("ย้อนกลับแล้ว แถว {0} ในชีตว่างแล้ว รายการในแอปยังอยู่", write.row)
-          : <><Check className="h-4 w-4" aria-hidden="true" />{tr("ลงชีต {0} › {1} แถว {2} แล้ว", write.file, write.tab, write.row)}</>}</p>
-        <div className="lab-sr-actions">
-          {write.url && <a className="lab-btn" href={write.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-4 w-4" />{tr("เปิดชีต")}</a>}
-          {write.status === 'written' && write.canUndo && <button type="button" className="lab-btn" disabled={undoing} onClick={() => void undo()}><Undo2 className="h-4 w-4" />{undoing ? tr("กำลังย้อนกลับ…") : tr("ย้อนกลับ")}</button>}
-        </div>
-        {problem && <p className="lab-sr-note is-red">{problem}</p>}
-      </div>
-    );
-  }
-  if (phase !== 'pending' && phase !== 'working') return null;
-  if (!preview) return hint ? <p className="lab lab-sr-note">{hint}</p> : null;
+const isMoney = (text: string | null) => !!text && /^-?[฿]?\s?[\d,]+(?:\.\d+)?$|^-$/.test(text.trim());
+
+/** The head and the sheet with the new row: the card's body in its sheet layout, as the prototype's ask screen. */
+export function SheetPreviewBlock({ preview, phase, write }: { preview: SheetRowPreview; phase: SheetPhase; write: SheetRowWrite | null }) {
+  const written = phase === 'done' && write?.status === 'written';
+  const undone = phase === 'done' && write?.status === 'undone';
+  const formulas = preview.columns.filter(column => column.formula).map(column => column.letter);
+  const chip = written ? <span className="lab-sp-chip is-done"><Check size={12} aria-hidden="true" />{tr("เขียนแล้ว")}</span>
+    : undone ? <span className="lab-sp-chip">{tr("ย้อนกลับแล้ว")}</span>
+    : phase === 'working' ? <span className="lab-sp-chip is-waiting">{tr("กำลังเขียน…")}</span>
+    : <span className="lab-sp-chip is-waiting">{tr("ยังไม่ได้เขียน")}</span>;
   return (
-    <div className="lab lab-sr" data-testid="sheet-row-preview">
-      <p className="lab-sr-head"><FileSpreadsheet className="h-4 w-4" aria-hidden="true" /><span>{tr("จะบันทึกลงชีต {0} › {1} ด้วย", preview.file, preview.tab)}</span></p>
-      <div className="lab-sr-wrap">
-        <table className="lab-sr-table">
+    <div className="lab lab-sp" data-testid="sheet-row-preview">
+      <div className="lab-sp-head">
+        <img src="/brand/partners/google-sheets.png" alt="" width={20} height={20} />
+        <b>{tr("เพิ่ม 1 แถว · {0} › {1}", preview.file, preview.tab)}</b>
+        {chip}
+      </div>
+      <div className="lab-sp-sheet">
+        <table className="lab-sp-table">
           <thead>
-            <tr><th className="lab-sr-num" aria-label={tr("แถว")} />{preview.columns.map(column => <th key={column.index} className="lab-sr-letter">{column.letter}</th>)}</tr>
-            <tr className="lab-sr-header"><th className="lab-sr-num" />{preview.columns.map(column => <th key={column.index}>{column.header}</th>)}</tr>
+            <tr><th aria-label={tr("แถว")} />{preview.columns.map(column => (
+              <th key={column.index}>{column.letter} {column.header}{column.formula ? ` (${tr("สูตร")})` : ''}</th>
+            ))}</tr>
           </thead>
           <tbody>
             {preview.before.map(item => (
-              <tr key={item.row} className="lab-sr-old"><td className="lab-sr-num">{item.row}</td>{item.cells.map((cell, index) => <td key={index}>{cell}</td>)}</tr>
+              <tr key={item.row} className="is-old"><th>{item.row}</th>{item.cells.map((cell, index) => <td key={index} className={isMoney(cell) ? 'is-num' : undefined}>{cell}</td>)}</tr>
             ))}
-            <tr className="lab-sr-new">
-              <td className="lab-sr-num"><Pencil className="h-3 w-3" aria-hidden="true" />{preview.row}</td>
+            <tr className={`is-new${undone ? ' is-undone' : ''}`}>
+              <th>{preview.row}</th>
               {preview.cells.map((cell, index) => (
-                <td key={index}>{cell === null ? <span className="lab-sr-formula"><Lock className="h-3 w-3" aria-hidden="true" />{tr("คำนวณเอง")}</span> : cell}</td>
+                <td key={index} className={cell === null ? 'is-num is-auto' : isMoney(cell) ? 'is-num' : undefined}>{cell === null ? tr("คำนวณเอง") : cell}</td>
               ))}
             </tr>
           </tbody>
         </table>
       </div>
-      <span className="lab-sr-pill">{tr("จะกรอกตรงนี้ · แถว {0}", preview.row)}</span>
+      {!written && !undone && <p className="lab-sp-note">{formulas.length
+        ? tr("คอลัมน์ {0} เป็นสูตร น้องเลขาจะไม่เขียนทับ · บันทึกในแอปด้วย", formulas.join(', '))
+        : tr("แถวอื่นในชีตไม่ถูกแก้ · บันทึกในแอปด้วย")}</p>}
+    </div>
+  );
+}
+
+/** Where the row went, เปิดชีต and ย้อนกลับ; or why it was not written. */
+export function SheetDoneBlock({ sheet, extra }: { sheet: SheetRow; extra?: React.ReactNode }) {
+  const write = sheet.write;
+  if (!write) return extra ? <div className="asx-rcard-result is-done" role="status">{extra}</div> : null;
+  if (write.status === 'failed') return <p className="lab lab-sr-note is-red" role="status">{tr("บันทึกในแอปแล้ว แต่ยังไม่ได้ลงชีต: {0}", tr(write.error))}</p>;
+  return (
+    <div className="lab lab-sp-done" role="status" data-testid="sheet-row-done">
+      <p>{write.status === 'undone'
+        ? tr("ย้อนกลับแล้ว แถว {0} ในชีตว่างแล้ว รายการในแอปยังอยู่", write.row)
+        : <><Check className="h-4 w-4" aria-hidden="true" />{tr("ลงชีต {0} › {1} แถว {2} แล้ว", write.file, write.tab, write.row)}</>}</p>
+      {write.status === 'written' && write.canUndo && <span className="lab-sp-undo-note">{tr("ย้อนกลับได้ภายใน 30 นาที แถวในชีตจะว่างเหมือนเดิม")}</span>}
+      <div className="lab-sr-actions">
+        {write.url && <a className="lab-btn is-primary" href={write.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-4 w-4" />{tr("เปิดชีต")}</a>}
+        {write.status === 'written' && write.canUndo && <button type="button" className="lab-btn" disabled={sheet.undoing} onClick={() => void sheet.undo()}><Undo2 className="h-4 w-4" />{sheet.undoing ? tr("กำลังย้อนกลับ…") : tr("ย้อนกลับ")}</button>}
+        {extra}
+      </div>
+      {sheet.problem && <p className="lab-sr-note is-red">{sheet.problem}</p>}
     </div>
   );
 }
