@@ -9,6 +9,7 @@ import { HttpError } from '../http/guard.js';
 import { accountSnapshot } from '../repositories/accounts.js';
 import { isOwnerUserId, systemRole } from '../repositories/roles.js';
 import { isOwnerAccount } from '../security/adminAnalyticsAccess.js';
+import { stagingUnlocked } from '../security/stagingUnlock.js';
 import { loadTokenGrants } from '../repositories/tokenGrants.js';
 import { loadSmartSwitch } from '../repositories/aiSwitch.js';
 import { loadLabs } from '../repositories/labs.js';
@@ -52,6 +53,9 @@ export async function assistantPlan(user: User, now = Date.now()): Promise<PlanI
   ]);
   if (error) throw error;
   const grants = given.length ? given.map(grant => ({ tokens: grant.tokens, at: grant.at })) : undefined;
+  // The owner's test account on staging has what the owner's account has on the real site, เลขา's allowance too (owner,
+  // 2026-11-13: "ปลดล็อกทั้งหมด"; 2026-11-14: its LINE chat was held to the free 25 tokens). Never on the real site.
+  if (stagingUnlocked(user.id)) return { plan: 'admin', ...(grants ? { grants } : {}) };
   // The owner's account alone has the admin allowance; a team admin is an ordinary account here (owner, 2026-11-04:
   // "ไม่มีสิทธิ์ได้โทเค็นนอกจากถ้ากูไม่อนุญาต"): its own plan, plus only the tokens the owner gives it.
   if (role === 'admin' && isOwnerAccount(user)) return { plan: 'admin', ...(grants ? { grants } : {}) };

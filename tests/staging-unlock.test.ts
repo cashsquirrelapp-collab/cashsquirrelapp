@@ -38,3 +38,9 @@ test('the real site is never unlocked, even with both settings copied onto it', 
   assert.equal(stagingUnlocked(ID, { ...staging, ...unlock, STRIPE_MODE: 'live' }), false);
   assert.equal(stagingUnlocked(ID, unlock), false);
 });
+
+test('the unlocked account has the owner\'s เลขา allowance on the test site', async () => {
+  const { readFileSync } = await import('node:fs');
+  const source = readFileSync(new URL('../backend/src/ai/supabaseDb.ts', import.meta.url), 'utf8');
+  assert.match(source, /if \(stagingUnlocked\(user\.id\)\) return \{ plan: 'admin'/);
+});
