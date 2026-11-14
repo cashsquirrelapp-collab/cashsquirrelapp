@@ -20,6 +20,12 @@ let statusCache: { account: string; at: number; status: GoogleStatus } | null = 
 const listeners = new Set<() => void>();
 const STATUS_TTL = 60_000;
 
+/** A connection just changed elsewhere (the sheet map saved from เลขา's chat): the Jobs page reads it at once. */
+export function rememberGoogleStatus(account: string, status: GoogleStatus): void {
+  statusCache = { account, at: Date.now(), status };
+  listeners.forEach(fn => fn());
+}
+
 /** The account's Google connection, read once a minute and shared by the page and the job details. */
 function useGoogleStatus(account: string | null, on: boolean): GoogleStatus | null {
   const [, force] = React.useReducer((n: number) => n + 1, 0);

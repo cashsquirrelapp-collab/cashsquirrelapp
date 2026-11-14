@@ -38,6 +38,8 @@ import type { Briefing } from '../../../../shared/briefing';
 import { greetingNow, noteQuestion } from './greeting';
 import './assistant.css';
 import { noteAssistantSent } from './proGuideEvents';
+import { SheetAskProvider, useSheetAsk } from '../labs/SheetChatAsk';
+import { onSheetAsk, takeSheetAsk } from '../labs/sheetAsk';
 
 /** The longest message เลขา takes (a pasted list is fine); the server allows the same (handlers/assistant.ts). */
 const MAX_MESSAGE = 6000;
@@ -351,10 +353,15 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
   // The chat carried from the small window (owner, 2026-10-27: "2 หน้านี้มันควรเป็นหน้าเดียวกัน"): it opens here as it
   // stood and stays first in the history once the account's chats load (the server keeps it under the same id).
   const carriedRef = React.useRef<Conversation | null>(null);
+  // เลขา's questions about a sheet just connected (labs/SheetChatAsk.tsx) live on this device only: a history loaded
+  // afterwards keeps them too.
+  const localIds = React.useRef(new Set<string>());
   const withCarried = (list: Conversation[], current: Conversation[] | null) => {
     const carriedId = carriedRef.current?.id;
     const carried = carriedId ? current?.find(conversation => conversation.id === carriedId) ?? carriedRef.current : null;
-    return carried ? [carried, ...list.filter(conversation => conversation.id !== carried.id)] : list;
+    const all = carried ? [carried, ...list.filter(conversation => conversation.id !== carried.id)] : list;
+    const local = (current ?? []).filter(conversation => localIds.current.has(conversation.id) && !all.some(item => item.id === conversation.id));
+    return [...local, ...all];
   };
   React.useEffect(() => {
     if (!handoff) return;
@@ -677,6 +684,29 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
     } catch { if (!controller.signal.aborted) { setConfirmStates(states => ({ ...states, [card.id]: 'failed' })); settled(false); } }
     finally { confirmControllers.current.delete(controller); }
   };
+
+  // ฟีเจอร์ทดลอง แผนที่ชีต (owner, 2026-11-14: "ย้ายคำถามไปขึ้นในหน้าแชทเลขาเลย"): a sheet picked in Settings is handed
+  // over here; เลขา says what it read and asks one question at a time, on this device, with no tokens.
+  const sheetAsk = useSheetAsk({
+    accountId,
+    newChatId: () => (live && typeof crypto?.randomUUID === 'function' ? `c_${crypto.randomUUID()}` : id('chat')),
+    newId: id,
+    open: chat => {
+      localIds.current.add(chat.id);
+      setConversations(list => [{ id: chat.id, title: chat.title, group: 'today', sample: false, messages: [], loaded: true }, ...(list ?? []).filter(item => item.id !== chat.id)]);
+      openConversation(chat.id);
+    },
+    append: (chat, list) => patch(chat, messages => [...messages, ...list]),
+    setMode: next => setMode(next),
+    settled: ok => settled(ok),
+  });
+  const startSheetAsk = sheetAsk.start;
+  React.useEffect(() => {
+    if (!accountId) return;
+    const take = () => { const pending = takeSheetAsk(accountId); if (pending) startSheetAsk(pending.fileName); };
+    take();
+    return onSheetAsk(take);
+  }, [accountId, startSheetAsk]);
 
   const openConversation = (conversationId: string | null) => {
     voice.cancel(); voice.clearReview(); voice.clearError();
@@ -1114,6 +1144,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
           </AnimatePresence>
         </div>
 
+        <SheetAskProvider value={sheetAsk.value}>
         <div ref={listRef} className="asx-scroll" onScroll={onScroll} role="log" aria-label={tr("บทสนทนากับเลขากระรอก")}>
           {welcome ? (
             <div className="asx-welcome">
@@ -1182,7 +1213,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                   <span className="asx-avatar" aria-hidden="true"><Mascot gear={mobile ? 'pro' : 'none'} mood="happy" animated={false} size={30} viewBox="12 8 76 76" /></span>
                   <div className="asx-msg-body">
                     {message.work && <WorkDone work={message.work} />}
-                    {(message.text || message.id === streamingId) && <Markdown text={message.text} onNavigate={go} navigationContext={navigationContext} cards={message.cards} />}
+                    {(message.text || message.id === streamingId) && <Markdown text={message.text} onNavigate={message.local ? undefined : go} navigationContext={navigationContext} cards={message.cards} />}
                     {message.id === streamingId && <i className="asx-caret" aria-hidden="true" />}
                     {message.cards?.map((card, c) => (
                       <ChatCardView key={c} live={live} card={card} confirmState={card.kind === 'confirm' ? confirmStates[card.id] : undefined} confirmedPath={card.kind === 'confirm' ? confirmedPaths[card.id] : undefined}
@@ -1194,7 +1225,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                     {live && <ConfirmAll cards={message.cards} states={confirmStates} onConfirm={item => void confirm(item)} />}
                     {message.id !== streamingId && (
                       // No read-aloud button any more (owner, 2026-10-27: "เอาปุ่มที่กดฟังเสียงออก ที่มันเป็นโทรโข่ง").
-                      <span className="asx-meta">{live ? time(message.at) : <>{time(message.at)} · {tr("คำตอบตัวอย่าง")}</>}</span>
+                      <span className="asx-meta">{live || message.local ? time(message.at) : <>{time(message.at)} · {tr("คำตอบตัวอย่าง")}</>}</span>
                     )}
                   </div>
                 </li>
@@ -1215,6 +1246,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
             </ol>
           )}
         </div>
+        </SheetAskProvider>
 
         {newBelow && !welcome && !undo && <button type="button" className="asx-newbelow lg-glass" onClick={toBottom}><ArrowDown size={15} />{tr("ข้อความใหม่")}</button>}
         <div className="asx-undo-wrap" aria-live="polite">

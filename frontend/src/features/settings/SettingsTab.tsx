@@ -14,6 +14,7 @@ import { ConsentSettings } from './ConsentSettings';
 import { LabsSettings } from './LabsSettings';
 import { TemplateDialog } from '../labs/TemplateDialog';
 import { SheetsPanel } from '../labs/SheetsPanel';
+import { requestSheetAsk } from '../labs/sheetAsk';
 import { useLabs } from '../../services/labs';
 import { wht50ReminderOn } from '../../../../shared/notifDefaults';
 import { authClient } from '../../services/auth';
@@ -1048,7 +1049,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             onSaveProfile={profile => onUpdateSettings({ ...settings, business: profile })} jobs={jobs} expenses={expenses}
             drive={labs.on.includes('sheets') ? { account: session.user.id, onOpenSheets: () => { setTemplateOpen(false); setSheetsSource('google'); setSheetsOpen(true); } } : undefined} />}
           {isAccount && (labs.on.includes('sheets') || labs.on.includes('excel')) && <SheetsPanel open={sheetsOpen} onClose={() => { setSheetsOpen(false); setGoogleResult(null); }} account={session.user.id} labs={labs}
-            result={googleResult} initialSource={sheetsSource} onCreateTemplate={labs.on.includes('templates') ? () => { setSheetsOpen(false); setTemplateOpen(true); } : undefined} />}
+            result={googleResult} initialSource={sheetsSource} onCreateTemplate={labs.on.includes('templates') ? () => { setSheetsOpen(false); setTemplateOpen(true); } : undefined}
+            onAskInChat={fileName => { requestSheetAsk(session.user.id, fileName); setSheetsOpen(false); setGoogleResult(null); onSwitchTab('assistant'); }} />}
         </div>
       );
 

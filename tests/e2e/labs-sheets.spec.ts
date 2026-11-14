@@ -100,26 +100,46 @@ const ODD_TABS = [{ name: 'Income', truncated: false, rows: [
 ] }];
 
 for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'phone', width: 390, height: 844 }]) {
-  test(`a sheet with other columns on the ${device.name}: เลขา names the formula columns, asks only what it is not sure of, then saves`, async ({ page }) => {
-    const { posts } = await open(page, device, { connected: true, file: true, tabs: ODD_TABS });
+  test(`a sheet with other columns on the ${device.name}: the window hands over, เลขา asks in its chat, one tap at a time, then saves`, async ({ page }) => {
+    const { posts, bodies } = await open(page, device, { connected: true, file: true, tabs: ODD_TABS });
     const panel = await openPanel(page);
-    const setup = panel.getByTestId('sheet-chat-setup');
-    await expect(setup).toContainText(`อ่านชีต ${FILE.name} แล้วครับ เข้าใจเกือบหมด`);
-    await expect(setup).toContainText('ช่อง ภาษี 3% กับ โอนจริง ชีตคิดให้เองอยู่แล้ว ผมจะไม่ไปแก้');
-    await expect(setup).toContainText('ขอถามข้อเดียวครับ');
-    await expect(setup).toContainText('ช่อง "ZZ" คือวันที่ ใช่ไหมครับ');
+    // The window only says the question waits in เลขา's chat (owner, 2026-11-14: "ย้ายคำถามไปขึ้นในหน้าแชทเลขาเลย").
+    const handoff = panel.getByTestId('sheet-ask-handoff');
+    await expect(handoff).toContainText(`อ่านชีต ${FILE.name} แล้วครับ`);
+    await expect(handoff).toContainText('มีคำถามข้อเดียว ไปตอบในแชทเลขาได้เลยครับ');
+    await expect(panel.getByTestId('sheets-save-map')).toHaveCount(0);
     await page.waitForFunction(() => { const dialog = document.querySelector('[role="dialog"]'); return Boolean(dialog && getComputedStyle(dialog).opacity === '1' && getComputedStyle(dialog.parentElement!).opacity === '1'); });
+    expect(await textOverlapIssues(page)).toEqual([]);
+    await page.screenshot({ path: `test-results/labs-sheets-handoff-${device.name}.png` });
+    await handoff.getByTestId('sheet-ask-in-chat').click();
+
+    await page.waitForURL(/\/assistant/);
+    await expect(page.getByTestId('sheets-panel')).toHaveCount(0);
+    const thread = page.getByRole('log', { name: 'บทสนทนากับเลขากระรอก' });
+    await expect(thread).toContainText(`อ่านชีต ${FILE.name} แล้วครับ เข้าใจเกือบหมด`);
+    await expect(thread).toContainText('แท็บ Income เป็นงานและรายรับ');
+    await expect(thread).toContainText('ช่อง ภาษี 3% กับ โอนจริง ชีตคิดให้เองอยู่แล้ว ผมจะไม่ไปแก้');
+    await expect(thread).toContainText('ขอถามข้อเดียวครับ');
+    const card = thread.getByTestId('sheet-ask-card');
+    await expect(card).toContainText('ช่อง "ZZ" คือวันที่ ใช่ไหมครับ');
+    // Real data read from the sheet, whatever the chat's connection: never labelled as a sample answer.
+    await expect(thread.locator('.asx-msg.is-bot').filter({ hasText: 'อ่านชีต' })).not.toContainText('คำตอบตัวอย่าง');
+    await page.evaluate(() => document.fonts.ready);
     expect(await textOverlapIssues(page)).toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
     await page.screenshot({ path: `test-results/labs-sheets-ask-${device.name}.png` });
-    await setup.getByRole('button', { name: 'ไม่ใช่' }).click();
-    await expect(setup).toContainText('แล้วช่อง "ZZ" คืออะไรครับ');
-    await setup.getByRole('button', { name: 'ไม่ใช้' }).click();
+
+    await card.getByRole('radio', { name: 'ไม่ใช่' }).click();
+    const choose = thread.getByTestId('sheet-ask-card').last();
+    await expect(choose).toContainText('แล้วช่อง "ZZ" คืออะไรครับ');
+    await choose.getByRole('radio', { name: 'ไม่ใช้' }).click();
     // The last answer saves the map, with the answer in it.
-    await expect(setup.getByRole('status')).toContainText('บันทึกแล้วครับ');
+    await expect(thread).toContainText('บันทึกแล้วครับ เลขาจะอ่านชีตนี้ตามนี้');
     const saved = posts.find(post => post.action === 'saveMap')?.map as { tabs: { columns: { index: number; target: string; formula?: boolean }[] }[] };
     expect(saved.tabs[0].columns.find(column => column.index === 6)?.target).toBe('ignore');
     expect(saved.tabs[0].columns.find(column => column.index === 5)?.formula).toBe(true);
+    // Rule-based, on this device: nothing of it went to the AI.
+    expect(bodies.some(body => body.includes('"action":"message"'))).toBe(false);
     expect(await textOverlapIssues(page)).toEqual([]);
     await page.screenshot({ path: `test-results/labs-sheets-asked-${device.name}.png` });
   });
@@ -148,10 +168,10 @@ for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'p
     expect(await page.evaluate(() => (window as unknown as { __referrerAtPick?: string }).__referrerAtPick)).toBe('strict-origin');
     expect(await page.evaluate(() => document.querySelector<HTMLMetaElement>('meta[name="referrer"]')?.content)).toBe('no-referrer');
 
-    // เลขา says what it read first (owner, 2026-11-14: the table was "ดูยาก"); the full table is one tap away.
-    const setup = panel.getByTestId('sheet-chat-setup');
+    // เลขา asks in its chat (owner, 2026-11-14); the full table is still one tap away here.
+    const setup = panel.getByTestId('sheet-ask-handoff');
     await expect(setup).toContainText(`อ่านชีต ${FILE.name} แล้วครับ`);
-    await expect(setup).toContainText('ช่อง หัก ณ ที่จ่าย ชีตคิดให้เองอยู่แล้ว ผมจะไม่ไปแก้');
+    await expect(setup.getByTestId('sheet-ask-in-chat')).toBeVisible();
     await expect(panel.getByTestId('sheets-save-map')).toHaveCount(0);
     await setup.getByRole('button', { name: 'ดูทั้งตาราง' }).click();
     const table = device.name === 'phone' ? panel.getByTestId('sheet-map-list') : panel.getByTestId('sheet-map-table');

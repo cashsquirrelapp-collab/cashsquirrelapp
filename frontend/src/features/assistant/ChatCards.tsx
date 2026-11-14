@@ -6,6 +6,7 @@ import { saveAccountName } from './accountName';
 import { tr, T } from '../../i18n/tr';
 import { partyAnswer, paymentAnswer, thaiDateAnswer, type AskQuestion, type PartyValues } from '../../../../shared/askQuestions';
 import { SheetActions, SheetDoneBlock, SheetPreviewBlock, useSheetRow, type SheetPhase } from '../labs/SheetRowCard';
+import { SheetAskCardView } from '../labs/SheetChatAsk';
 import { isPendingConfirm, type ChatCard, type ConfirmCard, type DocumentCard, type EditField, type MoneyChartCard, type OfficialLinkCard, type ProjectCard, type QuestionsCard, type RenameCard, type SummaryCard, type AttachCard, type SourcesCard, type MessageDraftCard } from './assistantMock';
 import { formatTHB } from '../../../../shared/thb';
 import { isValidWhtRate } from '../../../../shared/wht';
@@ -880,5 +881,6 @@ function CardBody({ card, confirmState, confirmedPath, onConfirm, onCancel, onNa
     case 'message_draft': return <MessageDraft card={card} />;
     case 'rename': return <Rename card={card} />;
     case 'attach': return <Attach card={card} onNavigate={onNavigate} />;
+    case 'sheet_ask': return <SheetAskCardView card={card} />;
   }
 }

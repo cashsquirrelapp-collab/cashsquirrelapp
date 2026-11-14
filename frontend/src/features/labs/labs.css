@@ -378,3 +378,6 @@
 .lab-sp-differs b { display: block; font-weight: 600; }
 .lab-sp-differs p { margin: 2px 0 0; overflow-wrap: anywhere; }
 .lab-sp-differs p.is-muted { color: var(--muted); font-size: 12.5px; }
+
+/* เลขาถามเรื่องชีตในแชท: the one-button steps (ใช้ตามนี้, ลองอีกครั้ง) under เลขา's line. */
+.asx-sheet-go { align-self: flex-start; margin-top: 8px; }

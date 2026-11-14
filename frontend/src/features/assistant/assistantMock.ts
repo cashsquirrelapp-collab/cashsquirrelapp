@@ -6,6 +6,7 @@ import { tr, T } from '../../i18n/tr';
 import { lineReplyFor, sampleLineNotices, type LineCardData } from './lineMock';
 import type { NavigationCard } from './assistantNavigation';
 import type { AskQuestion } from '../../../../shared/askQuestions';
+import type { SheetAskCard } from '../labs/sheetAsk';
 
 // เลขากระรอก chat (owner's brief "KRAROK — AI SECRETARY CHAT UI BRIEF", 2026-10-23): the screen only.
 // Every conversation, card and token figure here is labelled sample data. A real AI replaces this file
@@ -46,13 +47,18 @@ export type AttachCard = { kind: 'attach'; id: string; fileKind: 'wht50' | 'cont
 export type SourcesCard = { kind: 'sources'; items: { title: string; url: string }[] };
 /** A message to copy and send yourself (2026-11-02: "ช่วยทวงเงิน"): fixed courteous wording and saved figures (server). */
 export type MessageDraftCard = { kind: 'message_draft'; id: string; title: string; text: string; note: string };
-export type ChatCard = ProjectCard | DocumentCard | SummaryCard | MoneyChartCard | ConfirmCard | LineChatCard | NavigationCard | QuestionsCard | OfficialLinkCard | RenameCard | AttachCard | SourcesCard | MessageDraftCard;
+/** SheetAskCard: เลขา's questions about a sheet just connected (labs/sheetAsk.ts), made on this device, never sent to or
+ *  stored by the server. */
+export type ChatCard = ProjectCard | DocumentCard | SummaryCard | MoneyChartCard | ConfirmCard | LineChatCard | NavigationCard | QuestionsCard | OfficialLinkCard | RenameCard | AttachCard | SourcesCard | MessageDraftCard | SheetAskCard;
 
 /** `failed` + `question`: a send that did not go through, kept so it can be retried. */
 /** `attachment`: the name and kind of a file sent with the message (the file itself is not kept). */
 export type ChatMessage = { id: string; from: 'me' | 'bot'; text: string; cards?: ChatCard[]; at: number; failed?: boolean; question?: string; note?: string; attachment?: { name: string; kind: 'image' | 'pdf' | 'text'; preview?: string; summary?: string; check?: FileCheck }; attachments?: { name: string; kind: 'image' | 'pdf' | 'text'; preview?: string; summary?: string; check?: FileCheck }[]; work?: FinishedWork; textAuto?: boolean;
   /** เลขา's note of what an attached file showed: never drawn, sent with the chat's later messages (2026-10-24). */
-  memo?: string };
+  memo?: string;
+  /** Made on this device from the account's own data (เลขา's sheet questions, labs/SheetChatAsk.tsx): real whatever the
+   *  connection, and its bold names are never page links. */
+  local?: true };
 export type ChatGroup = 'today' | 'yesterday' | 'week' | 'earlier';
 /** `kind: 'line'`: the pinned automatic-notifications thread, drawn like a LINE chat. */
 /** `loaded: false`: a stored chat whose messages are fetched when it is opened. */

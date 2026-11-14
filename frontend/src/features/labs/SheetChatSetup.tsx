@@ -1,5 +1,5 @@
 import React from 'react';
-import { ListChecks } from 'lucide-react';
+import { ListChecks, MessageCircle } from 'lucide-react';
 import { Mascot } from '../../components/mascot/Mascot';
 import { tr } from '../../i18n/tr';
 import { FIELD_LABELS } from '../import/importShared';
@@ -11,7 +11,8 @@ import { OTHER_TARGETS, answerColumn, sheetSetupOf } from './sheetQuestions';
 // after a sheet is picked, เลขา says it has read the file, which tabs are what, which columns the sheet works out by itself
 // ("ชีตคิดให้เองอยู่แล้ว ผมจะไม่ไปแก้"), then asks only what it is not sure of, one question at a time, ใช่ / ไม่ใช่. After the
 // last answer the sheet map is saved; with nothing to ask, one tap (ใช้ตามนี้) saves it. The full table stays one tap away
-// (ดูทั้งตาราง). Shown where a sheet is connected: Settings › ฟีเจอร์ทดลอง and the page LINE opens.
+// (ดูทั้งตาราง). Shown on the page LINE opens (/connect-sheets); in the web app the questions are asked in เลขา's chat
+// (owner, 2026-11-14: "ย้ายคำถามไปขึ้นในหน้าแชทเลขาเลย"; SheetChatAsk.tsx), and the window hands over (SheetAskHandoff).
 
 /** The translated text with the argument in bold (a file or column name). */
 function Bold({ text, arg }: { text: string; arg: string }) {
@@ -105,6 +106,26 @@ export function SheetChatSetup({ fileName, readings, saved, busy, onSave, onShow
       ))}
 
       <button type="button" className="lab-ask-table" onClick={() => onShowTable(current)}>{tr("ดูทั้งตาราง")}</button>
+    </div>
+  );
+}
+
+/** In the web app: the questions wait in เลขา's chat; the window says so and opens it. The full table stays one tap away. */
+export function SheetAskHandoff({ fileName, readings, onAskInChat, onShowTable }: {
+  fileName: string; readings: TabReading[]; onAskInChat: () => void; onShowTable: () => void;
+}) {
+  const asked = React.useMemo(() => sheetSetupOf(readings).questions.length, [readings]);
+  return (
+    <div className="lab lab-ask" data-testid="sheet-ask-handoff">
+      <div className="lab-ask-bot">
+        <span className="lab-ask-avatar" aria-hidden="true"><Mascot mood="happy" animated={false} size={30} viewBox="12 8 76 76" /></span>
+        <div className="lab-ask-lines">
+          <p><Bold text={tr("อ่านชีต {0} แล้วครับ", fileName)} arg={fileName} /></p>
+          <p>{asked === 0 ? tr("เข้าใจทั้งหมดแล้ว ไปยืนยันในแชทเลขาได้เลยครับ") : asked === 1 ? tr("มีคำถามข้อเดียว ไปตอบในแชทเลขาได้เลยครับ") : tr("มีคำถาม {0} ข้อ ไปตอบในแชทเลขาได้เลยครับ", asked)}</p>
+        </div>
+      </div>
+      <button type="button" className="lab-btn is-primary lab-ask-go" onClick={onAskInChat} data-testid="sheet-ask-in-chat"><MessageCircle className="h-4 w-4" aria-hidden="true" />{tr("ไปที่แชทเลขา")}</button>
+      <button type="button" className="lab-ask-table" onClick={onShowTable}>{tr("ดูทั้งตาราง")}</button>
     </div>
   );
 }

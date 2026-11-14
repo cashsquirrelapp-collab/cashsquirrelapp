@@ -13,7 +13,7 @@ import { EXCEL_ACCEPT, ExcelReadError, excelMapFor, keepExcelMap, readExcelFile 
 import { pickSheet } from './googlePicker';
 import { mapOf, overviewOf, readTabs, setKind, setTarget, setUse, templateReadings, type TabReading } from './sheetMap';
 import { PartnerLogo } from '../../components/brand/PartnerLogo';
-import { SheetChatSetup } from './SheetChatSetup';
+import { SheetAskHandoff, SheetChatSetup } from './SheetChatSetup';
 import './labs.css';
 
 // ชีตบัญชีของคุณ (ฟีเจอร์ทดลอง; owner, 2026-11-12: "เราไปหาเขา"). Two ways in, each its own switch in ฟีเจอร์ทดลอง:
@@ -50,7 +50,7 @@ type Tone = 'green' | 'red' | 'plain';
 type Source = 'google' | 'excel';
 type Notice = { tone: Tone; text: string } | null;
 
-export function SheetsPanel({ open, onClose, account, labs, result, onCreateTemplate, initialSource, googleBack, onMapSaved }: {
+export function SheetsPanel({ open, onClose, account, labs, result, onCreateTemplate, initialSource, googleBack, onMapSaved, onAskInChat }: {
   open: boolean;
   onClose: () => void;
   account: string;
@@ -65,6 +65,8 @@ export function SheetsPanel({ open, onClose, account, labs, result, onCreateTemp
   googleBack?: 'connect';
   /** After the sheet map is saved (the LINE page shows its done screen). */
   onMapSaved?: () => void;
+  /** The web app: เลขา asks about a sheet not mapped yet in its chat, not here (owner, 2026-11-14). */
+  onAskInChat?: (fileName: string) => void;
 }) {
   const googleOn = labOn(labs, 'sheets');
   const excelOn = labOn(labs, 'excel');
@@ -88,7 +90,7 @@ export function SheetsPanel({ open, onClose, account, labs, result, onCreateTemp
     <Modal open={open} onClose={onClose} label={tr("ชีตบัญชีของคุณ")} width={wide[shown] ? 960 : 600}>
       <div className="lab lab-gs" data-testid="sheets-panel">
         {/* Both stay mounted while the window is open, so switching keeps a file already read. */}
-        {googleOn && <div className="lab-gs-pane" hidden={shown !== 'google'}><GoogleSource open={open} account={account} mapOn={mapOn} writeOn={writeOn} result={result} onCreateTemplate={onCreateTemplate} googleBack={googleBack} onMapSaved={onMapSaved} switcher={switcher} onWide={googleWide} /></div>}
+        {googleOn && <div className="lab-gs-pane" hidden={shown !== 'google'}><GoogleSource open={open} account={account} mapOn={mapOn} writeOn={writeOn} result={result} onCreateTemplate={onCreateTemplate} googleBack={googleBack} onMapSaved={onMapSaved} onAskInChat={onAskInChat} switcher={switcher} onWide={googleWide} /></div>}
         {excelOn && <div className="lab-gs-pane" hidden={shown !== 'excel'}><ExcelSource open={open} mapOn={mapOn} onCreateTemplate={onCreateTemplate} switcher={switcher} onWide={excelWide} /></div>}
       </div>
     </Modal>
@@ -166,9 +168,9 @@ function SaveMapButton({ ws, saved, busy, onSave }: { ws: Workspace; saved: bool
   );
 }
 
-function GoogleSource({ open, account, mapOn, writeOn = false, result, onCreateTemplate, switcher, onWide, googleBack, onMapSaved }: {
+function GoogleSource({ open, account, mapOn, writeOn = false, result, onCreateTemplate, switcher, onWide, googleBack, onMapSaved, onAskInChat }: {
   open: boolean; account: string; mapOn: boolean; writeOn?: boolean; result?: string | null; onCreateTemplate?: () => void; switcher: React.ReactNode; onWide: (wide: boolean) => void;
-  googleBack?: 'connect'; onMapSaved?: () => void;
+  googleBack?: 'connect'; onMapSaved?: () => void; onAskInChat?: (fileName: string) => void;
 }) {
   const ws = useWorkspace(mapOn);
   const [status, setStatus] = React.useState<GoogleStatus | null>(null);
@@ -294,7 +296,10 @@ function GoogleSource({ open, account, mapOn, writeOn = false, result, onCreateT
           </div>
         </div>
         {tabs && !ws.readings.length && <p className="lab-note">{tr("ไฟล์นี้ไม่มีแท็บที่อ่านได้")}</p>}
-        {asking ? (
+        {asking && onAskInChat && !justSaved ? (
+          <SheetAskHandoff key={`${status.file.id}:${readAt ?? ''}`} fileName={status.file.name} readings={ws.readings} onAskInChat={() => onAskInChat(status.file!.name)}
+            onShowTable={() => { ws.setView('map'); ws.setDirty(!status.map); setAskMode(false); }} />
+        ) : asking ? (
           <SheetChatSetup key={`${status.file.id}:${readAt ?? ''}`} fileName={status.file.name} readings={ws.readings} saved={Boolean(status.map)} busy={busy === 'save'}
             onSave={saveAnswered} onShowTable={readings => { ws.load(readings); ws.setView('map'); ws.setDirty(!status.map); setAskMode(false); }} />
         ) : <WorkspaceView ws={ws} mapOn={mapOn} saved={Boolean(status.map)} onEdit={() => setNotice(null)} />}
