@@ -1,6 +1,7 @@
 import { UNDO_MS, sheetRowUrl, type GoogleRecord, type SheetMap, type SheetWrite } from '../../../shared/googleSheets.js';
 import { chooseTab, dataColumns, displayValue, letter, rowCells, valueFor, type RowCell, type RowKind } from '../../../shared/sheetRow.js';
 import { evaluateRow, shiftFormula } from '../../../shared/sheetFormula.js';
+import { isValidWhtRate, roundMoney, whtAmountFor } from '../../../shared/wht.js';
 import { loadGoogle, saveGoogle } from '../repositories/google.js';
 import { GoogleError, accessToken, decryptToken, googleConfigured, googleOps, type SheetOps } from './googleSheets.js';
 
@@ -24,6 +25,73 @@ export interface RowPlan {
   computed?: Record<number, number | null>;
   /** Formula columns that will come out different from the app's own figure for the same thing. */
   differs?: { index: number; header: string; sheet: number; app: number }[];
+  /** The amount before withholding, when the typed amount may be what came in after it (grossOffer). */
+  gross?: GrossOffer;
+}
+
+/**
+ * ยอดสุทธิ → ยอดก่อนหัก (owner's plan for the customer's formulas, 2026-11-14: "ลูกค้าพิมพ์ในแชทว่า ได้โอนมา 9,700 แต่ชีตเขา
+ * กรอกค่าจ้างก่อนหัก → เลขาคิดย้อนให้ว่าค่าจ้างคือ 10,000 แล้วถามก่อน"; asked to build it 2026-11-15). When the customer's own
+ * formulas withhold from the amount (a withholding column of 3% of it, or a "transferred" column of 97% of it) and the app's
+ * record withholds nothing, the card asks whether the amount typed is what came in after withholding, and offers the amount
+ * before it. The figure comes from the formula, read by the fixed reader (shared/sheetFormula.ts) and checked both ways:
+ * the app's own withholding of it leaves exactly the typed amount, and the sheet's formulas are worked out again with it.
+ * Only a formula proportional to the amount counts (no fixed part, no threshold); otherwise nothing is offered.
+ */
+export interface GrossOffer {
+  /** The amount before withholding, and the app's rate and withholding for it. */
+  value: number; rate: number; wht: number;
+  /** The amount typed, which is what is left after withholding. */
+  net: number;
+  valueIndex: number; valueHeader: string;
+  /** The sheet's own "transferred" and withholding columns, with what they show for the new amount. */
+  netColumn?: { index: number; header: string; sheet: number };
+  whtColumn?: { index: number; header: string; sheet: number };
+}
+
+const AMOUNT_TARGETS = new Set(['value', 'amount', 'income']);
+
+export function grossOffer(input: { cells: RowCell[]; formulas: Record<number, string>; row: number; typed: Record<number, number | null>; record: Record<string, unknown> }): GrossOffer | null {
+  const { cells, formulas, row, typed, record } = input;
+  if (Number(record.whtRate) > 0 || Number(record.whtAmount) > 0) return null;
+  // An installment plan is checked against the amount; it is changed in the app, not from here.
+  if (Array.isArray(record.installments) && record.installments.length) return null;
+  const amounts = cells.filter(cell => !cell.formula && AMOUNT_TARGETS.has(cell.target));
+  if (amounts.length !== 1) return null;
+  const amount = amounts[0];
+  const net = asNumber(amount.value);
+  if (!net || net <= 0) return null;
+  const at = (value: number) => evaluateRow(formulas, row, { ...typed, [amount.index]: value });
+  const zero = at(0), probe = at(1000), double = at(2000);
+  let whtRate: number | null = null, netRate: number | null = null;
+  let whtCell: RowCell | undefined, netCell: RowCell | undefined;
+  for (const cell of cells) {
+    if (!cell.formula) continue;
+    const a = zero[cell.index], b = probe[cell.index], c = double[cell.index];
+    if (a === null || a === undefined || b === null || b === undefined || c === null || c === undefined) continue;
+    // Proportional to the amount: nothing at 0, twice as much at twice the amount.
+    if (Math.abs(a) > 0.005 || Math.abs(c - 2 * b) > 0.01) continue;
+    const share = b / 1000;
+    if (cell.target === 'whtAmount' && share > 0 && share <= 0.15 && !whtCell) { whtRate = share; whtCell = cell; }
+    else if (share >= 0.85 && share < 1 - 1e-9 && !netCell) { netRate = 1 - share; netCell = cell; }
+  }
+  const share = whtRate ?? netRate;
+  if (share === null || (whtRate !== null && netRate !== null && Math.abs(whtRate - netRate) > 1e-6)) return null;
+  const rate = Math.round(share * 10000) / 100;
+  if (Math.abs(share * 100 - rate) > 1e-6 || !isValidWhtRate(rate) || rate <= 0) return null;
+  // The amount whose withholding, as the app works it out, leaves exactly what was typed.
+  const first = roundMoney(net / (1 - rate / 100));
+  const value = [0, -0.01, 0.01, -0.02, 0.02].map(step => roundMoney(first + step)).find(candidate => roundMoney(candidate - whtAmountFor(candidate, rate)) === net);
+  if (value === undefined) return null;
+  const sheet = at(value);
+  const shown = (cell: RowCell | undefined) => (cell && typeof sheet[cell.index] === 'number' ? { index: cell.index, header: cell.header, sheet: sheet[cell.index]! } : undefined);
+  const netColumn = shown(netCell), whtColumn = shown(whtCell);
+  // The sheet must come out the same with the new amount: what came in, and the app's own withholding (a threshold the
+  // probes missed, such as "3% from 1,000 up", shows here).
+  if (netColumn && Math.abs(netColumn.sheet - net) > 0.011) return null;
+  if (whtColumn && Math.abs(whtColumn.sheet - whtAmountFor(value, rate)) > 0.011) return null;
+  return { value, rate, wht: whtAmountFor(value, rate), net, valueIndex: amount.index, valueHeader: amount.header,
+    ...(netColumn ? { netColumn } : {}), ...(whtColumn ? { whtColumn } : {}) };
 }
 
 const MONEY_TARGETS = new Set(['value', 'amount', 'income', 'expense', 'received', 'pending', 'whtAmount']);
@@ -51,6 +119,7 @@ export async function planRow(ops: SheetOps, map: SheetMap, kind: RowKind, recor
   // write will copy them. Read by the fixed formula reader; a formula it cannot read stays "คำนวณเอง".
   const formulaColumns = cells.filter(cell => cell.formula).map(cell => cell.index);
   let computed: Record<number, number | null> | undefined;
+  let gross: GrossOffer | null = null;
   const differs: NonNullable<RowPlan['differs']> = [];
   if (formulaColumns.length) {
     const own = await ops.formulaTexts(tab.name, row, formulaColumns).catch(() => ({} as Record<number, string>));
@@ -67,6 +136,7 @@ export async function planRow(ops: SheetOps, map: SheetMap, kind: RowKind, recor
       const app = asNumber(valueFor({ ...column, formula: false }, kind, record, samples[cell.index] ?? [], tab.kind === 'mixed')) ?? 0;
       if (Math.abs(sheet - app) >= 0.01) differs.push({ index: cell.index, header: cell.header, sheet, app });
     }
+    if (kind === 'job') gross = grossOffer({ cells, formulas, row, typed, record });
   }
   return {
     tab: tab.name,
@@ -77,6 +147,7 @@ export async function planRow(ops: SheetOps, map: SheetMap, kind: RowKind, recor
     header: Object.fromEntries(tab.columns.map(column => [column.index, column.header])),
     ...(computed ? { computed } : {}),
     ...(differs.length ? { differs } : {}),
+    ...(gross ? { gross } : {}),
   };
 }
 
@@ -118,6 +189,18 @@ export function previewOf(plan: RowPlan, file: { name: string; url: string }) {
       const shown = plan.before.map(row => row.cells[item.index] ?? '');
       return { header: item.header, sheet: moneyLike(item.sheet, shown), app: moneyLike(item.app, shown) };
     }),
+    /** ยอดก่อนหัก: the amount before withholding, as the card offers it (the edit it makes: value + wht_rate). */
+    ...(plan.gross ? { gross: grossShown(plan, plan.gross) } : {}),
+  };
+}
+
+function grossShown(plan: RowPlan, gross: GrossOffer) {
+  const style = (index: number, value: number) => moneyLike(value, plan.before.map(row => row.cells[index] ?? ''));
+  return {
+    value: gross.value, rate: gross.rate,
+    valueText: style(gross.valueIndex, gross.value), netText: style(gross.valueIndex, gross.net), whtText: style(gross.valueIndex, gross.wht),
+    valueHeader: gross.valueHeader,
+    ...(gross.netColumn ? { netHeader: gross.netColumn.header, sheetNet: style(gross.netColumn.index, gross.netColumn.sheet) } : {}),
   };
 }
 export type SheetPreview = ReturnType<typeof previewOf>;

@@ -246,4 +246,13 @@ export const labs: Record<string, string> = {
   "มีคำถามข้อเดียว ไปตอบในแชทเลขาได้เลยครับ": "I have one question. Answer it in the Krarok Assistant chat.",
   "มีคำถาม {0} ข้อ ไปตอบในแชทเลขาได้เลยครับ": "I have {0} questions. Answer them in the Krarok Assistant chat.",
   "ไปที่แชทเลขา": "Go to the chat",
+  // ยอดก่อนหัก ณ ที่จ่าย on the sheet card (SheetRowCard.tsx).
+  'ยอดก่อนหัก ณ ที่จ่าย': 'Amount before withholding',
+  'ยอด {0} เป็นยอดที่ได้รับหลังหัก ณ ที่จ่ายหรือไม่': 'Is {0} what you received after withholding tax?',
+  'ถ้าใช่ ให้ใส่ {0} เป็น {1} แทน สูตรของคุณจะได้ {2} {3} ตรงกับยอดที่ได้รับ': 'If so, put {1} in {0} instead; your formula then gives {2} {3}, the amount you received.',
+  'ถ้าใช่ ให้ใส่ {0} เป็น {1} แทน สูตรของคุณจะหักแล้วเหลือ {2} ตรงกับยอดที่ได้รับ': 'If so, put {1} in {0} instead; after your formula withholds, {2} is left, the amount you received.',
+  'ในแอปจะบันทึกมูลค่า {0} หัก ณ ที่จ่าย {1}% เป็นเงิน {2} ถ้าไม่ใช่ เขียนตามเดิมได้เลย': 'The app then records {0} with {1}% withheld ({2}). If not, write it as it is.',
+  'ใช้ยอดก่อนหัก {0}': 'Use {0} before withholding',
+  'กำลังเปลี่ยนยอด…': 'Changing the amount…',
+  'เปลี่ยนยอดไม่สำเร็จ กรุณาลองใหม่': 'Could not change the amount. Please try again.',
 };

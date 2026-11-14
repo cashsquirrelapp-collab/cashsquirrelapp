@@ -68,7 +68,13 @@ export function useSheetRow(proposalId: string, phase: SheetPhase): SheetRow {
 const isMoney = (text: string | null) => !!text && /^-?[฿]?\s?[\d,]+(?:\.\d+)?$|^-$/.test(text.trim());
 
 /** The head and the sheet with the new row: the card's body in its sheet layout, as the prototype's ask screen. */
-export function SheetPreviewBlock({ preview, phase, write }: { preview: SheetRowPreview; phase: SheetPhase; write: SheetRowWrite | null }) {
+export function SheetPreviewBlock({ preview, phase, write, onUseGross }: {
+  preview: SheetRowPreview; phase: SheetPhase; write: SheetRowWrite | null;
+  /** ยอดก่อนหัก: changes the card to the amount before withholding (the card's own edit: value and rate). */
+  onUseGross?: () => Promise<void>;
+}) {
+  const [usingGross, setUsingGross] = React.useState(false);
+  const [grossProblem, setGrossProblem] = React.useState<string | null>(null);
   const written = phase === 'done' && write?.status === 'written';
   const undone = phase === 'done' && write?.status === 'undone';
   const formulas = preview.columns.filter(column => column.formula).map(column => column.letter);
@@ -117,6 +123,23 @@ export function SheetPreviewBlock({ preview, phase, write }: { preview: SheetRow
             {preview.differs!.map(item => <p key={item.header}>{tr("{0}: ชีตจะได้ {1} ส่วนในแอปเป็น {2}", item.header, item.sheet, item.app)}</p>)}
             <p className="is-muted">{tr("ตัวเลขในชีตเป็นไปตามสูตรของคุณ เลขาไม่แก้สูตรให้")}</p>
           </div>
+        </div>
+      )}
+      {/* ยอดสุทธิ → ยอดก่อนหัก (sheetWrite.ts grossOffer): the figure comes from the sheet's own formula, never from the AI. */}
+      {phase === 'pending' && preview.gross && onUseGross && (
+        <div className="lab-sp-gross" role="group" aria-label={tr("ยอดก่อนหัก ณ ที่จ่าย")} data-testid="sheet-gross">
+          <b>{tr("ยอด {0} เป็นยอดที่ได้รับหลังหัก ณ ที่จ่ายหรือไม่", preview.gross.netText)}</b>
+          <p>{preview.gross.netHeader && preview.gross.sheetNet
+            ? tr("ถ้าใช่ ให้ใส่ {0} เป็น {1} แทน สูตรของคุณจะได้ {2} {3} ตรงกับยอดที่ได้รับ", preview.gross.valueHeader, preview.gross.valueText, preview.gross.netHeader, preview.gross.sheetNet)
+            : tr("ถ้าใช่ ให้ใส่ {0} เป็น {1} แทน สูตรของคุณจะหักแล้วเหลือ {2} ตรงกับยอดที่ได้รับ", preview.gross.valueHeader, preview.gross.valueText, preview.gross.netText)}</p>
+          <p className="is-muted">{tr("ในแอปจะบันทึกมูลค่า {0} หัก ณ ที่จ่าย {1}% เป็นเงิน {2} ถ้าไม่ใช่ เขียนตามเดิมได้เลย", preview.gross.valueText, preview.gross.rate, preview.gross.whtText)}</p>
+          <button type="button" className="lab-btn" disabled={usingGross} onClick={() => {
+            setUsingGross(true); setGrossProblem(null);
+            onUseGross().catch(error => setGrossProblem((error as Error)?.message || tr("เปลี่ยนยอดไม่สำเร็จ กรุณาลองใหม่"))).finally(() => setUsingGross(false));
+          }}>
+            {usingGross ? <Loader2 size={15} className="animate-spin" aria-hidden="true" /> : null}{usingGross ? tr("กำลังเปลี่ยนยอด…") : tr("ใช้ยอดก่อนหัก {0}", preview.gross.valueText)}
+          </button>
+          {grossProblem && <p className="is-red" role="alert">{grossProblem}</p>}
         </div>
       )}
       {!written && !undone && <p className="lab-sp-note">{formulas.length

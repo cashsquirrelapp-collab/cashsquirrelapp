@@ -12,6 +12,8 @@ export interface SheetRowPreview {
   computed?: (string | null)[];
   /** Formula columns that will come out different from the app's own figure. */
   differs?: { header: string; sheet: string; app: string }[];
+  /** ยอดก่อนหัก: when the sheet's formulas withhold and the app does not, the amount before withholding (sheetWrite.ts grossOffer). */
+  gross?: { value: number; rate: number; valueText: string; netText: string; whtText: string; valueHeader: string; netHeader?: string; sheetNet?: string };
 }
 /** What became of the sheet write of a confirmed card. */
 export type SheetRowWrite =

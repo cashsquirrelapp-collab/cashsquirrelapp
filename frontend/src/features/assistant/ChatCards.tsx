@@ -474,7 +474,9 @@ function Confirm({ card, state, onConfirm, onCancel, onAsk, confirmedPath, onNav
   const kindIcon = card.changes.some(row => row.label === 'เอกสาร') ? FileText : card.title.startsWith('เพิ่มงาน') ? Briefcase : ListChecks;
   return (
     <div ref={box} className={`asx-rcard is-confirm is-${state}${editing ? ' is-editing' : ''}${sheetMode ? ' is-sheet' : ''}`} aria-busy={saving || state === 'working'}>
-      {sheetMode ? <SheetPreviewBlock preview={sheet.preview!} phase={sheetPhase} write={sheet.write} />
+      {sheetMode ? <SheetPreviewBlock preview={sheet.preview!} phase={sheetPhase} write={sheet.write}
+          onUseGross={canEdit && sheet.preview?.gross && fields.some(field => field.field === 'value') && fields.some(field => field.field === 'wht_rate')
+            ? () => onRevise!(card, { value: String(sheet.preview!.gross!.value), wht_rate: String(sheet.preview!.gross!.rate) }) : undefined} />
         : <Head icon={kindIcon} title={card.title} state={{ tone: STATE_OF[state], text: stateText[state] }} />}
       {editing ? <div className="asx-edit-sections">
         {sections.length > 1 && <div className="asx-edit-tabs" role="tablist" aria-label={tr("ส่วนของเอกสาร")}>
