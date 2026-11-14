@@ -224,8 +224,12 @@ function GoogleSource({ open, account, mapOn, writeOn = false, result, onCreateT
     try { picked = await pickSheet({ ...picker, locale: currentLanguage === 'en' ? 'en' : 'th', title: tr("เลือกไฟล์ Google Sheets") }); }
     catch { throw new Error(tr("เปิดหน้าต่างเลือกไฟล์ของ Google ไม่สำเร็จ กรุณาลองอีกครั้ง")); }
     if (!picked) return;
-    setStatus(await googleApi.pick(account, picked.id));
+    const next = await googleApi.pick(account, picked.id);
+    setStatus(next);
     setNotice(null);
+    // A sheet just picked and not mapped yet goes straight to เลขา's chat, which reads it and asks there (owner,
+    // 2026-11-14: "เลือกชีตเสร็จให้เด้งไปแชทเลยไม่ต้องกดปุ่ม"). Opened again later, the window still offers the way there.
+    if (onAskInChat && mapOn && next.file && next.map?.fileId !== next.file.id) onAskInChat(next.file.name);
   });
   const forget = () => run('forget', async () => { setStatus(await googleApi.forget(account)); setNotice(null); });
   const disconnect = () => run('disconnect', async () => {

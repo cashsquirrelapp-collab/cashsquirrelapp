@@ -161,14 +161,21 @@ for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'p
     await expect.poll(() => page.url()).not.toContain('google=');
 
     await panel.getByTestId('sheets-pick').click();
-    await expect(panel).toContainText(FILE.name);
+    // Picked and not mapped yet: straight to เลขา's chat, no button to press (owner, 2026-11-14).
+    await page.waitForURL(/\/assistant/);
+    await expect(page.getByTestId('sheets-panel')).toHaveCount(0);
+    await expect(page.getByRole('log', { name: 'บทสนทนากับเลขากระรอก' })).toContainText(`อ่านชีต ${FILE.name} แล้วครับ`);
     expect(posts.find(post => post.action === 'pick')).toEqual({ action: 'pick', fileId: FILE.id });
     expect(await page.evaluate(() => (window as unknown as { __pickerToken?: string }).__pickerToken)).toBe('ya29.test');
     // Google checks the picker key against the site's address: the origin is sent only while the picker is open.
     expect(await page.evaluate(() => (window as unknown as { __referrerAtPick?: string }).__referrerAtPick)).toBe('strict-origin');
     expect(await page.evaluate(() => document.querySelector<HTMLMetaElement>('meta[name="referrer"]')?.content)).toBe('no-referrer');
 
-    // เลขา asks in its chat (owner, 2026-11-14); the full table is still one tap away here.
+    // Back in Settings with the sheet still not mapped: the window offers the chat again; the full table is one tap away.
+    await page.goBack();
+    await page.waitForURL(/\/settings/);
+    panel = await openPanel(page);
+    await expect(panel).toContainText(FILE.name);
     const setup = panel.getByTestId('sheet-ask-handoff');
     await expect(setup).toContainText(`อ่านชีต ${FILE.name} แล้วครับ`);
     await expect(setup.getByTestId('sheet-ask-in-chat')).toBeVisible();
