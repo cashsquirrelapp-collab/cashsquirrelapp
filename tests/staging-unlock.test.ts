@@ -48,7 +48,10 @@ test('the account linked to the owner\'s own LINE on the test site counts as the
   assert.equal(stagingOwnerLine(OWNER_LINE, { ...staging, ...line }), false, 'the unlock is off');
   assert.equal(stagingOwnerLine(OWNER_LINE, { ...production, ...unlock, ...line }), false, 'the real site');
   assert.equal(stagingOwnerLine(undefined, { ...staging, ...unlock, ...line, STAGING_LINE_USER_ID: undefined }), false);
-  // เลขา's plan reads it: the owner's allowance for that account.
-  const source = fs.readFileSync('backend/src/ai/supabaseDb.ts', 'utf8');
-  assert.match(source, /if \(stagingUnlocked\(user\.id\) \|\| await linkedToOwnerLine\(user\.id\)\) return \{ plan: 'admin'/);
+  // Every place the unlock is read takes that account too: admin, Pro, the data's subscription, LINE and เลขา's allowance.
+  for (const file of ['backend/src/repositories/roles.ts', 'backend/src/services/vault.ts', 'backend/src/handlers/groups.ts', 'backend/src/handlers/data.ts', 'backend/src/services/lineAssistant.ts', 'backend/src/ai/supabaseDb.ts']) {
+    const source = fs.readFileSync(file, 'utf8');
+    assert.match(source, /await stagingOwnerAccount\(/, file);
+    assert.doesNotMatch(source, /\bstagingUnlocked\(/, file);
+  }
 });

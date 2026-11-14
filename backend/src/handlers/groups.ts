@@ -6,7 +6,7 @@ import { HttpError, withGuard } from '../http/guard.js';
 import { requireUser } from '../security/session.js';
 import { rateLimit } from '../security/rateLimit.js';
 import { isOnlineAt, loadPresenceByUserId } from '../repositories/presence.js';
-import { stagingUnlocked } from '../security/stagingUnlock.js';
+import { stagingOwnerAccount } from '../repositories/stagingOwner.js';
 
 export function groupDbError(error: {
   code?: string;
@@ -94,7 +94,7 @@ export default withGuard(
       });
       if (result.error) groupDbError(result.error);
       // The owner's unlocked test account on staging reads as the admin it is on the real site (security/stagingUnlock.ts).
-      res.json(stagingUnlocked(user.id) && result.data && typeof result.data === 'object' ? { ...result.data, systemRole: 'admin' } : result.data);
+      res.json(await stagingOwnerAccount(user.id) && result.data && typeof result.data === 'object' ? { ...result.data, systemRole: 'admin' } : result.data);
       return;
     }
     const action = groupActionSchema.safeParse(req.body);

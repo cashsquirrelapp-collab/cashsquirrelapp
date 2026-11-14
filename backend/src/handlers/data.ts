@@ -5,7 +5,8 @@ import { validateChanges } from "../../../shared/validation.js";
 import { getSupabaseAdmin } from "../config/supabase.js";
 import { rateLimit } from "../security/rateLimit.js";
 import { hasProAccess } from "../services/vault.js";
-import { STAGING_PRO, stagingUnlocked } from "../security/stagingUnlock.js";
+import { STAGING_PRO } from "../security/stagingUnlock.js";
+import { stagingOwnerAccount } from "../repositories/stagingOwner.js";
 import {
   claimDocumentSlots,
   documentQuota,
@@ -88,7 +89,7 @@ export default withGuard(
         delete finance.versions.cashflow_documents?.issuer_profile;
       }
       // The owner's unlocked test account on staging reads as an admin-given Pro (security/stagingUnlock.ts).
-      const row = stagingUnlocked(user.id)
+      const row = await stagingOwnerAccount(user.id)
         ? { cancel_at_period_end: false, stripe_customer_id: null, stripe_subscription_id: null, stripe_subscription_status: null, stripe_intro_paid_cycles: 0, ...STAGING_PRO }
         : subscription.data;
       const publicSubscription = row ? {
