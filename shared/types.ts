@@ -242,6 +242,8 @@ export interface Expense {
   account?: { bank: string; last4: string };
   /** The slip's reference number (เลขที่รายการ), so the same slip is not recorded twice. */
   slipRef?: string;
+  /** Where it sits in the connected sheet (รายจ่ายจากชีต, ฟีเจอร์ทดลอง; shared/googleSheets.ts SheetLink). */
+  sheetLink?: { fileId: string; tab: string; row: number; gid?: number; missing?: true };
 }
 
 export interface InvoiceItem {

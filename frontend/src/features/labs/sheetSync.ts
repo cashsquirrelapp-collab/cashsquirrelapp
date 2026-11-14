@@ -1,7 +1,7 @@
-import type { Job, StatusOption } from '../../../../shared/types';
+import type { Expense, Job, StatusOption } from '../../../../shared/types';
 import type { LiveTab, SheetLink, SheetMap } from '../../../../shared/googleSheets';
 import { roundMoney } from '../../../../shared/wht';
-import { buildImportPlan, type ImportedJob } from '../import/sheetImport';
+import { buildImportPlan, type ImportedExpense, type ImportedJob } from '../import/sheetImport';
 import { readTabs } from './sheetMap';
 
 // หน้างานจากชีต (ฟีเจอร์ทดลอง sheetJobs; owner, 2026-11-14: "ฐานข้อมูลใน Google Sheet เป็นอันนั้นแทน" and the approved mock:
@@ -110,6 +110,91 @@ export function planSheetSync(input: {
     if (!link || claimed.has(job.id) || link.fileId !== fileId || !readTabNames.has(link.tab)) continue;
     missing += 1;
     if (!link.missing) update.push({ id: job.id, fields: { sheetLink: { ...link, missing: true } } });
+  }
+  return { add, update, rows, missing };
+}
+
+// รายจ่ายจากชีต (owner, 2026-11-14: "ทำดึงรายจ่ายจากชีตต่อเลย"), the same way as the jobs: each expense row of the sheet's
+// expense tabs and ledgers is read the way the Excel import reads it and becomes an expense in the app, linked to its row.
+// A row the import leaves out stays out (a transfer to the person's own savings, the same expense in two tabs, no amount),
+// and so does a row the sheet marks personal. A row is matched to an expense in this order: the expense linked to that very
+// row when it is still the same (same name, or same amount and date); one linked to another row of the same tab with the
+// same name and amount (the row moved); one made in the app (เลขา's chat, the form) with the same name and amount and the
+// same date or none, not yet linked (now linked, never added twice); otherwise a new expense. Only what the tab has a
+// column for is taken (no category column leaves the app's category; no date column leaves the app's date). Nothing is
+// deleted on the app's side: a linked expense whose row is gone is marked `missing` and stays.
+
+export interface SheetExpenseChanges {
+  add: Omit<Expense, 'id'>[];
+  update: { id: string; fields: Partial<Expense> }[];
+  rows: number;
+  missing: number;
+}
+
+/** Which of an expense's fields each kind of column decides. */
+function ownedExpenseFields(targets: Set<string>): (keyof Expense)[] {
+  const fields: (keyof Expense)[] = ['name', 'amount'];
+  const has = (...names: string[]) => names.some(name => targets.has(name));
+  if (has('category', 'type')) fields.push('category');
+  if (has('date', 'paidDate', 'postDate')) fields.push('date');
+  if (has('note', 'project', 'keep')) fields.push('note');
+  return fields;
+}
+
+/** The expense a sheet row is, and what the sheet changes in it. */
+export function planSheetExpenseSync(input: { expenses: Expense[]; tabs: LiveTab[]; map: SheetMap; fileId: string; today: string }): SheetExpenseChanges {
+  const { expenses, map, fileId } = input;
+  const readings = readTabs(input.tabs, map).filter(reading => reading.use && reading.analysis.role === 'data' && reading.analysis.kind !== 'jobs');
+  const plan = buildImportPlan(readings.map(({ grid, analysis }) => ({ grid, analysis })), { amountsAreNet: false, today: input.today },
+    { statuses: [], jobTypes: [], existingJobs: [], existingExpenses: [] }, readings.map(reading => reading.grid));
+  const gidOf = new Map(readings.map(reading => [reading.analysis.name, reading.gid]));
+  const targetsOf = new Map(readings.map(reading => [reading.analysis.name, new Set(reading.analysis.columns.map(column => String(column.target)))]));
+  const readTabNames = new Set(readings.map(reading => reading.analysis.name));
+  // The business / personal column only decides which rows are taken: "ธุรกิจ/ส่วนตัว: ธุรกิจ" is not kept in the note.
+  const useLabels = new Map(readings.map(reading => [reading.analysis.name,
+    reading.analysis.columns.filter(column => String(column.target) === 'use').map(column => `${column.header || 'use'}: `)]));
+  const noteOf = (sheet: string, note = '') => {
+    const labels = useLabels.get(sheet) ?? [];
+    return labels.length ? note.split(' · ').filter(part => !labels.some(label => part.startsWith(label))).join(' · ') : note;
+  };
+
+  const claimed = new Set<string>();
+  const add: Omit<Expense, 'id'>[] = [];
+  const update: { id: string; fields: Partial<Expense> }[] = [];
+  let rows = 0;
+
+  for (const row of plan.rows) {
+    if (!row.expense || row.state === 'skip' || row.kind !== 'expense' || row.use === 'personal') continue;
+    rows += 1;
+    const sheetExpense: ImportedExpense = { ...row.expense, note: noteOf(row.sheet, row.expense.note) };
+    const link: SheetLink = { fileId, tab: row.sheet, row: row.rowNumber, ...(typeof gidOf.get(row.sheet) === 'number' ? { gid: gidOf.get(row.sheet)! } : {}) };
+    const open = (expense: Expense) => !claimed.has(expense.id);
+    const inTab = (expense: Expense) => expense.sheetLink?.fileId === fileId && expense.sheetLink?.tab === row.sheet;
+    const sameName = (expense: Expense) => norm(expense.name) === norm(sheetExpense.name);
+    const sameAmount = (expense: Expense) => sameMoney(expense.amount, sheetExpense.amount);
+    const similar = (expense: Expense) => sameName(expense) || (sameAmount(expense) && Boolean(sheetExpense.date) && expense.date === sheetExpense.date);
+    const match = expenses.find(expense => open(expense) && inTab(expense) && expense.sheetLink!.row === row.rowNumber && similar(expense))
+      ?? expenses.find(expense => open(expense) && inTab(expense) && sameName(expense) && sameAmount(expense))
+      ?? expenses.find(expense => open(expense) && !expense.sheetLink && sameName(expense) && sameAmount(expense)
+        && (!expense.date || !sheetExpense.date || expense.date === sheetExpense.date));
+    if (!match) { add.push({ ...sheetExpense, sheetLink: link }); continue; }
+    claimed.add(match.id);
+    const fields: Partial<Expense> = {};
+    for (const field of ownedExpenseFields(targetsOf.get(row.sheet) ?? new Set<string>())) {
+      const value = (sheetExpense as Partial<Expense>)[field];
+      if (value === undefined || (field === 'date' && !value)) continue;
+      if (!sameValue(match[field], value)) (fields as Record<string, unknown>)[field] = value;
+    }
+    if (!sameLink(match.sheetLink, link)) fields.sheetLink = link;
+    if (Object.keys(fields).length) update.push({ id: match.id, fields });
+  }
+
+  let missing = 0;
+  for (const expense of expenses) {
+    const link = expense.sheetLink;
+    if (!link || claimed.has(expense.id) || link.fileId !== fileId || !readTabNames.has(link.tab)) continue;
+    missing += 1;
+    if (!link.missing) update.push({ id: expense.id, fields: { sheetLink: { ...link, missing: true } } });
   }
   return { add, update, rows, missing };
 }

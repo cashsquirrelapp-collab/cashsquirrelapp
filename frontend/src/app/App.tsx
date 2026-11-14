@@ -78,7 +78,7 @@ import { VAULT_FREE_FILES } from '../../../shared/vault';
 import { useFeedbackWaiting } from '../features/feedback/useFeedbackWaiting';
 import { applyFields, carriesBatch, recentImports, undoUpdate } from '../features/import/importBatches';
 import type { ImportCommit, ImportResult, SaveOutcome } from '../features/import/importShared';
-import type { SheetSyncChanges } from '../features/labs/sheetSync';
+import type { SheetExpenseChanges, SheetSyncChanges } from '../features/labs/sheetSync';
 import { IMPORT_FILE_EVENT } from '../features/assistant/importFileEvent';
 import { importActionsChanged, registerImportActions, type ImportActions } from '../features/import/importActions';
 import type { SettingsView } from '../features/settings/SettingsTab';
@@ -3049,6 +3049,13 @@ export default function App() {
     setJobs(prev => [...added, ...prev.map(job => { const fields = updates.get(job.id); return fields ? { ...job, ...fields } : job; })]);
   };
 
+  // รายจ่ายจากชีต (ฟีเจอร์ทดลอง): the expenses page read the connected sheet; the same one state update, no toasts.
+  const handleSheetExpenseSync = (changes: SheetExpenseChanges) => {
+    const added = changes.add.map(expense => ({ ...expense, id: crypto.randomUUID() }) as Expense);
+    const updates = new Map(changes.update.map(update => [update.id, update.fields]));
+    setExpenses(prev => [...added, ...prev.map(expense => { const fields = updates.get(expense.id); return fields ? { ...expense, ...fields } : expense; })]);
+  };
+
   // Tries the save again after it failed; the import window waits on it the same way.
   const retryImportSave = (batchId: string) => new Promise<SaveOutcome>(resolve => {
     const email = sessionRef.current?.user?.email;
@@ -3822,6 +3829,7 @@ export default function App() {
                   onAddExpense={handleAddExpense}
                   onEditExpense={handleEditExpense}
                   onDeleteExpense={handleDeleteExpense}
+                  onSheetSync={handleSheetExpenseSync}
                   onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) navigateTab(id as TabKey); }}
                   onExportData={handleExportData}
                   triggerAlert={triggerAlert}

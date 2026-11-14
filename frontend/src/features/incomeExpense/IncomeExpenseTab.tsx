@@ -14,6 +14,8 @@ import { Mascot } from '../../components/mascot/Mascot';
 import NumberInput from '../../components/ui/NumberInput';
 import { DashboardPeriodPicker } from '../dashboard/DashboardPeriodPicker';
 import ExpenseDrawer, { EXPENSE_CATEGORIES, categoryLabel, categoryText } from './ExpenseDrawer';
+import { SheetExpensesLine, SheetRowLine } from '../labs/SheetSource';
+import type { SheetExpenseChanges } from '../labs/sheetSync';
 import { LEGACY_FIXED_NAME, buildExpenseMonth, sortExpenseRows, type ExpenseRow, type ExpenseSort } from './expenseMonth';
 import { IncomeExportDialog } from '../report/IncomeExport';
 import { ExpenseSlipMark, ExpenseSlips } from '../vault/ExpenseSlips';
@@ -70,6 +72,8 @@ interface IncomeExpenseTabProps {
   onAddExpense: (expense: Omit<Expense, 'id'> & { id?: string }) => void;
   onEditExpense: (id: string, updated: Partial<Expense>) => void;
   onDeleteExpense: (id: string) => void;
+  /** รายจ่ายจากชีต (ฟีเจอร์ทดลอง): what reading the connected sheet changes in the expenses, saved in one go. */
+  onSheetSync?: (changes: SheetExpenseChanges) => void;
   onSwitchTab: (tab: string) => void;
   onExportData: () => void;
   triggerAlert: (title: string, message: string) => void;
@@ -319,6 +323,7 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
         }} />
         <DashboardPeriodPicker monthKey={monthKey} onChange={setMonthKey} compact />
         <button type="button" className="ksm-primary is-compact" onClick={() => openAdd()}><KsIcon name="plus" size={19} />{tr("เพิ่มรายจ่าย")}</button>
+        {props.onSheetSync && <SheetExpensesLine expenses={expenses} onSync={props.onSheetSync} mobile />}
         <div className="ksm-chips" role="tablist" aria-label={tr("ประเภทรายจ่าย")}>
           {([['all', tr("ทั้งหมด")], ['recurring', tr("ประจำ")], ['general', tr("ทั่วไป")]] as const).map(([key, label]) => (
             <button key={key} type="button" role="tab" aria-selected={typeFilter === key} onClick={() => setTypeFilter(key)}>{label}</button>
@@ -438,6 +443,7 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
       <IncomeExportDialog open={incomeExportOpen} jobs={jobs} initialMonth={monthKey} onClose={() => setIncomeExportOpen(false)} notify={triggerAlert} />
 
       <DashboardPeriodPicker monthKey={monthKey} onChange={setMonthKey} />
+      {props.onSheetSync && <SheetExpensesLine expenses={expenses} onSync={props.onSheetSync} />}
 
       {/* Three calm numbers */}
       <section aria-label={tr("สรุปรายจ่าย {0}", monthLabel)} className={`${card} px-4 py-3`}>
@@ -638,6 +644,7 @@ function ExpenseDetail({ fullFeatureAccess, row, expense, slipExpense, slipAlsoI
         </>
       )}
     >
+      {expense && <SheetRowLine expense={expense} />}
       <p className="font-mono text-2xl font-semibold text-brand-text">{formatCurrency(row.amount)}</p>
       <dl className="mt-4">
         {field(tr("วันที่"), row.date ? fullDate(row.date) : tr("ทุกเดือน"))}

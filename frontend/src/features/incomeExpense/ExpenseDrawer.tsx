@@ -13,6 +13,9 @@ import { expenseFiles } from '../vault/vaultStatus';
 import { VAULT_ACCEPT, VAULT_MAX_BYTES, formatFileSize } from '../../../../shared/vault';
 
 import { tr, T } from '../../i18n/tr';
+import { useMobileLayout } from '../mobile/useMobileLayout';
+// รายจ่ายจากชีต (ฟีเจอร์ทดลอง): loaded only for an expense kept from the sheet (the import's shared code imports this file).
+const SheetRowLine = React.lazy(() => import('../labs/SheetSource').then(module => ({ default: module.SheetRowLine })));
 export const EXPENSE_CATEGORIES = [
   T("ค่าอุปกรณ์/ซอฟต์แวร์"),
   T("ค่าโฆษณา/ยิงแอด"),
@@ -63,6 +66,7 @@ type PickedSlip = { key: string; file: File; preview: string | null; error: stri
  */
 export default function ExpenseDrawer({ open, expense, preset, settings, onUpdateSettings, onAdd, onEdit, onClose, triggerAlert, slips = false }: ExpenseDrawerProps) {
   const vault = useVaultMaybe();
+  const mobileLayout = useMobileLayout();
   const slipsOn = slips && Boolean(vault?.available);
   const [picked, setPicked] = React.useState<PickedSlip[]>([]);
   const [uploading, setUploading] = React.useState<{ done: number; total: number } | null>(null);
@@ -207,6 +211,7 @@ export default function ExpenseDrawer({ open, expense, preset, settings, onUpdat
             </div>
 
             <div className="flex-1 space-y-5 overflow-y-auto px-6 py-6">
+              {expense?.sheetLink && <React.Suspense fallback={null}><SheetRowLine expense={expense} mobile={mobileLayout} /></React.Suspense>}
               <div>
                 <label htmlFor="expense-name" className={label}>{tr("รายการ")}{' '}<span className="text-[#C43A3A]">*</span></label>
                 <input id="expense-name" type="text" autoFocus value={name} onChange={(e) => { setName(e.target.value); setErrors(v => ({ ...v, name: undefined })); }} placeholder={tr("เช่น ค่าเช่าห้อง, ค่าเดินทาง")} className={input(errors.name)} />
