@@ -85,3 +85,6 @@
 @media (prefers-reduced-motion: reduce) {
   .auth-float-in, .auth-page.is-stage .auth-form-column, .auth-perch { animation: none; }
 }
+/* เข้าสู่ระบบด้วย LINE (2026-11-14): LINE's own green mark, kept as LINE draws it. */
+.auth-page.is-stage .auth-pill.is-line:hover:not(:disabled) { background: #F4FBF6; }
+.auth-pill.is-line .auth-pill-chip { background: transparent; }

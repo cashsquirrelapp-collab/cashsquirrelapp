@@ -46,6 +46,15 @@ import { BankPicker } from './BankPicker';
 
 import { tr, trServer } from '../../i18n/tr';
 import { noteIssuerSaved } from '../assistant/proGuideEvents';
+// What LINE's sign-in came back with after เชื่อม LINE (/settings?line=…; handlers/line-login.ts).
+const LINE_LINK_RESULTS: Record<string, { ok: boolean; info?: true; text: string }> = {
+  linked: { ok: true, text: "เชื่อม LINE แล้ว เปิดแชทกระรอกตุนเงินใน LINE แล้วพิมพ์บอกเลขาได้เลย" },
+  taken: { ok: false, text: "LINE นี้เชื่อมกับอีกบัญชีหนึ่งอยู่ ยกเลิกการเชื่อมต่อในบัญชีนั้นก่อน แล้วลองอีกครั้ง" },
+  other: { ok: false, text: "บัญชีนี้เชื่อมกับ LINE อื่นอยู่แล้ว ยกเลิกการเชื่อมต่อก่อน แล้วลองอีกครั้ง" },
+  failed: { ok: false, text: "เชื่อม LINE ไม่สำเร็จ กรุณาลองอีกครั้ง" },
+  cancelled: { ok: true, info: true, text: "ยกเลิกการเชื่อม LINE แล้ว ยังไม่มีการเปลี่ยนแปลง" },
+  staging: { ok: false, text: "เว็บทดสอบรับเฉพาะบัญชี LINE ที่อนุญาตไว้" },
+};
 const MAX_AVATAR_DATA_URL_LENGTH = 450_000;
 
 async function prepareAvatarDataUrl(file: File): Promise<string> {
@@ -669,17 +678,49 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const lineStatus = lineConnected
     ? <span className="text-[13px] font-medium text-[#0A8F3F] dark:text-[#4ADE80]">{tr("เชื่อมต่อแล้ว")}</span>
     : <span className="text-[13px] font-medium text-[#C24A16] dark:text-[#FF9A6B]">{tr("ยังไม่ได้เชื่อมต่อ")}</span>;
-  const startLineConnect = () => {
+  // One-click เชื่อม LINE (owner, 2026-11-14: "เข้าทางไหนก็ได้"): LINE's own sign-in instead of a code, once the server has
+  // its LINE Login secret (/api/auth?providers=1 says line: true). The code stays as the other way.
+  const [lineLoginOn, setLineLoginOn] = useState<boolean>(() => {
+    try { return JSON.parse(localStorage.getItem('cashflow_auth_providers') || 'null')?.line === true; } catch { return false; }
+  });
+  React.useEffect(() => {
+    if (requestedView !== 'line') return;
+    let live = true;
+    fetch('/api/auth?providers=1', { credentials: 'same-origin' }).then(r => (r.ok ? r.json() : null)).then(body => { if (live && body?.providers) setLineLoginOn(body.providers.line === true); }).catch(() => undefined);
+    return () => { live = false; };
+  }, [requestedView]);
+  // LINE's sign-in comes back to /settings?line=linked|taken|other|failed|cancelled|staging: the LINE page says so once.
+  const [lineLoginResult] = useState<string | null>(() => {
+    try { const value = new URLSearchParams(window.location.search).get('line'); return value && LINE_LINK_RESULTS[value] ? value : null; } catch { return null; }
+  });
+  React.useEffect(() => {
+    if (!lineLoginResult) return;
+    try { const url = new URL(window.location.href); url.searchParams.delete('line'); window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash); } catch { /* the address keeps its query */ }
+    setView('line');
+  }, [lineLoginResult]);
+  const [lineLoginBusy, setLineLoginBusy] = useState(false);
+  const goLineLogin = async () => {
+    setLineLoginBusy(true);
+    try {
+      const reply = await apiJson<{ url: string }>('/api/line-login', { method: 'POST', headers: { 'X-Account-ID': session.user.id }, body: JSON.stringify({ purpose: 'link' }) });
+      window.location.assign(reply.url);
+    } catch (error) { setLineLoginBusy(false); triggerAlert(tr("เชื่อม LINE ไม่สำเร็จ"), (error as Error).message || tr("ลองใหม่อีกครั้งครับ")); }
+  };
+
+  const startLineConnect = (way: 'code' | 'login' = lineLoginOn ? 'login' : 'code') => {
     if (!lineAccess) return;
     if (!isPro) { onSwitchTab('plans'); return; }
     // Pressing ยืนยัน is the LINE consent (owner, 2026-11-05; shared/consents.ts): kept with its time before the code is made.
     triggerConfirm(
       tr("ยินยอมการเชื่อมต่อ LINE"),
-      tr("เชื่อม LINE เพื่อรับแจ้งเตือนงาน ชื่อลูกค้า และยอดเงิน และคุยกับเลขากระรอกได้ในแชตส่วนตัว ระบบใช้รหัสผู้ใช้ LINE เพื่อส่งข้อความถึงคุณคนเดียว แนะนำให้เชื่อมกับบัญชี LINE ของคุณเอง การคุยกับเลขาใน LINE ใช้ความยินยอมเดียวกับในแอป ถอนความยินยอมได้ทุกเมื่อด้วยการยกเลิกการเชื่อมต่อ กดยืนยันเพื่อยินยอมและรับรหัสเชื่อมต่อ"),
+      way === 'login'
+        ? tr("เชื่อม LINE เพื่อรับแจ้งเตือนงาน ชื่อลูกค้า และยอดเงิน และคุยกับเลขากระรอกได้ในแชตส่วนตัว ระบบใช้รหัสผู้ใช้ LINE เพื่อส่งข้อความถึงคุณคนเดียว แนะนำให้เชื่อมกับบัญชี LINE ของคุณเอง การคุยกับเลขาใน LINE ใช้ความยินยอมเดียวกับในแอป ถอนความยินยอมได้ทุกเมื่อด้วยการยกเลิกการเชื่อมต่อ กดยืนยันเพื่อยินยอมและไปเข้าสู่ระบบ LINE")
+        : tr("เชื่อม LINE เพื่อรับแจ้งเตือนงาน ชื่อลูกค้า และยอดเงิน และคุยกับเลขากระรอกได้ในแชตส่วนตัว ระบบใช้รหัสผู้ใช้ LINE เพื่อส่งข้อความถึงคุณคนเดียว แนะนำให้เชื่อมกับบัญชี LINE ของคุณเอง การคุยกับเลขาใน LINE ใช้ความยินยอมเดียวกับในแอป ถอนความยินยอมได้ทุกเมื่อด้วยการยกเลิกการเชื่อมต่อ กดยืนยันเพื่อยินยอมและรับรหัสเชื่อมต่อ"),
       async () => {
         try { await giveConsent(session.user.id, 'line'); }
         catch (error) { triggerAlert(tr("บันทึกความยินยอมไม่สำเร็จ"), (error as Error).message || tr("ลองใหม่อีกครั้งครับ")); return; }
-        void handleGenerateLineCode();
+        if (way === 'login') void goLineLogin();
+        else void handleGenerateLineCode();
       }
     );
   };
@@ -1106,15 +1147,29 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     ? tr("เชื่อมบัญชี LINE เพื่อรับแจ้งเตือนเดียวกับอีเมล เผื่อพลาดดูอีเมล (ข้อมูลงานและยอดเงินจะปรากฏในแชท LINE)")
                     : tr("ฟีเจอร์สำหรับสมาชิก Pro — สมัครเพื่อเปิดใช้งาน")}
               </p>
+              {lineLoginResult && (
+                <p role={LINE_LINK_RESULTS[lineLoginResult].ok ? 'status' : 'alert'} data-testid="line-link-result"
+                  className={`rounded-[10px] border px-3.5 py-2.5 text-[13px] leading-[1.6] ${LINE_LINK_RESULTS[lineLoginResult].info ? 'border-brand-border bg-brand-faint text-brand-muted' : LINE_LINK_RESULTS[lineLoginResult].ok ? 'border-[#BFE3CB] bg-[#EEF8F1] text-[#0A6B31] dark:border-[#1F5A35] dark:bg-[#12291B] dark:text-[#86E0A6]' : 'border-[#F1C7C7] bg-[#FDF1F1] text-[#B03030] dark:border-[#5A2323] dark:bg-[#2A1515] dark:text-[#F19A9A]'}`}>
+                  {tr(LINE_LINK_RESULTS[lineLoginResult].text)}
+                </p>
+              )}
               {lineConnected ? (
                 <button type="button" onClick={handleDisconnectLine}
                   className="inline-flex h-10 items-center rounded-xl border border-[#F0B8B8] px-4 text-[13px] font-medium text-[#B83434] transition-colors hover:bg-[#FDEEEE] cursor-pointer dark:border-[#F19A9A]/40 dark:text-[#F19A9A] dark:hover:bg-[#F19A9A]/10">
                   {tr("ยกเลิกการเชื่อมต่อ")}</button>
               ) : !lineLinkCode && (
-                <button type="button" onClick={startLineConnect} disabled={isGeneratingLineCode} data-guide-target={isPro ? 'line-connect' : undefined}
-                  className="inline-flex h-10 items-center rounded-xl bg-[#06C755] px-5 text-[13px] font-semibold text-white transition-colors hover:bg-[#05B34C] disabled:opacity-50 cursor-pointer">
-                  {isGeneratingLineCode ? tr("กำลังสร้างรหัส…") : isPro ? tr("เชื่อมต่อ LINE") : tr("อัปเกรดเป็น Pro")}
-                </button>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                  <button type="button" onClick={() => startLineConnect()} disabled={isGeneratingLineCode || lineLoginBusy} data-guide-target={isPro ? 'line-connect' : undefined} data-testid="line-connect"
+                    className="inline-flex h-10 items-center rounded-xl bg-[#06C755] px-5 text-[13px] font-semibold text-white transition-colors hover:bg-[#05B34C] disabled:opacity-50 cursor-pointer">
+                    {isGeneratingLineCode ? tr("กำลังสร้างรหัส…") : lineLoginBusy ? tr("กำลังไปที่ LINE…") : isPro ? tr("เชื่อมต่อ LINE") : tr("อัปเกรดเป็น Pro")}
+                  </button>
+                  {isPro && lineLoginOn && (
+                    <button type="button" onClick={() => startLineConnect('code')} disabled={isGeneratingLineCode || lineLoginBusy} data-testid="line-connect-code"
+                      className="text-[13px] font-medium leading-[1.5] text-brand-muted underline underline-offset-4 hover:text-brand-text disabled:opacity-50 cursor-pointer">
+                      {tr("หรือเชื่อมด้วยรหัส")}
+                    </button>
+                  )}
+                </div>
               )}
               {lineLinkCode && !lineConnected && (
                 <div className="space-y-3 border-t border-brand-border pt-4" data-guide-target="line-code">

@@ -11,6 +11,7 @@ import { isValidPassword, passwordRequirements, type PasswordRequirement } from 
 import { readRecoveryToken } from '../../../../shared/recoveryLink';
 
 import { tr, trc, trServer, T } from '../../i18n/tr';
+import { LineLogo } from '../../components/ui/LineLogo';
 import { currentLanguage } from '../../i18n/currentLanguage';
 async function loginLockStorageKey(email: string): Promise<string> {
   const normalized = email.trim().toLowerCase();
@@ -27,6 +28,13 @@ interface LoginProps {
   /** Signing in to another account while the current one stays signed in (the account switcher). */
   addAccount?: { email?: string; onCancel: () => void };
 }
+
+// What /api/line-login came back with when no account opened (/login?line=…).
+const LINE_LOGIN_ERRORS: Record<string, string> = {
+  not_linked: T("LINE นี้ยังไม่ได้เชื่อมกับบัญชีใด เข้าสู่ระบบด้วยวิธีเดิมแล้วกดเชื่อม LINE ที่หน้าตั้งค่า หรือสมัครใหม่ด้วยอีเมล"),
+  failed: T("เข้าสู่ระบบด้วย LINE ไม่สำเร็จ กรุณาลองอีกครั้ง"),
+  staging: T("เว็บทดสอบรับเฉพาะบัญชี LINE ที่อนุญาตไว้"),
+};
 
 const AUTH_STORIES: { title: string; description: string; accent: string; mood: MascotMood; icon: string; image: string }[] = [
   { title: T("เก็บทีละนิด"), description: T("ทุกเป้าหมายใหญ่ เริ่มต้นจากเงินก้อนเล็ก"), accent: T("จากเมล็ดเล็กสู่คลังใหญ่"), mood: 'happy', icon: '🪙', image: '/onboarding/save-coins.jpg' },
@@ -262,6 +270,8 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin, addAccount 
     return params.get('confirmationExpired') === '1' ? t('login.err.confirmationExpired')
       : params.get('authLinkError') === '1' ? t('login.err.authLink')
       : params.get('accountDeletionPending') === '1' ? t('login.accountDeletionPending')
+      // เข้าสู่ระบบด้วย LINE came back without an account to open (handlers/line-login.ts).
+      : params.get('line') && LINE_LOGIN_ERRORS[params.get('line')!] ? tr(LINE_LOGIN_ERRORS[params.get('line')!])
       : recovery.present && recovery.token.length < 24 ? t('login.invalidRecoveryLink') : null;
   });
   const [success, setSuccess] = useState<string | null>(() => new URLSearchParams(window.location.search).get('emailConfirmed') === '1' ? t('login.success.emailConfirmed') : null);
@@ -273,18 +283,19 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin, addAccount 
   const [authMethod, setAuthMethod] = useState<'choose' | 'email'>(() => addAccount?.email || new URLSearchParams(window.location.search).get('emailConfirmed') === '1' ? 'email' : 'choose');
   // Start from the last answer this browser saw, so a refresh does not draw Facebook faded and then
   // pop it in (owner, 2026-10-21). The server still refuses a provider that is switched off.
-  const [providers, setProviders] = useState<{ google: boolean; facebook: boolean }>(() => {
+  // line: เข้าสู่ระบบด้วย LINE, shown only once the server says it is on (never a "coming soon" button).
+  const [providers, setProviders] = useState<{ google: boolean; facebook: boolean; line: boolean }>(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('cashflow_auth_providers') || 'null');
-      if (saved && typeof saved.facebook === 'boolean') return { google: saved.google !== false, facebook: saved.facebook };
+      if (saved && typeof saved.facebook === 'boolean') return { google: saved.google !== false, facebook: saved.facebook, line: saved.line === true };
     } catch { /* no saved answer */ }
-    return { google: true, facebook: true };
+    return { google: true, facebook: true, line: false };
   });
   React.useEffect(() => {
     let cancelled = false;
     fetch('/api/auth?providers=1', { credentials: 'same-origin' }).then(r => (r.ok ? r.json() : null)).then(body => {
       if (cancelled || !body?.providers) return;
-      const next = { google: body.providers.google !== false, facebook: body.providers.facebook === true };
+      const next = { google: body.providers.google !== false, facebook: body.providers.facebook === true, line: body.providers.line === true };
       setProviders(next);
       try { localStorage.setItem('cashflow_auth_providers', JSON.stringify(next)); } catch { /* storage blocked */ }
     }).catch(() => { /* keep the last known state */ });
@@ -339,6 +350,8 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin, addAccount 
     if (confirmationExpired) params.delete('confirmationExpired');
     const accountDeletionPending = params.get('accountDeletionPending') === '1';
     if (accountDeletionPending) params.delete('accountDeletionPending');
+    const lineLoginResult = Boolean(params.get('line'));
+    if (lineLoginResult) params.delete('line');
     const recovery = readRecoveryToken(window.location.search, window.location.hash);
     const hasRecoveryLink = recovery.present;
     const recoveryToken = recovery.token;
@@ -347,7 +360,7 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin, addAccount 
     // their secret in the browser's address bar after this page loads.
     params.delete('r'); params.delete('recover');
     const shouldUseRecoveryPath = (hasRecoveryLink && !invalidRecoveryLink) || window.location.pathname === '/recover';
-    const shouldUseLoginPath = window.location.hash === '#login' || emailConfirmed || authLinkError || confirmationExpired || accountDeletionPending || invalidRecoveryLink;
+    const shouldUseLoginPath = window.location.hash === '#login' || emailConfirmed || authLinkError || confirmationExpired || accountDeletionPending || invalidRecoveryLink || lineLoginResult;
     const nextPath = shouldUseRecoveryPath ? '/recover' : shouldUseLoginPath ? '/login' : window.location.pathname;
     const nextUrl = `${nextPath}${params.size ? `?${params}` : ''}`;
     if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== nextUrl) {
@@ -618,7 +631,19 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin, addAccount 
     }
   };
 
-  const [pendingProvider, setPendingProvider] = useState<'google' | 'facebook' | null>(null);
+  const [pendingProvider, setPendingProvider] = useState<'google' | 'facebook' | 'line' | null>(null);
+  // เข้าสู่ระบบด้วย LINE (owner, 2026-11-14: "เข้าทางไหนก็ได้"): LINE's own web sign-in, then back to /api/line-login.
+  const handleLineLogin = async () => {
+    setPendingProvider('line'); setLoading(true); setError(null);
+    try {
+      const response = await fetch('/api/line-login', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-CSRF-Protection': '1' }, body: JSON.stringify({ purpose: 'signin' }) });
+      const reply = await response.json().catch(() => ({})) as { url?: string; error?: string };
+      if (!response.ok || !reply.url) throw new Error(reply.error ? trServer(reply.error) : tr("เข้าสู่ระบบด้วย LINE ไม่สำเร็จ กรุณาลองอีกครั้ง"));
+      window.location.assign(reply.url);
+      if (oauthTimerRef.current) window.clearTimeout(oauthTimerRef.current);
+      oauthTimerRef.current = window.setTimeout(() => setLoading(false), 12000);
+    } catch (err: any) { setError(err.message || tr("เข้าสู่ระบบด้วย LINE ไม่สำเร็จ กรุณาลองอีกครั้ง")); setLoading(false); }
+  };
   const handleOAuthLogin = async (provider: 'google' | 'facebook') => {
     setPendingProvider(provider);
     setLoading(true);
@@ -689,6 +714,12 @@ export default function Login({ darkMode, setDarkMode, onGuestLogin, addAccount 
                   <span className="auth-pill-chip" aria-hidden="true"><GoogleG size={20} /></span>
                   {loading && pendingProvider === 'google' ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />{t('login.processing')}</> : tr("ดำเนินการต่อด้วย Google")}
                 </button>
+                {providers.line && (
+                  <button type="button" onClick={() => { void handleLineLogin(); }} disabled={loading} className="auth-pill is-line" data-testid="auth-line">
+                    <span className="auth-pill-chip" aria-hidden="true"><LineLogo size={24} /></span>
+                    {loading && pendingProvider === 'line' ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />{t('login.processing')}</> : tr("ดำเนินการต่อด้วย LINE")}
+                  </button>
+                )}
                 <button type="button" onClick={() => { if (providers.facebook) void handleOAuthLogin('facebook'); }}
                   disabled={loading || !providers.facebook} aria-disabled={!providers.facebook} className="auth-pill is-facebook">
                   <span className="auth-pill-chip" aria-hidden="true"><FacebookF size={20} color="#1877F2" /></span>

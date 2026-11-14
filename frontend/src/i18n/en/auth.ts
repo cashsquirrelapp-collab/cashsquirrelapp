@@ -39,4 +39,8 @@ export const auth: Record<string, string> = {
   'login|ข้อกำหนดการใช้งาน': 'Terms of Service',
   ' และ ': ' and ',
   'login|นโยบายความเป็นส่วนตัว': 'Privacy Policy',
+  "ดำเนินการต่อด้วย LINE": "Continue with LINE",
+  "เข้าสู่ระบบด้วย LINE ไม่สำเร็จ กรุณาลองอีกครั้ง": "Signing in with LINE did not work. Please try again",
+  "LINE นี้ยังไม่ได้เชื่อมกับบัญชีใด เข้าสู่ระบบด้วยวิธีเดิมแล้วกดเชื่อม LINE ที่หน้าตั้งค่า หรือสมัครใหม่ด้วยอีเมล": "This LINE is not linked to any account. Sign in the way you did before and connect LINE in Settings, or sign up with an email",
+  "เว็บทดสอบรับเฉพาะบัญชี LINE ที่อนุญาตไว้": "The test site only accepts allowed LINE accounts",
 };

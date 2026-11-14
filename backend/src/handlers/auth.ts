@@ -16,6 +16,7 @@ import { forgetDeviceAccount, keepCurrentAside, listDeviceAccounts, rememberAcco
 import { sendGmailEmail, sendSignupConfirmationEmail, sendSignupWelcomeEmail } from '../services/gmail.js';
 import { markSignupWelcomePending, sendPendingSignupWelcome } from '../services/signupWelcome.js';
 import { isValidPassword } from '../../../shared/passwordPolicy.js';
+import { lineLoginReady } from './line-login.js';
 import { safeDocumentReturnPath } from '../../../shared/documentReturnPath.js';
 const credentials = z.object({ email: z.email().max(254).transform(v=>v.toLowerCase()), password: z.string().min(1).max(128), displayName: z.string().trim().min(2).max(60).regex(/^[^\p{Cc}\p{Cf}]+$/u).optional() });
 const unlockCode = z.string().regex(/^\d{6}$/);
@@ -69,7 +70,8 @@ async function sendLoginSecurityAlert(email: string): Promise<void> {
   if (!sent) console.error('Login security email delivery failed');
 }
 export default withGuard(async (req: VercelRequest, res: VercelResponse) => {
-  if (req.method === 'GET' && req.query.providers === '1') { res.json({ providers: await enabledProviders() }); return; }
+  // line: เข้าสู่ระบบด้วย LINE (handlers/line-login.ts), only once its channel secret is set; the button is hidden otherwise.
+  if (req.method === 'GET' && req.query.providers === '1') { res.json({ providers: { ...(await enabledProviders()), line: lineLoginReady() } }); return; }
   // The switcher's list: who is signed in on this browser (from sealed cookies only, no provider call).
   if (req.method === 'GET' && req.query.accounts === '1') { res.json({ accounts: listDeviceAccounts(req) }); return; }
   if(req.method==='GET' && req.query.code===undefined && !readCookie<PrivateSession>(req)) { res.json({session:null});return; }
