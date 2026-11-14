@@ -18,13 +18,18 @@ import { isOwnerUserId } from '../repositories/roles.js';
 
 // 2026-11-12r: back to the 2026-11-03 pictures (the original squirrel) after a day with โมจิ; a new name, because the
 // 2026-11-03 menus still exist in LINE and a finished version is never made the default again.
-export const MENU_VERSION = '2026-11-12r';
+// 2026-11-14m (owner: "ทำข้อ 2 เมนู LINE ต่อเลย", LINE as the main way in, work done in the chat): บันทึก · รอรับเงิน ·
+// สรุปเดือนนี้ · ส่งสลิป · ออกเอกสาร · เปิดแอป. The 2026-11-03 picture with only three tiles' words and one icon changed
+// (scripts/line-menu/render-members.mjs); บันทึก, ส่งสลิป and ออกเอกสาร answer in the chat (lineFeatureShortcuts.ts).
+// กำลังดำเนินงาน and แนบเอกสาร left the menu: typing them still works, and a picture sent in the chat is kept as before.
+// Every linked chat gets the same six tiles; the admin menu keeps its own name so the publishing stays as it is.
+export const MENU_VERSION = '2026-11-14m';
 // With sign-up in LINE on (LINE_SIGNUP, owner 2026-11-13), a chat without an account gets its own small menu as LINE's
 // default: เริ่มใช้งาน, คุยกับเลขา (example sentences to tap, tried before signing up), รู้จักกระรอก. Every linked chat then
 // gets the members' menu attached to it (its pictures unchanged). With sign-up off, nothing changes.
 export type MenuKind = 'everyone' | 'admin' | 'guest';
 const NAME: Record<MenuKind, string> = { everyone: `กระรอกตุนเงิน ทุกบัญชี ${MENU_VERSION}`, admin: `กระรอกตุนเงิน แอดมิน ${MENU_VERSION}`, guest: `กระรอกตุนเงิน ยังไม่สมัคร ${MENU_VERSION}` };
-const IMAGE: Record<MenuKind, string> = { everyone: '/line/richmenu-ci-5-2026-11-03.jpg', admin: '/line/richmenu-ci-6-2026-11-03.jpg', guest: '/line/richmenu-guest-2026-11-13.jpg' };
+const IMAGE: Record<MenuKind, string> = { everyone: '/line/richmenu-members-2026-11-14.jpg', admin: '/line/richmenu-members-2026-11-14.jpg', guest: '/line/richmenu-guest-2026-11-13.jpg' };
 /** The tile the guest menu's คุยกับเลขา sends (lineTry.ts TRY_CHAT answers it). */
 export const GUEST_CHAT_TEXT = 'คุยกับเลขา';
 type MenuIds = Record<'everyone' | 'admin', string> & { guest?: string };
@@ -45,17 +50,14 @@ export function menuPayload(kind: MenuKind, liffId: string) {
   }
   const liff = (path: string) => `https://liff.line.me/${liffId}?openPath=${encodeURIComponent(path)}`;
   const top = [
-    { bounds: { x: 0, y: 0, width: 1450, height: 1120 }, action: { type: 'uri', label: 'เพิ่มงาน', uri: liff('/jobs?openAddJob=1') } },
+    { bounds: { x: 0, y: 0, width: 1450, height: 1120 }, action: { type: 'message', label: 'บันทึก', text: 'บันทึก' } },
     { bounds: { x: 1450, y: 0, width: 1050, height: 560 }, action: { type: 'message', label: 'รอรับเงิน', text: 'รอรับเงิน' } },
     { bounds: { x: 1450, y: 560, width: 1050, height: 560 }, action: { type: 'message', label: 'สรุปเดือนนี้', text: 'สรุปเดือนนี้' } },
   ];
-  const bottom = kind === 'admin' ? [
-    { bounds: { x: 0, y: 1120, width: 833, height: 566 }, action: { type: 'uri', label: 'แนบเอกสาร', uri: liff('/vault') } },
-    { bounds: { x: 833, y: 1120, width: 834, height: 566 }, action: { type: 'message', label: 'กำลังดำเนินงาน', text: 'กำลังดำเนินการ' } },
+  const bottom = [
+    { bounds: { x: 0, y: 1120, width: 833, height: 566 }, action: { type: 'message', label: 'ส่งสลิป / ใบเสร็จ', text: 'ส่งสลิป' } },
+    { bounds: { x: 833, y: 1120, width: 834, height: 566 }, action: { type: 'message', label: 'ออกเอกสาร', text: 'ออกเอกสาร' } },
     { bounds: { x: 1667, y: 1120, width: 833, height: 566 }, action: { type: 'uri', label: 'เปิดแอป', uri: liff('/app') } },
-  ] : [
-    { bounds: { x: 0, y: 1120, width: 1250, height: 566 }, action: { type: 'message', label: 'กำลังดำเนินงาน', text: 'กำลังดำเนินการ' } },
-    { bounds: { x: 1250, y: 1120, width: 1250, height: 566 }, action: { type: 'uri', label: 'เปิดแอป', uri: liff('/app') } },
   ];
   return { size: { width: 2500, height: 1686 }, selected: true, name: NAME[kind], chatBarText: 'เลขาการเงิน', areas: [...top, ...bottom] };
 }

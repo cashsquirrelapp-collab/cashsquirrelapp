@@ -98,7 +98,7 @@ test('knowledge follows the launch policy and describes what the website actuall
   assert.match(plans, /พร้อมเพย์ QR/);
   assert.doesNotMatch(plans, /Checkout is closed|ยังไม่เปิดชำระเงิน|Admin:/);
   const line = knowledgeSnippets(lookupKnowledge('เมนูไลน์', 1));
-  assert.match(line, /รอรับเงิน, สรุปเดือนนี้, กำลังดำเนินงาน/);
+  assert.match(line, /เมนูใน LINE: บันทึก .*รอรับเงิน, สรุปเดือนนี้, ส่งสลิป .*ออกเอกสาร .*เปิดแอป/);
   assert.doesNotMatch(line, /แนบเอกสาร|คลังเอกสาร|50 ทวิ/, 'LINE entry names only what ordinary accounts can use');
   for (const entry of KNOWLEDGE_BASE.features.filter(item => item.status === 'live')) {
     const text = JSON.stringify(entry);

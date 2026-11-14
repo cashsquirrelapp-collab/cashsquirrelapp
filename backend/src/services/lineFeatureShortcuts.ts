@@ -12,7 +12,7 @@ export interface LineFeatureContext {
 }
 
 const normalize = (text: string) => text.normalize('NFKC').trim().replace(/\s+/g, '').toLocaleLowerCase();
-const commands: Record<string, 'vault' | 'wht50' | 'extras' | 'help' | 'invoice' | 'calendar' | 'upload'> = {
+const commands: Record<string, 'vault' | 'wht50' | 'extras' | 'help' | 'invoice' | 'calendar' | 'upload' | 'record' | 'slip'> = {
   คลังเอกสาร: 'vault', เอกสารของฉัน: 'vault',
   '50ทวิ': 'wht50', ใบ50ทวิ: 'wht50', ติดตาม50ทวิ: 'wht50',
   เมนูเพิ่มเติม: 'extras', เมนูอื่นๆ: 'extras',
@@ -20,7 +20,12 @@ const commands: Record<string, 'vault' | 'wht50' | 'extras' | 'help' | 'invoice'
   ออกเอกสาร: 'invoice', ใบแจ้งหนี้: 'invoice',
   ปฏิทินเงิน: 'calendar',
   ส่งเอกสาร: 'upload',
+  // The LINE menu's บันทึก and ส่งสลิป tiles (owner, 2026-11-14; lineRichMenus.ts 2026-11-14m).
+  บันทึก: 'record', บันทึกรายการ: 'record',
+  ส่งสลิป: 'slip', 'ส่งสลิป/ใบเสร็จ': 'slip', ส่งใบเสร็จ: 'slip',
 };
+
+const message = (label: string, text: string) => ({ type: 'action' as const, action: { type: 'message' as const, label, text } });
 
 export function isLineFeatureShortcut(text: string): boolean {
   return Object.prototype.hasOwnProperty.call(commands, normalize(text));
@@ -86,11 +91,23 @@ export function buildLineFeatureShortcut(
     footer: lineAppLink('/line-documents', 'จัดเอกสารของฉัน'),
     note: 'ส่งจากบัญชี LINE ที่เชื่อมแล้ว · ใช้สิทธิ์ Pro',
   });
-  if (command === 'invoice') return lineCard({
-    title: 'ออกเอกสาร', subtitle: 'เริ่มจากข้อมูลที่มีอยู่ในแอป', character: 'document', altText: 'เปิดหน้าออกใบเสนอราคา ใบแจ้งหนี้ และใบเสร็จ',
-    body: [paragraph('จัดทำใบเสนอราคา ใบแจ้งหนี้ หรือใบเสร็จ และตรวจรายละเอียดก่อนดาวน์โหลด PDF')],
+  // ออกเอกสาร (the menu tile): the kind is picked here, then เลขา asks the details one at a time (lineDocumentDraft.ts
+  // starts on ออกใบเสนอราคา / ออกใบแจ้งหนี้ / ออกใบเสร็จ). The page in the app stays one tap away.
+  if (command === 'invoice') return { ...lineCard({
+    title: 'ออกเอกสาร', subtitle: 'เลือกประเภทด้านล่าง', character: 'document', altText: 'ออกใบเสนอราคา ใบแจ้งหนี้ หรือใบเสร็จ',
+    body: [paragraph('เลือกประเภทเอกสารด้านล่าง เลขาจะถามรายละเอียดทีละข้อ แล้วเตรียมเอกสารให้ตรวจก่อนออก')],
     footer: lineAppLink('/invoice', 'เปิดหน้าเอกสาร'),
-  });
+  }), quickReply: { items: [message('ใบเสนอราคา', 'ออกใบเสนอราคา'), message('ใบแจ้งหนี้', 'ออกใบแจ้งหนี้'), message('ใบเสร็จ', 'ออกใบเสร็จ')] } } as LineMessage;
+  // บันทึก (the menu's big tile): what to record, then the questions one at a time (lineJobQuestions.ts), no form.
+  if (command === 'record') return {
+    type: 'text', text: 'จะบันทึกอะไรครับ เลือกด้านล่าง หรือพิมพ์มาเลยก็ได้ เช่น “งานตัดต่อ 3000” หรือ “ค่ากาแฟ 60”',
+    quickReply: { items: [message('งาน / รายรับ', 'บันทึกงาน'), message('รายจ่าย', 'เพิ่มรายจ่าย')] },
+  };
+  // ส่งสลิป (the menu tile): the camera or the photo album straight from the chat; the picture is read as before.
+  if (command === 'slip') return {
+    type: 'text', text: 'ส่งรูปสลิปหรือใบเสร็จมาในแชทนี้ได้เลยครับ เลขาอ่านยอดแล้วเตรียมรายการให้ตรวจก่อนบันทึก',
+    quickReply: { items: [{ type: 'action', action: { type: 'camera', label: 'ถ่ายรูป' } }, { type: 'action', action: { type: 'cameraRoll', label: 'เลือกรูป' } }] },
+  };
   if (command === 'calendar') return lineCard({
     title: 'ปฏิทินเงิน', subtitle: 'ดูวันรับเงินและรายการที่ต้องติดตาม', character: 'reminder', altText: 'เปิดปฏิทินเงินในแอป',
     body: [paragraph('ดูรายการตามวันที่ในปฏิทินเงิน และเปิดงานที่ต้องการจัดการต่อได้เลย')],

@@ -1,0 +1,51 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600&display=block" rel="stylesheet">
+<title>LINE members menu 2026-11-14</title><style>body{margin:0}</style></head><body>
+<canvas id="c" width="2500" height="1686"></canvas>
+<span style="font:600 20px Prompt">ก</span><span style="font:500 20px Prompt">ก</span>
+<script>
+// The members' LINE menu with its new buttons (owner, 2026-11-14): the 2026-11-03 picture with only the words of three
+// tiles changed and one icon drawn in the style of the others. Each word keeps the size, colour, place and font of the
+// word it replaces: the size is worked out from the old word's measured width.
+const LABELS = [
+  // old: the word whose measured width sets the size (the bottom tiles take theirs from the untouched เปิดแอป tile, so the
+  // three bottom tiles match); text: the new word; x, base: where it sits; align; weight.
+  { old: 'เพิ่มงาน', oldWidth: 497, text: 'บันทึก', color: 'rgb(255,249,236)', x: 104, base: 237, align: 'left', weight: 600 },
+  { old: 'เปิดฟอร์มเพิ่มงานในแอป', oldWidth: 535, text: 'จดรายรับ · รายจ่ายในแชท', color: 'rgb(255,249,236)', x: 104, base: 345, align: 'left', weight: 600 },
+  { old: 'เปิดแอป', oldWidth: 276, text: 'ส่งสลิป', color: 'rgb(82,55,34)', x: 147, base: 1514, align: 'left', weight: 600 },
+  { old: 'ไปที่กระรอกตุนเงิน', oldWidth: 310, text: 'ใบเสร็จ · ถ่ายรูปหรือเลือกรูป', color: 'rgb(137,85,62)', x: 139, base: 1586, align: 'left', weight: 600 },
+  { old: 'เปิดแอป', oldWidth: 276, text: 'ออกเอกสาร', color: 'rgb(82,55,34)', x: 1226, base: 1514, align: 'center', weight: 600 },
+  { old: 'ไปที่กระรอกตุนเงิน', oldWidth: 310, text: 'ใบเสนอราคา · ใบแจ้งหนี้ · ใบเสร็จ', color: 'rgb(137,85,62)', x: 1228, base: 1586, align: 'center', weight: 600 },
+];
+// The ออกเอกสาร icon, in the colours of the เปิดแอป and แนบเอกสาร icons (outline #A8694C, shade #DAAD95, paper #FFF8F2).
+const ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="260" height="250" viewBox="0 0 260 250">
+  <g transform="rotate(-7 120 125)"><rect x="52" y="28" width="150" height="190" rx="14" fill="#DAAD95"/></g>
+  <path d="M82 22 h96 l38 38 v158 a12 12 0 0 1 -12 12 h-122 a12 12 0 0 1 -12 -12 v-184 a12 12 0 0 1 12 -12z" fill="#FFF8F2" stroke="#A8694C" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M178 22 v26 a12 12 0 0 0 12 12 h26" fill="#F6E2D6" stroke="#A8694C" stroke-width="7" stroke-linejoin="round"/>
+  <g stroke="#DAAD95" stroke-width="10" stroke-linecap="round"><path d="M98 92 h86"/><path d="M98 124 h86"/><path d="M98 156 h52"/></g>
+  <circle cx="196" cy="196" r="40" fill="#A8694C"/>
+  <path d="M178 197 l13 13 l24 -26" fill="none" stroke="#FFF8F2" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>`;
+window.render = async () => {
+  await document.fonts.load('600 100px Prompt');
+  const img = new Image(); img.src = new URLSearchParams(location.search).get('bg'); await img.decode();
+  const c = document.getElementById('c'); const ctx = c.getContext('2d');
+  ctx.drawImage(img, 0, 0);
+  const sizes = [];
+  for (const label of LABELS) {
+    ctx.font = `${label.weight} 100px Prompt`;
+    const m = ctx.measureText(label.old);
+    const size = 100 * label.oldWidth / (m.actualBoundingBoxLeft + m.actualBoundingBoxRight);
+    ctx.font = `${label.weight} ${size.toFixed(1)}px Prompt`;
+    ctx.fillStyle = label.color; ctx.textBaseline = 'alphabetic';
+    const n = ctx.measureText(label.text);
+    const inkW = n.actualBoundingBoxLeft + n.actualBoundingBoxRight;
+    const left = label.align === 'center' ? label.x - inkW / 2 : label.x;
+    ctx.fillText(label.text, left + n.actualBoundingBoxLeft, label.base);
+    sizes.push({ text: label.text, size: +size.toFixed(1), inkW: Math.round(inkW), left: Math.round(left) });
+  }
+  const icon = new Image(); icon.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(ICON); await icon.decode();
+  ctx.drawImage(icon, 1238 - 130, 1180, 260, 250);
+  return { sizes, jpeg: c.toDataURL('image/jpeg', 0.9) };
+};
+</script></body></html>

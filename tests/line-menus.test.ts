@@ -5,8 +5,8 @@ import { clearLineMenuCache, ensureLineMenus, menuPayload, resetLineMenu, syncAl
 import { scheduledPaths } from '../cloudflare/schedule';
 import { isPhaseOneFeatureAvailable } from '../shared/featureAvailability';
 
-// LINE's menu: แนบเอกสาร only for admin accounts (owner, 2026-10-24: "ปุ่มแนบเอกสารใน Line ให้เห็นแค่ของบัญชีแอดมิน
-// นอกนั้นไม่สามารถเห็นได้"). No network: a fake LINE API and database.
+// LINE's menu (owner, 2026-10-24: an admin menu and everyone's; 2026-11-14: the same six tiles for every linked chat,
+// บันทึก · รอรับเงิน · สรุปเดือนนี้ · ส่งสลิป · ออกเอกสาร · เปิดแอป). No network: a fake LINE API and database.
 
 const live = JSON.parse(readFileSync(new URL('../scripts/line-menu.json', import.meta.url), 'utf8'));
 const LIFF = /liff\.line\.me\/([^?]+)/.exec(JSON.stringify(live))![1];
@@ -56,24 +56,31 @@ function fakeLine(over: { claim?: string; imageFails?: boolean; menus?: { richMe
 
 beforeEach(() => clearLineMenuCache());
 
-test('admin menu keeps the live 6 tiles; แนบเอกสาร opens คลังเอกสาร; the everyone menu has 5 tiles and no แนบเอกสาร', () => {
-  // Owner, 2026-11-03: แนบเอกสาร goes to the app's คลังเอกสาร (/vault), no longer the LINE documents page.
-  const vault = `https://liff.line.me/${LIFF}?openPath=${encodeURIComponent('/vault')}`;
-  const expected = live.areas.map((area: { action: { label: string } }) => area.action.label === 'แนบเอกสาร' ? { ...area, action: { ...area.action, uri: vault } } : area);
-  assert.deepEqual(menuPayload('admin', LIFF).areas, expected, 'the 6 tiles LINE shows, with แนบเอกสาร opening คลังเอกสาร');
-  assert.ok(!JSON.stringify(menuPayload('admin', LIFF)).includes('line-documents'));
+test('members\' menu (2026-11-14m): บันทึก · รอรับเงิน · สรุปเดือนนี้ · ส่งสลิป · ออกเอกสาร · เปิดแอป, the same for every linked chat', () => {
+  // Owner, 2026-11-14 ("ทำข้อ 2 เมนู LINE ต่อเลย"): LINE as the main way in, so the tiles start the work in the chat.
+  const liff = (path: string) => `https://liff.line.me/${LIFF}?openPath=${encodeURIComponent(path)}`;
+  const admin = menuPayload('admin', LIFF);
   const everyone = menuPayload('everyone', LIFF);
-  assert.equal(everyone.areas.length, 5);
-  assert.ok(!JSON.stringify(everyone).includes('แนบเอกสาร') && !JSON.stringify(everyone).includes('line-documents'));
-  // The bottom row fills the width without gaps or overlap, like the picture.
-  const bottom = everyone.areas.filter(area => area.bounds.y === 1120);
-  assert.deepEqual(bottom.map(area => [area.bounds.x, area.bounds.width]), [[0, 1250], [1250, 1250]]);
-  assert.deepEqual(bottom.map(area => area.action.label), ['กำลังดำเนินงาน', 'เปิดแอป']);
-  assert.ok(everyone.chatBarText.length <= 14 && everyone.name.length <= 300);
+  assert.deepEqual(everyone.areas, admin.areas, 'one set of tiles for every linked chat');
+  assert.deepEqual(everyone.areas.map(area => area.action), [
+    { type: 'message', label: 'บันทึก', text: 'บันทึก' },
+    { type: 'message', label: 'รอรับเงิน', text: 'รอรับเงิน' },
+    { type: 'message', label: 'สรุปเดือนนี้', text: 'สรุปเดือนนี้' },
+    { type: 'message', label: 'ส่งสลิป / ใบเสร็จ', text: 'ส่งสลิป' },
+    { type: 'message', label: 'ออกเอกสาร', text: 'ออกเอกสาร' },
+    { type: 'uri', label: 'เปิดแอป', uri: liff('/app') },
+  ]);
+  // The tiles cover the picture exactly, where the picture draws them (the 2026-11-03 layout).
+  assert.deepEqual(everyone.areas.map(area => [area.bounds.x, area.bounds.y, area.bounds.width, area.bounds.height]), [
+    [0, 0, 1450, 1120], [1450, 0, 1050, 560], [1450, 560, 1050, 560], [0, 1120, 833, 566], [833, 1120, 834, 566], [1667, 1120, 833, 566],
+  ]);
+  assert.equal(everyone.areas.reduce((sum, area) => sum + area.bounds.width * area.bounds.height, 0), 2500 * 1686);
+  assert.ok(everyone.areas.every(area => area.action.label.length <= 20), 'LINE allows 20 characters per label');
+  assert.ok(everyone.chatBarText.length <= 14 && everyone.name.length <= 300 && everyone.name !== admin.name);
 });
 
-test('both CI pictures (scripts/line-menu/recolor.py) are 2500x1686 JPEGs under LINE\'s 1 MB limit', () => {
-  for (const name of ['richmenu-ci-5-2026-11-03.jpg', 'richmenu-ci-6-2026-11-03.jpg']) {
+test('the members\' picture (scripts/line-menu/render-members.mjs) is a 2500x1686 JPEG under LINE\'s 1 MB limit', () => {
+  for (const name of ['richmenu-members-2026-11-14.jpg']) {
     const image = readFileSync(new URL(`../frontend/public/line/${name}`, import.meta.url));
     assert.deepEqual([...image.subarray(0, 3)], [0xff, 0xd8, 0xff]);
     assert.ok(image.length < 1_000_000);
@@ -89,7 +96,7 @@ test('publishing: both menus once, the 5-tile one becomes the default, then noth
   const ids = await ensureLineMenus(line.deps);
   assert.ok(ids);
   assert.deepEqual(line.calls.filter(call => call === 'POST richmenu').length, 2);
-  assert.deepEqual(line.images, ['/line/richmenu-ci-5-2026-11-03.jpg', '/line/richmenu-ci-6-2026-11-03.jpg']);
+  assert.deepEqual(line.images, ['/line/richmenu-members-2026-11-14.jpg', '/line/richmenu-members-2026-11-14.jpg']);
   assert.equal(line.defaultMenu(), vaultOpen ? ids!.admin : ids!.everyone);
   assert.equal(line.done.length, 1);
   line.calls.length = 0;
