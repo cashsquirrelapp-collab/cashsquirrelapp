@@ -91,10 +91,11 @@ test('/connect-sheets: sign in with Google, pick the file, save the map, then ba
   expect(posts.find(post => post.action === 'start')).toEqual({ action: 'start', back: 'connect' });
   await expect(panel.getByRole('status')).toContainText('เชื่อม Google แล้ว');
   await panel.getByTestId('sheets-pick').click();
-  await expect(panel.getByTestId('sheets-save-map')).toBeVisible({ timeout: 10_000 });
+  // เลขา says what it read; with nothing to ask, ใช้ตามนี้ saves the map in one tap.
+  await expect(panel.getByTestId('sheet-chat-setup')).toContainText('เข้าใจทั้งหมด', { timeout: 10_000 });
   expect(await textOverlapIssues(page)).toEqual([]);
   await page.screenshot({ path: 'test-results/connect-sheets-map-phone.png' });
-  await panel.getByTestId('sheets-save-map').click();
+  await panel.getByTestId('sheet-setup-save').click();
   await expect(page.getByRole('heading', { name: 'เชื่อมชีตแล้ว' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'กลับไปที่ LINE' })).toHaveAttribute('href', 'https://line.me/R/nv/chat');
   expect(await textOverlapIssues(page)).toEqual([]);

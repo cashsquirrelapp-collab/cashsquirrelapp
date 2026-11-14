@@ -40,7 +40,7 @@ const FAKE_PICKER = `window.gapi = { load: function (name, options) {
   options.callback();
 } };`;
 
-async function open(page: Page, size: { width: number; height: number }, start: { connected: boolean; file?: boolean; labsOn?: string[] } = { connected: false }) {
+async function open(page: Page, size: { width: number; height: number }, start: { connected: boolean; file?: boolean; labsOn?: string[]; tabs?: typeof TABS } = { connected: false }) {
   const google = { connected: start.connected, file: start.file ? FILE : null as typeof FILE | null, map: null as unknown };
   const posts: Record<string, unknown>[] = [];
   const status = () => ({ google: { configured: true, connected: google.connected, ...(google.connected ? { email: 'shop@example.com' } : {}), file: google.file, map: google.map } });
@@ -72,7 +72,7 @@ async function open(page: Page, size: { width: number; height: number }, start: 
     if (body.action === 'start') { const reply = { ...status(), url: `${new URL(page.url()).origin}/settings?google=connected` }; google.connected = true; return route.fulfill({ json: reply }); }
     if (body.action === 'token') return route.fulfill({ json: { token: 'ya29.test', expiresIn: 3600, apiKey: 'picker-key', appId: '875278739350' } });
     if (body.action === 'pick') { google.file = { ...FILE }; google.map = null; return route.fulfill({ json: status() }); }
-    if (body.action === 'read') return route.fulfill({ json: { ...status(), tabs: TABS, readAt: '2026-11-12T03:00:00.000Z' } });
+    if (body.action === 'read') return route.fulfill({ json: { ...status(), tabs: start.tabs ?? TABS, readAt: '2026-11-12T03:00:00.000Z' } });
     if (body.action === 'saveMap') { google.map = body.map; return route.fulfill({ json: status() }); }
     if (body.action === 'createTemplate') { google.file = { id: 'new-file-123456', name: String(body.name), url: 'https://docs.google.com/spreadsheets/d/new-file-123456/edit' }; google.map = null; return route.fulfill({ json: { ...status(), created: true } }); }
     if (body.action === 'forget') { google.file = null; google.map = null; return route.fulfill({ json: status() }); }
@@ -91,6 +91,38 @@ async function openPanel(page: Page) {
   const panel = page.getByTestId('sheets-panel');
   await expect(panel).toBeVisible();
   return panel;
+}
+
+const ODD_TABS = [{ name: 'Income', truncated: false, rows: [
+  [cell('วันที่โอน'), cell('Client'), cell('งาน'), cell('ค่าจ้าง (ก่อนหัก)'), cell('ภาษี 3%'), cell('โอนจริง'), cell('ZZ')],
+  [cell('2/11/2569', { date: '2026-11-02' }), cell('บริษัท โกลว์อัพ จำกัด'), cell('ที่ปรึกษาคอนเทนต์'), cell('20,000'), cell('600', { formula: true }), cell('19,400', { formula: true }), cell('1/11/2569', { date: '2026-11-01' })],
+  [cell('5/11/2569', { date: '2026-11-05' }), cell('คาเฟ่ลูมิน'), cell('ออกแบบโลโก้'), cell('5,000'), cell('0', { formula: true }), cell('5,000', { formula: true }), cell('3/11/2569', { date: '2026-11-03' })],
+] }];
+
+for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'phone', width: 390, height: 844 }]) {
+  test(`a sheet with other columns on the ${device.name}: เลขา names the formula columns, asks only what it is not sure of, then saves`, async ({ page }) => {
+    const { posts } = await open(page, device, { connected: true, file: true, tabs: ODD_TABS });
+    const panel = await openPanel(page);
+    const setup = panel.getByTestId('sheet-chat-setup');
+    await expect(setup).toContainText(`อ่านชีต ${FILE.name} แล้วครับ เข้าใจเกือบหมด`);
+    await expect(setup).toContainText('ช่อง ภาษี 3% กับ โอนจริง ชีตคิดให้เองอยู่แล้ว ผมจะไม่ไปแก้');
+    await expect(setup).toContainText('ขอถามข้อเดียวครับ');
+    await expect(setup).toContainText('ช่อง "ZZ" คือวันที่ ใช่ไหมครับ');
+    await page.waitForFunction(() => { const dialog = document.querySelector('[role="dialog"]'); return Boolean(dialog && getComputedStyle(dialog).opacity === '1' && getComputedStyle(dialog.parentElement!).opacity === '1'); });
+    expect(await textOverlapIssues(page)).toEqual([]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+    await page.screenshot({ path: `test-results/labs-sheets-ask-${device.name}.png` });
+    await setup.getByRole('button', { name: 'ไม่ใช่' }).click();
+    await expect(setup).toContainText('แล้วช่อง "ZZ" คืออะไรครับ');
+    await setup.getByRole('button', { name: 'ไม่ใช้' }).click();
+    // The last answer saves the map, with the answer in it.
+    await expect(setup.getByRole('status')).toContainText('บันทึกแล้วครับ');
+    const saved = posts.find(post => post.action === 'saveMap')?.map as { tabs: { columns: { index: number; target: string; formula?: boolean }[] }[] };
+    expect(saved.tabs[0].columns.find(column => column.index === 6)?.target).toBe('ignore');
+    expect(saved.tabs[0].columns.find(column => column.index === 5)?.formula).toBe(true);
+    expect(await textOverlapIssues(page)).toEqual([]);
+    await page.screenshot({ path: `test-results/labs-sheets-asked-${device.name}.png` });
+  });
 }
 
 for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'phone', width: 390, height: 844 }]) {
@@ -116,6 +148,12 @@ for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'p
     expect(await page.evaluate(() => (window as unknown as { __referrerAtPick?: string }).__referrerAtPick)).toBe('strict-origin');
     expect(await page.evaluate(() => document.querySelector<HTMLMetaElement>('meta[name="referrer"]')?.content)).toBe('no-referrer');
 
+    // เลขา says what it read first (owner, 2026-11-14: the table was "ดูยาก"); the full table is one tap away.
+    const setup = panel.getByTestId('sheet-chat-setup');
+    await expect(setup).toContainText(`อ่านชีต ${FILE.name} แล้วครับ`);
+    await expect(setup).toContainText('ช่อง หัก ณ ที่จ่าย ชีตคิดให้เองอยู่แล้ว ผมจะไม่ไปแก้');
+    await expect(panel.getByTestId('sheets-save-map')).toHaveCount(0);
+    await setup.getByRole('button', { name: 'ดูทั้งตาราง' }).click();
     const table = device.name === 'phone' ? panel.getByTestId('sheet-map-list') : panel.getByTestId('sheet-map-table');
     await expect(table).toBeVisible();
     await expect(table).toContainText('สูตร ห้ามเขียนทับ');

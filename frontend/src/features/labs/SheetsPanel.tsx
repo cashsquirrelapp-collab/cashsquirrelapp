@@ -13,6 +13,7 @@ import { EXCEL_ACCEPT, ExcelReadError, excelMapFor, keepExcelMap, readExcelFile 
 import { pickSheet } from './googlePicker';
 import { mapOf, overviewOf, readTabs, setKind, setTarget, setUse, templateReadings, type TabReading } from './sheetMap';
 import { PartnerLogo } from '../../components/brand/PartnerLogo';
+import { SheetChatSetup } from './SheetChatSetup';
 import './labs.css';
 
 // ชีตบัญชีของคุณ (ฟีเจอร์ทดลอง; owner, 2026-11-12: "เราไปหาเขา"). Two ways in, each its own switch in ฟีเจอร์ทดลอง:
@@ -176,6 +177,10 @@ function GoogleSource({ open, account, mapOn, writeOn = false, result, onCreateT
   const [notice, setNotice] = React.useState<Notice>(null);
   const [tabs, setTabs] = React.useState<LiveTab[] | null>(null);
   const [readAt, setReadAt] = React.useState<string | null>(null);
+  // A sheet not mapped yet: เลขา says what it read and asks only what it is not sure of (SheetChatSetup); ดูทั้งตาราง
+  // leaves for the full table. justSaved keeps เลขา's last line on screen after the map is saved from there.
+  const [askMode, setAskMode] = React.useState(true);
+  const [justSaved, setJustSaved] = React.useState(false);
 
   const fail = (caught: unknown) => setError((caught as Error)?.message || tr("กรุณาลองใหม่อีกครั้ง"));
   const refreshStatus = React.useCallback(async () => {
@@ -194,6 +199,7 @@ function GoogleSource({ open, account, mapOn, writeOn = false, result, onCreateT
 
   const fileId = status?.file?.id ?? null;
   React.useEffect(() => { onWide(Boolean(fileId)); }, [fileId, onWide]);
+  React.useEffect(() => { setAskMode(true); setJustSaved(false); }, [fileId]);
   const load = React.useCallback(async () => {
     const reply = await googleApi.read(account);
     setStatus(reply.google);
@@ -231,6 +237,14 @@ function GoogleSource({ open, account, mapOn, writeOn = false, result, onCreateT
     setNotice({ tone: 'green', text: tr("บันทึกแผนที่ชีตแล้ว") });
     onMapSaved?.();
   });
+  const saveAnswered = (readings: TabReading[]) => run('save', async () => {
+    if (!fileId) return;
+    setStatus(await googleApi.saveMap(account, mapOf(fileId, readings)));
+    ws.load(readings);
+    setJustSaved(true);
+    onMapSaved?.();
+  });
+  const asking = mapOn && askMode && ws.readings.length > 0 && Boolean(status?.file) && (!status?.map || justSaved);
 
   let body: React.ReactNode;
   if (!status) {
@@ -280,7 +294,10 @@ function GoogleSource({ open, account, mapOn, writeOn = false, result, onCreateT
           </div>
         </div>
         {tabs && !ws.readings.length && <p className="lab-note">{tr("ไฟล์นี้ไม่มีแท็บที่อ่านได้")}</p>}
-        <WorkspaceView ws={ws} mapOn={mapOn} saved={Boolean(status.map)} onEdit={() => setNotice(null)} />
+        {asking ? (
+          <SheetChatSetup key={`${status.file.id}:${readAt ?? ''}`} fileName={status.file.name} readings={ws.readings} saved={Boolean(status.map)} busy={busy === 'save'}
+            onSave={saveAnswered} onShowTable={readings => { ws.load(readings); ws.setView('map'); ws.setDirty(!status.map); setAskMode(false); }} />
+        ) : <WorkspaceView ws={ws} mapOn={mapOn} saved={Boolean(status.map)} onEdit={() => setNotice(null)} />}
       </>
     );
   }
@@ -294,7 +311,7 @@ function GoogleSource({ open, account, mapOn, writeOn = false, result, onCreateT
       </div>
       {status?.connected && (
         <div className="lab-gs-foot">
-          {status.file && ws.view === 'map' && mapOn && ws.readings.length > 0 && <SaveMapButton ws={ws} saved={Boolean(status.map)} busy={busy !== null} onSave={save} />}
+          {status.file && !asking && ws.view === 'map' && mapOn && ws.readings.length > 0 && <SaveMapButton ws={ws} saved={Boolean(status.map)} busy={busy !== null} onSave={save} />}
           {status.file && <button type="button" className="lab-btn" disabled={busy !== null} onClick={forget}>{tr("เปลี่ยนไฟล์")}</button>}
           <button type="button" className="lab-btn is-link lab-gs-disconnect" disabled={busy !== null} onClick={disconnect}>{tr("ยกเลิกการเชื่อม Google")}</button>
         </div>

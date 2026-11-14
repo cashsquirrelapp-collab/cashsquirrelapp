@@ -88,12 +88,16 @@ export function normalizeHeader(text: string): string {
   return text.normalize('NFC').toLowerCase().replace(/[\s()[\]{}.:/\\\-_,'"#*?!|]+/g, '').replace(UNIT_WORDS, '');
 }
 
+const WHT_WITH_RATE = /^(?:ภาษี|หัก|หักภาษี|หักณที่จ่าย|ภาษีหักณที่จ่าย|wht|tax)\d+(?:\.\d+)?%$/;
 const HEADER_INDEX = Object.entries(HEADER_WORDS).map(([field, words]) => ({ field: field as Field, words: words.map(normalizeHeader) }));
 
 /** How well a header names a field, 0..1. */
 export function headerScore(header: string, field: Field): number {
   const h = normalizeHeader(header);
   if (!h) return 0;
+  // "ภาษี 3%", "หัก 3%", "WHT 3%": the rate is in the header, the column holds the tax withheld (owner, 2026-11-14: a
+  // customer's sheet named it so and it was read as a note).
+  if (WHT_WITH_RATE.test(h)) return field === 'whtAmount' ? 0.9 : 0;
   let best = 0;
   for (const word of HEADER_INDEX.find(entry => entry.field === field)!.words) {
     if (h === word) return 1;

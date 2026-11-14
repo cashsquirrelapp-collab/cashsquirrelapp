@@ -347,3 +347,25 @@
 .lab-sheetline.is-phone p b { display: block; font-weight: 600; }
 .lab-sheetline.is-phone p span { display: block; font-size: 12px; }
 .lab-sheetline.is-phone.is-row { margin: 12px 0 16px; }
+
+/* เลขาถามเรื่องชีต (SheetChatSetup): เลขา's lines, the answers, one question card at a time, as in the chat. */
+.lab-ask { display: grid; gap: 12px; padding: 4px 0; }
+.lab-ask-bot { display: flex; align-items: flex-start; gap: 10px; }
+.lab-ask-avatar { flex: none; display: inline-flex; width: 34px; height: 34px; border-radius: 999px; overflow: hidden; background: var(--lab-tint); align-items: center; justify-content: center; }
+.lab-ask-lines { display: grid; gap: 8px; min-width: 0; padding-top: 4px; font-size: 14.5px; line-height: 1.55; }
+.lab-ask-lines b { font-weight: 600; }
+.lab-ask-past { margin: 0 0 0 44px; font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+.lab-ask-me { justify-self: end; max-width: 80%; margin: -6px 0 0; padding: 8px 14px; border-radius: 18px; background: var(--lab-tint); font-size: 14px; line-height: 1.5; }
+.lab-ask-card { display: grid; gap: 10px; margin-left: 44px; padding: 14px 16px 16px; border-radius: 18px; background: var(--white); box-shadow: inset 0 0 0 1px var(--border), 0 2px 8px rgba(33, 29, 26, 0.04); }
+.lab-ask-head { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; line-height: 1.45; color: var(--lab-brick-ink); }
+.lab-ask-q { font-size: 15px; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
+.lab-ask-options { display: grid; border-radius: 14px; background: var(--faint); overflow: hidden; }
+.lab-ask-options button { min-height: 46px; padding: 0 14px; text-align: left; font-size: 14.5px; line-height: 1.45; color: var(--text); background: transparent; border: 0; cursor: pointer; }
+.lab-ask-options button + button { box-shadow: inset 0 1px 0 var(--border); }
+.lab-ask-options button:hover { background: color-mix(in srgb, var(--lab-brick) 8%, transparent); }
+.lab-ask-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.lab-ask-chips button { min-height: 36px; padding: 0 12px; border-radius: 999px; font-size: 13px; line-height: 1.45; color: var(--text); background: var(--faint); border: 0; cursor: pointer; }
+.lab-ask-chips button:hover { background: var(--lab-tint); color: var(--lab-brick-ink); }
+.lab-ask-go { justify-self: start; margin-left: 44px; }
+.lab-ask-table { justify-self: start; margin-left: 44px; padding: 0; border: 0; background: none; font-size: 13px; line-height: 1.5; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.lab-ask-table:hover { color: var(--text); }
