@@ -122,7 +122,7 @@ export function SheetDoneBlock({ sheet, extra }: { sheet: SheetRow; extra?: Reac
         : <><Check className="h-4 w-4" aria-hidden="true" />{tr("ลงชีต {0} › {1} แถว {2} แล้ว", write.file, write.tab, write.row)}</>}</p>
       {write.status === 'written' && write.canUndo && <span className="lab-sp-undo-note">{tr("ย้อนกลับได้ภายใน 30 นาที แถวในชีตจะว่างเหมือนเดิม")}</span>}
       <div className="lab-sr-actions">
-        {write.url && <a className="lab-btn is-primary" href={write.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-4 w-4" />{tr("เปิดชีต")}</a>}
+        {write.url && <a className="lab-btn is-primary" href={write.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-4 w-4" />{write.status === 'written' ? tr("ดูในชีต") : tr("เปิดชีต")}</a>}
         {write.status === 'written' && write.canUndo && <button type="button" className="lab-btn" disabled={sheet.undoing} onClick={() => void sheet.undo()}><Undo2 className="h-4 w-4" />{sheet.undoing ? tr("กำลังย้อนกลับ…") : tr("ย้อนกลับ")}</button>}
         {extra}
       </div>

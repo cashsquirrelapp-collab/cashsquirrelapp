@@ -12,6 +12,7 @@ import { useMobileLayout } from '../mobile/useMobileLayout';
 import { WHT_PRESET_RATES, isEWhtJob, isValidWhtRate, whtAmountFor, roundMoney } from '../../../../shared/wht';
 import { CREDIT_TERM_PRESETS } from '../../../../shared/creditTerms';
 
+import { SheetRowLine } from '../labs/SheetSource';
 import { tr, T } from '../../i18n/tr';
 type Payment = 'unpaid' | 'paid' | 'partial' | 'installment';
 type FieldKey = 'name' | 'value' | 'postDate' | 'received' | 'installments' | 'type' | 'wht';
@@ -713,6 +714,7 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
       </header>
       <div className="ksm-jobform-scroll">
         <p className="ksm-jobform-intro">{isEdit ? tr("ปรับข้อมูลงานนี้ แล้วกดบันทึก") : tr("กรอกชื่องานและมูลค่า ก็เริ่มได้เลย")}</p>
+        {isEdit && job && <SheetRowLine job={job} mobile />}
         <div className="ksm-field">
           <label htmlFor="job-form-name"><span>{tr("ชื่องาน")}{' '}<span className="ksm-required">*</span></span></label>
           <input
@@ -824,6 +826,7 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
             </div>
 
             <div className="flex-1 space-y-7 overflow-y-auto px-6 py-6">
+              {isEdit && job && <SheetRowLine job={job} />}
               {/* A. ข้อมูลงาน */}
               <section className="space-y-4" aria-label={tr("ข้อมูลงาน")}>
                 <div>

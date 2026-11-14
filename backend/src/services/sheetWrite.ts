@@ -1,4 +1,4 @@
-import { UNDO_MS, type GoogleRecord, type SheetMap, type SheetWrite } from '../../../shared/googleSheets.js';
+import { UNDO_MS, sheetRowUrl, type GoogleRecord, type SheetMap, type SheetWrite } from '../../../shared/googleSheets.js';
 import { chooseTab, dataColumns, displayValue, letter, rowCells, type RowCell, type RowKind } from '../../../shared/sheetRow.js';
 import { loadGoogle, saveGoogle } from '../repositories/google.js';
 import { GoogleError, accessToken, decryptToken, googleConfigured, googleOps, type SheetOps } from './googleSheets.js';
@@ -117,8 +117,11 @@ export async function writeRecordToSheet(userId: string, proposalId: string, kin
     const plan = await planRow(ops, google.map!, kind, record);
     if (!plan) return { status: 'failed', error: kind === 'expense' ? 'แผนที่ชีตยังไม่มีแท็บรายจ่าย' : 'แผนที่ชีตยังไม่มีแท็บรายรับหรืองาน' };
     const cells = await writeRow(ops, plan);
-    await saveGoogle(userId, { ...google, lastWrite: { proposalId, at: now.toISOString(), ok: true, fileId: google.file!.id, tab: plan.tab, row: plan.row, cells } });
-    return { status: 'written', file: google.file!.name, url: google.file!.url, tab: plan.tab, row: plan.row };
+    // ดูในชีต on the card opens this very row: the tab's id, and the row across the mapped columns.
+    const gid = await ops.tabId(plan.tab).catch(() => undefined);
+    const span = Math.max(0, ...plan.cells.map(cell => cell.index));
+    await saveGoogle(userId, { ...google, lastWrite: { proposalId, at: now.toISOString(), ok: true, fileId: google.file!.id, tab: plan.tab, row: plan.row, cells, ...(gid === undefined ? {} : { gid }), span } });
+    return { status: 'written', file: google.file!.name, url: gid === undefined ? google.file!.url : sheetRowUrl(google.file!.id, gid, plan.row, span), tab: plan.tab, row: plan.row };
   } catch (error) {
     const message = error instanceof GoogleError ? ERRORS[error.code] : ERRORS.failed;
     await saveGoogle(userId, { ...google, lastWrite: { proposalId, at: now.toISOString(), ok: false, error: message } }).catch(() => undefined);
@@ -139,7 +142,7 @@ export function writeFor(record: GoogleRecord | null, proposalId: string, now = 
   return {
     status: write.undone ? 'undone' as const : 'written' as const,
     file: record?.file?.id === write.fileId ? record?.file?.name ?? '' : '',
-    url: record?.file?.id === write.fileId ? record?.file?.url ?? '' : '',
+    url: record?.file?.id === write.fileId ? (write.gid === undefined ? record?.file?.url ?? '' : sheetRowUrl(write.fileId!, write.gid, write.row, write.span ?? 0)) : '',
     tab: write.tab ?? '', row: write.row ?? 0,
     canUndo: !write.undone && now - Date.parse(write.at) < UNDO_MS && record?.file?.id === write.fileId,
   };

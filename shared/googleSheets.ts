@@ -16,6 +16,8 @@ export interface GoogleFile { id: string; name: string; url: string }
 export interface SheetMapColumn { index: number; header: string; target: string; formula?: boolean; choices?: string[] }
 export interface SheetMapTab {
   name: string;
+  /** Google's own id of the tab (#gid= in its address), so a link opens this tab. Absent on maps saved before it was kept. */
+  gid?: number;
   /** Zero-based row of the headers, or null for a tab without one. */
   headerRow: number | null;
   kind: 'jobs' | 'expenses' | 'mixed';
@@ -37,7 +39,7 @@ export interface GoogleStatus {
 
 /** One cell as read from the sheet, in the importer's shape (SheetCell) plus whether a formula makes it. */
 export interface LiveCell { raw: string | number | boolean | null; text: string; date?: string; formula?: true }
-export interface LiveTab { name: string; rows: LiveCell[][]; /** More rows than were read. */ truncated: boolean }
+export interface LiveTab { name: string; rows: LiveCell[][]; /** More rows than were read. */ truncated: boolean; /** Google's id of the tab. */ gid?: number }
 
 /** Reading limits: enough for a year of one person's records, small enough for one request. */
 export const LIVE_READ = { tabs: 12, rows: 400, columns: 40 } as const;
@@ -52,6 +54,7 @@ export const sheetMapColumnSchema = z.object({
 }).strict();
 export const sheetMapTabSchema = z.object({
   name: z.string().min(1).max(120),
+  gid: z.number().int().min(0).max(2_147_483_647).optional(),
   headerRow: z.number().int().min(0).max(LIVE_READ.rows).nullable(),
   kind: z.enum(['jobs', 'expenses', 'mixed']),
   use: z.boolean(),
@@ -80,6 +83,9 @@ export interface SheetWrite {
   cells?: string[];
   error?: string;
   undone?: boolean;
+  /** The tab's id and the last column written, so the card's ดูในชีต opens that very row. */
+  gid?: number;
+  span?: number;
 }
 export const UNDO_MS = 30 * 60_000;
 const sheetWriteSchema = z.object({
@@ -92,6 +98,8 @@ const sheetWriteSchema = z.object({
   cells: z.array(z.string().max(200)).max(LIVE_READ.columns * 2).optional(),
   error: z.string().max(300).optional(),
   undone: z.boolean().optional(),
+  gid: z.number().int().min(0).max(2_147_483_647).optional(),
+  span: z.number().int().min(0).max(LIVE_READ.columns).optional(),
 });
 
 /** The kept record (server only). */
@@ -123,4 +131,19 @@ export function serialToDate(serial: number): string | null {
   if (!Number.isFinite(serial) || serial < 1 || serial > 2958465) return null;
   const date = new Date(Date.UTC(1899, 11, 30) + Math.floor(serial) * 86_400_000);
   return date.toISOString().slice(0, 10);
+}
+
+/** Where a job in the app sits in the connected sheet (หน้างานจากชีต, ฟีเจอร์ทดลอง sheetJobs): kept on the job as `sheetLink`,
+ *  so its details say "อยู่ในชีต … แถว 6" and ดูในชีต opens that row. `missing`: the row was not found at the last reading
+ *  (the job stays in the app; nothing is deleted on the app's side). */
+export interface SheetLink { fileId: string; tab: string; row: number; gid?: number; missing?: true }
+
+const columnLetters = (index: number): string => { let s = '', n = index + 1; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
+
+/** The address that opens the file at a tab, with one row selected (Google selects `range` when it opens): ดูในชีต. */
+export function sheetRowUrl(fileId: string, gid?: number | null, row?: number | null, lastColumn = 0): string {
+  const base = `https://docs.google.com/spreadsheets/d/${encodeURIComponent(fileId)}/edit`;
+  if (gid === undefined || gid === null || !Number.isInteger(gid)) return base;
+  const range = row && row > 0 ? `&range=A${row}:${columnLetters(Math.max(0, lastColumn))}${row}` : '';
+  return `${base}#gid=${gid}${range}`;
 }

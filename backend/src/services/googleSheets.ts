@@ -189,7 +189,7 @@ interface ApiCell {
   userEnteredValue?: { formulaValue?: string };
   effectiveFormat?: { numberFormat?: { type?: string } };
 }
-interface ApiSheet { properties?: { title?: string; hidden?: boolean; sheetType?: string }; data?: { rowData?: { values?: ApiCell[] }[] }[] }
+interface ApiSheet { properties?: { title?: string; hidden?: boolean; sheetType?: string; sheetId?: number }; data?: { rowData?: { values?: ApiCell[] }[] }[] }
 
 export function liveCell(cell: ApiCell | undefined): LiveCell {
   if (!cell) return { raw: null, text: '' };
@@ -218,7 +218,7 @@ const quoteTab = (title: string) => `'${title.replace(/'/g, "''")}'`;
 /** The visible tabs of a Google Sheet: up to LIVE_READ rows and columns each, values as shown plus dates and formulas. */
 export async function readSpreadsheet(token: string, fileId: string): Promise<LiveTab[]> {
   const id = encodeURIComponent(fileId);
-  const outline = await call(`${SHEETS}/${id}?fields=sheets.properties(title,hidden,sheetType,gridProperties.rowCount)`, { headers: auth(token) });
+  const outline = await call(`${SHEETS}/${id}?fields=sheets.properties(sheetId,title,hidden,sheetType,gridProperties.rowCount)`, { headers: auth(token) });
   if (!outline.ok) throw failure(outline);
   const sheets = ((await json<{ sheets?: (ApiSheet & { properties?: { gridProperties?: { rowCount?: number } } })[] }>(outline)).sheets || [])
     .filter(sheet => sheet.properties?.title && !sheet.properties.hidden && (sheet.properties.sheetType ?? 'GRID') === 'GRID')
@@ -233,6 +233,7 @@ export async function readSpreadsheet(token: string, fileId: string): Promise<Li
   return read.map((sheet, index) => ({
     name: sheet.properties?.title || sheets[index]?.properties?.title || `Sheet${index + 1}`,
     rows: liveRows(sheet),
+    ...(typeof sheets[index]?.properties?.sheetId === 'number' ? { gid: sheets[index].properties!.sheetId } : {}),
     truncated: Number((sheets[index] as { properties?: { gridProperties?: { rowCount?: number } } })?.properties?.gridProperties?.rowCount) > LIVE_READ.rows
       && (sheet.data?.[0]?.rowData?.length ?? 0) >= LIVE_READ.rows,
   }));
@@ -280,6 +281,8 @@ export interface SheetOps {
   copyFormulas(tab: string, fromRow: number, toRow: number, columns: number[]): Promise<string[]>;
   /** Empties these cells (undo). */
   clear(tab: string, cells: string[]): Promise<void>;
+  /** Google's id of the tab (#gid=), for a link that opens it. */
+  tabId(tab: string): Promise<number>;
 }
 
 const columnName = (index: number): string => { let s = '', n = index + 1; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
@@ -339,5 +342,6 @@ export function googleOps(token: string, fileId: string): SheetOps {
     async clear(_tab, cells) {
       if (cells.length) await post(`${SHEETS}/${id}/values:batchClear`, { ranges: cells });
     },
+    tabId: sheetId,
   };
 }

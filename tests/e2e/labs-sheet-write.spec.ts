@@ -99,7 +99,7 @@ for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'p
     await expect(preview).toContainText('เขียนแล้ว');
     const done = page.getByTestId('sheet-row-done');
     await expect(done).toContainText('ลงชีต บัญชีร้าน 2569 › รายจ่าย แถว 5 แล้ว');
-    await expect(done.getByRole('link', { name: 'เปิดชีต' })).toHaveAttribute('href', PREVIEW.url);
+    await expect(done.getByRole('link', { name: 'ดูในชีต' })).toHaveAttribute('href', PREVIEW.url);
     expect(await textOverlapIssues(page)).toEqual([]);
     await page.screenshot({ path: `test-results/labs-sheet-written-${device.name}.png` });
     await done.getByRole('button', { name: 'ย้อนกลับ' }).click();

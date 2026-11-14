@@ -47,6 +47,8 @@ export interface Job {
   remindAt?: string | null; // วันที่ให้แอปเตือนตัวเองให้ตามเงินงานนี้ (YYYY-MM-DD)
   installments?: JobInstallment[]; // ตารางรับเงินแต่ละงวด (มีเฉพาะงานที่แบ่งชำระ)
   lastActivityAt?: string; // ISO time of the last add/edit (e.g. recording a payment); orders same-day jobs
+  /** Where the job sits in the account's connected sheet (หน้างานจากชีต, ฟีเจอร์ทดลอง; shared/googleSheets.ts SheetLink). */
+  sheetLink?: { fileId: string; tab: string; row: number; gid?: number; missing?: true };
 }
 
 export interface TaxEvidence {

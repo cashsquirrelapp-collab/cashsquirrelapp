@@ -17,7 +17,7 @@ test('labs: the owner is always a tester; nothing counts as on unless the accoun
   assert.deepEqual(labState({ tester: false, on: ['sheets'] }, false), { tester: false, on: [] }, 'not a tester: nothing opens');
   // Phase 1 (2026-11-12) built the filing calendar and the template download, phase 2 the Google Sheets connection, the
   // Excel file and the sheet map; the rest are still being built and open nothing even when a tester turned them on.
-  assert.deepEqual(LAB_FEATURES.filter(feature => feature.ready).map(feature => feature.id), ['sheets', 'excel', 'sheetMap', 'sheetWrite', 'templates', 'filingCalendar']);
+  assert.deepEqual(LAB_FEATURES.filter(feature => feature.ready).map(feature => feature.id), ['sheets', 'excel', 'sheetMap', 'sheetWrite', 'sheetJobs', 'templates', 'filingCalendar']);
   assert.deepEqual(labState({ tester: true, on: ['accountant', 'projects', 'filingCalendar'] }, false), { tester: true, on: ['filingCalendar'] });
   assert.equal(labOn(labState({ tester: true, on: ['projects'] }, false), 'projects'), false);
   assert.equal(labOn(labState({ tester: true, on: ['sheets'] }, false), 'sheets'), true);
@@ -25,7 +25,7 @@ test('labs: the owner is always a tester; nothing counts as on unless the accoun
   assert.equal(labOn(labState({ tester: false, on: ['templates'] }, false), 'templates'), false, 'not a tester any more: closed');
   assert.equal(labOn(NO_LABS, 'filingCalendar'), false);
   assert.equal(labOn(null, 'filingCalendar'), false);
-  for (const id of LAB_IDS) assert.equal(labReady(id), ['sheets', 'excel', 'sheetMap', 'sheetWrite', 'templates', 'filingCalendar'].includes(id), id);
+  for (const id of LAB_IDS) assert.equal(labReady(id), ['sheets', 'excel', 'sheetMap', 'sheetWrite', 'sheetJobs', 'templates', 'filingCalendar'].includes(id), id);
 });
 
 test('labs: every feature has Thai words a tester can read, and no AI vendor names', () => {

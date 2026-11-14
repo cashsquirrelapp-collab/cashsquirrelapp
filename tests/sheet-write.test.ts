@@ -70,6 +70,7 @@ function fakeOps(sheet: Record<string, string[][]>, formulas: Record<string, Set
     async write(tab, row, cells) { calls.push({ op: 'write', args: [tab, row, cells] }); return cells.map(cell => `${tab}!${cell.index}${row}`); },
     async copyFormulas(tab, from, to, columns) { calls.push({ op: 'copy', args: [tab, from, to, columns] }); return columns.map(column => `${tab}!${column}${to}`); },
     async clear(tab, cells) { calls.push({ op: 'clear', args: [tab, cells] }); },
+    async tabId(tab) { return tab === 'รายจ่าย' ? 7 : 0; },
   };
   return { ops, calls };
 }
@@ -138,6 +139,10 @@ test('the card after ยืนยัน: written, failed, or another card\'s wri
   const at = '2026-11-12T03:00:00.000Z';
   const record = { email: 'a@example.com', enc: 'x'.repeat(40), at, file, map: MAP, lastWrite: { proposalId: 'p_1', at, ok: true, fileId: file.id, tab: 'รายรับ', row: 5, cells: ['A5'] } };
   assert.deepEqual(writeFor(record, 'p_1', Date.parse(at) + 60_000), { status: 'written', file: 'บัญชีร้าน', url: file.url, tab: 'รายรับ', row: 5, canUndo: true });
+  // Kept with the tab's id and the last column: ดูในชีต opens the tab with the very row selected.
+  const deep = { ...record, lastWrite: { ...record.lastWrite!, gid: 7, span: 6 } };
+  assert.equal(writeFor(deep, 'p_1', Date.parse(at) + 60_000)!.status === 'written' && (writeFor(deep, 'p_1', Date.parse(at) + 60_000) as { url: string }).url,
+    'https://docs.google.com/spreadsheets/d/file-12345678/edit#gid=7&range=A5:G5');
   assert.equal(writeFor(record, 'p_1', Date.parse(at) + 31 * 60_000)!.status === 'written' && (writeFor(record, 'p_1', Date.parse(at) + 31 * 60_000) as { canUndo: boolean }).canUndo, false);
   assert.equal(writeFor(record, 'p_2'), null);
   assert.deepEqual(writeFor({ ...record, lastWrite: { proposalId: 'p_1', at, ok: false, error: 'Google ไม่ตอบกลับ' } }, 'p_1'), { status: 'failed', error: 'Google ไม่ตอบกลับ' });

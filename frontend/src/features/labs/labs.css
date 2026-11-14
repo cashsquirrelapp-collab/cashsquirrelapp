@@ -328,3 +328,22 @@
 .lab-sp-done > p { display: flex; align-items: flex-start; gap: 6px; margin: 0; font-size: 13px; font-weight: 600; line-height: 1.5; color: var(--lab-green); overflow-wrap: anywhere; }
 .lab-sp-done > p svg { flex: none; margin-top: 3px; }
 .lab-sp-undo-note { font-size: 12px; line-height: 1.5; color: var(--muted); }
+
+/* หน้างานจากชีต (sheetJobs): one line over the jobs list, and the row line in a job's details. */
+.lab-sheetline { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; padding: 6px 8px 6px 12px; border-radius: 14px; background: var(--white); box-shadow: inset 0 0 0 1px var(--border); }
+.lab-sheetline img { flex: none; width: 20px; height: 20px; }
+.lab-sheetline p { flex: 1; min-width: 0; font-size: 13.5px; line-height: 1.5; overflow-wrap: anywhere; }
+.lab-sheetline p b { font-weight: 500; }
+.lab-sheetline p span { color: var(--muted); font-size: 12.5px; }
+.lab-sheetline p span.is-red { color: var(--lab-red); }
+.lab-sheetline-btn { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px; border-radius: 10px; font-size: 12.5px; font-weight: 600; line-height: 1.4; color: var(--text); background: var(--white); box-shadow: inset 0 0 0 1px var(--border); white-space: nowrap; text-decoration: none; }
+.lab-sheetline-btn:hover { background: var(--faint); }
+.lab-sheetline-btn.is-primary { background: var(--lab-brick); color: #fff; box-shadow: none; }
+.lab-sheetline-btn.is-primary:hover { background: #D35221; }
+.lab-sheetline.is-row { margin: 0 0 4px; }
+.lab-sheetline.is-row p b { font-weight: 600; }
+.lab-sheetline.is-phone { padding: 8px 8px 8px 12px; margin: 0 0 10px; }
+.lab-sheetline.is-phone p { font-size: 13px; }
+.lab-sheetline.is-phone p b { display: block; font-weight: 600; }
+.lab-sheetline.is-phone p span { display: block; font-size: 12px; }
+.lab-sheetline.is-phone.is-row { margin: 12px 0 16px; }

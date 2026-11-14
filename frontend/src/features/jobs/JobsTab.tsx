@@ -36,6 +36,8 @@ import {
 } from 'lucide-react';
 
 import { tr, T } from '../../i18n/tr';
+import { SheetJobsLine } from '../labs/SheetSource';
+import type { SheetSyncChanges } from '../labs/sheetSync';
 // Local (not UTC) YYYY-MM-DD -- avoids the date shifting by a day near midnight in UTC+7,
 // same convention already used inline elsewhere in this file's quick-action handlers.
 function getLocalDateStr(): string {
@@ -61,6 +63,8 @@ const SORT_OPTIONS: { key: JobSort; label: string; waitingLabel?: string }[] = [
 
 interface JobsTabProps {
   jobs: Job[];
+  /** หน้างานจากชีต (ฟีเจอร์ทดลอง): what reading the connected sheet changes in the jobs, saved in one go. */
+  onSheetSync?: (changes: SheetSyncChanges) => void;
   fullFeatureAccess?: boolean;
   /** May return the new job's id, so the row can be lit up once it is saved. */
   onAddJob: (job: Omit<Job, 'id'>) => string | void;
@@ -99,6 +103,7 @@ interface JobsTabProps {
 
 export default function JobsTab({
   jobs,
+  onSheetSync,
   fullFeatureAccess = false,
   onAddJob,
   onEditJob,
@@ -843,6 +848,7 @@ export default function JobsTab({
 
       {mobile ? (
         <>
+          {onSheetSync && <SheetJobsLine jobs={jobs} statuses={statuses} jobTypes={jobTypes} onSync={onSheetSync} mobile />}
           <div className="ksm-search">
             <KsIcon name="search" />
             <input type="text" inputMode="search" placeholder={tr("ค้นหางาน ลูกค้า หรือบันทึก")} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} aria-label={tr("ค้นหางาน")} enterKeyHint="search" />
@@ -864,6 +870,7 @@ export default function JobsTab({
           )}
         </>
       ) : (<>
+      {onSheetSync && <SheetJobsLine jobs={jobs} statuses={statuses} jobTypes={jobTypes} onSync={onSheetSync} />}
       {/* Stage tabs */}
       <div className="ios-seg no-scrollbar mb-4 flex w-fit max-w-full overflow-x-auto" role="tablist" aria-label={tr("สถานะงาน")}>
         {tabs.map(tab => {

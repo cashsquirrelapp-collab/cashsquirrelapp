@@ -20,6 +20,8 @@ export interface TabReading {
   truncated: boolean;
   /** A category column's own drop-down (a sheet made from our template), kept in the saved map. */
   choices?: Record<number, string[]>;
+  /** Google's id of the tab, kept in the map so links open the tab. */
+  gid?: number;
 }
 
 const STATUSES: StatusOption[] = [
@@ -54,7 +56,8 @@ export function readTabs(tabs: LiveTab[], saved?: SheetMap | null): TabReading[]
       };
     }
     const choices = kept ? Object.fromEntries(kept.columns.filter(column => column.choices?.length).map(column => [column.index, column.choices!])) : {};
-    return { grid, analysis, use: kept ? kept.use : defaultIncluded(analysis), formulas: formulaColumns(tab, analysis), truncated: tab.truncated, ...(Object.keys(choices).length ? { choices } : {}) };
+    return { grid, analysis, use: kept ? kept.use : defaultIncluded(analysis), formulas: formulaColumns(tab, analysis), truncated: tab.truncated, ...(Object.keys(choices).length ? { choices } : {}),
+      ...(typeof tab.gid === 'number' ? { gid: tab.gid } : typeof kept?.gid === 'number' ? { gid: kept.gid } : {}) };
   });
 }
 
@@ -87,8 +90,9 @@ export const setUse = (reading: TabReading, use: boolean): TabReading => ({ ...r
 
 /** What is saved: per tab, the header row, kind, counted or not, and each column's field and formula mark. */
 export function mapOf(fileId: string, readings: TabReading[]): SheetMap {
-  const tabs: SheetMapTab[] = readings.map(({ analysis, use, formulas, choices }) => ({
+  const tabs: SheetMapTab[] = readings.map(({ analysis, use, formulas, choices, gid }) => ({
     name: analysis.name,
+    ...(typeof gid === 'number' ? { gid } : {}),
     headerRow: analysis.headerRow,
     kind: analysis.kind,
     use,
