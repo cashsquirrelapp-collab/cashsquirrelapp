@@ -189,7 +189,6 @@ export const server: Record<string, string> = {
   "ส่งอีเมลยืนยันไม่สำเร็จ กรุณาลองอีกครั้ง": "The confirmation email could not be sent. Please try again",
   "กรุณากดยินยอมการเชื่อมต่อ LINE ก่อน": "Please agree to connecting LINE first",
   "LINE นี้เชื่อมกับบัญชีอยู่แล้ว กดเมนูเปิดแอปในแชทได้เลย": "This LINE is already linked to an account. Tap Open app in the chat",
-  "อีเมลหรือรหัสผ่านไม่ถูกต้อง": "The email or password is incorrect",
   "บัญชีนี้เปิดการยืนยันสองขั้นตอนไว้ กรุณาเชื่อม LINE ที่เว็บไซต์ ตั้งค่า › เชื่อมต่อ LINE": "This account uses two-step verification. Please connect LINE on the website in Settings › LINE connection",
   "บัญชีนี้เชื่อมกับ LINE อื่นอยู่แล้ว ถ้าจะย้ายมาใช้ LINE นี้ ให้ยกเลิกการเชื่อมต่อที่ ตั้งค่า › เชื่อมต่อ LINE บนเว็บก่อน": "This account is linked to another LINE. To move to this LINE, disconnect it first on the website in Settings › LINE connection",
 };
