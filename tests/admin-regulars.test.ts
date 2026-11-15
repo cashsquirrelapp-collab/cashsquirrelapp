@@ -47,3 +47,33 @@ test('the list: back on 2 days or more, most days first, then pages, then the la
   assert.deepEqual(regularAccounts(accounts, extras, { minDays: 2, plan: 'all', query: 'ONE@' }).map(item => item.userId), ['1'], 'by email');
   assert.deepEqual(regularEmails(all), ['two@example.com', 'one@example.com'], 'each email once, accounts without one left out');
 });
+
+test('groups: every sign-up by its answer, who came back on 2+ days, เลขา, LINE and paid Pro; most came back first, unanswered last', async () => {
+  const { regularSegments } = await import('../shared/adminRegulars.js');
+  const accounts = [account('a', 6, 50, 'pro'), account('b', 1, 2, 'free'), account('c', 3, 20, 'free'), account('d', 0, 0, 'trial'), account('e', 4, 9, 'admin')];
+  const extras = regularExtras({
+    users: [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }, { id: 'e' }],
+    onboarding: [
+      { user_id: 'a', onboarding: { work_type: 'freelance', occupations: ['video_graphic', 'photo_video'], goals: ['receivables'] } },
+      { user_id: 'b', onboarding: { work_type: 'freelance', occupations: ['video_graphic'], goals: ['documents'] } },
+      { user_id: 'c', onboarding: { work_type: 'accounting_office', occupations: ['accounting'], goals: ['receivables', 'accountant'] } },
+      { user_id: 'e', onboarding: { work_type: 'other', work_type_other: 'แม่ค้าออนไลน์' } },
+    ],
+    aiUsage: [{ user_id: 'a' }, { user_id: 'c' }, { user_id: 'c' }],
+    lineLinks: [{ user_id: 'a' }],
+  });
+  assert.deepEqual(regularSegments(accounts, extras, 'work'), [
+    { key: 'freelance', label: 'ฟรีแลนซ์ / อาชีพอิสระ', signups: 2, returned: 1, ai: 1, line: 1, paying: 1 },
+    { key: 'accounting_office', label: 'สำนักงานบัญชี / รับทำบัญชี', signups: 1, returned: 1, ai: 1, line: 0, paying: 0 },
+    { key: 'other', label: 'อื่น ๆ', signups: 1, returned: 1, ai: 0, line: 0, paying: 0 },
+    { key: 'none', label: 'ยังไม่ได้ตอบ', signups: 1, returned: 0, ai: 0, line: 0, paying: 0 },
+  ]);
+  // occupations are multiple choice: a counts under both of its own; a tie on came back goes to more sign-ups, then the name
+  const jobs = regularSegments(accounts, extras, 'occupation');
+  assert.deepEqual(jobs.map(row => [row.key, row.signups, row.returned]), [['video_graphic', 2, 1], ['photo_video', 1, 1], ['accounting', 1, 1], ['none', 2, 1]]);
+  const goals = regularSegments(accounts, extras, 'goal');
+  assert.deepEqual(goals[0], { key: 'receivables', label: 'ตามเงินที่ลูกค้ายังไม่จ่าย', signups: 2, returned: 2, ai: 2, line: 1, paying: 1 });
+  // "came back" can ask for more days
+  assert.equal(regularSegments(accounts, extras, 'work', 5)[0].returned, 1);
+  assert.deepEqual(regularSegments([], extras, 'work'), []);
+});

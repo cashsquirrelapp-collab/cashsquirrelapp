@@ -1,5 +1,5 @@
 import type { AdminAnalyticsAccount } from './adminAnalytics';
-import { GOALS, OCCUPATIONS, WORK_TYPES } from './onboarding';
+import { GOALS, LEGACY_GOALS, OCCUPATIONS, WORK_TYPES } from './onboarding';
 
 // ผู้ใช้ประจำ, the owner's admin view (owner, 2026-11-10: "ดูได้หน่อยว่าใครแม่งกลับมาใช้ซ้ำบ่อยเป็นอีเมลอะไรชื่ออะไร ... เผื่อแบบ
 // บางทีกูส่งข้อมูลส่งอีเมลไปทางอีเมลของคนคนนั้นได้ จะได้เห็นตัวตนด้วยว่าเขาใช้เขาเป็นคนประเภทไหนใช้อะไรมากที่สุด"): the accounts
@@ -77,4 +77,34 @@ export function regularAccounts(accounts: AdminAnalyticsAccount[], extras: Regul
 /** The emails of a list, once each, ready to paste into an email's BCC. */
 export function regularEmails(accounts: RegularAccount[]): string[] {
   return [...new Set(accounts.map(account => account.extra?.email).filter((email): email is string => !!email))];
+}
+
+/**
+ * Which kind of customer comes back (owner, 2026-11-15, from a tester's advice to find the main group first and speak to
+ * it): every account that signed up, grouped by its sign-up answer (main work, occupations or what it wants help with),
+ * how many came back on 2 days or more in the range, asked เลขา, linked LINE and pay for Pro. Occupations and goals are
+ * multiple choice, so one account counts in each it picked. Most came back first; accounts that never answered last.
+ */
+export type SegmentBy = 'work' | 'occupation' | 'goal';
+export interface SegmentRow { key: string; label: string; signups: number; returned: number; ai: number; line: number; paying: number }
+
+export function regularSegments(accounts: AdminAnalyticsAccount[], extras: RegularExtra[], by: SegmentBy, minDays = 2): SegmentRow[] {
+  const byId = new Map(extras.map(extra => [extra.userId, extra] as const));
+  const known: readonly { id: string; label: string }[] = by === 'work' ? WORK_TYPES : by === 'occupation' ? OCCUPATIONS : [...GOALS, ...LEGACY_GOALS];
+  const labelOf = (key: string) => (key === 'none' ? 'ยังไม่ได้ตอบ' : key === 'other' ? 'อื่น ๆ' : known.find(item => item.id === key)?.label ?? key);
+  const rows = new Map<string, SegmentRow>();
+  for (const account of accounts) {
+    const extra = byId.get(account.userId) ?? null;
+    const picked = by === 'work' ? (extra?.workType ? [extra.workType] : []) : by === 'occupation' ? extra?.occupations ?? [] : extra?.goals ?? [];
+    for (const key of picked.length ? [...new Set(picked)] : ['none']) {
+      const row = rows.get(key) ?? { key, label: labelOf(key), signups: 0, returned: 0, ai: 0, line: 0, paying: 0 };
+      row.signups += 1;
+      if (account.activeDays >= minDays) row.returned += 1;
+      if ((extra?.aiRequests ?? 0) > 0) row.ai += 1;
+      if (extra?.lineLinked) row.line += 1;
+      if (account.planStatus === 'pro') row.paying += 1;
+      rows.set(key, row);
+    }
+  }
+  return [...rows.values()].sort((a, b) => Number(a.key === 'none') - Number(b.key === 'none') || b.returned - a.returned || b.signups - a.signups || a.label.localeCompare(b.label, 'th'));
 }

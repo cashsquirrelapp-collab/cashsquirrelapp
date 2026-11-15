@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Check, Copy, Mail, MessageCircle, Search, Sparkles } from 'lucide-react';
 import type { AdminAnalyticsAccount, AnalyticsRange } from '../../../../shared/adminAnalytics';
-import { regularAccounts, regularEmails, regularType, type RegularExtra, type RegularFilter } from '../../../../shared/adminRegulars';
+import { regularAccounts, regularEmails, regularSegments, regularType, type RegularExtra, type RegularFilter, type SegmentBy } from '../../../../shared/adminRegulars';
 import { SkeletonBlock } from '../../components/ui/AppLoadingSkeleton';
 import { uiSurface } from '../../components/ui/uiStyles';
 import { KsIcon } from '../mobile/icons';
@@ -15,6 +15,9 @@ import './adminRegulars.css';
 
 type Copy = (th: string, en: string) => string;
 const MIN_DAYS = [2, 5, 10] as const;
+// สมัคร / กลับมาใช้ แยกตามกลุ่ม (owner, 2026-11-15, way A): which kind of customer comes back, to find the main group to speak
+// to first (shared/adminRegulars.ts regularSegments). Above the list, on computers, iPads and the phone admin.
+const SEGMENT_BY: [SegmentBy, string, string][] = [['work', 'งานหลัก', 'Main work'], ['occupation', 'อาชีพ', 'Occupation'], ['goal', 'อยากให้ช่วยเรื่อง', 'Wants help with']];
 
 export default function AdminRegulars({ userId, range, accounts, revision = 0, language, mobile = false }: {
   userId: string; range: AnalyticsRange; accounts: AdminAnalyticsAccount[] | undefined; revision?: number; language: 'th' | 'en'; mobile?: boolean;
@@ -26,6 +29,7 @@ export default function AdminRegulars({ userId, range, accounts, revision = 0, l
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<RegularFilter>({ minDays: 2, plan: 'all', query: '' });
   const [copied, setCopied] = useState<string | null>(null);
+  const [segmentBy, setSegmentBy] = useState<SegmentBy>('work');
 
   useEffect(() => {
     const controller = new AbortController();
@@ -37,6 +41,9 @@ export default function AdminRegulars({ userId, range, accounts, revision = 0, l
   }, [userId, range, revision]);
 
   const list = useMemo(() => (accounts && extras ? regularAccounts(accounts, extras, filter) : []), [accounts, extras, filter]);
+  const segments = useMemo(() => (accounts && extras ? regularSegments(accounts, extras, segmentBy) : []), [accounts, extras, segmentBy]);
+  const percent = (part: number, whole: number) => (whole ? Math.round((part / whole) * 100) : 0);
+  const topSegment = segments.find(row => row.key !== 'none' && row.returned > 0);
   const emails = regularEmails(list);
   const when = (value: string | null) => (value ? new Date(value).toLocaleDateString(locale, { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short' }) : '—');
   const copyText = async (key: string, text: string) => {
@@ -67,6 +74,20 @@ export default function AdminRegulars({ userId, range, accounts, revision = 0, l
     </span>
   ) : <span className="arg-muted">{copy('ไม่มีอีเมล', 'No email')}</span>;
 
+  const segmentPicker = (
+    <div className="arg-chips" role="group" aria-label={copy('แบ่งตาม', 'Group by')}>
+      {SEGMENT_BY.map(([key, th, en]) => (
+        <button key={key} type="button" aria-pressed={segmentBy === key} className="arg-pick" onClick={() => setSegmentBy(key)} data-testid={`segment-by-${key}`}>{copy(th, en)}</button>
+      ))}
+    </div>
+  );
+  const segmentLead = topSegment
+    ? copy(`กลับมาใช้มากที่สุด: ${topSegment.label} (${topSegment.returned} จาก ${topSegment.signups} คน)`, `Most came back: ${topSegment.label} (${topSegment.returned} of ${topSegment.signups})`)
+    : copy('ยังไม่มีกลุ่มไหนกลับมาใช้ 2 วันขึ้นไป', 'No group has come back on 2+ days yet');
+  const segmentNote = copy(
+    `สมัคร = ทุกบัญชีที่สมัครแล้ว · กลับมาใช้ = ใช้งาน 2 วันขึ้นไปใน ${range} วันล่าสุด (นับจากเบราว์เซอร์ที่อนุญาตสถิติ)${segmentBy === 'work' ? '' : ' · ตอบได้หลายข้อ คนหนึ่งจึงอยู่ได้หลายแถว'}`,
+    `Signed up = every account · came back = used on 2+ days in the last ${range} days (browsers that allow statistics)${segmentBy === 'work' ? '' : ' · several answers allowed, so one person can be in several rows'}`);
+
   const controls = (
     <div className={mobile ? 'arg-controls is-mobile' : 'arg-controls'}>
       <div className="arg-chips" role="group" aria-label={copy('กลับมาใช้อย่างน้อย', 'Came back at least')}>
@@ -95,6 +116,22 @@ export default function AdminRegulars({ userId, range, accounts, revision = 0, l
         {loading && <SkeletonBlock className="mt-3 h-48 w-full rounded-2xl" />}
         {!loading && !error && (
           <>
+            <section className="ksm-panel arg-seg-card" data-testid="segment-table" aria-label={copy('สมัคร / กลับมาใช้ แยกตามกลุ่ม', 'Sign-ups and who came back, by group')}>
+              <b className="arg-seg-title">{copy('สมัคร / กลับมาใช้ แยกตามกลุ่ม', 'Sign-ups and who came back, by group')}</b>
+              {segmentPicker}
+              <p className="arg-seg-lead" data-testid="segment-lead">{segmentLead}</p>
+              <ul className="arg-seg-list">
+                {segments.map(row => (
+                  <li key={row.key} className="arg-seg-item" data-testid="segment-row">
+                    <span className="arg-seg-name">{row.label}</span>
+                    <span className="arg-seg-nums">{copy(`สมัคร ${row.signups} · กลับมา ${row.returned} (${percent(row.returned, row.signups)}%)`, `${row.signups} signed up · ${row.returned} back (${percent(row.returned, row.signups)}%)`)}</span>
+                    <span className="arg-seg-bar" aria-hidden="true"><i style={{ width: `${percent(row.returned, row.signups)}%` }} /></span>
+                    <span className="arg-muted">{copy(`ใช้เลขา ${row.ai} · LINE ${row.line} · จ่าย Pro ${row.paying}`, `Assistant ${row.ai} · LINE ${row.line} · Paid Pro ${row.paying}`)}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="ksm-micro">{segmentNote}</p>
+            </section>
             <div className="ksm-search">
               <KsIcon name="search" />
               <input type="text" inputMode="search" autoComplete="off" value={filter.query} onChange={event => set({ query: event.target.value })} placeholder={copy('ค้นหาชื่อ อีเมล หรืออาชีพ', 'Search name, email or work')} aria-label={copy('ค้นหาผู้ใช้ประจำ', 'Search regulars')} />
@@ -128,6 +165,47 @@ export default function AdminRegulars({ userId, range, accounts, revision = 0, l
     <div className="arg space-y-4">
       {failed}
       {loading && <div className={`${uiSurface} p-5`}><SkeletonBlock className="h-5 w-48" /><SkeletonBlock className="mt-6 h-56 w-full" /></div>}
+      {!loading && !error && (
+        <section className={`${uiSurface} overflow-hidden`} data-testid="segment-table">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-brand-border/60 p-5">
+            <div className="min-w-0">
+              <h2 className="text-[15px] font-semibold">{copy('สมัคร / กลับมาใช้ แยกตามกลุ่ม', 'Sign-ups and who came back, by group')}</h2>
+              <p className="mt-1 text-xs leading-relaxed text-brand-muted" data-testid="segment-lead">{segmentLead}</p>
+            </div>
+            {segmentPicker}
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px] table-fixed text-left text-sm">
+              <thead className="bg-brand-bg/70 text-xs text-brand-muted">
+                <tr>
+                  <th className="w-[30%] px-5 py-3 font-semibold">{copy('กลุ่ม (ตอบตอนสมัคร)', 'Group (from sign-up)')}</th>
+                  <th className="w-[10%] px-3 py-3 text-right font-semibold">{copy('สมัคร', 'Signed up')}</th>
+                  <th className="w-[11%] px-3 py-3 text-right font-semibold">{copy('กลับมาใช้', 'Came back')}</th>
+                  <th className="w-[19%] px-3 py-3 font-semibold">{copy('% กลับมา', '% back')}</th>
+                  <th className="w-[10%] px-3 py-3 text-right font-semibold">{copy('ใช้เลขา', 'Assistant')}</th>
+                  <th className="w-[10%] px-3 py-3 text-right font-semibold">LINE</th>
+                  <th className="w-[10%] px-5 py-3 text-right font-semibold">{copy('จ่าย Pro', 'Paid Pro')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {segments.map(row => (
+                  <tr key={row.key} className={`border-t border-brand-border/60${row.key === 'none' ? ' text-brand-muted' : ''}`} data-testid="segment-row">
+                    <td className="px-5 py-3"><span className="block truncate font-medium" title={row.label}>{row.label}</span></td>
+                    <td className="px-3 py-3 text-right tabular-nums">{row.signups}</td>
+                    <td className="px-3 py-3 text-right tabular-nums font-semibold">{row.returned}</td>
+                    <td className="px-3 py-3"><span className="arg-seg-rate"><span className="arg-seg-bar" aria-hidden="true"><i style={{ width: `${percent(row.returned, row.signups)}%` }} /></span><span className="tabular-nums">{percent(row.returned, row.signups)}%</span></span></td>
+                    <td className="px-3 py-3 text-right tabular-nums">{row.ai}</td>
+                    <td className="px-3 py-3 text-right tabular-nums">{row.line}</td>
+                    <td className="px-5 py-3 text-right tabular-nums">{row.paying}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {!segments.length && <p className="px-5 py-8 text-center text-sm text-brand-muted">{copy('ยังไม่มีบัญชี', 'No accounts yet')}</p>}
+          </div>
+          <p className="border-t border-brand-border/60 px-5 py-3 text-[11px] leading-relaxed text-brand-muted">{segmentNote}</p>
+        </section>
+      )}
       {!loading && !error && (
         <section className={`${uiSurface} overflow-hidden`}>
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-brand-border/60 p-5">

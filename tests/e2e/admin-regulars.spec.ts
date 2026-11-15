@@ -96,6 +96,19 @@ for (const size of [{ name: 'computer', width: 1440, height: 900 }, { name: 'iPa
     await expect(rows.nth(0)).toContainText('LINE');
     await expect(rows.nth(2)).toContainText('ช่างภาพงานแต่ง');
     await expect(rows.nth(0).getByRole('link', { name: 'mintra.design@example.com' })).toHaveAttribute('href', 'mailto:mintra.design@example.com');
+    // Above the list (owner, 2026-11-15, way A): every sign-up by its answer and how many came back on 2+ days, most first.
+    const groups = page.getByTestId('segment-table');
+    await expect(groups.getByRole('heading', { name: 'สมัคร / กลับมาใช้ แยกตามกลุ่ม' })).toBeVisible();
+    const groupRows = groups.getByTestId('segment-row');
+    await expect(groupRows).toHaveCount(4);
+    await expect(groupRows.nth(0)).toContainText('เจ้าของกิจการ / เอเจนซี / โปรดักชัน');
+    await expect(groupRows.nth(0).locator('td')).toHaveText(['เจ้าของกิจการ / เอเจนซี / โปรดักชัน', '1', '1', '100%', '1', '1', '1']);
+    await expect(groupRows.nth(3).locator('td')).toHaveText(['ยังไม่ได้ตอบ', '1', '0', '0%', '0', '0', '0']); // the one who came once
+    await expect(groups.getByTestId('segment-lead')).toHaveText('กลับมาใช้มากที่สุด: เจ้าของกิจการ / เอเจนซี / โปรดักชัน (1 จาก 1 คน)');
+    await groups.getByTestId('segment-by-occupation').click();
+    await expect(groupRows.first().locator('td').first()).toHaveText(/คอนเทนต์ครีเอเตอร์|การตลาด \/ โฆษณา|ตัดต่อวิดีโอ \/ กราฟิก/);
+    await expect(groups).toContainText('ตอบได้หลายข้อ คนหนึ่งจึงอยู่ได้หลายแถว');
+    await groups.getByTestId('segment-by-work').click();
     // The table under it is what this checks, not เลขา's corner greeting floating over the page (assistant-buddy.spec.ts).
     await page.addStyleTag({ content: '.asx-hello-say, .asx-buddy-tip, .asx-brief-tip { display: none !important; }' });
     expect(await textOverlapIssues(page)).toEqual([]);
@@ -133,6 +146,11 @@ test('phones: the owner opens ผู้ใช้ประจำ as cards with no
   await expect(rows).toHaveCount(3);
   await expect(rows.first()).toContainText('mintra.design@example.com');
   await expect(rows.first()).toContainText('12 วัน');
+  const groups = page.getByTestId('segment-table');
+  await expect(groups.getByTestId('segment-row')).toHaveCount(4);
+  await expect(groups.getByTestId('segment-row').first()).toContainText('สมัคร 1 · กลับมา 1 (100%)');
+  await expect(groups.getByTestId('segment-lead')).toContainText('กลับมาใช้มากที่สุด');
+  await page.addStyleTag({ content: '.asx-hello-say, .asx-buddy-tip, .asx-brief-tip { display: none !important; }' });
   expect(await textOverlapIssues(page)).toEqual([]);
   const widths = await page.evaluate(() => ({ page: document.documentElement.scrollWidth, viewport: innerWidth }));
   expect(widths.page).toBeLessThanOrEqual(widths.viewport);
