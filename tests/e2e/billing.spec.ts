@@ -584,6 +584,8 @@ test('embedded completion waits for authoritative payment before showing Pro',as
 for (const plan of [{period:'month',label:'รายเดือน',months:1,amount:17700},{period:'halfYear',label:'6 เดือน',months:6,amount:89500},{period:'year',label:'1 ปี',months:12,amount:156200}]) {
  test(`direct QR ${plan.period} displays immediately in our modal without a Stripe form or Continue button`,async({page})=>{
   test.skip(!PRO_CHECKOUT_OPEN[plan.period as ProPeriod],'6 months and a year are hidden for now (owner, 2026-10-25: monthly only)');
+  // The monthly promotion ended on 16 Nov 2569 03:00; this test reads the page while it ran.
+  await page.clock.setFixedTime(new Date('2026-11-10T03:00:00Z'));
   const free={status:'free',plan:null,current_period_end:null,cancel_at_period_end:false,stripe_status:null,has_subscription:false,intro_eligible:false,managed:false};
   await openPlans(page,free,'');
   let posted:any;let paymentStatus='pending';let paid=false;
@@ -866,6 +868,8 @@ test('wallet unavailable never presents a blank Google Pay tab and leaves the ca
 // promotion notice: every line of the price block stays in order with no overlap, on a phone and a computer, light
 // and dark. Where the owner's overlap checker is on this machine, it runs on the whole price card too.
 test('plans page: the price, saving, payment fee and notice lines never overlap, on a phone and a computer, light and dark', async ({ page }) => {
+  // The monthly promotion ended on 16 Nov 2569 03:00; this test reads the page while it ran.
+  await page.clock.setFixedTime(new Date('2026-11-10T03:00:00Z'));
   const checker = path.resolve(process.cwd(), '../../text-overlap-check/appcheck.js');
   const overlapScript = fs.existsSync(checker) ? fs.readFileSync(checker, 'utf8') : null;
   await openPlans(page, { status: 'free', plan: null, current_period_end: null, cancel_at_period_end: false, stripe_status: null, has_subscription: false, intro_eligible: false, managed: false }, 'https://checkout.stripe.com/c/pay/mock');
