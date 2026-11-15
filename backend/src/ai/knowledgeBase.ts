@@ -17,7 +17,7 @@ export function proPlanText(now: Date | number = Date.now()): string {
     .map(period => ', ฿' + baht(part(period).price) + ' + ฿' + part(period).fee + (period === 'year' ? '/ปี' : '/6 เดือน') + ' (ยอดชำระ ฿' + baht(part(period).total) + ')' + tokens(period)).join('');
   const closed = PRO_CHECKOUT_OPEN.halfYear || PRO_CHECKOUT_OPEN.year ? '' : '; ตอนนี้เปิดขายเฉพาะรายเดือน แพ็กเกจ 6 เดือนและ 1 ปีปิดรับชั่วคราว ผู้ที่ซื้อไว้แล้วใช้สิทธิ์ได้จนครบกำหนด';
   return (proMonthPromoRunning(now) ? 'ราคาโปรโมชั่น ฿' : 'ราคา ฿') + baht(month.price) + '/เดือน + ค่าธรรมเนียมชำระเงิน ฿' + month.fee + ' (ยอดชำระ ฿' + baht(month.total) + ')' + tokens('month')
-    + (proMonthPromoRunning(now) ? ' (ถึง 30 พ.ย. 2569; ตั้งแต่ 1 ธ.ค. 2569 รายเดือน ฿' + step.price + ' + ค่าธรรมเนียม ฿' + step.fee + ' ยอดชำระ ฿' + step.total + ' เลขากระรอก ' + baht(proTokensOnSale('month', PRO_MONTH_REGULAR_FROM)) + ' โทเคน/เดือน)' : '')
+    + (proMonthPromoRunning(now) ? ' (สิ้นสุดวันที่ 16 พ.ย. 2569 เวลา 03:00 น.; จากนั้นรายเดือน ฿' + step.price + ' + ค่าธรรมเนียม ฿' + step.fee + ' ยอดชำระ ฿' + step.total + ' เลขากระรอก ' + baht(proTokensOnSale('month', PRO_MONTH_REGULAR_FROM)) + ' โทเคน/เดือน)' : '')
     + long + closed
     + '; เอกสารไม่จำกัด คลังเอกสารเก็บไฟล์ได้ไม่จำกัด แจ้งเตือนทุกแบบ (รวมสรุปรายเดือนและติดตามใบ 50 ทวิ) รายงาน หน้าภาษี และบริการ Pro ตามสถานะบัญชี; เลขากระรอกใช้โควตาตามสถานะบริการ';
 }

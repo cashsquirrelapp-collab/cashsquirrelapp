@@ -238,14 +238,14 @@ test('the Pro card and its prices stay readable on mobile', async ({ page }) => 
   const rows = page.getByRole('list', { name: 'สิ่งที่ได้ใน Pro' });
   await expect(rows.getByRole('listitem')).toHaveCount(4);
   await rows.getByRole('button', { name: /เก็บไฟล์ไม่จำกัด/ }).click();
-  await expect(rows.getByRole('region', { name: 'เก็บไฟล์ไม่จำกัด' })).toContainText('แบบฟรีเก็บได้ 5 ไฟล์');
+  await expect(rows.getByRole('region', { name: 'เก็บไฟล์ไม่จำกัด' })).toContainText('Plus 50 · Free 5 ไฟล์');
   const ai = rows.getByRole('button', { name: /เลขากระรอก/ });
   await ai.click();
   await expect(ai).toHaveAttribute('aria-expanded', 'true');
   await expect(page.getByTestId('plan-ai-tokens')).toHaveText('1,650 โทเคนต่อเดือน · ใช้ร่วมกันในแอปและ LINE');
   await rows.getByRole('button', { name: /แจ้งเตือนอัตโนมัติ/ }).click();
   await expect(ai).toHaveAttribute('aria-expanded', 'false');
-  await expect(rows.getByRole('region', { name: 'แจ้งเตือนอัตโนมัติ' })).toContainText('แชตกับเลขาใน LINE ได้เหมือนในแอป');
+  await expect(rows.getByRole('region', { name: 'แจ้งเตือนอัตโนมัติ' })).toContainText('สรุปการเงินรายเดือน ติดตามใบ 50 ทวิ และเตือนช่วงยื่นภาษี มีเฉพาะ Pro');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 });
 
@@ -1037,6 +1037,11 @@ test('Plus beside Pro: the switch, the comparison, and buying Plus asks for Plus
   await expect(table.getByRole('row', { name: /ออกเอกสารใหม่/ }).getByRole('cell')).toHaveText(['10 ฉบับ', '30 ฉบับ', 'ไม่จำกัด']);
   await expect(table.getByRole('row', { name: /เก็บไฟล์/ }).getByRole('cell')).toHaveText(['5 ไฟล์', '50 ไฟล์', 'ไม่จำกัด']);
   await expect(table.getByRole('row', { name: /รายงานและหน้าภาษี/ }).getByRole('cell')).toHaveText(['ไม่มีใน Free', 'ไม่มีใน Plus', 'มีใน Pro']);
+  // The comparison closes the page, under what Pro gives (owner, 2026-11-16).
+  const features = (await page.locator('.pf-features').boundingBox())!;
+  expect((await page.getByTestId('plan-compare').boundingBox())!.y).toBeGreaterThan(features.y + features.height - 1);
+  // LINE chat is everyone's now: the Pro cards no longer sell it.
+  await expect(plans.getByText('แชตกับเลขาใน LINE ได้เหมือนในแอป')).toHaveCount(0);
   await switcher.getByRole('radio', { name: /Plus/ }).click();
   const card = page.getByTestId('plus-card');
   await expect(card.getByTestId('plus-price').locator('.plan-figure')).toHaveText('฿99');

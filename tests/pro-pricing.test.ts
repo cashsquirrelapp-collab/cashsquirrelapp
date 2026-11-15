@@ -11,7 +11,7 @@ import { PRO_MONTHLY_AMOUNT } from '../backend/src/services/stripeSubscriptions.
 // promotion against the regular month. From 1 Dec 2569 a month is the regular ฿169 shown and ฿188 charged (owner,
 // 2026-11-15, with Plus beside it; ฿249 shown and ฿271 charged was planned before).
 const PROMO = Date.parse('2026-10-26T05:00:00Z');
-const LAST_MOMENT = PRO_MONTH_REGULAR_FROM - 1; // 30 Nov 2569 23:59:59.999 Bangkok
+const LAST_MOMENT = PRO_MONTH_REGULAR_FROM - 1; // 16 Nov 2569 02:59:59.999 Bangkok (the sale ended early, owner 2026-11-16)
 const DECEMBER = Date.parse('2026-12-02T05:00:00Z');
 
 test('Pro prices, regular prices, averages and savings match the owner, until 30 Nov 2569', () => {
@@ -34,19 +34,21 @@ test('Pro prices, regular prices, averages and savings match the owner, until 30
   assert.equal(formatBaht(year.total), '฿1,562');
 });
 
-test('from 1 Dec 2569 00:00 Bangkok: a month shows ฿169 and charges ฿188 (฿19 fee); 6 months and a year stay', () => {
+test('from 16 Nov 2569 03:00 Bangkok: a month shows ฿169 and charges ฿188 (฿19 fee); 6 months and a year stay', () => {
   for (const at of [PRO_MONTH_REGULAR_FROM, DECEMBER]) {
     assert.equal(proMonthPromoRunning(at), false);
     assert.deepEqual(proNetTarget(at), { month: 169, halfYear: 849, year: 1490 });
     assert.deepEqual(Object.fromEntries(Object.entries(proPricing(at)).map(([key, value]) => [key, value.total])), { month: 188, halfYear: 895, year: 1562 });
   }
-  assert.equal(new Date(PRO_MONTH_REGULAR_FROM).toISOString(), '2026-11-30T17:00:00.000Z');
+  // The sale ended on 16 Nov 2569 03:00 Bangkok (owner, 2026-11-16); renewals agreed during it still step on 1 Dec.
+  assert.equal(new Date(PRO_MONTH_REGULAR_FROM).toISOString(), '2026-11-15T20:00:00.000Z');
+  assert.equal(new Date(PRO_MONTH_RENEWAL_STEP.from).toISOString(), '2026-11-30T17:00:00.000Z');
   const month = proPriceDetails('month', DECEMBER);
   // No promotion: no saving to show, no struck price (the plans page hides both when the saving is 0).
   assert.deepEqual([month.price, month.fee, month.total, month.regular, month.saving, month.savingPct], [169, 19, 188, 169, 0, 0]);
   assert.deepEqual(proPriceDetails('year', DECEMBER), proPriceDetails('year', PROMO));
   // ฿271 stays among the amounts an order may have agreed to (consent v4).
-  assert.deepEqual(PRO_MONTH_RENEWAL_STEP, { fromDay: '2026-12-01', from: PRO_MONTH_REGULAR_FROM, fromTotal: 177, price: 169, fee: 19, total: 188, agreed: [188, 271] });
+  assert.deepEqual(PRO_MONTH_RENEWAL_STEP, { fromDay: '2026-12-01', from: Date.parse('2026-11-30T17:00:00Z'), fromTotal: 177, price: 169, fee: 19, total: 188, agreed: [188, 271] });
 });
 
 test('a charge is broken down when it is a Pro price of either date for its months', () => {

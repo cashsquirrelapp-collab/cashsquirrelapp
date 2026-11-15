@@ -77,8 +77,8 @@ test('ready: today\'s ฿177 prices, card and PromptPay on, the webhook reaching
   assert.equal(result.creatable, 0);
   assert.deepEqual([result.server.state, result.methods.state, result.prices.state, result.webhook.state], ['ok', 'ok', 'ok', 'ok']);
   assert.deepEqual(result.prices.items.map(item => [item.kind, item.from, item.later, item.expected, item.current, item.state]), [
-    ['one_time', '2026-11-30', false, 177, 177, 'ok'], ['recurring', '2026-11-30', false, 177, 177, 'ok'],
-    ['one_time', '2026-12-01', true, 188, 188, 'ok'], ['recurring', '2026-12-01', true, 188, 188, 'ok'],
+    ['one_time', '2026-11-16', false, 177, 177, 'ok'], ['recurring', '2026-11-16', false, 177, 177, 'ok'],
+    ['one_time', '2026-11-16', true, 188, 188, 'ok'], ['recurring', '2026-11-16', true, 188, 188, 'ok'],
   ]);
   assert.deepEqual(result.webhook.missingEvents, []);
   // Only the periods on sale are checked: 6 months and a year are closed.
@@ -189,7 +189,7 @@ test('from 1 Dec 2569 only the regular price matters', async () => {
   const result = await paymentReadiness(fakeStripe({ catalog: decembers() }).stripe, false, later);
   assert.equal(result.status, 'ready');
   assert.equal(result.nextPriceReady, null);
-  assert.deepEqual(result.prices.items.map(item => [item.from, item.later, item.expected]), [['2026-12-01', false, 188], ['2026-12-01', false, 188]]);
+  assert.deepEqual(result.prices.items.map(item => [item.from, item.later, item.expected]), [['2026-11-16', false, 188], ['2026-11-16', false, 188]]);
   const missing = await paymentReadiness(fakeStripe({ catalog: todays() }).stripe, false, later);
   assert.equal(missing.status, 'blocked');
 });

@@ -4,7 +4,7 @@ import { Mascot } from '../../components/mascot/Mascot';
 import { LineLogo } from '../../components/ui/LineLogo';
 import { GmailLogo } from '../../components/ui/GmailLogo';
 import { tr } from '../../i18n/tr';
-import { VAULT_FREE_FILES } from '../../../../shared/vault';
+import { PLAN_LIMITS } from '../../../../shared/plans';
 
 // What Pro gives, as three small cards under the price (owner, 2026-10-29, design F after the "Matiz" reference): the
 // card you press springs open and the other two fold into slim upright strips; ✕ or the same card closes it again.
@@ -14,6 +14,8 @@ import { VAULT_FREE_FILES } from '../../../../shared/vault';
 // and the others stay as they are (there is no room for upright strips).
 // A fourth card since 2026-11-01 (owner: "ต้องการให้มึงเขียนในฟีเจอร์โปรด้วยว่ามันมีอันนี้เพิ่มเข้ามา ... มันมีแค่เขียนว่าเอกสาร
 // ไม่จำกัด"): unlimited file storage in คลังเอกสาร (ใบ 50 ทวิ, slips, bills, receipts), Free keeping VAULT_FREE_FILES, marked ใหม่.
+// Since 2026-11-16 (owner: "ในส่วนของ Line อ่ะฟรีก็ใช้ได้ทุกคนแล้ว ... เปลี่ยนใหม่ด้วย"): LINE chat is no longer sold as a Pro
+// perk; each card says what Pro has beyond Free and Plus (shared/plans.ts), and the reminders card names the Pro-only ones.
 
 type TileId = 'ai' | 'alerts' | 'docs' | 'vault';
 
@@ -21,7 +23,7 @@ function Tick({ tone }: { tone: TileId }) {
   return <span aria-hidden="true" className={`pf-tick is-${tone}`}><Check size={10} strokeWidth={3} /></span>;
 }
 
-export function ProFeatureTiles({ tokens, stacked = false }: { tokens: number; stacked?: boolean }) {
+export function ProFeatureTiles({ tokens, freeTokens = 0, stacked = false }: { tokens: number; freeTokens?: number; stacked?: boolean }) {
   const [open, setOpen] = React.useState<TileId | null>(null);
   const flex = (id: TileId) => (open === null ? '1 1 0px' : open === id ? '7 1 0px' : '0 0 64px');
   const close = () => setOpen(null);
@@ -29,13 +31,16 @@ export function ProFeatureTiles({ tokens, stacked = false }: { tokens: number; s
 
   const tiles: { id: TileId; title: string; sub: string; isNew?: boolean; orb: (d: number) => React.ReactNode; detail: React.ReactNode }[] = [
     {
-      id: 'ai', title: tr('เลขากระรอก'), sub: tr('พิมพ์หรือพูด สั่งงานได้ทันที'),
+      id: 'ai', title: tr('เลขากระรอก'), sub: tr('โทเคนมากที่สุด พิมพ์หรือพูดได้ทันที'),
       orb: d => <span className="pf-orb-ball is-ai" style={{ width: d, height: d }}><Mascot gear="headset" mood="happy" animated={false} size={Math.round(d * 0.66)} viewBox="12 8 76 76" /></span>,
       detail: <>
         <p className="pf-detail-head" data-testid="plan-ai-tokens"><b className="pf-num">{tokens.toLocaleString('en-US')}</b> {tr('โทเคนต่อเดือน')} · {tr('ใช้ร่วมกันในแอปและ LINE')}</p>
         {/* What เลขา adds over recording by hand (owner, 2026-10-29): talk like to a real secretary, many projects at once,
             ask anything about the account; short, one line each. */}
         <ul className="pf-detail-list">
+          <li><Tick tone="ai" />{freeTokens > 0
+            ? tr('ทุกแพ็กเกจคุยกับเลขาได้ทั้งในแอปและ LINE Pro ได้โทเคนมากที่สุด (Plus {0} · Free {1} ต่อเดือน)', PLAN_LIMITS.plus.tokens!.toLocaleString('en-US'), freeTokens.toLocaleString('en-US'))
+            : tr('Pro ได้โทเคนมากที่สุด (Plus {0} ต่อเดือน)', PLAN_LIMITS.plus.tokens!.toLocaleString('en-US'))}</li>
           <li><Tick tone="ai" />{tr('พูดหรือพิมพ์ภาษาปกติ เหมือนสั่งเลขาจริง ไม่ต้องกรอกฟอร์มเอง')}</li>
           <li><Tick tone="ai" />{tr('หลายโปรเจกต์ก็บอกทีเดียว น้องแยกงาน รายจ่าย และการรับเงินให้ครบ')}</li>
           <li><Tick tone="ai" />{tr('ถามได้ทุกเรื่องในบัญชี ใครยังไม่จ่าย เดือนนี้เหลือเท่าไร ตอบพร้อมกราฟ')}</li>
@@ -47,15 +52,15 @@ export function ProFeatureTiles({ tokens, stacked = false }: { tokens: number; s
       id: 'alerts', title: tr('แจ้งเตือนอัตโนมัติ'), sub: tr('ทาง LINE และอีเมล ทุกเช้า'),
       orb: d => <span className="pf-orb-pill" style={{ width: Math.round(d * 1.44), height: d }}>
         <GmailLogo size={Math.round(d * 0.48)} className="pf-logo" />
-        <span className="pf-tip"><LineLogo size={Math.round(d * 0.48)} className="pf-logo" /><span className="pf-tip-bubble" role="tooltip">{tr('แชตกับเลขาใน LINE ได้เหมือนในแอป สะดวกเวลาอยู่นอกบ้านหรือเดินทาง จดงานได้โดยไม่ต้องเปิดคอม')}</span></span>
+        <span className="pf-tip"><LineLogo size={Math.round(d * 0.48)} className="pf-logo" /><span className="pf-tip-bubble" role="tooltip">{tr('แจ้งเตือนส่งเข้า LINE และอีเมลของคุณทุกเช้าประมาณ 08:00 น.')}</span></span>
       </span>,
       detail: <>
         <p className="pf-detail-head"><b className="pf-num">08:00</b> {tr('ทุกเช้า')} · {tr('ทาง LINE และอีเมล')}</p>
         <ul className="pf-detail-list">
-          <li><Tick tone="alerts" />{tr('เตือนงานใกล้ครบกำหนด (ล่วงหน้า 1–2 วัน) ครบวันนี้ และเลยกำหนด')}</li>
-          <li><Tick tone="alerts" />{tr('กด “ได้รับแล้ว” ใน LINE บันทึกรับเงินให้ทันที และสรุปรายเดือน')}</li>
+          <li><Tick tone="alerts" />{tr('เตือนวันส่งงานและวันรับเงิน ล่วงหน้า 1–2 วัน วันนี้ และเลยกำหนด')}</li>
+          <li><Tick tone="alerts" />{tr('กด “ส่งแล้ว” หรือ “ได้รับแล้ว” ใน LINE บันทึกให้ทันที')}</li>
+          <li><Tick tone="alerts" />{tr('สรุปการเงินรายเดือน ติดตามใบ 50 ทวิ และเตือนช่วงยื่นภาษี มีเฉพาะ Pro')}</li>
         </ul>
-        <p className="pf-line-note"><LineLogo size={22} /><span><b>{tr('แชตกับเลขาใน LINE ได้เหมือนในแอป')}</b> {tr('สะดวกเวลาอยู่นอกบ้าน จดงานได้โดยไม่ต้องเปิดคอม')}</span></p>
       </>,
     },
     {
@@ -64,7 +69,7 @@ export function ProFeatureTiles({ tokens, stacked = false }: { tokens: number; s
         <FileText size={Math.round(d * 0.44)} strokeWidth={1.7} />
       </span>,
       detail: <>
-        <p className="pf-detail-head"><b>{tr('เอกสารไม่จำกัด + ฟีเจอร์ใหม่ก่อนใคร')}</b> · {tr('แบบฟรีได้ 10 ฉบับ/เดือน')}</p>
+        <p className="pf-detail-head"><b>{tr('เอกสารไม่จำกัด + ฟีเจอร์ใหม่ก่อนใคร')}</b> · {tr('Plus {0} · Free {1} ฉบับ/เดือน', PLAN_LIMITS.plus.documentsPerMonth!, PLAN_LIMITS.free.documentsPerMonth!)}</p>
         <ul className="pf-detail-list">
           <li><Tick tone="docs" />{tr('ใบเสนอราคา ใบแจ้งหนี้ และใบเสร็จรับเงิน ไม่จำกัดจำนวน')}</li>
           <li><Tick tone="docs" />{tr('ออกต่อจากใบเดิมได้ ไม่มีข้อความเครดิตของแอปบนเอกสาร')}</li>
@@ -78,7 +83,7 @@ export function ProFeatureTiles({ tokens, stacked = false }: { tokens: number; s
         <FolderOpen size={Math.round(d * 0.44)} strokeWidth={1.7} />
       </span>,
       detail: <>
-        <p className="pf-detail-head"><b>{tr('คลังเอกสารไม่จำกัด')}</b> · {tr('แบบฟรีเก็บได้ {0} ไฟล์', VAULT_FREE_FILES)}</p>
+        <p className="pf-detail-head"><b>{tr('คลังเอกสารไม่จำกัด')}</b> · {tr('Plus {0} · Free {1} ไฟล์', PLAN_LIMITS.plus.vaultFiles, PLAN_LIMITS.free.vaultFiles)}</p>
         <ul className="pf-detail-list">
           <li><Tick tone="vault" />{tr('เก็บใบ 50 ทวิ สลิปโอนเงิน บิลรายจ่าย และใบเสร็จ ได้ไม่จำกัดจำนวน')}</li>
           <li><Tick tone="vault" />{tr('แยกเป็นใบ 50 ทวิ สัญญา สลิป และหลักฐานแนบงาน หาเจอง่ายตอนยื่นภาษีสิ้นปี')}</li>

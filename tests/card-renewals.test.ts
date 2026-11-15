@@ -5,7 +5,7 @@ import { assertAutoSubscription, validateAutoInvoice, validateAutoInvoiceCharge 
 import { advanceCardRenewals } from '../backend/src/handlers/advance-card-renewals.js';
 import { buildPrepaidCheckout, type PrepaidOrder } from '../backend/src/services/prepaidPlans.js';
 import { ACCEPTED_CARD_CONSENT_VERSIONS, CARD_CONSENT_VERSION, CARD_SAVE_DISCLOSURE, CARD_SAVE_DISCLOSURE_VERSION, renewalConsentLabel, renewalConsentText } from '../shared/cardConsent.js';
-import { PRO_MONTH_REGULAR_FROM, PRO_PERIODS, proPricing } from '../shared/proPricing.js';
+import { PRO_MONTH_REGULAR_FROM, PRO_MONTH_RENEWAL_STEP, PRO_PERIODS, proPricing } from '../shared/proPricing.js';
 const PRO_PRICING = proPricing();
 Object.assign(process.env, { STRIPE_MODE: 'test', STRIPE_SECRET_KEY: 'sk_test_only' });
 for (const period of PRO_PERIODS) {
@@ -69,8 +69,8 @@ test('the renewal consent names the amount charged, its price and fee, and the s
   assert.equal(renewalConsentLabel('halfYear'), 'ยินยอมให้ต่ออายุ Pro และตัดเงินอัตโนมัติทุก 6 เดือนตามราคาที่กำหนด จนกว่าจะยกเลิก');
   assert.equal(renewalConsentLabel('year'), 'ยินยอมให้ต่ออายุ Pro และตัดเงินอัตโนมัติทุกปีตามราคาที่กำหนด จนกว่าจะยกเลิก');
   assert.equal(renewalConsentText('month', new Date('2026-10-24T05:00:00Z')), `${label} (ราคาที่แสดง: ฿177/เดือน (ราคา ฿159 + ค่าธรรมเนียมชำระเงิน ฿18) ถึงวันที่ 30 พ.ย. 2569 จากนั้น ฿188/เดือน (ราคา ฿169 + ค่าธรรมเนียมชำระเงิน ฿19) · ยกเลิกได้ก่อนรอบบิลถัดไปที่หน้าสมาชิก)`);
-  assert.equal(renewalConsentText('month', new Date('2026-11-30T16:59:00Z')), renewalConsentText('month', new Date('2026-10-24T05:00:00Z')));
-  assert.equal(renewalConsentText('month', new Date('2026-11-30T17:00:00Z')), `${label} (ราคาที่แสดง: ฿188/เดือน (ราคา ฿169 + ค่าธรรมเนียมชำระเงิน ฿19) · ยกเลิกได้ก่อนรอบบิลถัดไปที่หน้าสมาชิก)`);
+  assert.equal(renewalConsentText('month', new Date('2026-11-15T19:59:00Z')), renewalConsentText('month', new Date('2026-10-24T05:00:00Z')));
+  assert.equal(renewalConsentText('month', new Date('2026-11-15T20:00:00Z')), `${label} (ราคาที่แสดง: ฿188/เดือน (ราคา ฿169 + ค่าธรรมเนียมชำระเงิน ฿19) · ยกเลิกได้ก่อนรอบบิลถัดไปที่หน้าสมาชิก)`);
   // Plus (owner, 2026-11-15): its own name and ฿115 (฿99 + ฿16), monthly only.
   assert.equal(renewalConsentLabel('month', Date.now(), 'plus'), 'ยินยอมให้ต่ออายุ Plus และตัดเงินอัตโนมัติทุกเดือนตามราคาที่กำหนด จนกว่าจะยกเลิก');
   assert.match(renewalConsentText('month', new Date('2026-11-20T05:00:00Z'), 'plus'), /ต่ออายุ Plus .*฿115\/เดือน \(ราคา ฿99 \+ ค่าธรรมเนียมชำระเงิน ฿16\)/);
@@ -173,7 +173,8 @@ test('the daily job moves a promotion month to ฿188 before its first renewal o
   const second = promoMonth(NOV, 'order2');
   const third = promoMonth(NOV, 'order3');
   const plain = { ...third, request: { ...third.request!, metadata: { ...third.request!.metadata, renewal_step_amount: undefined } } } as unknown as PrepaidOrder;
-  const dec1 = PRO_MONTH_REGULAR_FROM;
+  // Renewals agreed during the promotion step on 1 Dec, even though the sale itself ended on 16 Nov (owner, 2026-11-16).
+  const dec1 = PRO_MONTH_RENEWAL_STEP.from;
   const subs: Record<string, any> = {
     sub_due: subWith(order, promoPrice, dec1 + 3 * 86400_000, { id: 'sub_due' }),
     sub_early: subWith(second, promoPrice, dec1 - 3600_000, { id: 'sub_early' }),

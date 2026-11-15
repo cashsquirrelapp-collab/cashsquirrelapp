@@ -21,13 +21,19 @@ export function netAfterCardFee(total: number, fee: { percent: number; fixedBaht
   return total - (total * fee.percent / 100 + fee.fixedBaht) * (1 + fee.vatPercent / 100);
 }
 
-/** Owner, 2026-10-24: the monthly promotion runs through 30 Nov 2569; from 1 Dec 2569 a month costs the regular price
- * (฿169 since 2026-11-15; ฿249 was planned).
+/** Owner, 2026-10-24: the monthly promotion ran through 30 Nov 2569 (ended for new purchases on 16 Nov 2569 03:00,
+ * owner 2026-11-16); then a month costs the regular price (฿169 since 2026-11-15; ฿249 was planned). These two days stay
+ * the step of renewals agreed during the promotion.
  * Six months and a year keep their prices. Every price screen states the end date while it runs. */
 export const PRO_MONTH_PROMO_LAST_DAY = '2026-11-30';
 export const PRO_MONTH_PROMO_NEXT_DAY = '2026-12-01';
-/** 1 Dec 2569 00:00 Bangkok: from this instant a month is sold at the regular price, everywhere at once. */
-export const PRO_MONTH_REGULAR_FROM = Date.parse('2026-11-30T17:00:00Z');
+/** From this instant a new month is sold at the regular price, everywhere at once: 16 Nov 2569 03:00 Bangkok (owner,
+ * 2026-11-16: "159 ปรับเป็น 169 เลยนะตอนนี้"; it was 1 Dec 2569 00:00). The database reserves new orders at the same
+ * moment (cashflow_pro_month_amount, the owner's SQL of 2026-11-16). */
+export const PRO_MONTH_REGULAR_FROM = Date.parse('2026-11-15T20:00:00Z');
+/** 1 Dec 2569 00:00 Bangkok: monthly renewals bought during the promotion keep ฿177 until their first renewal on or after
+ * this day, as their consent says ("฿177 ถึงวันที่ 30 พ.ย. 2569 จากนั้น ฿188"); ending the sale early changes nothing for them. */
+export const PRO_MONTH_STEP_FROM = Date.parse('2026-11-30T17:00:00Z');
 
 /**
  * The prices, by date (owner, 2026-10-25): the price shown is what the owner nets after Stripe's fee ("กูต้องได้ยอดสุทธิ
@@ -74,7 +80,7 @@ export const PRO_SOLD_AT: Record<ProPeriod, readonly number[]> = {
  * (handlers/advance-card-renewals.ts). `agreed` lists the step amounts an order may carry: ฿188 now, ฿271 under v4.
  */
 export const PRO_MONTH_RENEWAL_STEP = {
-  fromDay: PRO_MONTH_PROMO_NEXT_DAY, from: PRO_MONTH_REGULAR_FROM, fromTotal: PROMO_PRICES.total.month,
+  fromDay: PRO_MONTH_PROMO_NEXT_DAY, from: PRO_MONTH_STEP_FROM, fromTotal: PROMO_PRICES.total.month,
   price: REGULAR_PRICES.net.month, fee: REGULAR_PRICES.total.month - REGULAR_PRICES.net.month, total: REGULAR_PRICES.total.month,
   agreed: [REGULAR_PRICES.total.month, 271] as readonly number[],
 } as const;

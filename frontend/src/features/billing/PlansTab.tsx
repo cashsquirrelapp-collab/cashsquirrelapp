@@ -276,15 +276,16 @@ export const PlansTab: React.FC<PlansTabProps> = ({
           </article>
         </div>
       </section>
-      {showPlus && <PlanCompare phone={phone} current={memberTier ?? (isInFreeTrial || isGuestPreview ? null : 'free')} chosen={tier}
-        freeTokens={freeMonthlyTokens} proTokens={proTokens} proPrice={proPriceDetails('month').price} />}
       <section className="pf-features" aria-labelledby="pf-features-title">
         <div className="pf-features-head">
           <h2 id="pf-features-title">{tr('สิ่งที่ได้ใน Pro')}</h2>
           <p>{tr('กดการ์ดเพื่อดูรายละเอียด')}</p>
         </div>
-        <ProFeatureTiles tokens={proTokens} stacked={phone} />
+        <ProFeatureTiles tokens={proTokens} freeTokens={freeMonthlyTokens} stacked={phone} />
       </section>
+      {/* The comparison closes the page (owner, 2026-11-16: "เทียบแพ็กเกจ ... เอาไว้ข้างล่างสุด"). */}
+      {showPlus && <PlanCompare phone={phone} current={memberTier ?? (isInFreeTrial || isGuestPreview ? null : 'free')} chosen={tier}
+        freeTokens={freeMonthlyTokens} proTokens={proTokens} proPrice={proPriceDetails('month').price} />}
     </div>
   );
 };

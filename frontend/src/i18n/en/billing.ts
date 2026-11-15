@@ -137,4 +137,13 @@ export const billing: Record<string, string> = {
   "{0} / เดือน": "{0} / month",
   "แพ็กเกจปัจจุบัน": "Current plan",
   "{0} ต่อเดือน รวมค่าธรรมเนียมชำระเงิน ปิดการต่ออายุได้ทุกเมื่อ": "{0} a month including the payment fee. Turn off renewal any time.",
+  "โทเคนมากที่สุด พิมพ์หรือพูดได้ทันที": "The most tokens; type or speak right away",
+  "ทุกแพ็กเกจคุยกับเลขาได้ทั้งในแอปและ LINE Pro ได้โทเคนมากที่สุด (Plus {0} · Free {1} ต่อเดือน)": "Every plan can chat with the assistant in the app and LINE; Pro gets the most tokens (Plus {0} · Free {1} a month)",
+  "Pro ได้โทเคนมากที่สุด (Plus {0} ต่อเดือน)": "Pro gets the most tokens (Plus {0} a month)",
+  "แจ้งเตือนส่งเข้า LINE และอีเมลของคุณทุกเช้าประมาณ 08:00 น.": "Reminders reach your LINE and email every morning around 08:00",
+  "เตือนวันส่งงานและวันรับเงิน ล่วงหน้า 1–2 วัน วันนี้ และเลยกำหนด": "Delivery and payment reminders 1–2 days before, on the day and when late",
+  "กด “ส่งแล้ว” หรือ “ได้รับแล้ว” ใน LINE บันทึกให้ทันที": "Tap “Delivered” or “Received” in LINE and it is saved at once",
+  "สรุปการเงินรายเดือน ติดตามใบ 50 ทวิ และเตือนช่วงยื่นภาษี มีเฉพาะ Pro": "The monthly summary, 50 Tawi follow-up and tax-season reminders are Pro only",
+  "Plus {0} · Free {1} ฉบับ/เดือน": "Plus {0} · Free {1} documents a month",
+  "Plus {0} · Free {1} ไฟล์": "Plus {0} · Free {1} files",
 };

@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { PRO_MONTH_REGULAR_FROM, proMonthPromoRunning } from '../shared/proPricing.js';
 import { monthPromoCountdown } from '../frontend/src/features/billing/promoNotice.js';
 
-test('countdown uses the existing midnight Bangkok price boundary', () => {
-  assert.equal(new Date(PRO_MONTH_REGULAR_FROM).toISOString(), '2026-11-30T17:00:00.000Z');
+test('countdown uses the price boundary: 16 Nov 2569 03:00 Bangkok since the owner ended the sale early (2026-11-16)', () => {
+  assert.equal(new Date(PRO_MONTH_REGULAR_FROM).toISOString(), '2026-11-15T20:00:00.000Z');
   const seconds = 86400 + 2 * 3600 + 3 * 60 + 4;
   assert.deepEqual(monthPromoCountdown(PRO_MONTH_REGULAR_FROM - seconds * 1000), {
     totalSeconds: seconds, days: 1, hours: 2, minutes: 3, seconds: 4,

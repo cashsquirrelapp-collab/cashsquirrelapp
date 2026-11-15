@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PRO_MONTH_REGULAR_FROM } from '../shared/proPricing';
+import { PRO_MONTH_REGULAR_FROM, PRO_MONTH_RENEWAL_STEP } from '../shared/proPricing';
 import { PRO_PLAN_TOKENS, coveringStretch, proTokenPlan, proTokensFor, proTokensOnSale, type PaidStretch } from '../shared/proTokens';
 import { coveringStretches, proTokenLimits } from '../backend/src/services/proTokens';
 import { allowance } from '../backend/src/ai/service';
@@ -42,8 +42,8 @@ test('the plan of a paid stretch: by the amount charged for a one-time month, by
   assert.equal(proTokenPlan(stretch({ chargedBaht: 159 })), 'monthPromo');
   // An order made on 30 Nov at ฿177 and paid just after midnight keeps the promotion it was sold at.
   assert.equal(proTokenPlan(stretch({ chargedBaht: 177, start: PRO_MONTH_REGULAR_FROM + 60_000 })), 'monthPromo');
-  assert.equal(proTokenPlan(stretch({ chargedBaht: null, start: PRO_MONTH_REGULAR_FROM - 1 })), 'monthPromo');
-  assert.equal(proTokenPlan(stretch({ chargedBaht: null, start: PRO_MONTH_REGULAR_FROM })), 'month', 'renewals charge ฿188 from 1 Dec');
+  assert.equal(proTokenPlan(stretch({ chargedBaht: null, start: PRO_MONTH_RENEWAL_STEP.from - 1 })), 'monthPromo');
+  assert.equal(proTokenPlan(stretch({ chargedBaht: null, start: PRO_MONTH_RENEWAL_STEP.from })), 'month', 'renewals charge ฿188 from 1 Dec');
   assert.equal(proTokenPlan(stretch({ period: 'halfYear', chargedBaht: 895 })), 'halfYear');
   assert.equal(proTokenPlan(stretch({ period: 'year', chargedBaht: null })), 'year');
 });

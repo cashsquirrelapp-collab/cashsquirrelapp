@@ -1,4 +1,4 @@
-import { PRO_MONTH_REGULAR_FROM, PRO_MONTH_RENEWAL_STEP, proMonthPromoRunning, type ProPeriod } from './proPricing.js';
+import { PRO_MONTH_RENEWAL_STEP, proMonthPromoRunning, type ProPeriod } from './proPricing.js';
 import { PLAN_LIMITS, type PaidTier } from './plans.js';
 
 // Krarok Tokens a month for paid Pro (owner, 2026-10-25). The owner's profit rule is at least 70% when every member uses
@@ -24,7 +24,7 @@ export interface PaidStretch { period: ProPeriod; chargedBaht: number | null; st
 export function proTokenPlan(stretch: Pick<PaidStretch, 'period' | 'chargedBaht' | 'start'>): ProTokenPlan {
   if (stretch.period === 'halfYear' || stretch.period === 'year') return stretch.period;
   if (stretch.chargedBaht !== null) return stretch.chargedBaht >= PRO_MONTH_RENEWAL_STEP.total ? 'month' : 'monthPromo';
-  return stretch.start >= PRO_MONTH_REGULAR_FROM ? 'month' : 'monthPromo';
+  return stretch.start >= PRO_MONTH_RENEWAL_STEP.from ? 'month' : 'monthPromo';
 }
 
 /** Tokens a month for a paid stretch. Owner, 2026-10-25 ("ให้ทุกคนได้ 1,650"): every Pro account at once, also periods

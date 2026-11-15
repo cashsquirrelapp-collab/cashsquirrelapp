@@ -33,14 +33,14 @@ test('the plan: today\'s keys at the fee prices, and new keys for ฿188 a month
   const catalog = [oneTime('month', 159, 1), oneTime('halfYear', 849, 6), oneTime('year', 1490, 12), recurring('month', 159, 1), recurring('year', 1490, 12)];
   const plan = await planReprice(reader(catalog), false);
   assert.deepEqual(plan.map(row => [row.lookupKey, row.from, row.action, row.currentAmount, row.newAmount]), [
-    [prepaidLookup('month', PROMO), '2026-11-30', 'create', 159, 177], [recurringLookup('month', PROMO), '2026-11-30', 'create', 159, 177],
-    [prepaidLookup('halfYear', PROMO), '2026-11-30', 'create', 849, 895], [recurringLookup('halfYear', PROMO), '2026-11-30', 'missing', null, 895],
-    [prepaidLookup('year', PROMO), '2026-11-30', 'create', 1490, 1562], [recurringLookup('year', PROMO), '2026-11-30', 'create', 1490, 1562],
-    [prepaidLookup('month', DEC), '2026-12-01', 'create', null, 188], [recurringLookup('month', DEC), '2026-12-01', 'create', null, 188],
+    [prepaidLookup('month', PROMO), '2026-11-16', 'create', 159, 177], [recurringLookup('month', PROMO), '2026-11-16', 'create', 159, 177],
+    [prepaidLookup('halfYear', PROMO), '2026-11-16', 'create', 849, 895], [recurringLookup('halfYear', PROMO), '2026-11-16', 'missing', null, 895],
+    [prepaidLookup('year', PROMO), '2026-11-16', 'create', 1490, 1562], [recurringLookup('year', PROMO), '2026-11-16', 'create', 1490, 1562],
+    [prepaidLookup('month', DEC), '2026-11-16', 'create', null, 188], [recurringLookup('month', DEC), '2026-11-16', 'create', null, 188],
   ]);
   assert.notEqual(prepaidLookup('month', DEC), prepaidLookup('month', PROMO), 'both monthly prices exist side by side');
   for (const row of plan.filter(item => item.action === 'create')) {
-    const at = row.from === '2026-12-01' ? DEC : PROMO;
+    const at = row.at;
     const price = created(row);
     assert.equal(row.kind === 'one_time' ? validPrepaidPrice(price, row.period, false, at) : validRecurringPrice(price, row.period, false, at), true, row.lookupKey);
     assert.equal(price.unit_amount, proPricing(at)[row.period].total * 100);
