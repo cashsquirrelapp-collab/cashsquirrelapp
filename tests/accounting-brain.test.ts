@@ -299,11 +299,13 @@ test('prompt: without the accounting slot the prompt is byte-identical to the ap
   // secretary-v29 (owner, 2026-11-06): LINE TALK added after the LINE rules (LINE only); the app prompt is byte-identical.
   // secretary-v30 (owner, 2026-11-13): LINE TALK allows one emoji per reply in LINE (warm, never on serious or money-owed
   // replies); the app prompt is byte-identical.
+  // secretary-v32 (owner, 2026-11-15): LINE list items name the record in full with its client (LINE only); the app
+  // prompt is byte-identical.
   const slots: PromptSlots[] = [
     { route: 'chat', plan: 'pro', nowLocal: '26 ต.ค. 2569 10:00', knowledge: 'K', accountContext: '{}', offer: 'O' },
     { route: 'action', plan: 'admin', nowLocal: '26 ต.ค. 2569 10:00', knowledge: 'K', accountContext: '{}', founder: 'F', channel: 'line' },
   ];
-  const v30 = ['eaef3184b6fdd494abb9e0f7c1ffb0bcf99344883f6589193e8b2db1753e42de', 'cecf96d5b7edbc3de6a6a044c14381aebff60c6ae7453a5aefaba9ee640f6951'];
+  const v30 = ['eaef3184b6fdd494abb9e0f7c1ffb0bcf99344883f6589193e8b2db1753e42de', '73f46c619324e051aa3e4a8bea63b0372fb672831fa6ffa1c39a0a6620c897a8'];
   slots.forEach((slot, index) => assert.equal(createHash('sha256').update(buildSystemPrompt(slot)).digest('hex'), v30[index]));
   const withAccounting = buildSystemPrompt({ ...slots[0], accounting: 'REF' });
   assert.match(withAccounting, /ACCOUNTING REFERENCE \(selected for this message; general information with sources, not a ruling\)\n\nREF\n\nACCOUNT CONTEXT/);

@@ -130,6 +130,10 @@ test('what the question is about stands out: the delivery date, the payment date
   // The date on the right, large and in the CI colour, its words above it; the amount joins the line under the name.
   assert.match(card, /\{"type":"text","text":"ส่ง","size":"xxs"[^}]*\},\{"type":"text","text":"17 พ.ย.","size":"lg","weight":"bold","color":"#C24A16"/);
   assert.match(card, /"text":"฿3,000","size":"xs"/);
+  // Each row says which project: the full name, and the client before the amount on the line under it.
+  const named = shapeLineReply('งานที่ต้องส่งมี 2 งานครับ\n• รีวิวคาเฟ่ลูมิน คลิปที่ 1 · คุณยอร์ช · ฿3,000 · ส่ง 17 พ.ย.\n• รีวิวคาเฟ่ลูมิน คลิปที่ 2 · คุณยอร์ช · ฿3,000 · ส่ง 19 พ.ย.', [], now, { focus: 'delivery' });
+  assert.match(flat(named.messages), /"text":"รีวิวคาเฟ่ลูมิน คลิปที่ 1"/);
+  assert.match(flat(named.messages), /"text":"คุณยอร์ช · ฿3,000","size":"xs"/);
 
   const payment = shapeLineReply('ครบกำหนดรับเงิน 2 งานครับ\n• ตัดต่อคลิปรีวิว EP.3 · ฿3,000 · ครบกำหนด 20 พ.ย.\n• ถ่ายภาพสินค้า · ฿8,000 · ครบกำหนด 22 พ.ย.', [], now, { focus: 'payment' });
   assert.match(flat(payment.messages), /"text":"ครบกำหนด","size":"xxs"[^}]*\},\{"type":"text","text":"20 พ.ย.","size":"lg"/);
@@ -140,4 +144,15 @@ test('what the question is about stands out: the delivery date, the payment date
   // Without a focus the list is laid out as before (the amount on the right, regular size).
   const plain = shapeLineReply('งาน 2 งานครับ\n• ตัดต่อคลิปรีวิว EP.3 · ฿3,000 · ส่ง 17 พ.ย.\n• ถ่ายภาพสินค้า · ฿8,000 · ส่ง 18 พ.ย.', [], now);
   assert.match(flat(plain.messages), /"text":"฿3,000","size":"sm","weight":"bold","color":"#1C1917"/);
+});
+
+test('a job named only "คลิปที่ 1" still says which project: its client joins its name in the rows, and edit cards show the client', async () => {
+  const { cardLine } = await import('../backend/src/ai/lineFormat');
+  const card = { kind: 'confirm' as const, id: 'p_x', title: 'แก้ไขงาน', changes: [{ label: 'งาน', value: 'คลิปที่ 1' }, { label: 'ลูกค้า', value: 'รีวิวคาเฟ่ลูมิน' }, { label: 'วันที่ส่งงาน / แผนส่ง', value: '17 พ.ย. 2569 → 20 พ.ย. 2569' }] };
+  assert.deepEqual(cardLine(card), { name: 'คลิปที่ 1 · รีวิวคาเฟ่ลูมิน', detail: 'วันที่ส่งงาน / แผนส่ง 17 พ.ย. 2569 → 20 พ.ย. 2569' });
+  assert.deepEqual(cardLine({ ...card, changes: [card.changes[0], card.changes[2]] }).name, 'คลิปที่ 1');
+  const fs = await import('node:fs');
+  const tools = fs.readFileSync(new URL('../backend/src/ai/tools.ts', import.meta.url), 'utf8');
+  assert.match(tools, /const head: Proposal\['changes'\] = \[\{ label: 'งาน', value: job\.name \}, \.\.\.\(job\.client && typeof args\.client !== 'string' \? \[\{ label: 'ลูกค้า', value: job\.client \}\] : \[\]\)\];/);
+  assert.match(tools, /if \(changes\.length === head\.length\) return fail\('ไม่มีอะไรให้เปลี่ยน'\);/);
 });

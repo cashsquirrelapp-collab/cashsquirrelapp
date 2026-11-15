@@ -769,7 +769,9 @@ export function createToolbox(context: ToolContext) {
         const job = findJob(args.job_id);
         if (!job) return fail('ไม่พบงานนี้ในบัญชี');
         const record: Record<string, unknown> = { ...job, lastActivityAt: new Date().toISOString() };
-        const changes: Proposal['changes'] = [{ label: 'งาน', value: job.name }];
+        // Which job, by its name and client (owner, 2026-11-15: a name such as "คลิปที่ 1" alone does not say which project).
+        const head: Proposal['changes'] = [{ label: 'งาน', value: job.name }, ...(job.client && typeof args.client !== 'string' ? [{ label: 'ลูกค้า', value: job.client }] : [])];
+        const changes: Proposal['changes'] = [...head];
         if (job.installments?.length && ['value', 'pay_date', 'credit_term_days'].some(key => args[key] !== undefined)) return fail('งานนี้แบ่งชำระเป็นงวด กรุณาแก้จำนวนเงินและกำหนดแต่ละงวดในหน้าแก้ไขงาน');
         if (typeof args.name === 'string' && args.name.trim()) { record.name = args.name.trim(); changes.push({ label: 'ชื่อใหม่', value: record.name as string }); }
         if (typeof args.client === 'string') { record.client = args.client.trim(); changes.push({ label: 'ลูกค้า', value: (record.client as string) || '-' }); }
@@ -815,7 +817,7 @@ export function createToolbox(context: ToolContext) {
           changes.push({ label: 'กำหนดรับเงินตามเครดิต', value: thaiDate(String(record.payDate)) });
         }
         if (typeof args.note === 'string') { record.note = args.note; changes.push({ label: 'บันทึก', value: args.note || '-' }); }
-        if (changes.length === 1) return fail('ไม่มีอะไรให้เปลี่ยน');
+        if (changes.length === head.length) return fail('ไม่มีอะไรให้เปลี่ยน');
         return propose('edit_job', job, record, 'แก้ไขงาน', changes);
       }
       case 'propose_delete_job': {

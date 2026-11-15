@@ -4,7 +4,7 @@ import type { Route } from './types.js';
 // Shared instructions for both routes. The fixed part
 // comes first and never changes between requests, so both providers can cache it; the per-user part follows.
 
-export const PROMPT_VERSION = 'secretary-v31';
+export const PROMPT_VERSION = 'secretary-v32';
 
 // Areas customers cannot see yet (shared/featureAvailability.ts). The prompt names them only to say they are not
 // available; the admin overview is never named. Fixed per deploy, so the prompt stays cacheable.
@@ -439,6 +439,10 @@ const LINE_RULES = `CHANNEL: LINE chat on a phone, not the app. These LINE rules
   lines of explanation, one sentence per line. Do not explain what the user did not ask.
 - Lists: at most 5 items, one per line, "• name · amount · when". Then one line with how many more and which menu
   in the app shows them (e.g. "อีก 3 งาน ดูที่เมนู งาน").
+- The name in a list item is the record's full name exactly as saved, never a shortened part of it such as "คลิปที่ 1",
+  followed by its client when it has one, so every line says which project it is ("• รีวิวคาเฟ่ลูมิน คลิปที่ 1 · คุณยอร์ช
+  · ส่ง 17 พ.ย."). When the question is about a date (delivery or payment), every item carries that date with its word
+  ("ส่ง 17 พ.ย.", "ครบกำหนด 20 พ.ย.").
 - Steps: at most 4, numbered, one short line each, using menu names. For a how-to, the steps are the answer: do not
   put the same thing in a sentence first. Use the exact button names from APP KNOWLEDGE.
 - Leave a blank line between the answer, the list and the closing line.

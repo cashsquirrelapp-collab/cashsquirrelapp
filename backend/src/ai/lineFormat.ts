@@ -442,7 +442,8 @@ function listCard(list: Extract<Segment, { kind: 'list' }>, lead: string, focus?
     // The date the question is about stands on the right, large and in the CI colour, with its words above it ("ส่ง");
     // the amount then joins the details under the name. Asked about money, the amount itself is larger.
     const date = focusPart(item, focus);
-    const meta = date ? [item.amount, ...date.rest].filter(Boolean).join(' · ') : item.meta;
+    // The client (which project) first, then the amount.
+    const meta = date ? [...date.rest, item.amount].filter(Boolean).join(' · ') : item.meta;
     const side = date
       ? [{ type: 'box', layout: 'vertical', flex: 0, contents: [
         { type: 'text', text: date.label, size: 'xxs', color: C.muted, align: 'end', wrap: true },
@@ -538,10 +539,12 @@ export function cardGroupMessage(groupId: string, cards: AssistantCard[], files:
 /** One card's line in a list of several: its record's name, and what it does (the change, or the amount). */
 export function cardLine(card: ConfirmCardLike): { name: string; detail: string } {
   const NAME = ['งาน', 'ชื่องาน', 'รายการ', 'ชื่อรายการ'];
+  // The record's name with its client, so a name such as "คลิปที่ 1" still says which project (owner, 2026-11-15).
+  const client = changeOf(card, ['ลูกค้า']);
   const name = changeOf(card, NAME) ?? card.title;
-  const first = card.changes.find(change => !NAME.includes(change.label));
+  const first = card.changes.find(change => !NAME.includes(change.label) && change.label !== 'ลูกค้า');
   const detail = first ? `${first.label} ${first.value}` : card.title;
-  return { name: name.slice(0, 120), detail: detail.slice(0, 160) };
+  return { name: (client && client !== '-' && name !== card.title ? `${name} · ${client}` : name).slice(0, 120), detail: detail.slice(0, 160) };
 }
 
 /** Rows naming each card's record, the line under it saying what it does (at most `max`, then how many more). */
@@ -578,7 +581,8 @@ export function confirmAllMessage(groupId: string, cards: AssistantCard[]): Line
     body: cardRows(confirms), note: 'ยังกดยืนยันทีละการ์ดด้านบนได้เหมือนเดิม การ์ดหมดเวลาใน 30 นาที',
   }) as LineMessage & { contents: Record<string, unknown> };
   const button = (label: string, action: string, primary: boolean) => ({ type: 'button', style: primary ? 'primary' : 'secondary', height: 'sm',
-    color: primary ? C.accent : C.subtle, flex: primary ? 2 : 1, action: { type: 'postback', label, data: `ai:${action}:${groupId}`, displayText: label } });
+    color: primary ? C.accent : C.subtle, flex: 1, action: { type: 'postback', label, data: `ai:${action}:${groupId}`, displayText: label } });
+  // Two buttons of the same width: "ยกเลิกทั้งหมด" fits on one line on a phone.
   message.contents.footer = { type: 'box', layout: 'horizontal', spacing: 'sm', paddingAll: '20px', paddingTop: '0px', contents: [
     button('ยกเลิกทั้งหมด', 'cancelall', false), button('ยืนยันทั้งหมด', 'confirmall', true),
   ] };
