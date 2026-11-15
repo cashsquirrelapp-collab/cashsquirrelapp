@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { textOverlapIssues } from './textOverlap';
+import { proPriceDetails } from '../../shared/proPricing';
 
 // The weekly Pro invitation (owner, 2026-10-29): accounts not on Pro see the Gen Z poster (dark rust and gold, เลขากระรอก
 // peeking out of the KRAROK PRO box) once a week; ✕ and ไว้ทีหลัง wait for next week; สมัคร Pro เลย opens the plans page.
@@ -38,8 +39,10 @@ test('a free account gets the invitation once a week; ✕ and ไว้ทีห
   // The headline: "จ้างเลขาส่วนตัว วันละไม่ถึง ฿6", the day's price worked out from ฿159 a month.
   await expect(kv(page).getByRole('heading', { name: /จ้างเลขาส่วนตัว\s*วันละไม่ถึง\s*฿6/ })).toBeVisible();
   await expect(page).not.toHaveURL(/kv=/);
-  await expect(kv(page).getByTestId('kv-price')).toContainText('฿159');
-  await expect(kv(page).getByTestId('kv-price')).toContainText('฿169');
+  // Today's monthly price (the promotion's ฿159 against ฿169 until 16 Nov 2569 03:00, then ฿169 alone).
+  const month = proPriceDetails('month');
+  await expect(kv(page).getByTestId('kv-price')).toContainText(`฿${month.price}`);
+  if (month.saving > 0) await expect(kv(page).getByTestId('kv-price')).toContainText(`฿${month.regular}`);
   await expect(kv(page).getByRole('button', { name: 'สมัคร Pro เลย', exact: true })).toBeVisible();
   // เลขากระรอก is the app's own drawing, and what Pro gives is listed.
   await expect(kv(page).locator('.pkv-hero svg').first()).toBeVisible();

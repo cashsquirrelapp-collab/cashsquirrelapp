@@ -183,6 +183,8 @@ test('a free account opens an inline card form for the monthly price', async ({ 
 });
 
 test('the Pro card and its prices stay readable on mobile', async ({ page }) => {
+  // The monthly promotion ended on 16 Nov 2569 03:00; this test reads the page while it ran.
+  await page.clock.setFixedTime(new Date('2026-11-10T03:00:00Z'));
   // Design F on phones too (owner, 2026-10-29: "ทำบนมือถือด้วยเลย"): the headline, the price card full width as the
   // focal point, the feature cards as rows; no squirrel and no fee line (the dialogs show the fee before paying).
   await page.setViewportSize({ width: 375, height: 812 });
@@ -306,6 +308,8 @@ test('a managed nonterminal subscription chooses the Stripe Billing Portal', asy
 // The petting squirrel on the Pro card left with design F (owner, 2026-10-29: no squirrel on the plans page, phones too).
 
 test('plans page: Pro only at the owner\'s prices; squirrel and price lead; nothing can be paid at another amount',async({page})=>{
+  // The monthly promotion ended on 16 Nov 2569 03:00; this test reads the page while it ran.
+  await page.clock.setFixedTime(new Date('2026-11-10T03:00:00Z'));
   const requests=await openPlans(page,{status:'free',plan:null,current_period_end:null,cancel_at_period_end:false,stripe_status:null,has_subscription:false,intro_eligible:true,managed:false},'https://checkout.stripe.com/c/pay/mock',{},false,false);
   const card=page.getByTestId('pro-card');
   const price=page.getByTestId('pro-price');
@@ -421,6 +425,8 @@ test('plans page: Pro only at the owner\'s prices; squirrel and price lead; noth
 });
 
 test('plans page: every account sees the same monthly price, with or without the earlier intro offer',async({page})=>{
+  // The monthly promotion ended on 16 Nov 2569 03:00; this test reads the page while it ran.
+  await page.clock.setFixedTime(new Date('2026-11-10T03:00:00Z'));
   await openPlans(page,{status:'free',plan:null,current_period_end:null,cancel_at_period_end:false,stripe_status:null,has_subscription:false,intro_eligible:false,managed:false},'https://checkout.stripe.com/c/pay/mock');
   const price=page.getByTestId('pro-price');
   await expect(price.getByText('฿159',{exact:true})).toBeVisible();
@@ -1020,6 +1026,8 @@ test('the countdown chips on a computer tick, survive reload and give way to ฿
 // Free / Plus / Pro (owner, 2026-11-15): with Plus on sale the card switches between Plus and Pro, a table compares the
 // three plans (computers and iPads) or lists them row by row (phones), and buying Plus asks the server for Plus.
 test('Plus beside Pro: the switch, the comparison, and buying Plus asks for Plus', async ({ page }) => {
+  // The monthly promotion ended on 16 Nov 2569 03:00; this test reads the page while it ran.
+  await page.clock.setFixedTime(new Date('2026-11-10T03:00:00Z'));
   const free = { status: 'free', plan: null, current_period_end: null, cancel_at_period_end: false, stripe_status: null, has_subscription: false, intro_eligible: false, managed: false };
   await page.setViewportSize({ width: 1280, height: 900 });
   // The clock's light / dark switch already applied, so the screen follows the light / dark asked for below.
