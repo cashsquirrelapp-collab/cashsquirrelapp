@@ -1,6 +1,7 @@
 import type { LineMessage } from './line.js';
 import { LINE_CARD_COLORS as C, lineAppLink, lineCard, lineJobItem } from './lineCards.js';
 import { dueRefFromDigestId, encodeDueAction, partialPrompt } from './lineDuePayments.js';
+import { encodeDeliverAction } from './lineDeliveryActions.js';
 import type { MorningInsight } from './morningInsights.js';
 
 /**
@@ -144,16 +145,33 @@ export function buildDigestFlexMessage(jobs: JobWithDiff[], options: { test?: bo
 }
 
 const clip = (text: string, max = 60) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
-const DELIVERY_TIP = 'ถ้าส่งไปแล้ว เปลี่ยนสถานะงานในแอปได้เลยครับ ผมจะได้ไม่เตือนซ้ำ';
+
+/** One เตือนส่งงาน message: เลขา's words in a plain white bubble, with ส่งแล้ว / ยังไม่ส่ง under them (lineDeliveryActions.ts). */
+function deliveryBubble(sentence: string, item: DeliveryDue): LineMessage {
+  const done = encodeDeliverAction('done', item.id);
+  const later = encodeDeliverAction('later', item.id);
+  const name = clip(item.name || 'งาน', 120);
+  if (!done || !later) return { type: 'text', text: sentence };
+  return {
+    type: 'flex', altText: sentence.slice(0, 380),
+    contents: { type: 'bubble', size: 'kilo', body: { type: 'box', layout: 'vertical', paddingAll: '16px', spacing: 'md', contents: [
+      { type: 'text', text: sentence, size: 'sm', color: C.text, wrap: true },
+      { type: 'box', layout: 'horizontal', spacing: 'sm', contents: [
+        duePill('ส่งแล้ว', { data: done, displayText: `ส่งงานแล้ว · ${name}` }, true),
+        duePill('ยังไม่ส่ง', { data: later, displayText: `ยังไม่ได้ส่ง · ${name}` }),
+      ] },
+    ] } },
+  } as LineMessage;
+}
 
 /**
  * เตือนส่งงาน (owner, 2026-11-15, with another assistant's chat as the example: "เป็นข้อความธรรมดาเหมือนแบบคุยกับเพื่อน ...
- * คุยเหมือนคุยเลขาแบบชิวๆ", then "ส่งมาเป็นทีละข้อความดิ"): plain messages from เลขา, one per job, most urgent first, before
- * the เตือนรับเงิน card in the same 08:00 push. The first calls the person by the name they gave เลขา; a late job adds one
- * short tip at the end. A push carries 5 messages at most, so `room` says how many these may use: when the jobs do not
- * fit, the last message counts the rest instead (and the tip is left out).
+ * คุยเหมือนคุยเลขาแบบชิวๆ", then "ส่งมาเป็นทีละข้อความดิ" and "ให้มีปุ่มกดยืนยัน"): one short message from เลขา per job, most
+ * urgent first, each with ส่งแล้ว / ยังไม่ส่ง, before the เตือนรับเงิน card in the same 08:00 push. The first calls the
+ * person by the name they gave เลขา. A push carries 5 messages at most, so `room` says how many these may use: when the
+ * jobs do not fit, the last message counts the rest instead.
  */
-export function buildDeliveryTexts(deliveries: DeliveryDue[], options: { name?: string | null; room?: number } = {}): LineMessage[] {
+export function buildDeliveryMessages(deliveries: DeliveryDue[], options: { name?: string | null; room?: number } = {}): LineMessage[] {
   const room = Math.max(1, Math.min(5, options.room ?? 5));
   const name = options.name?.trim().slice(0, 40);
   const what = (d: DeliveryDue) => `${clip(d.name || 'งาน')}${d.client ? ` ให้${clip(d.client, 40)}` : ''}`;
@@ -164,13 +182,11 @@ export function buildDeliveryTexts(deliveries: DeliveryDue[], options: { name?: 
       : d.diffDays === 1 ? `${call}พรุ่งนี้ต้องส่ง ${what(d)} นะครับ`
       : `${call}อีก ${d.diffDays} วันต้องส่ง ${what(d)} นะครับ`;
   };
-  const late = deliveries.some(d => d.diffDays < 0);
-  const fits = deliveries.length + (late ? 1 : 0) <= room;
+  const fits = deliveries.length <= room;
   const shown = fits ? deliveries : deliveries.slice(0, room - 1);
-  const texts = shown.map((d, at) => sentence(d, at === 0));
-  if (!fits) texts.push(`${shown.length ? 'และยังมีงานที่ต้องส่งอีก' : `${name ? `คุณ${name} ` : ''}มีงานที่ต้องส่ง`} ${deliveries.length - shown.length} งาน ดูในแอปได้ครับ`);
-  else if (late) texts.push(DELIVERY_TIP);
-  return texts.map(text => ({ type: 'text', text }));
+  const messages = shown.map((d, at) => deliveryBubble(sentence(d, at === 0), d));
+  if (!fits) messages.push({ type: 'text', text: `${shown.length ? 'และยังมีงานที่ต้องส่งอีก' : `${name ? `คุณ${name} ` : ''}มีงานที่ต้องส่ง`} ${deliveries.length - shown.length} งาน ดูในแอปได้ครับ` });
+  return messages;
 }
 
 /** In-memory examples only. Use the same date selection and card builder as the scheduled digest. */

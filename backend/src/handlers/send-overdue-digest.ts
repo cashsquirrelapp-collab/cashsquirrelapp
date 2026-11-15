@@ -8,7 +8,7 @@ import { supabaseAdmin } from '../config/supabase.js';
 import { sendGmailEmailOutcome } from '../services/gmail.js';
 import { sendLineMessagesToEmailOutcome, type LineMessage } from '../services/line.js';
 import { attemptDelivery, notificationOutcomeCounts, recordChannelOutcome, type DeliveryOutcome } from '../services/notificationOutcome.js';
-import { buildDeliveryTexts, buildDigestFlexMessage, buildInsightFlexMessage, findDeliveriesDue, findJobsNeedingAttention, todayInBangkok, type DeliveryDue, type JobRow, type JobWithDiff } from '../services/lineReminders.js';
+import { buildDeliveryMessages, buildDigestFlexMessage, buildInsightFlexMessage, findDeliveriesDue, findJobsNeedingAttention, todayInBangkok, type DeliveryDue, type JobRow, type JobWithDiff } from '../services/lineReminders.js';
 import { deliveryReminderOn } from '../../../shared/notifDefaults.js';
 import { mergeTold, morningInsights, type MorningInsights } from '../services/morningInsights.js';
 import type { Expense, Invoice, Job } from '../../../shared/types.js';
@@ -283,10 +283,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // promise (no `await`, just `.catch()`) has no guarantee of finishing before this
         // serverless function returns its response and gets frozen/torn down, which was silently
         // dropping the LINE push even when this code was reached.
-        // One push for the morning (LINE counts it once, 5 messages at most): เตือนส่งงาน first, as plain messages from
-        // เลขา one job each, then the เตือนรับเงิน card (or เลขา's notes alone), which keeps one place.
+        // One push for the morning (LINE counts it once, 5 messages at most): เตือนส่งงาน first, one message from เลขา per
+        // job with ส่งแล้ว / ยังไม่ส่ง, then the เตือนรับเงิน card (or เลขา's notes alone), which keeps one place.
         const cardFollows = attentionJobs.length > 0 || insights.items.length > 0;
-        const delivery: LineMessage[] = deliveries.length ? buildDeliveryTexts(deliveries, { name: notifSettings.userName, room: cardFollows ? 4 : 5 }) : [];
+        const delivery: LineMessage[] = deliveries.length ? buildDeliveryMessages(deliveries, { name: notifSettings.userName, room: cardFollows ? 4 : 5 }) : [];
         let lineOutcome: DeliveryOutcome = 'skipped';
         if (row.email && attentionJobs.length) {
           lineOutcome = await attemptDelivery(() => sendLineMessagesToEmailOutcome(row.email, [...delivery, buildDigestFlexMessage(attentionJobs, { insights: insights.items })], notifSettings.lineUserId, randomUUID()));

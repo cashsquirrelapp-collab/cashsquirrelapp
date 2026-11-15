@@ -16,6 +16,7 @@ import { decodeLineDocumentAction } from '../services/lineDocumentDraft.js';
 import { decodeVaultAction, handleLineFileMessage, handleLineImageSetPart, handleLineVaultAction } from '../services/lineVaultChat.js';
 import { forgetLineMenu, lineMenuDeps, syncLineMenuFor } from '../services/lineRichMenus.js';
 import { decodeDueAction } from '../services/lineDuePayments.js';
+import { decodeDeliverAction } from '../services/lineDeliveryActions.js';
 import { decodeWht50Action } from '../services/lineWht50Reminders.js';
 
 export const config = {
@@ -60,7 +61,7 @@ export function lineEventCommand(event: LineEvent): string | null {
   if (event.type === 'postback') {
     const data = event.postback?.data || '';
     // Payment buttons in the 08:00 reminder pass through as-is; the assistant records them.
-    if (decodeVaultAction(data) || decodeDueAction(data) || decodeWht50Action(data)) return data;
+    if (decodeVaultAction(data) || decodeDueAction(data) || decodeDeliverAction(data) || decodeWht50Action(data)) return data;
     // เปิดใน Google Sheets / Docs / Slides under the answer to a file (services/lineSheetConvert.ts).
     if (/^(sheet:convert:|google:open:[sdp]:)\d{1,40}:[A-Za-z0-9_-]{0,240}$/.test(data)) return data;
     // เลือกวันที่ under a question about the record being written (services/lineJobQuestions.ts): the day picked, as typed.

@@ -42,40 +42,97 @@ test('the switch follows the payment reminder until the account sets it, and is 
   assert.deepEqual(notificationPreferences.parse({ deliveryReminderEnabled: false }), { deliveryReminderEnabled: false });
 });
 
-test('the LINE messages: plain words from เลขา, one per job (owner: "ส่งมาเป็นทีละข้อความดิ"), by name, the work and the client', async () => {
-  const { buildDeliveryTexts } = await import('../backend/src/services/lineReminders.js');
-  const texts = (messages: { type: string; text?: string }[]) => messages.map(message => { assert.equal(message.type, 'text'); return message.text; });
+test('the LINE messages: one per job from เลขา (owner: "ส่งมาเป็นทีละข้อความดิ"), by name, with ส่งแล้ว / ยังไม่ส่ง', async () => {
+  const { buildDeliveryMessages } = await import('../backend/src/services/lineReminders.js');
+  const words = (messages: { type: string; altText?: string; text?: string }[]) => messages.map(message => message.altText ?? message.text);
   const at = (postDate: string, over: Partial<JobRow> = {}) => findDeliveriesDue([job('x', { isPosted: false, postDate, name: 'ถ่ายภาพเมนูใหม่', client: 'ร้านตัวอย่าง', ...over })], now);
-  assert.deepEqual(texts(buildDeliveryTexts(at('2026-11-16'), { name: 'ปาร์ค' })), ['คุณปาร์ค วันนี้ต้องส่ง ถ่ายภาพเมนูใหม่ ให้ร้านตัวอย่าง นะครับ']);
-  assert.deepEqual(texts(buildDeliveryTexts(at('2026-11-17'))), ['พรุ่งนี้ต้องส่ง ถ่ายภาพเมนูใหม่ ให้ร้านตัวอย่าง นะครับ']);
-  assert.deepEqual(texts(buildDeliveryTexts(at('2026-11-18', { client: '' }), { name: '  ' })), ['อีก 2 วันต้องส่ง ถ่ายภาพเมนูใหม่ นะครับ']);
-  assert.deepEqual(texts(buildDeliveryTexts(at('2026-11-14'), { name: 'ปาร์ค' })),
-    ['คุณปาร์ค ถ่ายภาพเมนูใหม่ ให้ร้านตัวอย่าง เลยกำหนดส่งมา 2 วันแล้วนะครับ', 'ถ้าส่งไปแล้ว เปลี่ยนสถานะงานในแอปได้เลยครับ ผมจะได้ไม่เตือนซ้ำ']);
+  assert.deepEqual(words(buildDeliveryMessages(at('2026-11-16'), { name: 'ปาร์ค' })), ['คุณปาร์ค วันนี้ต้องส่ง ถ่ายภาพเมนูใหม่ ให้ร้านตัวอย่าง นะครับ']);
+  assert.deepEqual(words(buildDeliveryMessages(at('2026-11-17'))), ['พรุ่งนี้ต้องส่ง ถ่ายภาพเมนูใหม่ ให้ร้านตัวอย่าง นะครับ']);
+  assert.deepEqual(words(buildDeliveryMessages(at('2026-11-18', { client: '' }), { name: '  ' })), ['อีก 2 วันต้องส่ง ถ่ายภาพเมนูใหม่ นะครับ']);
+  assert.deepEqual(words(buildDeliveryMessages(at('2026-11-14'), { name: 'ปาร์ค' })), ['คุณปาร์ค ถ่ายภาพเมนูใหม่ ให้ร้านตัวอย่าง เลยกำหนดส่งมา 2 วันแล้วนะครับ']);
+  // The message itself: the words in a plain bubble, ส่งแล้ว (CI orange) and ยังไม่ส่ง as buttons for this job.
+  const [one] = buildDeliveryMessages(at('2026-11-16'));
+  const json = JSON.stringify(one);
+  assert.equal(one.type, 'flex');
+  assert.ok(json.includes('"data":"deliver:done:x"') && json.includes('"data":"deliver:later:x"'));
+  assert.ok(json.includes('"displayText":"ส่งงานแล้ว · ถ่ายภาพเมนูใหม่"'));
+  assert.ok(json.includes('"text":"ส่งแล้ว"') && json.includes('"text":"ยังไม่ส่ง"'));
+  assert.ok(Buffer.byteLength(json) < 30_000);
   const many = findDeliveriesDue([
     job('late', { isPosted: false, postDate: '2026-11-15', name: 'ตัดต่อคลิปรีวิว', client: 'ลูกค้า D' }),
     job('today', { isPosted: false, postDate: '2026-11-16', name: 'ถ่ายภาพเมนูใหม่', client: 'ลูกค้า E' }),
     job('soon', { isPosted: false, postDate: '2026-11-18', name: 'ออกแบบโปสเตอร์', client: 'ลูกค้า F' }),
   ], now);
-  // Most urgent first; only the first message carries the name; the tip last.
-  assert.deepEqual(texts(buildDeliveryTexts(many, { name: 'ปาร์ค', room: 4 })), [
+  // Most urgent first; only the first message carries the name.
+  assert.deepEqual(words(buildDeliveryMessages(many, { name: 'ปาร์ค', room: 4 })), [
     'คุณปาร์ค ตัดต่อคลิปรีวิว ให้ลูกค้า D เลยกำหนดส่งมา 1 วันแล้วนะครับ',
     'วันนี้ต้องส่ง ถ่ายภาพเมนูใหม่ ให้ลูกค้า E นะครับ',
     'อีก 2 วันต้องส่ง ออกแบบโปสเตอร์ ให้ลูกค้า F นะครับ',
-    'ถ้าส่งไปแล้ว เปลี่ยนสถานะงานในแอปได้เลยครับ ผมจะได้ไม่เตือนซ้ำ',
   ]);
   // A push holds 5 messages and the เตือนรับเงิน card keeps one: with no room for all, the last one counts the rest.
-  assert.deepEqual(texts(buildDeliveryTexts(many, { name: 'ปาร์ค', room: 3 })), [
+  assert.deepEqual(words(buildDeliveryMessages(many, { name: 'ปาร์ค', room: 2 })), [
     'คุณปาร์ค ตัดต่อคลิปรีวิว ให้ลูกค้า D เลยกำหนดส่งมา 1 วันแล้วนะครับ',
-    'วันนี้ต้องส่ง ถ่ายภาพเมนูใหม่ ให้ลูกค้า E นะครับ',
-    'และยังมีงานที่ต้องส่งอีก 1 งาน ดูในแอปได้ครับ',
+    'และยังมีงานที่ต้องส่งอีก 2 งาน ดูในแอปได้ครับ',
   ]);
   const seven = findDeliveriesDue(Array.from({ length: 7 }, (_, i) => job(`j${i}`, { isPosted: false, postDate: '2026-11-17', name: i === 0 ? 'ก'.repeat(80) : `งาน ${i}`, client: '' })), now);
-  const out = texts(buildDeliveryTexts(seven, { room: 4 }));
+  const out = words(buildDeliveryMessages(seven, { room: 4 }));
   assert.equal(out.length, 4);
   assert.equal(out[3], 'และยังมีงานที่ต้องส่งอีก 4 งาน ดูในแอปได้ครับ');
   assert.ok(out[0]!.includes(`${'ก'.repeat(59)}…`), 'long names are cut');
-  assert.equal(buildDeliveryTexts(seven).length, 5, 'never more than a push holds');
+  assert.equal(buildDeliveryMessages(seven).length, 5, 'never more than a push holds');
   assert.ok(out.every(text => !/[\u{1F300}-\u{1FAFF}]/u.test(text!)), 'no emoji');
+});
+
+test('ส่งแล้ว marks the job delivered as the Jobs page does; ยังไม่ส่ง and samples change nothing; a save race retries once', async () => {
+  const { applyDelivered, decodeDeliverAction, encodeDeliverAction, handleDeliverAction } = await import('../backend/src/services/lineDeliveryActions.js');
+  assert.equal(encodeDeliverAction('done', 'job-1'), 'deliver:done:job-1');
+  assert.equal(encodeDeliverAction('done', 'a b'), null);
+  assert.deepEqual(decodeDeliverAction('deliver:later:job-1'), { kind: 'later', jobId: 'job-1' });
+  assert.equal(decodeDeliverAction('deliver:delete:job-1'), null);
+  const working = { id: 'job-1', name: 'ถ่ายภาพเมนูใหม่', client: 'ร้าน', value: 10000, whtRate: 3, received: 0, pending: 0, status: 'pending', isPosted: false, postDate: '2026-11-16', payDate: '2026-12-16', creditTerm: 30, note: '', type: 'Photo' };
+  const delivered = applyDelivered(working as never, '2026-11-16T01:00:00.000Z') as Record<string, unknown>;
+  assert.equal(delivered.isPosted, true);
+  assert.equal(delivered.pending, 9700, 'what is owed is worked out again (after 3% withholding)');
+  assert.equal(delivered.postDate, '2026-11-16', 'its delivery date stays');
+  assert.equal(delivered.payDate, '2026-12-16');
+  assert.deepEqual(applyDelivered({ ...working, isPosted: true } as never, ''), { error: 'already_delivered' });
+  assert.equal((applyDelivered({ ...working, status: 'done', received: 9700 } as never, '') as { pending: number }).pending, 0);
+
+  const saved: unknown[] = [];
+  let version = 3;
+  const deps = {
+    async loadJob() { return { data: working as never, version }; },
+    async saveJob(_u: string, _id: string, v: number, data: unknown) { if (v !== 4) { version = 4; return false; } saved.push(data); return true; },
+    today: () => '2026-11-16', now: () => new Date('2026-11-16T01:00:00Z'),
+  };
+  const reply = await handleDeliverAction({ user_id: 'u1' }, { kind: 'done', jobId: 'job-1' }, deps as never) as { text: string };
+  assert.equal(reply.text, 'เรียบร้อยครับ เปลี่ยน "ถ่ายภาพเมนูใหม่" เป็นส่งแล้ว\nยอดรอรับ ฿9,700 ถึงวันรับเงินแล้วผมจะเตือนให้ครับ');
+  assert.equal(saved.length, 1, 'saved on the second try, after another device saved first');
+  const untouched = { async loadJob() { throw new Error('nothing is read'); }, async saveJob() { throw new Error('nothing is saved'); }, today: () => '', now: () => new Date() };
+  assert.match((await handleDeliverAction({ user_id: 'u1' }, { kind: 'later', jobId: 'job-1' }, untouched as never) as { text: string }).text, /พรุ่งนี้ 08:00 ผมจะเตือนอีกครั้ง/);
+  assert.match((await handleDeliverAction({ user_id: 'u1' }, { kind: 'done', jobId: 'demo-late' }, untouched as never) as { text: string }).text, /แจ้งเตือนตัวอย่าง/);
+  const already = { ...deps, async loadJob() { return { data: { ...working, isPosted: true } as never, version: 1 }; } };
+  assert.equal((await handleDeliverAction({ user_id: 'u1' }, { kind: 'done', jobId: 'job-1' }, already as never) as { text: string }).text, '"ถ่ายภาพเมนูใหม่" เปลี่ยนเป็นส่งแล้วไว้ก่อนแล้วครับ');
+});
+
+test('a ส่งแล้ว press reaches the assistant after the account and Pro checks, without the model', async () => {
+  const { lineEventCommand } = await import('../backend/src/handlers/line-webhook.js');
+  const { handleAssistantMessage } = await import('../backend/src/services/lineAssistant.js');
+  assert.equal(lineEventCommand({ type: 'postback', source: { type: 'user', userId: 'U1' }, postback: { data: 'deliver:done:job-1' } } as never), 'deliver:done:job-1');
+  const calls: string[] = [];
+  const deps = {
+    async findUserByLineId() { return { user_id: 'u1', jobs: [], goals: [], settings: {}, expenses: [], statuses: [] }; },
+    async checkLinkedAccountWriteAccess() { return { allowed: true as const }; },
+    async isProUser() { return true; },
+    async classifyMessage() { calls.push('model'); throw new Error('the model must not be asked'); },
+    async handleDeliverAction(_user: unknown, action: { kind: string }) { calls.push(`deliver:${action.kind}`); return { type: 'text', text: 'ok' }; },
+  };
+  const reply = await handleAssistantMessage('U1', 'deliver:done:job-1', 'op-deliver', deps as never);
+  assert.deepEqual(calls, ['deliver:done']);
+  assert.equal((reply?.[0] as { text?: string })?.text, 'ok');
+  const expired = await handleAssistantMessage('U1', 'deliver:done:job-1', 'op-deliver-2', { ...deps, async isProUser() { return false; } } as never);
+  assert.match(JSON.stringify(expired), /Pro ของบัญชีนี้หมดอายุ/);
+  assert.deepEqual(calls, ['deliver:done']);
 });
 
 test('the email: work to deliver above the money due; a morning with only deliveries has its own heading and subject', async () => {
