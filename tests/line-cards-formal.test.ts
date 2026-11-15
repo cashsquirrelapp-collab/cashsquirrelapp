@@ -7,10 +7,15 @@ import assert from 'node:assert/strict';
 // flat (no gradients), every main button CI orange (lineTone.ts).
 process.env.APP_URL = 'https://cards.example.com';
 const { lineCard, lineValueRow, LINE_CARD_COLORS, LINE_CARD_THEMES } = await import('../backend/src/services/lineCards.js');
+const { buildOverdueCard, findJobsNeedingAttention } = await import('../backend/src/services/lineReminders.js');
 const A = await import('../backend/src/services/lineAssistant.js');
 
 const now = new Date('2026-10-22T01:00:00Z');
 const cards = {
+  overdue: buildOverdueCard(findJobsNeedingAttention([
+    { id: 'a', name: 'งาน A', client: 'ลูกค้า A', status: 'pending', pending: 4500, payDate: '2026-10-19' },
+    { id: 'b', name: 'งาน B', client: 'ลูกค้า B', status: 'pending', pending: 9700, payDate: '2026-10-20' },
+  ], new Date('2026-10-22T01:00:00Z')), { now: new Date('2026-10-22T01:00:00Z') }),
   jobEdited: A.buildJobEditedMessage({ id: 'j', name: 'งาน', client: 'ลูกค้า', value: 10000, status: 'pending', pending: 10000 }),
   goal: A.buildGoalCreatedMessage({ name: 'เงินสำรอง', target: 60000 }),
 };

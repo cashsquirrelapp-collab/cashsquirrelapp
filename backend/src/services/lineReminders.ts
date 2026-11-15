@@ -1,5 +1,5 @@
 import type { LineMessage } from './line.js';
-import { LINE_CARD_COLORS as C, lineAppLink } from './lineCards.js';
+import { LINE_CARD_COLORS as C, lineAppLink, lineCard, lineJobItem } from './lineCards.js';
 import { dueRefFromDigestId, encodeDueAction, partialPrompt } from './lineDuePayments.js';
 import { encodeDeliverAction } from './lineDeliveryActions.js';
 import type { MorningInsight } from './morningInsights.js';
@@ -93,40 +93,94 @@ function insightBubble(insight: MorningInsight): LineMessage {
   ] } : null);
 }
 
+const MAX_CARD_ROWS = 3;
+function shortDate(date: string): string {
+  return new Date(date + 'T00:00:00Z').toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit', timeZone: 'Asia/Bangkok' });
+}
+
+/**
+ * เงินเลยกำหนด as one card (owner, 2026-11-15, choice 2 of 3: "เลยกำหนดเป็นการ์ด"): the total late on the coloured band,
+ * the jobs most late first with ได้รับแล้ว / ยังไม่ได้ / ได้ไม่ครบ under each, up to 3 shown and the rest counted.
+ */
+export function buildOverdueCard(jobs: JobWithDiff[], options: { test?: boolean; now?: Date; buttons?: boolean } = {}): LineMessage {
+  const late = [...jobs].filter(job => job.diffDays < 0).sort((a, b) => a.diffDays - b.diffDays || (a.dueDate || a.payDate || '').localeCompare(b.dueDate || b.payDate || ''));
+  const shown = late.slice(0, MAX_CARD_ROWS);
+  const total = late.reduce((sum, job) => sum + job.pending, 0);
+  let hasButtons = false;
+  const rows = shown.map(job => {
+    const date = job.dueDate || job.payDate;
+    const row = lineJobItem({
+      name: job.name, client: job.client, amount: `฿ ${job.pending.toLocaleString('th-TH')}`,
+      meta: `${date ? `กำหนด ${shortDate(date)} · ` : ''}เลย ${-job.diffDays} วัน`, metaColor: C.negative,
+    });
+    const buttons = options.buttons !== false ? dueButtons(job) : null;
+    if (buttons) hasButtons = true;
+    return buttons ? { type: 'box', layout: 'vertical', margin: 'md', contents: [{ ...row, margin: 'none' }, buttons] } : { ...row, margin: 'md' };
+  });
+  const body: any[] = [{
+    type: 'box', layout: 'vertical', margin: 'md', contents: [
+      { type: 'box', layout: 'horizontal', spacing: 'sm', alignItems: 'center', contents: [
+        { type: 'box', layout: 'vertical', width: '8px', height: '8px', cornerRadius: '4px', backgroundColor: C.negative, flex: 0, contents: [] },
+        { type: 'text', text: `เลยกำหนด · ${late.length} รายการ`, size: 'xs', weight: 'bold', color: C.negative, wrap: true, flex: 1 },
+      ] },
+      ...rows,
+    ],
+  }];
+  const hidden = late.length - shown.length;
+  const note = options.test ? 'ข้อมูลตัวอย่างสำหรับทดสอบเท่านั้น\nไม่มีการเพิ่มงานหรือเปลี่ยนยอดเงินจริง'
+    : `${hidden > 0 ? `แสดง ${shown.length} จาก ${late.length} รายการ · อีก ${hidden} รายการดูในแอป\n` : ''}${hasButtons ? 'รับเงินแล้ว? กดปุ่มใต้รายการ บันทึกให้ทันที' : 'รับเงินแล้ว? อัปเดตสถานะในแอปได้เลย'}`;
+  return lineCard({
+    compact: true, character: 'urgent', title: options.test ? 'ทดสอบแจ้งเตือน' : 'เตือนรับเงิน',
+    subtitle: `เลยกำหนดชำระ · ${shortDate(todayInBangkok(options.now))}`,
+    altText: `${options.test ? '[ทดสอบ] ' : ''}เงินเลยกำหนด ${late.length} รายการ รวม ฿${total.toLocaleString('th-TH')}`,
+    metric: { label: options.test ? 'ยอดตัวอย่าง · ไม่ใช่ยอดจริง' : 'ยอดเลยกำหนดที่ต้องติดตาม', value: `฿ ${total.toLocaleString('th-TH')}`, note: `${late.length} รายการ · เลยนานที่สุดอยู่บน` },
+    body, note, footer: lineAppLink('/receivables', 'ดูรายการรอรับเงิน'),
+    footerStyle: hasButtons ? 'secondary' : 'primary',
+  });
+}
+
 export interface MorningMessages { messages: LineMessage[]; /** The things เลขา noticed that made it into the push (the rest wait). */ insightsShown: MorningInsight[] }
 
 /**
- * The 08:00 push in เลขา's own words (owner, 2026-11-15, with another assistant's chat as the example: plain messages
- * "เหมือนคุยเลขาแบบชิวๆ", "ส่งมาเป็นทีละข้อความดิ", buttons to confirm, and "แจ้งเตือนพวกโปรเจกต์ ... ไม่ต้องส่งมาเป็นการ์ด มันดู
- * รกไป"): one message per job, work to deliver first (ส่งแล้ว / ยังไม่ส่ง), then money due (ได้รับแล้ว / ยังไม่ได้ / ได้ไม่ครบ
- * on what is due today or late), most urgent first in each, the first calling the person by the name they gave เลขา; then
- * เลขาชวนดู when there is room. One push holds 5: past that, 4 jobs (shared between the two) and one message that counts
- * the rest. `buttons: false` is the fallback if LINE refuses the buttons.
+ * The 08:00 push (owner, 2026-11-15, with another assistant's chat as the example: plain messages "เหมือนคุยเลขาแบบชิวๆ",
+ * "ส่งมาเป็นทีละข้อความดิ", buttons to confirm, "ไม่ต้องส่งมาเป็นการ์ด มันดูรกไป", then "เลยกำหนดเป็นการ์ด"): work to deliver
+ * first, one message each from เลขา (ส่งแล้ว / ยังไม่ส่ง); then the money already late as one card (buildOverdueCard); then
+ * money due today (ได้รับแล้ว / ยังไม่ได้ / ได้ไม่ครบ) and in the next 2 days (no buttons), one message each; then
+ * เลขาชวนดู when there is room. The first message calls the person by the name they gave เลขา. One push holds 5 (LINE
+ * counts it once): past that the last message counts the jobs that did not fit. `buttons: false` is the fallback if LINE
+ * refuses the buttons.
  */
 export function buildMorningMessages(input: {
-  deliveries?: DeliveryDue[]; payments?: JobWithDiff[]; insights?: MorningInsight[]; name?: string | null; buttons?: boolean; intro?: string;
+  deliveries?: DeliveryDue[]; payments?: JobWithDiff[]; insights?: MorningInsight[]; name?: string | null; buttons?: boolean; intro?: string; test?: boolean; now?: Date;
 }): MorningMessages {
   const deliveries = input.deliveries ?? [];
-  const payments = [...(input.payments ?? [])].sort((a, b) => a.diffDays - b.diffDays || (a.dueDate || a.payDate || '').localeCompare(b.dueDate || b.payDate || ''));
+  const sorted = [...(input.payments ?? [])].sort((a, b) => a.diffDays - b.diffDays || (a.dueDate || a.payDate || '').localeCompare(b.dueDate || b.payDate || ''));
+  const late = sorted.filter(job => job.diffDays < 0);
+  const payments = sorted.filter(job => job.diffDays >= 0);
   const buttons = input.buttons !== false;
   const name = input.name?.trim().slice(0, 40);
-  const room = PUSH_LIMIT - (input.intro ? 1 : 0);
+  const room = PUSH_LIMIT - (input.intro ? 1 : 0) - (late.length ? 1 : 0);
   const total = deliveries.length + payments.length;
   let showD = deliveries.length;
   let showP = payments.length;
   if (total > room) {
-    const slots = room - 1;
-    showP = Math.min(payments.length, Math.max(Math.ceil(slots / 2), slots - deliveries.length));
-    showD = Math.min(deliveries.length, slots - showP);
+    const slots = Math.max(0, room - 1);
+    // Work to deliver comes first, so it gets the larger half; whatever one side leaves, the other uses.
+    showD = Math.min(deliveries.length, Math.max(Math.ceil(slots / 2), slots - payments.length));
     showP = Math.min(payments.length, slots - showD);
+    showD = Math.min(deliveries.length, slots - showP);
   }
   const messages: LineMessage[] = input.intro ? [{ type: 'text', text: input.intro }] : [];
-  const call = () => (name && messages.length === (input.intro ? 1 : 0) ? `คุณ${name} ` : '');
+  const first = () => messages.length === (input.intro ? 1 : 0);
+  // The first of เลขา's own messages calls the person by name (the card in between has its own heading).
+  let named = false;
+  const call = () => { if (!name || named) return ''; named = true; return `คุณ${name} `; };
   for (const d of deliveries.slice(0, showD)) messages.push(wordsBubble(deliverySentence(d, call()), buttons ? deliverButtons(d) : null));
+  if (late.length) messages.push(buildOverdueCard(late, { buttons, test: input.test, now: input.now }));
   for (const job of payments.slice(0, showP)) messages.push(wordsBubble(paymentSentence(job, call()), buttons && job.diffDays <= 0 ? dueButtons(job) : null));
   if (total > room) {
     const rest = [deliveries.length - showD ? `งานที่ต้องส่งอีก ${deliveries.length - showD} งาน` : '', payments.length - showP ? `เงินรอรับอีก ${payments.length - showP} รายการ` : ''].filter(Boolean);
-    messages.push({ type: 'text', text: `${messages.length ? 'และยังมี' : `${call()}มี`}${rest.join(' และ')} ดูในแอปได้ครับ` });
+    messages.push({ type: 'text', text: `${first() ? `${call()}มี` : 'และยังมี'}${rest.join(' และ')} ดูในแอปได้ครับ` });
   }
   const insightsShown = (input.insights ?? []).slice(0, Math.max(0, PUSH_LIMIT - messages.length));
   messages.push(...insightsShown.map(insightBubble));
@@ -141,6 +195,6 @@ export function buildReminderTestMessages(now = new Date()): LineMessage[] {
     { id: 'demo-today', name: 'ถ่ายภาพสินค้า', client: 'ลูกค้าตัวอย่าง B', status: 'pending', pending: 3000, payDate: new Date(today).toISOString().slice(0, 10) },
     { id: 'demo-soon', name: 'ตัดต่อวิดีโอ', client: 'ลูกค้าตัวอย่าง C', status: 'pending', pending: 2500, payDate: new Date(today + 2 * 86400000).toISOString().slice(0, 10) },
   ];
-  return buildMorningMessages({ payments: findJobsNeedingAttention(samples, now),
+  return buildMorningMessages({ payments: findJobsNeedingAttention(samples, now), test: true, now,
     intro: 'ข้อความทดสอบครับ แจ้งเตือนจริงหน้าตาแบบนี้ ข้อมูลเป็นตัวอย่าง กดปุ่มแล้วไม่บันทึกอะไร' }).messages;
 }

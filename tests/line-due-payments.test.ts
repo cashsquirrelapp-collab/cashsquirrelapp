@@ -142,50 +142,63 @@ test('ยังไม่ได้ saves nothing; ได้ไม่ครบ ask
   assert.equal(await handleDuePartialText({ user_id: 'u1', jobs: [] }, 'สรุปเดือนนี้', deps), null);
 });
 
-test('the 08:00 messages: one per job in เลขา\'s words, buttons under today\'s and overdue money only, all in one push', () => {
+test('the 08:00 push: late money as one card (owner: "เลยกำหนดเป็นการ์ด"), today and soon as messages, all in one push', () => {
   const now = new Date('2026-10-22T01:00:00Z');
   const rows = findJobsNeedingAttention([
     { id: 'aaaa1111', name: 'งานเลยกำหนด', client: 'A', status: 'pending', pending: 4500, payDate: '2026-10-19' },
+    { id: 'bbbb2222', name: 'งานเลยนานกว่า', client: 'Z', status: 'pending', pending: 1500, payDate: '2026-10-12' },
     { id: JOB, name: 'งานวันนี้', client: 'B', status: 'pending', pending: 9700, payDate: '2026-10-22' },
     { id: 'cccc3333', name: 'งานใกล้ครบ', client: 'C', status: 'pending', pending: 2500, payDate: '2026-10-24' },
   ] as never, now);
-  const { messages } = buildMorningMessages({ payments: rows, name: 'ปาร์ค' });
+  const { messages } = buildMorningMessages({ payments: rows, name: 'ปาร์ค', now });
   assert.equal(messages.length, 3);
-  assert.deepEqual(messages.map(message => (message as { altText?: string; text?: string }).altText ?? (message as { text?: string }).text), [
-    'คุณปาร์ค ยังไม่ได้รับเงิน งานเลยกำหนด จากA ฿4,500 เลยกำหนดมา 3 วันแล้วนะครับ',
-    'วันนี้ครบกำหนดรับเงิน งานวันนี้ จากB ฿9,700 นะครับ',
-    'อีก 2 วันครบกำหนดรับเงิน งานใกล้ครบ จากC ฿2,500 ครับ',
-  ]);
-  assert.equal(messages[2].type, 'text', 'money not due yet is a plain message with no buttons');
+  // 1 · the card: late money only, most late first, total on the band, buttons under each.
+  const card = json(messages[0]);
+  assert.match(card, /"header"/);
+  assert.match(card, /เตือนรับเงิน/);
+  assert.match(card, /ยอดเลยกำหนดที่ต้องติดตาม/);
+  assert.match(card, /฿ 6,000/);
+  assert.match(card, /เลยกำหนด · 2 รายการ/);
+  assert.ok(card.indexOf('งานเลยนานกว่า') < card.indexOf('งานเลยกำหนด'), 'most late first');
+  assert.doesNotMatch(card, /งานวันนี้|งานใกล้ครบ/);
+  assert.equal((messages[0] as { altText: string }).altText, 'เงินเลยกำหนด 2 รายการ รวม ฿6,000');
+  // 2, 3 · เลขา's messages, the first by name; buttons only on what is due today.
+  assert.equal((messages[1] as { altText: string }).altText, 'คุณปาร์ค วันนี้ครบกำหนดรับเงิน งานวันนี้ จากB ฿9,700 นะครับ');
+  assert.equal(messages[2].type, 'text');
+  assert.equal((messages[2] as { text: string }).text, 'อีก 2 วันครบกำหนดรับเงิน งานใกล้ครบ จากC ฿2,500 ครับ');
   const data = [...json(messages).matchAll(/"data":"(due:[^"]+)"/g)].map(match => match[1]);
-  assert.deepEqual(data.sort(), [`due:later:${JOB}`, 'due:later:aaaa1111', `due:paid:${JOB}`, 'due:paid:aaaa1111', `due:partial:${JOB}`, 'due:partial:aaaa1111'].sort());
+  assert.deepEqual(data.sort(), [`due:later:${JOB}`, 'due:later:aaaa1111', 'due:later:bbbb2222', `due:paid:${JOB}`, 'due:paid:aaaa1111', 'due:paid:bbbb2222',
+    `due:partial:${JOB}`, 'due:partial:aaaa1111', 'due:partial:bbbb2222'].sort());
   assert.match(json(messages), /"inputOption":"openKeyboard"/);
-  assert.doesNotMatch(json(messages), /mascot-v6-|"header"/, 'no card: no header, no mascot');
   // An instalment gets ได้รับแล้ว and ยังไม่ได้ only.
   const instalment = findJobsNeedingAttention([{ ...installments(), status: 'pending' }] as never, now);
   const instalmentData = [...json(buildMorningMessages({ payments: instalment }).messages).matchAll(/"data":"(due:[^"]+)"/g)].map(match => match[1]);
   assert.deepEqual(instalmentData.sort(), [`due:later:${JOB}:installment-1-0`, `due:paid:${JOB}:installment-1-0`]);
-  // The fallback the 08:00 job sends if LINE ever refuses the buttons: the same words without them.
-  const plain = buildMorningMessages({ payments: rows, buttons: false }).messages;
+  // The fallback if LINE ever refuses the buttons: the same card and words without them.
+  const plain = buildMorningMessages({ payments: rows, buttons: false, now }).messages;
   assert.equal(/"data":"due:/.test(json(plain)), false);
-  assert.ok(plain.every(message => message.type === 'text'));
-  // The Settings test sends the same words after a note that it is a test; its buttons only answer with a sample notice.
+  assert.match(json(plain[0]), /อัปเดตสถานะในแอปได้เลย/);
+  // The Settings test sends the same after a note that it is a test; its buttons only answer with a sample notice.
   const test = buildReminderTestMessages(now);
   assert.match((test[0] as { text: string }).text, /^ข้อความทดสอบครับ/);
+  assert.match(json(test[1]), /ทดสอบแจ้งเตือน/);
   assert.match(json(test), /due:paid:demo-today/);
   assert.ok(test.length <= 5);
 });
 
-test('work to deliver and money due share one push: deliveries first, past 5 the last message counts the rest', async () => {
+test('work to deliver, late money and money due share one push: past 5 the last message counts the rest', async () => {
   const { findDeliveriesDue } = await import('../shared/dueJobs');
   const now = new Date('2026-10-22T01:00:00Z');
-  const pay = findJobsNeedingAttention(Array.from({ length: 4 }, (_, i) => ({ id: `p${i}`, name: `เงิน ${i}`, client: '', status: 'pending', pending: 1000, payDate: '2026-10-22' })) as never, now);
+  const pay = findJobsNeedingAttention([
+    ...Array.from({ length: 4 }, (_, i) => ({ id: `p${i}`, name: `เงิน ${i}`, client: '', status: 'pending', pending: 1000, payDate: '2026-10-22' })),
+    { id: 'late1', name: 'เงินเลย', client: '', status: 'pending', pending: 500, payDate: '2026-10-20' },
+  ] as never, now);
   const deliver = findDeliveriesDue(Array.from({ length: 3 }, (_, i) => ({ id: `d${i}`, name: `ส่ง ${i}`, client: '', status: 'pending', pending: 0, payDate: null, isPosted: false, postDate: '2026-10-22', value: 1000 })), now);
-  const { messages, insightsShown } = buildMorningMessages({ deliveries: deliver, payments: pay, insights: [{ kind: 'cash_short', title: 'x', lines: [], link: { path: '/dashboard', label: 'ดูภาพรวม' } }] });
+  const { messages, insightsShown } = buildMorningMessages({ deliveries: deliver, payments: pay, insights: [{ kind: 'cash_short', title: 'x', lines: [], link: { path: '/dashboard', label: 'ดูภาพรวม' } }], now });
   const words = messages.map(message => (message as { altText?: string; text?: string }).altText ?? (message as { text?: string }).text);
   assert.equal(messages.length, 5);
-  assert.deepEqual(words, ['วันนี้ต้องส่ง ส่ง 0 นะครับ', 'วันนี้ต้องส่ง ส่ง 1 นะครับ', 'วันนี้ครบกำหนดรับเงิน เงิน 0 ฿1,000 นะครับ', 'วันนี้ครบกำหนดรับเงิน เงิน 1 ฿1,000 นะครับ',
-    'และยังมีงานที่ต้องส่งอีก 1 งาน และเงินรอรับอีก 2 รายการ ดูในแอปได้ครับ']);
+  assert.deepEqual(words, ['วันนี้ต้องส่ง ส่ง 0 นะครับ', 'วันนี้ต้องส่ง ส่ง 1 นะครับ', 'เงินเลยกำหนด 1 รายการ รวม ฿500', 'วันนี้ครบกำหนดรับเงิน เงิน 0 ฿1,000 นะครับ',
+    'และยังมีงานที่ต้องส่งอีก 1 งาน และเงินรอรับอีก 3 รายการ ดูในแอปได้ครับ']);
   assert.deepEqual(insightsShown, [], 'no room left for เลขาชวนดู: it waits for another morning');
 });
 
