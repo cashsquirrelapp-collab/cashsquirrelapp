@@ -10,7 +10,7 @@ export const notificationPreferences=z.object({
  enabled:z.boolean().optional(), alertEmail:z.union([z.email().max(254),z.literal('')]).optional(),
  serviceType:z.enum(['mailto','emailjs']).optional(),emailjsServiceId:text.optional(),emailjsTemplateId:text.optional(),emailjsPublicKey:text.optional(),
  pendingQueue:z.array(z.object({id,jobId:id,jobName:text,client:text,pendingAmount:money,dueDate:text,detectedDate:text,status:z.enum(['pending','sent','skipped']),sentDate:text.optional()})).max(10000).optional(),
- dailyDigestEnabled:z.boolean().optional(),monthlyReportEnabled:z.boolean().optional(),wht50ReminderEnabled:z.boolean().optional()
+ dailyDigestEnabled:z.boolean().optional(),monthlyReportEnabled:z.boolean().optional(),wht50ReminderEnabled:z.boolean().optional(),deliveryReminderEnabled:z.boolean().optional()
 });
 // The person's own account from a slip (bank code + last four digits only) and the slip's reference (shared/slipAccounts.ts).
 const slipAccount=z.object({bank:z.string().regex(/^[A-Z ]{2,8}$/),last4:z.string().regex(/^\d{4}$/)}).strict();

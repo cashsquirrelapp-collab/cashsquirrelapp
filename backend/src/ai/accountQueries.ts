@@ -6,7 +6,7 @@ import { ownMonthlyExpense } from '../../../shared/monthlySummary.js';
 import type { InvoiceItem, Job } from '../../../shared/types.js';
 import { roundMoney } from '../../../shared/wht.js';
 import type { UserRow } from '../services/lineAssistant.js';
-import { wht50ReminderOn } from '../../../shared/notifDefaults.js';
+import { deliveryReminderOn, wht50ReminderOn } from '../../../shared/notifDefaults.js';
 import type { ToolOutcome, ToolSpec } from './types.js';
 
 // These reads only use the already authenticated account snapshot. Model arguments cannot select an owner,
@@ -162,6 +162,7 @@ export function executeAccountTool(name: string, args: Record<string, unknown>, 
         daily_digest_enabled: optionalBoolean(notifications.dailyDigestEnabled), monthly_report_enabled: optionalBoolean(notifications.monthlyReportEnabled),
         // On unless turned off (2026-11-03), so an untouched switch is "on", not "no value saved".
         wht50_reminder_enabled: wht50ReminderOn(notifications as { wht50ReminderEnabled?: boolean }),
+        delivery_reminder_enabled: deliveryReminderOn(notifications as { deliveryReminderEnabled?: boolean; dailyDigestEnabled?: boolean; enabled?: boolean }),
         line_connected: notifications.lineUserId === undefined ? null : Boolean(cleanText(notifications.lineUserId)),
         delivery_service: ['mailto', 'emailjs'].includes(String(notifications.serviceType)) ? notifications.serviceType : null },
       legacy_wht_documents: page(records(settings.whtDocuments).map(row => ({ id: text(row.id), job_id: text(row.jobId), client: text(row.client),

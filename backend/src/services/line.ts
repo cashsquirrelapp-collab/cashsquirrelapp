@@ -92,6 +92,13 @@ export async function sendLineMessageToEmail(email: string, message: LineMessage
   return await sendLineMessageToEmailOutcome(email, message, linkedLineUserId) === 'accepted';
 }
 
+/** Several cards in one push to the account's LINE (one message for LINE's count): the 08:00 delivery and payment reminders. */
+export async function sendLineMessagesToEmailOutcome(email: string, messages: LineMessage[], linkedLineUserId?: string | null, retryKey?: string): Promise<DeliveryOutcome> {
+  const lineUserId = linkedLineUserId || getLineRecipients()[email.toLowerCase()];
+  if (!lineUserId) return 'skipped';
+  return sendLineMessagesOutcome(lineUserId, messages, retryKey);
+}
+
 export async function sendLineMessageToEmailOutcome(email: string, message: LineMessage, linkedLineUserId?: string | null, retryKey?: string): Promise<DeliveryOutcome> {
   const lineUserId = linkedLineUserId || getLineRecipients()[email.toLowerCase()];
   if (!lineUserId) return 'skipped';

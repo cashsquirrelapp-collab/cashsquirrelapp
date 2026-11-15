@@ -85,7 +85,7 @@ export function saveCloud(
         if (notificationMode === "patch")
           immutable.notif_settings = { ...existing, ...prefs };
         else if (notificationMode === "autosave") {
-          const { dailyDigestEnabled, monthlyReportEnabled, wht50ReminderEnabled, ...rest } = prefs;
+          const { dailyDigestEnabled, monthlyReportEnabled, wht50ReminderEnabled, deliveryReminderEnabled, ...rest } = prefs;
           immutable.notif_settings = { ...existing, ...rest };
         } else immutable.notif_settings = prefs;
       }

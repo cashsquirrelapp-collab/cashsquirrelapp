@@ -6,9 +6,10 @@ import { patchPrivate } from '../repositories/accounts.js';
 import type { VercelRequest, VercelResponse } from '../http/types.js';
 import { supabaseAdmin } from '../config/supabase.js';
 import { sendGmailEmailOutcome } from '../services/gmail.js';
-import { sendLineMessageToEmailOutcome } from '../services/line.js';
+import { sendLineMessagesToEmailOutcome, type LineMessage } from '../services/line.js';
 import { attemptDelivery, notificationOutcomeCounts, recordChannelOutcome, type DeliveryOutcome } from '../services/notificationOutcome.js';
-import { buildDigestFlexMessage, buildInsightFlexMessage, findJobsNeedingAttention, todayInBangkok, type JobRow, type JobWithDiff } from '../services/lineReminders.js';
+import { buildDeliveryTexts, buildDigestFlexMessage, buildInsightFlexMessage, findDeliveriesDue, findJobsNeedingAttention, todayInBangkok, type DeliveryDue, type JobRow, type JobWithDiff } from '../services/lineReminders.js';
+import { deliveryReminderOn } from '../../../shared/notifDefaults.js';
 import { mergeTold, morningInsights, type MorningInsights } from '../services/morningInsights.js';
 import type { Expense, Invoice, Job } from '../../../shared/types.js';
 export { buildDigestFlexMessage } from '../services/lineReminders.js';
@@ -18,6 +19,9 @@ interface NotifSettingsRow {
   enabled?: boolean;
   alertEmail?: string;
   dailyDigestEnabled?: boolean;
+  deliveryReminderEnabled?: boolean;
+  /** The name the person gave เลขา in LINE (lineAssistant.ts saveUserName); เตือนส่งงาน calls them by it. */
+  userName?: string;
   lastDigestSentDate?: string;
   pendingQueue?: unknown[];
   lineUserId?: string;
@@ -62,29 +66,66 @@ function buildSection(title: string, badgeBg: string, badgeColor: string, jobs: 
     </div>`;
 }
 
-function buildDigestHtml(jobs: JobWithDiff[]): string {
+function deliveryLabel(diffDays: number): string {
+  if (diffDays < 0) return `เลยกำหนดส่ง ${Math.abs(diffDays)} วัน`;
+  if (diffDays === 0) return 'ส่งวันนี้';
+  return `อีก ${diffDays} วัน`;
+}
+
+/** เตือนส่งงาน in the email (owner, 2026-11-15): the work due to clients, above the money due. */
+function buildDeliverySection(deliveries: DeliveryDue[]): string {
+  if (deliveries.length === 0) return '';
+  const rows = deliveries.map((d) => `
+    <tr>
+      <td style="padding:8px 12px;border-bottom:1px solid #E8DFD3;">${escapeHtml(d.client || 'ไม่ระบุ')}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #E8DFD3;">${escapeHtml(d.name)}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #E8DFD3;text-align:right;color:${d.diffDays < 0 ? '#DC2626' : d.diffDays === 0 ? '#B45309' : '#4338CA'};font-weight:bold;">${deliveryLabel(d.diffDays)}</td>
+    </tr>`).join('');
+  return `
+    <div style="margin-top:20px;">
+      <span style="display:inline-block;background:#FFF1E8;color:#C24A16;font-size:12px;font-weight:bold;padding:4px 10px;border-radius:6px;">📝 งานที่ต้องส่ง (${deliveries.length} งาน)</span>
+      <table style="width:100%;border-collapse:collapse;font-size:14px;margin-top:8px;">
+        <thead>
+          <tr style="background:#FDF6EC;">
+            <th style="padding:8px 12px;text-align:left;">ลูกค้า</th>
+            <th style="padding:8px 12px;text-align:left;">งาน</th>
+            <th style="padding:8px 12px;text-align:right;">กำหนดส่ง</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+export function buildDigestHtml(jobs: JobWithDiff[], deliveries: DeliveryDue[] = []): string {
   const overdue = jobs.filter((j) => j.diffDays < 0);
   const dueToday = jobs.filter((j) => j.diffDays === 0);
   const dueSoon = jobs.filter((j) => j.diffDays > 0);
+  // A morning with only work to deliver says so; money due keeps its own heading.
+  const head = jobs.length
+    ? `<span style="display:inline-block;background:#FEF2F2;color:#DC2626;font-size:11px;font-weight:bold;padding:4px 10px;border-radius:6px;">OVERDUE CREDIT ALERT</span>
+    <h2 style="color:#E65F2B;margin:12px 0 4px;">🚨 สรุปดีลงานที่ต้องติดตามเครดิตเทอม</h2>
+    <p style="margin-top:0;">ระบบตรวจพบดีลงานที่เลยกำหนด ครบกำหนดวันนี้ หรือใกล้ครบกำหนดใน 1-2 วัน ลองติดต่อทวงถามลูกค้าล่วงหน้าได้เลยครับ</p>`
+    : `<h2 style="color:#E65F2B;margin:12px 0 4px;">📝 งานที่ต้องส่งลูกค้า</h2>
+    <p style="margin-top:0;">งานที่ยังไม่ได้ส่ง เลยกำหนด ส่งวันนี้ หรือใกล้ถึงวันส่งใน 1-2 วัน</p>`;
 
   return `
   <div style="font-family:sans-serif;max-width:560px;margin:0 auto;color:#3D2314;">
-    <span style="display:inline-block;background:#FEF2F2;color:#DC2626;font-size:11px;font-weight:bold;padding:4px 10px;border-radius:6px;">OVERDUE CREDIT ALERT</span>
-    <h2 style="color:#E65F2B;margin:12px 0 4px;">🚨 สรุปดีลงานที่ต้องติดตามเครดิตเทอม</h2>
-    <p style="margin-top:0;">ระบบตรวจพบดีลงานที่เลยกำหนด ครบกำหนดวันนี้ หรือใกล้ครบกำหนดใน 1-2 วัน ลองติดต่อทวงถามลูกค้าล่วงหน้าได้เลยครับ</p>
+    ${head}
 
+    ${buildDeliverySection(deliveries)}
     ${buildSection('⚠️ เกินกำหนดชำระเงินแล้ว', '#FEF2F2', '#DC2626', overdue, '#DC2626')}
     ${buildSection('⏰ ครบกำหนดวันนี้', '#FEF9E7', '#B45309', dueToday, '#B45309')}
     ${buildSection('📅 ใกล้ครบกำหนด (1-2 วัน)', '#EEF2FF', '#4338CA', dueSoon, '#4338CA')}
 
-    <div style="margin-top:24px;padding:16px;background:#FDF6EC;border-radius:12px;">
+    ${jobs.length ? `<div style="margin-top:24px;padding:16px;background:#FDF6EC;border-radius:12px;">
       <p style="font-size:12px;font-weight:bold;color:#3D2314;margin:0 0 8px;">💡 คำแนะนำในการดำเนินการทวงถาม</p>
       <ol style="font-size:12px;color:#7A5C43;margin:0;padding-left:18px;line-height:1.7;">
         <li>เปิดแอปธนาคารหรือเช็คสเตทเมนต์ของคุณ เพื่อยืนยันว่าไม่มียอดดังกล่าวโอนเข้ามาจริง ๆ</li>
         <li>ทักไปทวงถามลูกค้าอย่างสุภาพ พร้อมแนบใบแจ้งหนี้หรือหลักฐานงานที่ส่งไปแล้ว</li>
         <li>บันทึกไว้ในแอปทันทีที่ได้รับเงิน เพื่อให้ระบบหยุดแจ้งเตือนรายการนั้น</li>
       </ol>
-    </div>
+    </div>` : `<p style="font-size:12px;color:#7A5C43;margin-top:24px;">ส่งงานแล้ว เปลี่ยนสถานะงานในแอป ระบบจะหยุดเตือนงานนั้น</p>`}
 
     <p style="color:#7A5C43;font-size:12px;margin-top:24px;">อีเมลนี้ส่งอัตโนมัติจากกระรอกตุนเงิน ปิดการแจ้งเตือนได้ที่หน้าตั้งค่าระบบในแอป</p>
   </div>`;
@@ -94,12 +135,16 @@ function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 }
 
-async function sendDigestEmail(to: string, jobs: JobWithDiff[]): Promise<DeliveryOutcome> {
+export function digestSubject(jobs: JobWithDiff[], deliveries: DeliveryDue[] = []): string {
   const overdueCount = jobs.filter((j) => j.diffDays < 0).length;
-  const subject = overdueCount > 0
-    ? `สรุปงานค้างชำระเลยกำหนด ${overdueCount} รายการ - กระรอกตุนเงิน`
-    : `สรุปดีลงานที่ใกล้ครบกำหนดชำระเงิน ${jobs.length} รายการ - กระรอกตุนเงิน`;
-  return sendGmailEmailOutcome(to, subject, buildDigestHtml(jobs));
+  if (overdueCount > 0) return `สรุปงานค้างชำระเลยกำหนด ${overdueCount} รายการ - กระรอกตุนเงิน`;
+  if (jobs.length > 0) return `สรุปดีลงานที่ใกล้ครบกำหนดชำระเงิน ${jobs.length} รายการ - กระรอกตุนเงิน`;
+  const late = deliveries.filter((d) => d.diffDays < 0).length;
+  return late > 0 ? `งานเลยกำหนดส่ง ${late} งาน - กระรอกตุนเงิน` : `งานที่ต้องส่งเร็ว ๆ นี้ ${deliveries.length} งาน - กระรอกตุนเงิน`;
+}
+
+async function sendDigestEmail(to: string, jobs: JobWithDiff[], deliveries: DeliveryDue[]): Promise<DeliveryOutcome> {
+  return sendGmailEmailOutcome(to, digestSubject(jobs, deliveries), buildDigestHtml(jobs, deliveries));
 }
 
 async function listAllAuthUsers(): Promise<Map<string, string>> {
@@ -176,7 +221,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // explicit `dailyDigestEnabled`. Supporting both connects existing users to the Gmail
       // delivery without forcing them to re-enter notification settings.
       const digestEnabled = notifSettings.dailyDigestEnabled ?? notifSettings.enabled ?? false;
-      if (!digestEnabled) {
+      // เตือนส่งงาน has its own switch (owner, 2026-11-15); until set, it follows the payment reminder.
+      const deliveriesEnabled = deliveryReminderOn(notifSettings);
+      if (!digestEnabled && !deliveriesEnabled) {
         skipped += 1;
         continue;
       }
@@ -202,11 +249,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (account.error) throw account.error;
         if (account.data.user?.app_metadata?.account_paused === true) { skipped += 1; continue; }
         const jobs: JobRow[] = row.jobs || [];
-        const attentionJobs = findJobsNeedingAttention(jobs);
+        const attentionJobs = digestEnabled ? findJobsNeedingAttention(jobs) : [];
+        const deliveries = deliveriesEnabled ? findDeliveriesDue(jobs) : [];
         // What เลขา noticed besides money due (owner, 2026-11-02): LINE only, each thing at most once a week. A rule that
         // fails to compute never stops the reminder itself.
         let insights: MorningInsights = { items: [], told: {} };
-        if (notifSettings.lineUserId) {
+        if (notifSettings.lineUserId && digestEnabled) {
           try {
             insights = morningInsights({ jobs: jobs as unknown as Job[], expenses: (row.expenses || []) as Expense[], invoices: (row.invoices || []) as Invoice[],
               settings: row.settings || null, told: (notifSettings as { insightTold?: Record<string, string> }).insightTold });
@@ -215,7 +263,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           }
         }
 
-        if (attentionJobs.length === 0 && insights.items.length === 0) {
+        if (attentionJobs.length === 0 && deliveries.length === 0 && insights.items.length === 0) {
           skipped += 1;
           continue;
         }
@@ -224,7 +272,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!claimed) { skipped += 1; continue; }
         const recipient = notifSettings.alertEmail || row.email;
         // The email stays the money reminder; a morning with only เลขา's notes goes to LINE alone.
-        const emailOutcome: DeliveryOutcome = recipient && attentionJobs.length ? await attemptDelivery(() => sendDigestEmail(recipient, attentionJobs)) : 'skipped';
+        const emailOutcome: DeliveryOutcome = recipient && (attentionJobs.length || deliveries.length) ? await attemptDelivery(() => sendDigestEmail(recipient, attentionJobs, deliveries)) : 'skipped';
         record('email', emailOutcome);
 
         // Independent of the email outcome above -- LINE and email are separate channels, and
@@ -235,18 +283,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // promise (no `await`, just `.catch()`) has no guarantee of finishing before this
         // serverless function returns its response and gets frozen/torn down, which was silently
         // dropping the LINE push even when this code was reached.
+        // One push for the morning (LINE counts it once, 5 messages at most): เตือนส่งงาน first, as plain messages from
+        // เลขา one job each, then the เตือนรับเงิน card (or เลขา's notes alone), which keeps one place.
+        const cardFollows = attentionJobs.length > 0 || insights.items.length > 0;
+        const delivery: LineMessage[] = deliveries.length ? buildDeliveryTexts(deliveries, { name: notifSettings.userName, room: cardFollows ? 4 : 5 }) : [];
         let lineOutcome: DeliveryOutcome = 'skipped';
         if (row.email && attentionJobs.length) {
-          lineOutcome = await attemptDelivery(() => sendLineMessageToEmailOutcome(row.email, buildDigestFlexMessage(attentionJobs, { insights: insights.items }), notifSettings.lineUserId, randomUUID()));
+          lineOutcome = await attemptDelivery(() => sendLineMessagesToEmailOutcome(row.email, [...delivery, buildDigestFlexMessage(attentionJobs, { insights: insights.items })], notifSettings.lineUserId, randomUUID()));
           // The payment buttons are new (2026-10-22): if LINE refuses that card, the reminder still
           // goes out, as the card without buttons (and without เลขา's notes).
           if (lineOutcome === 'rejected') {
             console.error('LINE refused the reminder with payment buttons; sending it without them');
             insights = { items: [], told: {} };
-            lineOutcome = await attemptDelivery(() => sendLineMessageToEmailOutcome(row.email, buildDigestFlexMessage(attentionJobs, { buttons: false }), notifSettings.lineUserId, randomUUID()));
+            lineOutcome = await attemptDelivery(() => sendLineMessagesToEmailOutcome(row.email, [...delivery, buildDigestFlexMessage(attentionJobs, { buttons: false })], notifSettings.lineUserId, randomUUID()));
           }
-        } else if (row.email && insights.items.length) {
-          lineOutcome = await attemptDelivery(() => sendLineMessageToEmailOutcome(row.email, buildInsightFlexMessage(insights.items), notifSettings.lineUserId, randomUUID()));
+        } else if (row.email && (delivery.length || insights.items.length)) {
+          lineOutcome = await attemptDelivery(() => sendLineMessagesToEmailOutcome(row.email,
+            [...delivery, ...(insights.items.length ? [buildInsightFlexMessage(insights.items)] : [])], notifSettings.lineUserId, randomUUID()));
         }
         record('line', lineOutcome);
 

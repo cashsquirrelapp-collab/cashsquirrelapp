@@ -17,7 +17,7 @@ import { SheetsPanel } from '../labs/SheetsPanel';
 import { requestSheetAsk } from '../labs/sheetAsk';
 import { LOGIN_EMAIL_RESULTS, LoginEmailForm } from './LoginEmailForm';
 import { useLabs } from '../../services/labs';
-import { wht50ReminderOn } from '../../../../shared/notifDefaults';
+import { deliveryReminderOn, wht50ReminderOn } from '../../../../shared/notifDefaults';
 import { authClient } from '../../services/auth';
 import { saveNotificationPatch, readInvoices, saveCloud } from '../../services/cloud';
 import { privateCache } from '../../services/privateCache';
@@ -250,7 +250,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [head, setHead] = useState<SettingsHead | null>(null);
   const view = !lineAccess && requestedView === 'line' ? 'home' : requestedView;
   const hasExistingNotifications = !session?.isGuest && !isGroupFinance && Boolean(
-    notifSettings.lineUserId || notifSettings.monthlyReportEnabled || notifSettings.dailyDigestEnabled || notifSettings.wht50ReminderEnabled,
+    notifSettings.lineUserId || notifSettings.monthlyReportEnabled || notifSettings.dailyDigestEnabled || notifSettings.wht50ReminderEnabled || notifSettings.deliveryReminderEnabled,
   );
   const [sheet, setSheet] = useState<null | 'language' | 'display' | 'target'>(initialSheet ?? null);
   const [idCopied, setIdCopied] = useState(false);
@@ -462,6 +462,13 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     const dailyDigestEnabled = !notifSettings.dailyDigestEnabled;
     onUpdateNotifSettings({ ...notifSettings, dailyDigestEnabled });
     persistNotifPatch({ dailyDigestEnabled });
+  };
+
+  // เตือนส่งงาน (owner, 2026-11-15): until set it follows แจ้งเตือนเครดิตเทอม, so the first press flips what it shows.
+  const handleToggleDeliveryReminder = () => {
+    const deliveryReminderEnabled = !deliveryReminderOn(notifSettings);
+    onUpdateNotifSettings({ ...notifSettings, deliveryReminderEnabled });
+    persistNotifPatch({ deliveryReminderEnabled });
   };
 
   const handleToggleWht50Reminder = () => {
@@ -1068,6 +1075,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               {([
                 [tr("สรุปการเงินรายเดือน"), tr("ส่งทุกวันที่ 1 ของเดือน ทางอีเมลของบัญชีนี้ (และ LINE ถ้าเชื่อมต่อไว้)"), !!notifSettings.monthlyReportEnabled, handleToggleMonthlyReport],
                 [tr("แจ้งเตือนเครดิตเทอม"), tr("เตือนก่อนครบกำหนดรับเงิน 1–2 วัน วันนี้ และเลยกำหนด ทุกวันประมาณ 08:00 น. (เวลาไทย) ทางอีเมลและ LINE ที่เชื่อมไว้"), !!notifSettings.dailyDigestEnabled, handleToggleDailyDigest],
+                [tr("แจ้งเตือนวันส่งงาน"), tr("เตือนงานที่ยังไม่ได้ส่งลูกค้า ก่อนถึงวันส่ง 1–2 วัน วันนี้ และเลยกำหนด ทุกวันประมาณ 08:00 น. (เวลาไทย) ทางอีเมลและ LINE ที่เชื่อมไว้"), deliveryReminderOn(notifSettings), handleToggleDeliveryReminder],
                 // The 50 ทวิ page and its monthly LINE reminder opened to everyone on 2026-10-31 (owner: "แจ้งเตือนได้ด้วย").
                 ...(isPhaseOneFeatureAvailable('wht50', fullFeatureAccess) || notifSettings.wht50ReminderEnabled
                   ? [[tr("ติดตามใบ 50 ทวิ"), tr("รวมงานที่รับเงินแล้วอย่างน้อย 7 วันและยังไม่มีใบ 50 ทวิแนบ ส่งเข้า LINE ที่เชื่อมไว้วันที่ 1 ของเดือนประมาณ 08:00 น. (เวลาไทย) เมื่อมีรายการค้างเท่านั้น"), wht50ReminderOn(notifSettings), handleToggleWht50Reminder] as const]

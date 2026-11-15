@@ -33,7 +33,7 @@ const schemas = {
   propose_update_issuer: z.object({ name: text.optional(), address: note.optional(), phone: z.string().max(50).optional(),
     email: z.union([z.email(), z.literal('')]).optional(), tax_id: z.string().max(30).optional(), website: z.string().max(300).optional() }).strict().refine(v => Object.keys(v).length > 0),
   propose_update_notifications: z.object({ enabled: z.boolean().optional(), daily_digest: z.boolean().optional(),
-    monthly_report: z.boolean().optional(), wht_reminder: z.boolean().optional() }).strict().refine(v => Object.keys(v).length > 0),
+    monthly_report: z.boolean().optional(), wht_reminder: z.boolean().optional(), delivery_reminder: z.boolean().optional() }).strict().refine(v => Object.keys(v).length > 0),
 };
 type Name = keyof typeof schemas;
 const descriptions: Record<Name, string> = {
@@ -160,8 +160,8 @@ export async function executeRecordAction(name: string, args: Record<string, unk
     // Copy only public preference fields; never round-trip server-private LINE tokens, pending actions or chat history.
     const previous = record(user.notif_settings);
     const next: Record<string, unknown> = {};
-    for (const key of ['enabled', 'alertEmail', 'serviceType', 'emailjsServiceId', 'emailjsTemplateId', 'emailjsPublicKey', 'pendingQueue', 'dailyDigestEnabled', 'monthlyReportEnabled', 'wht50ReminderEnabled']) if (previous[key] !== undefined) next[key] = previous[key];
-    const map = { enabled: ['enabled', 'การแจ้งเตือน'], daily_digest: ['dailyDigestEnabled', 'สรุปรายวัน'], monthly_report: ['monthlyReportEnabled', 'สรุปรายเดือน'], wht_reminder: ['wht50ReminderEnabled', 'เตือน 50 ทวิ'] } as const;
+    for (const key of ['enabled', 'alertEmail', 'serviceType', 'emailjsServiceId', 'emailjsTemplateId', 'emailjsPublicKey', 'pendingQueue', 'dailyDigestEnabled', 'monthlyReportEnabled', 'wht50ReminderEnabled', 'deliveryReminderEnabled']) if (previous[key] !== undefined) next[key] = previous[key];
+    const map = { enabled: ['enabled', 'การแจ้งเตือน'], daily_digest: ['dailyDigestEnabled', 'สรุปรายวัน'], monthly_report: ['monthlyReportEnabled', 'สรุปรายเดือน'], wht_reminder: ['wht50ReminderEnabled', 'เตือน 50 ทวิ'], delivery_reminder: ['deliveryReminderEnabled', 'เตือนส่งงาน'] } as const;
     const changes = Object.entries(input).map(([key, value]) => { const [field, label] = map[key as keyof typeof map]; next[field] = value; return { label, value: value ? 'เปิด' : 'ปิด' }; });
     return prepare('edit_notifications', 'notif_settings', next, 'แก้ไขการแจ้งเตือน', changes);
   }

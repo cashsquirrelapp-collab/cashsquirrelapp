@@ -237,6 +237,8 @@ export const extra: Record<string, string> = {
   "ลบลายเซ็น": "Remove signature",
   "สรุปการเงินรายเดือน": "Monthly financial summary",
   "แจ้งเตือนเครดิตเทอม": "Credit term reminders",
+  "แจ้งเตือนวันส่งงาน": "Delivery reminders",
+  "เตือนงานที่ยังไม่ได้ส่งลูกค้า ก่อนถึงวันส่ง 1–2 วัน วันนี้ และเลยกำหนด ทุกวันประมาณ 08:00 น. (เวลาไทย) ทางอีเมลและ LINE ที่เชื่อมไว้": "Work not yet delivered, 1–2 days before its delivery date, on the day and when late, every day at about 08:00 (Thai time) by email and the LINE you linked",
   "แจ้งเตือนใบ 50 ทวิ": "50 Tawi reminders",
   "ส่งทุกวันที่ 1 ของเดือน ทางอีเมลของบัญชีนี้ (และ LINE ถ้าเชื่อมต่อไว้)": "Sent on the 1st of each month to this account's email (and LINE, if connected)",
   "เตือนก่อนครบกำหนดรับเงิน 1–2 วัน วันนี้ และเลยกำหนด ทุกวันประมาณ 08:00 น. (เวลาไทย) ทางอีเมลและ LINE ที่เชื่อมไว้": "Reminds you 1–2 days before payments are due, on the day and when overdue, daily at about 08:00 (Thai time), by email and linked LINE",

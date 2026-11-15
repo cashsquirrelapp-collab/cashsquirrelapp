@@ -13,6 +13,10 @@ export interface JobRow {
   payDate: string | null;
   followUpCount?: number;
   lastFollowUpDate?: string;
+  /** Still being worked on when false (กำลังทำ); postDate is then the day the work is due to the client (วันส่งงาน). */
+  isPosted?: boolean;
+  postDate?: string;
+  value?: number;
   installments?: Array<{
     id: string;
     label: string;
@@ -75,4 +79,27 @@ export function findJobsNeedingAttention(jobs: JobRow[], now = new Date()): JobW
       return [{ ...j, diffDays }];
     })
     .filter((j): j is JobWithDiff => !!j);
+}
+
+/** A job still to be delivered, with how many days are left until its delivery date (negative: late). */
+export interface DeliveryDue { id: string; name: string; client: string; value: number; postDate: string; diffDays: number }
+
+/** How late a delivery can be and still be reminded: past this the job was most likely delivered and never marked so. */
+export const DELIVERY_LATE_DAYS = 7;
+
+/**
+ * The work to deliver (owner, 2026-11-15: "แจ้งเตือนเดดไลน์ในการส่งงาน"): jobs still being worked on (isPosted false) whose
+ * delivery date is within the next 2 days, today, or up to DELIVERY_LATE_DAYS late. The same 2-day window as money due,
+ * so the 08:00 reminder tells both together. The latest delivery first, then today, then the coming days.
+ */
+export function findDeliveriesDue(jobs: JobRow[], now = new Date()): DeliveryDue[] {
+  const today = todayInBangkok(now);
+  return jobs
+    .flatMap((j) => {
+      if (j.isPosted !== false || !j.postDate) return [];
+      const diffDays = diffDaysFromToday(j.postDate, today);
+      if (!Number.isFinite(diffDays) || diffDays > 2 || diffDays < -DELIVERY_LATE_DAYS) return [];
+      return [{ id: j.id, name: j.name, client: j.client, value: Number(j.value) || 0, postDate: j.postDate, diffDays }];
+    })
+    .sort((a, b) => a.diffDays - b.diffDays || a.name.localeCompare(b.name, 'th'));
 }

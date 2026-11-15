@@ -663,7 +663,7 @@ export default function App() {
     const lineLinked = Boolean(notifSettings.lineUserId);
     const lineAvailable = isPhaseOneFeatureAvailable('line', fullFeatureAccess) && has('settings');
     const notificationsAvailable = notificationsAccess;
-    const hasOldNotifications = !session?.isGuest && !financeGroupId && Boolean(notifSettings.lineUserId || notifSettings.monthlyReportEnabled || notifSettings.dailyDigestEnabled || notifSettings.wht50ReminderEnabled);
+    const hasOldNotifications = !session?.isGuest && !financeGroupId && Boolean(notifSettings.lineUserId || notifSettings.monthlyReportEnabled || notifSettings.dailyDigestEnabled || notifSettings.wht50ReminderEnabled || notifSettings.deliveryReminderEnabled);
     const entries: Record<MobileMenuSectionId, MobileTool[]> = {
       // Off the bottom bar since 2026-10-20 (owner), so it leads the menu; the page itself is unchanged.
       receivables: tool('receivables', tr("เงินรอรับ"), tr("ยอดตามวันครบกำหนด ยอดค้างจากเดือนก่อน และเตือนตามเงิน"), 'wallet', "รอรับ ค้างรับ ตามเงิน เตือน ลูกหนี้"),

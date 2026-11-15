@@ -5,7 +5,7 @@ import { formatMonthKey } from '../../../shared/calendar.js';
 import type { LineMessage } from './line.js';
 import { buildConnectFirst, buildLineHello, buildLineWelcome } from './lineLinkCards.js';
 import { lineSignupOn } from './lineFirst.js';
-import { buildDigestFlexMessage, buildInsightFlexMessage, findJobsNeedingAttention, todayInBangkok, type JobRow } from './lineReminders.js';
+import { buildDeliveryTexts, buildDigestFlexMessage, buildInsightFlexMessage, findDeliveriesDue, findJobsNeedingAttention, todayInBangkok, type JobRow } from './lineReminders.js';
 import { handleDueAction, type DuePaymentDependencies } from './lineDuePayments.js';
 import { buildWht50ReminderMessage, findWaitingWht50Jobs } from './lineWht50Reminders.js';
 import { computeMonthlySummary } from './monthlySummary.js';
@@ -13,9 +13,9 @@ import { buildTaxSeasonMessage, filingYear } from './taxSeason.js';
 
 const DAY = 86_400_000;
 
-export const LINE_SAMPLE_INTRO = 'การ์ดตัวอย่าง 7 แบบที่ลูกค้า Pro ได้รับใน LINE\nข้อมูลทั้งหมดเป็นตัวอย่าง ปุ่มในการ์ดไม่บันทึกอะไรในบัญชี';
+export const LINE_SAMPLE_INTRO = 'ตัวอย่าง 8 แบบที่ลูกค้า Pro ได้รับใน LINE\nข้อมูลทั้งหมดเป็นตัวอย่าง ปุ่มในการ์ดไม่บันทึกอะไรในบัญชี';
 
-/** The intro, then 7 cards in the order a customer meets them. Job ids start with "demo-": their buttons only answer
+/** The intro, then 8 kinds (7 cards and เตือนส่งงาน's plain messages) in the order a customer meets them. Job ids start with "demo-": their buttons only answer
  *  that they are a sample (lineDuePayments.ts). */
 export async function buildLineSampleCards(now = new Date()): Promise<LineMessage[]> {
   const today = Date.parse(`${todayInBangkok(now)}T00:00:00Z`);
@@ -30,6 +30,15 @@ export async function buildLineSampleCards(now = new Date()): Promise<LineMessag
     now,
     insights: [{ kind: 'not_invoiced', title: 'งานส่งแล้ว 1 งาน ยังไม่ได้ออกใบแจ้งหนี้', lines: ['รีวิวสินค้า · ลูกค้าตัวอย่าง D · ฿12,000'], link: { path: '/invoice', label: 'ออกใบแจ้งหนี้' } }],
   } as Parameters<typeof buildDigestFlexMessage>[1]);
+
+  // เตือนส่งงาน (owner, 2026-11-15): work still to deliver, late, today and in 2 days, as a plain message from เลขา; it
+  // comes in the same 08:00 push, before the card.
+  const toDeliver: JobRow[] = [
+    { id: 'demo-late', name: 'ตัดต่อคลิปรีวิว ร้านตัวอย่าง', client: 'ลูกค้าตัวอย่าง D', status: 'pending', pending: 6000, payDate: null, isPosted: false, postDate: day(-1), value: 6000 },
+    { id: 'demo-deliver-today', name: 'ถ่ายภาพเมนูใหม่', client: 'ลูกค้าตัวอย่าง E', status: 'pending', pending: 8000, payDate: null, isPosted: false, postDate: day(0), value: 8000 },
+    { id: 'demo-deliver-soon', name: 'ออกแบบโปสเตอร์งานอีเวนต์', client: 'ลูกค้าตัวอย่าง F', status: 'pending', pending: 3500, payDate: null, isPosted: false, postDate: day(2), value: 3500 },
+  ];
+  const delivery = buildDeliveryTexts(findDeliveriesDue(toDeliver, now), { name: 'ปาร์ค', room: 4 });
 
   // The reply to ได้รับแล้ว, from an in-memory job: no account is read or saved.
   const paidJob = { id: 'sample-paid', name: 'ออกแบบโลโก้ ร้านตัวอย่าง', client: 'ลูกค้าตัวอย่าง B', status: 'pending', pending: 9700, payDate: day(0), value: 10000, received: 0, whtRate: 3 } as unknown as Job;
@@ -67,7 +76,7 @@ export async function buildLineSampleCards(now = new Date()): Promise<LineMessag
 
   return [
     { type: 'text', text: LINE_SAMPLE_INTRO },
-    buildLineWelcome({ pro: true }), digest, paid, insightOnly, wht50, report, tax,
+    buildLineWelcome({ pro: true }), ...delivery, digest, paid, insightOnly, wht50, report, tax,
     // While sign-up in LINE is on (services/lineFirst.ts): what a new friend without an account gets when adding the OA,
     // and when sending anything before connecting.
     ...(lineSignupOn() ? [{ type: 'text', text: 'การ์ดสำหรับคนที่แอด LINE แต่ยังไม่มีบัญชี: ตอนแอด และเมื่อพิมพ์มาก่อนเชื่อมต่อ (กดเริ่มใช้งานแล้วจะเปิดหน้าสมัคร)' } as LineMessage,

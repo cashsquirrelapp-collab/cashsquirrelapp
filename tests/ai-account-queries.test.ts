@@ -133,7 +133,7 @@ test('settings expose safe financial preferences and WHT metadata, not service c
   assert.equal(result.recurring_expense_items.total, 2); assert.equal(result.recurring_expense_items.rows[0].amount, 1000);
   assert.equal(result.job_types.total, 2); assert.equal(result.statuses.rows[0].label, 'Paid partly');
   assert.deepEqual(result.notification_preferences, { enabled: true, alert_email: 'alerts@example.test', daily_digest_enabled: true,
-    monthly_report_enabled: true, wht50_reminder_enabled: true, line_connected: true, delivery_service: 'emailjs' });
+    monthly_report_enabled: true, wht50_reminder_enabled: true, delivery_reminder_enabled: true, line_connected: true, delivery_service: 'emailjs' });
   assert.equal(result.legacy_wht_documents.rows[0].file_name, 'certificate.pdf');
   assert.equal(result.legacy_wht_documents.rows[0].created_date, '2026-10-01');
 });

@@ -35,8 +35,8 @@ function dueButtons(job: JobWithDiff) {
   };
 }
 
-export { findJobsNeedingAttention, todayInBangkok, type JobRow, type JobWithDiff } from '../../../shared/dueJobs.js';
-import { findJobsNeedingAttention, todayInBangkok, type JobRow, type JobWithDiff } from '../../../shared/dueJobs.js';
+export { findDeliveriesDue, findJobsNeedingAttention, todayInBangkok, type DeliveryDue, type JobRow, type JobWithDiff } from '../../../shared/dueJobs.js';
+import { findJobsNeedingAttention, todayInBangkok, type DeliveryDue, type JobRow, type JobWithDiff } from '../../../shared/dueJobs.js';
 
 const MAX_REMINDER_ITEMS = 3;
 function shortDate(date: string): string {
@@ -141,6 +141,36 @@ export function buildDigestFlexMessage(jobs: JobWithDiff[], options: { test?: bo
     // With ได้รับแล้ว under the jobs, the link to the app is a quiet button: one kind of primary action per card.
     footerStyle: hasButtons ? 'secondary' : 'primary',
   });
+}
+
+const clip = (text: string, max = 60) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
+const DELIVERY_TIP = 'ถ้าส่งไปแล้ว เปลี่ยนสถานะงานในแอปได้เลยครับ ผมจะได้ไม่เตือนซ้ำ';
+
+/**
+ * เตือนส่งงาน (owner, 2026-11-15, with another assistant's chat as the example: "เป็นข้อความธรรมดาเหมือนแบบคุยกับเพื่อน ...
+ * คุยเหมือนคุยเลขาแบบชิวๆ", then "ส่งมาเป็นทีละข้อความดิ"): plain messages from เลขา, one per job, most urgent first, before
+ * the เตือนรับเงิน card in the same 08:00 push. The first calls the person by the name they gave เลขา; a late job adds one
+ * short tip at the end. A push carries 5 messages at most, so `room` says how many these may use: when the jobs do not
+ * fit, the last message counts the rest instead (and the tip is left out).
+ */
+export function buildDeliveryTexts(deliveries: DeliveryDue[], options: { name?: string | null; room?: number } = {}): LineMessage[] {
+  const room = Math.max(1, Math.min(5, options.room ?? 5));
+  const name = options.name?.trim().slice(0, 40);
+  const what = (d: DeliveryDue) => `${clip(d.name || 'งาน')}${d.client ? ` ให้${clip(d.client, 40)}` : ''}`;
+  const sentence = (d: DeliveryDue, first: boolean) => {
+    const call = first && name ? `คุณ${name} ` : '';
+    return d.diffDays < 0 ? `${call}${what(d)} เลยกำหนดส่งมา ${-d.diffDays} วันแล้วนะครับ`
+      : d.diffDays === 0 ? `${call}วันนี้ต้องส่ง ${what(d)} นะครับ`
+      : d.diffDays === 1 ? `${call}พรุ่งนี้ต้องส่ง ${what(d)} นะครับ`
+      : `${call}อีก ${d.diffDays} วันต้องส่ง ${what(d)} นะครับ`;
+  };
+  const late = deliveries.some(d => d.diffDays < 0);
+  const fits = deliveries.length + (late ? 1 : 0) <= room;
+  const shown = fits ? deliveries : deliveries.slice(0, room - 1);
+  const texts = shown.map((d, at) => sentence(d, at === 0));
+  if (!fits) texts.push(`${shown.length ? 'และยังมีงานที่ต้องส่งอีก' : `${name ? `คุณ${name} ` : ''}มีงานที่ต้องส่ง`} ${deliveries.length - shown.length} งาน ดูในแอปได้ครับ`);
+  else if (late) texts.push(DELIVERY_TIP);
+  return texts.map(text => ({ type: 'text', text }));
 }
 
 /** In-memory examples only. Use the same date selection and card builder as the scheduled digest. */

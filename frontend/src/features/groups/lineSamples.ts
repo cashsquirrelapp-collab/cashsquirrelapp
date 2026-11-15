@@ -6,7 +6,7 @@ import { fireMascot } from '../../mascotBus';
 export async function sendLineSamplesToMe(copy: (th: string, en: string) => string): Promise<void> {
   try {
     await apiJson('/api/notify', { method: 'POST', body: JSON.stringify({ event: 'admin-line-samples' }) });
-    fireMascot({ mood: 'happy', tone: 'success', title: copy('ส่งการ์ดตัวอย่างแล้ว', 'Sample cards sent'), message: copy('การ์ด 7 แบบเข้า LINE ของบัญชีนี้แล้ว', 'All 7 cards are in this account’s LINE') });
+    fireMascot({ mood: 'happy', tone: 'success', title: copy('ส่งการ์ดตัวอย่างแล้ว', 'Sample cards sent'), message: copy('ตัวอย่าง 8 แบบเข้า LINE ของบัญชีนี้แล้ว', 'All 8 samples are in this account’s LINE') });
   } catch (error) {
     fireMascot({ mood: 'alert', tone: 'error', title: copy('ส่งการ์ดตัวอย่างไม่สำเร็จ', 'Could not send the sample cards'), message: error instanceof Error ? error.message : copy('กรุณาลองใหม่', 'Please try again') });
   }
