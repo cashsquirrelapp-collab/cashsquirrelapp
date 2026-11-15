@@ -332,11 +332,6 @@ card does not need:
   32px) and the launch countdown a size larger (96×86 tiles, 38px digits), the headline still the first thing seen.
   เลขากระรอก stands at the end of "…ดูแล", waving (the locked mascot, its own wave; 1.3× the type, 1.25× on phones, clear of
   the line above). The floating cards stay as they were, upright (a tilt toward the phone was tried and taken back).
-- What เลขา does, on the first screen (owner, 2026-11-15, from a tester: "เอาตัว painpoint ... มาแปะหน้าที่เขาจะได้รับก่อน"):
-  four frosted cards under เริ่มใช้ฟรี (`.cl-helps`), each the problem in muted text, what you get in bold, and its plan
-  (PRO, ฟรี 10 ใบต่อเดือน, ใช้ฟรี) so the hero still never suggests a Pro feature is free. The same four things as the LINE
-  greeting's cards: the 08:00 reminder, slips, documents, the month on one page. A row of four on computers and iPads held
-  sideways (between the floating cards), two by two below 960px; Thai lines break only between phrases (`Phrases`).
 - Features (owner, 2026-10-29): "ครบจบในแอปเดียว", and each feature says which plan it is in: KRAROK PRO (the chat, the
   morning reminder) or what Free gives (documents: ฟรี 10 ใบต่อเดือน · Pro ไม่จำกัด; the calendar: ใช้ฟรี); no legend line
   under the heading (taken out, owner 2026-10-30). Pictures are drawn, never captured: the chat is the app's own AssistantChat running in the page

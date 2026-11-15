@@ -14,7 +14,7 @@ import { DrawSVGPlugin } from 'gsap/DrawSVGPlugin';
 import { MotionPathPlugin } from 'gsap/MotionPathPlugin';
 import { Physics2DPlugin } from 'gsap/Physics2DPlugin';
 import { Draggable } from 'gsap/Draggable';
-import { Bell, BookOpen, Briefcase, ChartPie, FileCheck2, FolderArchive, Bug, Camera, Check, CircleHelp, Clapperboard, CodeXml, Coins, FileText, Globe, GraduationCap, Instagram, Lightbulb, Mail, Music2, NotebookPen, PenLine, PenTool, Plus, ReceiptText, Video, Wallet } from 'lucide-react';
+import { Bell, BookOpen, Briefcase, FileCheck2, FolderArchive, Bug, Camera, Check, CircleHelp, Clapperboard, CodeXml, Coins, FileText, Globe, GraduationCap, Instagram, Lightbulb, Mail, Music2, NotebookPen, PenLine, PenTool, Plus, Video, Wallet } from 'lucide-react';
 import { BrandLockup } from '../../../components/brand/BrandLogo';
 import { Mascot } from '../../../components/mascot/Mascot';
 import { LineLogo } from '../../../components/ui/LineLogo';
@@ -64,16 +64,6 @@ const LOGIN = '/login';
 const SCENE = '(min-width: 960px) and (min-height: 600px) and (prefers-reduced-motion: no-preference)';
 const MOTION = '(prefers-reduced-motion: no-preference)';
 const FINE_POINTER = '(hover: hover) and (pointer: fine)';
-
-// What เลขากระรอก takes off your hands, on the first screen (owner, 2026-11-15, from a tester's feedback: people who look
-// only at the first screen should see at once what Krarok does, as the problem and what they get). The same four things
-// as the LINE greeting's cards, each with its plan, so the hero never suggests a Pro feature is free.
-const HELPS: { icon: typeof Bell; pain: string; help: string; plan: 'pro' | string }[] = [
-  { icon: Bell, pain: T('ลูกค้าคนไหน ยังไม่จ่ายนะ?'), help: T('เตือนทุกเช้า 08:00 ทาง LINE และอีเมล'), plan: 'pro' },
-  { icon: ReceiptText, pain: T('สลิปกองเต็มแชท จดไม่ทัน'), help: T('ส่งสลิป หรือพิมพ์บอก เลขาจดให้เอง'), plan: 'pro' },
-  { icon: FileText, pain: T('ทำใบเสนอราคาทีไร ยุ่งทุกที'), help: T('ออกใบเสนอราคา ถึงใบเสร็จ ต่อกันได้ทันที'), plan: T('ฟรี 10 ใบต่อเดือน') },
-  { icon: ChartPie, pain: T('ทำงานเยอะ ตกลงเหลือเท่าไร?'), help: T('เห็นรับ จ่าย กำไร ครบในหน้าเดียว'), plan: T('ใช้ฟรี') },
-];
 
 // The five problems, in the owner's words and order (2026-10-29): forgot to note it, documents, money mixed up,
 // chasing who has paid, not knowing the real profit.
@@ -237,12 +227,6 @@ function LanguageSwitch() {
       <Globe size={16} aria-hidden="true" /><span>{next === 'en' ? 'EN' : 'ไทย'}</span>
     </button>
   );
-}
-
-/** Words that break only at their spaces (Thai puts a space between phrases), so a line never ends in the middle of
- *  one: "เลขาจดให้เอง" stays together. The text reads the same. */
-function Phrases({ text }: { text: string }) {
-  return <>{text.split(' ').map((part, at) => <React.Fragment key={at}>{at > 0 && ' '}<span className="cl-ph">{part}</span></React.Fragment>)}</>;
 }
 
 /** Which plan a feature is in (owner, 2026-10-29: "ฟีเจอร์โปร ฝากบอกด้วย"): KRAROK PRO, or what Free gives. */
@@ -513,7 +497,6 @@ export default function CleanLanding() {
       intro.from(q('.cl-hero h1 .cl-w'), { yPercent: 115, rotation: 5, transformOrigin: '0% 100%', duration: 1.2, ease: 'krarok', stagger: 0.07 }, 0.05)
         .from(q('.cl-launch'), { y: 16, autoAlpha: 0, duration: 0.8 }, 0.6)
         .from(q('.cl-cta'), { y: 18, autoAlpha: 0, scale: 0.92, duration: 0.8, ease: 'back.out(1.8)' }, 0.78)
-        .from(q('.cl-help'), { y: 22, autoAlpha: 0, duration: 0.8, ease: 'krarok', stagger: 0.08 }, 0.9)
         .from(q('.cl-perch'), { autoAlpha: 0, y: 24, scale: 0.6, transformOrigin: '50% 100%', duration: 0.9, ease: 'back.out(1.8)' }, 0.95)
         .from(q('.cl-tile-card'), { autoAlpha: 0, scale: 0.55, rotation: () => gsap.utils.random(-14, 14), duration: 1, ease: 'back.out(1.7)', stagger: { each: 0.08, from: 'random' } }, 0.35)
         .from(q('.cl-device-frame'), { opacity: 0, duration: 0.8 }, 0.5)
@@ -751,16 +734,6 @@ export default function CleanLanding() {
                     side are as tall as the button, so the first screen grows no taller. SignupCount.tsx */}
                 <LaunchCountdown />
                 <div className="cl-cta"><StartButton /><SignupCount /></div>
-                <ul className="cl-helps" aria-label={tr('เลขากระรอกช่วยอะไรได้บ้าง')}>{HELPS.map(({ icon: Icon, pain, help, plan }) => (
-                  <li key={help} className="cl-help cl-glass">
-                    <span className="cl-help-top">
-                      <span className="cl-help-icon" aria-hidden="true"><Icon size={17} strokeWidth={2.2} /></span>
-                      {plan === 'pro' ? <span className="cl-help-plan is-pro"><img src="/kv/symbol.svg" alt="" />PRO</span> : <span className="cl-help-plan">{tr(plan)}</span>}
-                    </span>
-                    <span className="cl-help-pain"><Phrases text={tr(pain)} /></span>
-                    <strong className="cl-help-text"><Phrases text={tr(help)} /></strong>
-                  </li>
-                ))}</ul>
               </div>
               <div className="cl-tiles" aria-hidden="true">
                 <Tile n={1} bare><LineLogo size={62} /></Tile>

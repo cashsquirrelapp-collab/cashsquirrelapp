@@ -141,34 +141,6 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
 .cl-launch .cl-tick b { color: var(--ink); font-size: 38px; }
 .cl-launch .cl-tick small { color: var(--muted); font-size: 13.5px; }
 
-/* What เลขากระรอก takes off your hands (owner, 2026-11-15, from a tester: the first screen should say what Krarok does):
-   four frosted cards under the start button, each the problem, what you get, and its plan. A row of four on computers
-   and iPads held sideways (as wide as the space between the floating cards), two by two below 960px. The row tucks into
-   the start button's invisible magnetic zone, so the first screen grows as little as it can. */
-.cl-helps { --hw: min(1000px, calc(100vw - 48px)); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px;
-  width: var(--hw); margin: -12px calc(50% - var(--hw) / 2) 0; text-align: left; }
-.cl-help { display: flex; flex-direction: column; gap: 3px; min-width: 0; padding: 14px 16px 15px; border-radius: 22px; }
-.cl-help-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 7px; }
-.cl-help-icon { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: var(--orange); color: #FFFFFF; }
-.cl-help-plan { display: inline-flex; align-items: center; gap: 5px; padding: 2px 10px; border-radius: 999px; background: #F2F1EF; color: var(--ink);
-  font-size: 12px; font-weight: 600; line-height: 1.5; white-space: nowrap; }
-.cl-help-plan.is-pro { padding-left: 4px; background: var(--cream); color: var(--deep); font-family: 'IBM Plex Sans', var(--font-sans); letter-spacing: 0.12em; }
-.cl-help-plan.is-pro img { width: 16px; height: 16px; }
-.cl-help-pain { color: var(--muted); font-size: 13px; line-height: 1.5; }
-.cl-help-text { color: var(--ink); font-size: 15.5px; font-weight: 600; line-height: 1.45; }
-@media (min-width: 375px) { .cl-help .cl-ph { white-space: nowrap; } } /* lines break between phrases (Phrases), never inside one */
-@media (min-width: 1200px) { .cl-helps { --hw: min(1000px, calc(100vw - 380px)); } } /* clear of the floating cards either side */
-@media (max-width: 959px) { .cl-helps { --hw: min(640px, 100%); grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 6px; } }
-@media (max-width: 743px) {
-  .cl-helps { gap: 10px; margin-top: 18px; }
-  .cl-help { padding: 12px 12px 13px; border-radius: 18px; }
-  .cl-help-top { margin-bottom: 5px; }
-  .cl-help-icon { width: 30px; height: 30px; border-radius: 9px; }
-  .cl-help-plan { padding: 1px 8px; font-size: 11px; }
-  .cl-help-pain { font-size: 12px; }
-  .cl-help-text { font-size: 14px; }
-}
-
 /* The floating cards: in a row under the words, or (1200px and up) beside them. */
 .cl-tiles { position: relative; z-index: 1; display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 12px; }
 .cl-tile { position: relative; display: block; }
@@ -672,11 +644,6 @@ a:hover > .cl-roll > span + span, a:focus-visible > .cl-roll > span + span { tra
   .cl-side h2 { font-size: clamp(26px, 2.4vw, 38px); }
   .cl-side p { font-size: 16.5px; }
   .cl.is-en .cl-side h2 .gl-nw { white-space: normal; }
-}
-/* Short computer screens (a laptop with its browser bars): less room above the headline, so the four cards under the
-   start button stay on the first screen. */
-@media (min-width: 960px) and (min-height: 600px) and (max-height: 800px) and (prefers-reduced-motion: no-preference) {
-  .cl-top { padding-top: calc(var(--bar) + 12px); }
 }
 @media (min-width: 960px) and (max-width: 1199px) and (min-height: 600px) and (prefers-reduced-motion: no-preference) {
   .cl { --cl-lw: min(50vw, calc((100svh - var(--bar) - 90px) * 1.42)); }

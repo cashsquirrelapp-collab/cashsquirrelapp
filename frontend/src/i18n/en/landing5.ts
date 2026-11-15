@@ -5,17 +5,6 @@ export const landing5: Record<string, string> = {
   'hero|ตั้งแต่รับงาน': 'From job',
   'hero|จนถึงรับเงิน': 'to payday,',
   'พร้อมให้ใช้งานเต็มรูปแบบ 1 ธันวาคม 2569': 'Fully available from 1 December 2026',
-  // what เลขา takes off your hands, under the start button (2026-11-15)
-  'เลขากระรอกช่วยอะไรได้บ้าง': 'What Krarok does for you',
-  'ลูกค้าคนไหน ยังไม่จ่ายนะ?': 'Which clients haven’t paid?',
-  'เตือนทุกเช้า 08:00 ทาง LINE และอีเมล': 'A reminder every morning at 08:00 on LINE and email',
-  'สลิปกองเต็มแชท จดไม่ทัน': 'Slips piling up in your chats',
-  'ส่งสลิป หรือพิมพ์บอก เลขาจดให้เอง': 'Send the slip or type it, Krarok writes it down',
-  'ทำใบเสนอราคาทีไร ยุ่งทุกที': 'Quotations are always a hassle',
-  'ออกใบเสนอราคา ถึงใบเสร็จ ต่อกันได้ทันที': 'From quotation to receipt, one after the other',
-  'ฟรี 10 ใบต่อเดือน': 'Free 10 a month',
-  'ทำงานเยอะ ตกลงเหลือเท่าไร?': 'Lots of work, but what’s left?',
-  'เห็นรับ จ่าย กำไร ครบในหน้าเดียว': 'Money in, money out and profit, all on one page',
   // who it is for (2026-10-30)
   'รับงานแบบไหน ก็มีเลขาช่วยได้': 'Whatever work you take on, Krarok can help',
   'jobs|กราฟิกดีไซเนอร์': 'Graphic designers',
