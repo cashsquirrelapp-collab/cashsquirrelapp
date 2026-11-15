@@ -2,7 +2,7 @@ import type { UsageFeatureKey } from './usageAnalytics.js';
 import type { OnboardingAnalytics } from './onboarding.js';
 
 export type AnalyticsRange = 7 | 30 | 90;
-export type AccountPlanStatus = 'pro' | 'admin' | 'trial' | 'free' | 'expired';
+export type AccountPlanStatus = 'pro' | 'plus' | 'admin' | 'trial' | 'free' | 'expired';
 export type AccountPersona = 'school' | 'university' | 'freelance' | 'employee' | 'unknown';
 
 export interface AdminAnalyticsSummary {

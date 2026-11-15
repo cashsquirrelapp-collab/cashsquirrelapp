@@ -36,7 +36,7 @@ async function open(page: Page, size: { width: number; height: number }) {
   await page.setViewportSize(size);
   await page.goto('/settings');
   await loadLayoutFonts(page);
-  await page.getByRole('region', { name: 'LINE AI Pro · การแจ้งเตือน' }).getByRole('button', { name: 'การแจ้งเตือน', exact: true }).click();
+  await page.getByRole('region', { name: 'LINE · การแจ้งเตือน' }).getByRole('button', { name: 'การแจ้งเตือน', exact: true }).click();
   return { posts };
 }
 

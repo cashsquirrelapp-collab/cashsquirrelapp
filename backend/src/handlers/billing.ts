@@ -1,4 +1,6 @@
 import { CARD_CONSENT_VERSION } from '../../../shared/cardConsent.js';
+import { isPaidTier, type PaidTier } from '../../../shared/plans.js';
+import { freeMonthlyTokens } from '../services/lineFirst.js';
 import { stopAutoRenewal } from '../services/cardRenewals.js';
 import { directQrStatus } from '../services/directPromptPay.js';
 import { originFor } from '../config/env.js';
@@ -28,7 +30,9 @@ export default withGuard(async (req, res) => {
     const row = result.data;
     if (req.method === 'GET') {
       // Read only authoritative database state; a success query string never grants access.
-      res.json({ checkout_ready: prepaidEnabled() && row?.plan !== 'admin_revoked', subscription: row ? {
+      // free_monthly_tokens: what an account without a paid plan gets from เลขา each month (services/lineFirst.ts; 0 = off),
+      // so the plans page and Settings can say so.
+      res.json({ checkout_ready: prepaidEnabled() && row?.plan !== 'admin_revoked', free_monthly_tokens: freeMonthlyTokens(), subscription: row ? {
         status: row.status, plan: row.plan, current_period_end: row.current_period_end,
         cancel_at_period_end: row.cancel_at_period_end, stripe_status: row.stripe_subscription_status,
         has_subscription: Boolean(row.stripe_subscription_id), managed: Boolean(row.stripe_customer_id),
@@ -64,14 +68,17 @@ export default withGuard(async (req, res) => {
     }
     if (!['checkout','promptpay_checkout'].includes(req.body?.action)) throw new HttpError(400, 'Invalid billing action');
     // No client-supplied amount, duration, Stripe Price, account or URL is trusted.
-    const allowed = new Set(['action','period','autoRenew','saveCard','consentVersion']);
+    const allowed = new Set(['action','period','autoRenew','saveCard','consentVersion','tier']);
     if (Object.keys(req.body).some(key => !allowed.has(key))) throw new HttpError(400, 'Invalid checkout fields');
+    // Which plan (owner, 2026-11-15: Free / Plus / Pro); none means Pro, as every page before Plus sends.
+    if ('tier' in req.body && !isPaidTier(req.body.tier)) throw new HttpError(400, 'Invalid plan');
+    const tier: PaidTier = req.body.tier === 'plus' ? 'plus' : 'pro';
     if (row?.plan === 'admin_revoked') throw new HttpError(403, 'บัญชีนี้ถูกแบน Pro กรุณาติดต่อแอดมินเพื่อปลดแบน', 'PRO_BANNED');
     const customCard = req.body.action === 'checkout' && process.env.KRAROK_CUSTOM_CARD_ENABLED === 'true';
     if (req.body.action === 'promptpay_checkout' && ['autoRenew','saveCard','consentVersion'].some(key => key in req.body)) throw new HttpError(400, 'Invalid QR options');
     if (customCard && (typeof req.body.autoRenew !== 'boolean' || typeof req.body.saveCard !== 'boolean'
       || req.body.consentVersion !== CARD_CONSENT_VERSION || (req.body.autoRenew && !req.body.saveCard))) throw new HttpError(400, 'กรุณายืนยันตัวเลือกบัตรอีกครั้ง');
-    res.json(await startPrepaidCheckout(user, req.body.period, req.body.action === 'promptpay_checkout' ? 'promptpay' : 'card', customCard ? { autoRenew: req.body.autoRenew, saveCard: req.body.saveCard, consentVersion: req.body.consentVersion } : undefined, timing, originFor(req)));
+    res.json(await startPrepaidCheckout(user, req.body.period, req.body.action === 'promptpay_checkout' ? 'promptpay' : 'card', customCard ? { autoRenew: req.body.autoRenew, saveCard: req.body.saveCard, consentVersion: req.body.consentVersion } : undefined, timing, originFor(req), tier));
   } finally {
     if (req.method === 'POST' && ['checkout', 'promptpay_checkout'].includes(req.body?.action)) timing.finish();
   }

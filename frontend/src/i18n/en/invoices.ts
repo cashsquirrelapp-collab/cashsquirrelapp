@@ -229,4 +229,7 @@ export const invoices: Record<string, string> = {
   'ไม่มีภาษีมูลค่าเพิ่ม (0%)': 'No VAT (0%)',
   'ไม่สามารถลบได้': 'Cannot delete',
   '−{0} บาท': '−{0} THB',
+  "ใช้โควตาออกเอกสารของแพ็กเกจ Plus เดือนนี้ครบ {0} ฉบับแล้ว อัปเกรดเป็น Pro เพื่อออกเอกสารได้ไม่จำกัด": "You have used all {0} Plus documents this month. Upgrade to Pro for unlimited documents.",
+  "โควตาออกเอกสารของแพ็กเกจ Plus เดือนนี้เหลือ {0} ฉบับ แต่รายการนี้ต้องใช้ {1} ฉบับ อัปเกรดเป็น Pro เพื่อออกเอกสารได้ไม่จำกัด": "{0} Plus documents are left this month, but this needs {1}. Upgrade to Pro for unlimited documents.",
+  "โควตาออกเอกสารเดือนนี้:": "Documents this month:",
 };

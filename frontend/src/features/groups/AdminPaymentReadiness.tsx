@@ -23,9 +23,11 @@ const tone: Record<ReadinessState, { icon: typeof CircleCheck; className: string
 };
 
 function priceName(item: ReadinessPrice, copy: Copy) {
+  // Each line says its plan (Plus since 2026-11-15), so Plus's prices read apart from Pro's.
+  const plan = item.tier === 'plus' ? 'Plus' : 'Pro';
   return item.kind === 'one_time'
-    ? copy(`ชำระครั้งเดียว (QR และบัตร) ${formatBaht(item.expected)}`, `One-time (QR and card) ${formatBaht(item.expected)}`)
-    : copy(`บัตรต่ออายุอัตโนมัติ ${formatBaht(item.expected)}/เดือน`, `Card auto-renewal ${formatBaht(item.expected)}/month`);
+    ? copy(`${plan} ชำระครั้งเดียว (QR และบัตร) ${formatBaht(item.expected)}`, `${plan} one-time (QR and card) ${formatBaht(item.expected)}`)
+    : copy(`${plan} บัตรต่ออายุอัตโนมัติ ${formatBaht(item.expected)}/เดือน`, `${plan} card auto-renewal ${formatBaht(item.expected)}/month`);
 }
 function priceLine(item: ReadinessPrice, copy: Copy) {
   const state = item.state === 'ok' ? copy('มีใน Stripe แล้ว', 'in Stripe')

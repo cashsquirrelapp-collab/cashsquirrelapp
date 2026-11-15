@@ -10,8 +10,9 @@ type IconType = React.ComponentType<{ className?: string }>;
 
 export const rowShell = 'group flex w-full items-center gap-4 px-5 py-[18px] text-left min-h-[76px]';
 
-export const ProBadge = () => (
-  <span className="rounded-md bg-[#FFF1E8] px-1.5 py-0.5 text-[10px] font-semibold text-[#C24A16] dark:bg-[#E65F2B]/15 dark:text-[#FF9A6B]">Pro</span>
+/** The plan a feature needs: Pro, or Plus since 2026-11-15 (Plus and Pro both have it). */
+export const ProBadge = ({ name = 'Pro' }: { name?: 'Pro' | 'Plus' } = {}) => (
+  <span className="rounded-md bg-[#FFF1E8] px-1.5 py-0.5 text-[10px] font-semibold text-[#C24A16] dark:bg-[#E65F2B]/15 dark:text-[#FF9A6B]">{name}</span>
 );
 
 export function Switch({ on, onClick, label, disabled }: { on: boolean; onClick: () => void; label: string; disabled?: boolean }) {

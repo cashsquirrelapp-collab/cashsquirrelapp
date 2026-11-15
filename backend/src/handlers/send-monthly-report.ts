@@ -1,3 +1,4 @@
+import { planTierOf } from '../../../shared/plans.js';
 import { isPhaseOneFeatureAvailable } from '../../../shared/featureAvailability.js';
 import { inFreeTrial } from '../../../shared/trial.js';
 import { stagingRecipientAllowed } from '../security/staging.js';
@@ -288,15 +289,8 @@ function isPro(
   createdAtByUserId: Map<string, string>,
   subscriptionByUserId: Map<string, { status: string; plan: string | null; current_period_end: string | null }>
 ): boolean {
-  const sub = subscriptionByUserId.get(userId);
-  if (['admin_revoked', 'admin_removed'].includes(sub?.plan || '')) return false;
-  const createdAt = createdAtByUserId.get(userId);
-  const isInFreeTrial = inFreeTrial(createdAt);
-
-  const isAdminGrant = sub?.status === 'active' && sub.plan === 'admin_grant';
-  const isPaidActive = sub?.status === 'active' && !!sub.current_period_end && new Date(sub.current_period_end).getTime() > Date.now();
-
-  return isInFreeTrial || isAdminGrant || isPaidActive;
+  // The monthly summary is Pro's (shared/plans.ts: Plus has the 08:00 reminders, not this).
+  return planTierOf({ sub: subscriptionByUserId.get(userId), trial: inFreeTrial(createdAtByUserId.get(userId)) }) === 'pro';
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

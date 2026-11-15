@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Camera, CheckCircle2, Download, ExternalLink, FileText, Loader2, Plus, Trash2, Upload, X } from 'lucide-react';
 import { readableFile } from '../../utils/heic';
 import type { Expense, Job } from '../../../../shared/types';
+import { PLAN_LIMITS, type PlanTier } from '../../../../shared/plans';
 import { VAULT_ACCEPT, VAULT_FREE_FILES, VAULT_KIND_LABEL, VAULT_MAX_BYTES, formatFileSize, type VaultFile, type VaultKind } from '../../../../shared/vault';
 import { isEWhtJob, jobWhtAmount, jobNetReceivable } from '../../../../shared/wht';
 import { formatCurrency, safeFormatThaiDate } from '../../utils';
@@ -34,8 +35,12 @@ interface VaultApi {
   /** Signed-in account (not guest): the vault works here. */
   available: boolean;
   isPro: boolean;
-  /** Files a free account can still add (VAULT_FREE_FILES in all); null for Pro, which has no limit. */
+  /** Files a Free or Plus account can still add (5 or 50 in all, shared/plans.ts); null for Pro, which has no limit. */
   freeLeft: number | null;
+  /** Files this plan keeps: 5 (Free) or 50 (Plus); null for Pro. */
+  fileLimit: number | null;
+  /** Plus (owner, 2026-11-15): the limit is the plan's, not a free account's. */
+  plusPlan: boolean;
   /** Opens the plans page. */
   upgrade: () => void;
   files: VaultFile[];
@@ -64,10 +69,11 @@ export function useVaultMaybe(): VaultApi | null {
   return React.useContext(VaultContext);
 }
 
-export function VaultProvider({ financeKey, available, isPro, jobs, expenses, onUpgrade, triggerConfirm, triggerAlert, children }: {
+export function VaultProvider({ financeKey, available, tier, jobs, expenses, onUpgrade, triggerConfirm, triggerAlert, children }: {
   financeKey: string;
   available: boolean;
-  isPro: boolean;
+  /** Free 5 files, Plus 50, Pro (and a trial) no limit (shared/plans.ts). */
+  tier: PlanTier;
   jobs: Job[];
   expenses: Expense[];
   onUpgrade: () => void;
@@ -126,10 +132,14 @@ export function VaultProvider({ financeKey, available, isPro, jobs, expenses, on
     return { saved, failed, proRequired: false };
   }, [financeKey]);
 
-  // Free accounts keep VAULT_FREE_FILES files; Pro has no limit (owner, 2026-10-31). The server checks it too.
-  const freeLeft = isPro ? null : Math.max(0, VAULT_FREE_FILES - files.length);
+  // Free accounts keep VAULT_FREE_FILES files, Plus 50; Pro has no limit (owner, 2026-10-31 / 2026-11-15). The server
+  // checks it too.
+  const isPro = tier === 'pro';
+  const plusPlan = tier === 'plus';
+  const fileLimit = isPro ? null : PLAN_LIMITS[tier].vaultFiles;
+  const freeLeft = fileLimit === null ? null : Math.max(0, fileLimit - files.length);
   const api: VaultApi = {
-    available, isPro, freeLeft, upgrade: onUpgrade, files, loading, ready: available && loadedFinanceKey === financeKey, error,
+    available, isPro, freeLeft, fileLimit, plusPlan, upgrade: onUpgrade, files, loading, ready: available && loadedFinanceKey === financeKey, error,
     refresh: () => setRevision(n => n + 1),
     openUpload: request => setUpload(request),
     openJob: job => setJobView(job),
@@ -180,6 +190,8 @@ export function VaultProvider({ financeKey, available, isPro, jobs, expenses, on
         financeKey={financeKey}
         available={available}
         freeLeft={freeLeft}
+        fileLimit={fileLimit ?? VAULT_FREE_FILES}
+        plusPlan={plusPlan}
         jobs={jobs}
         expenses={expenses}
         existing={files}
@@ -304,12 +316,14 @@ export async function readyVaultFiles(list: File[]): Promise<{ file: File; probl
 /** Expense choices for linking a slip: newest first, with date and amount to tell them apart. */
 const expenseOptionLabel = (e: Expense) => `${e.name} · ${safeFormatThaiDate(e.date, { day: 'numeric', month: 'short', year: '2-digit' })} · ${formatCurrency(e.amount)}`;
 
-function UploadDialog({ request, financeKey, available, freeLeft, jobs, expenses, existing, onUpgrade, onUploaded, onRemove, onClose }: {
+function UploadDialog({ request, financeKey, available, freeLeft, fileLimit, plusPlan, jobs, expenses, existing, onUpgrade, onUploaded, onRemove, onClose }: {
   request: UploadRequest | null;
   financeKey: string;
   available: boolean;
-  /** Files a free account can still add; null for Pro. */
+  /** Files a Free or Plus account can still add; null for Pro. */
   freeLeft: number | null;
+  fileLimit: number;
+  plusPlan: boolean;
   jobs: Job[];
   expenses: Expense[];
   existing: VaultFile[];
@@ -382,7 +396,7 @@ function UploadDialog({ request, financeKey, available, freeLeft, jobs, expenses
   let room = freeLeft ?? Infinity;
   const checked = picked.map(p => {
     if (p.error) return p;
-    if (room <= 0) return { ...p, error: tr("เกิน {0} ไฟล์ของบัญชีฟรี", VAULT_FREE_FILES) };
+    if (room <= 0) return { ...p, error: plusPlan ? tr("เกิน {0} ไฟล์ของแพ็กเกจ Plus", fileLimit) : tr("เกิน {0} ไฟล์ของบัญชีฟรี", VAULT_FREE_FILES) };
     room -= 1;
     return p;
   });
@@ -420,8 +434,10 @@ function UploadDialog({ request, financeKey, available, freeLeft, jobs, expenses
         </div>
       ) : freeLeft === 0 && !doneIds ? (
         <div className="p-6 pr-12" data-testid="vault-free-full">
-          <p className="text-[16px] font-semibold text-brand-text">{tr("คลังเอกสารครบ {0} ไฟล์แล้ว", VAULT_FREE_FILES)}</p>
-          <p className="mt-2 text-[13px] leading-relaxed text-brand-muted">{tr("บัญชีฟรีเก็บไฟล์ได้ {0} ไฟล์ ลบไฟล์ที่ไม่ใช้แล้วเพื่อเพิ่มไฟล์ใหม่ หรืออัปเกรดเป็น Pro เพื่อเก็บได้ไม่จำกัด", VAULT_FREE_FILES)}</p>
+          <p className="text-[16px] font-semibold text-brand-text">{tr("คลังเอกสารครบ {0} ไฟล์แล้ว", fileLimit)}</p>
+          <p className="mt-2 text-[13px] leading-relaxed text-brand-muted">{plusPlan
+            ? tr("แพ็กเกจ Plus เก็บไฟล์ได้ {0} ไฟล์ ลบไฟล์ที่ไม่ใช้แล้วเพื่อเพิ่มไฟล์ใหม่ หรืออัปเกรดเป็น Pro เพื่อเก็บได้ไม่จำกัด", fileLimit)
+            : tr("บัญชีฟรีเก็บไฟล์ได้ {0} ไฟล์ ลบไฟล์ที่ไม่ใช้แล้วเพื่อเพิ่มไฟล์ใหม่ หรืออัปเกรดเป็น Pro เพื่อเก็บได้ไม่จำกัด", VAULT_FREE_FILES)}</p>
           <button type="button" onClick={onUpgrade} className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-xl bg-[#E65F2B] text-[14px] font-semibold text-white hover:bg-[#D35221] cursor-pointer">{tr("อัปเกรดเป็น Pro")}</button>
         </div>
       ) : doneIds ? (
@@ -500,7 +516,9 @@ function UploadDialog({ request, financeKey, available, freeLeft, jobs, expenses
             <p className="mt-2 text-xs text-brand-muted">{tr("ขนาดไม่เกิน 10 MB ต่อไฟล์")}</p>
             {/* Files often carry other people's details (owner, 2026-11-05): one line, never a block. */}
             <p className="mt-1 text-xs leading-[1.6] text-brand-muted" data-testid="vault-privacy-note">{tr("ไฟล์เก็บในพื้นที่ส่วนตัวของบัญชี สำเนาบัตรหรือเอกสารของผู้อื่น อัปโหลดเฉพาะที่จำเป็นและได้รับอนุญาตจากเจ้าของ")}</p>
-            {freeLeft !== null && <p className="mt-1 text-xs leading-[1.5] text-brand-muted" data-testid="vault-free-left">{tr("บัญชีฟรีเพิ่มได้อีก {0} จาก {1} ไฟล์ · Pro เก็บได้ไม่จำกัด", freeLeft, VAULT_FREE_FILES)}</p>}
+            {freeLeft !== null && <p className="mt-1 text-xs leading-[1.5] text-brand-muted" data-testid="vault-free-left">{plusPlan
+              ? tr("แพ็กเกจ Plus เพิ่มได้อีก {0} จาก {1} ไฟล์ · Pro เก็บได้ไม่จำกัด", freeLeft, fileLimit)
+              : tr("บัญชีฟรีเพิ่มได้อีก {0} จาก {1} ไฟล์ · Pro เก็บได้ไม่จำกัด", freeLeft, VAULT_FREE_FILES)}</p>}
 
             {converting > 0 && <p role="status" className="mt-3 flex items-center gap-2 text-[13px] text-brand-muted"><Loader2 size={15} className="animate-spin" aria-hidden="true" />{tr("กำลังเตรียมรูปจาก iPhone…")}</p>}
             {picked.length > 0 && (

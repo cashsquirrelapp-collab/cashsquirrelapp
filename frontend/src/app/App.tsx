@@ -7,7 +7,8 @@ import type { ChatHandoff } from '../features/assistant/chatHandoff';
 import { rememberLineContinue } from '../features/assistant/lineContinue';
 import { notePage } from '../features/assistant/greeting';
 import { CARD_CONSENT_VERSION, type CardOptions } from '../../../shared/cardConsent';
-import { proPricePartsForCharge, proPricing, type ProPeriod } from '../../../shared/proPricing';
+import { PLUS_PRICE, proPricePartsForCharge, proPricing, type ProPeriod } from '../../../shared/proPricing';
+import { PLAN_LIMITS, paidTierOfPlan, type PaidTier, type PlanTier } from '../../../shared/plans';
 import PageHeader from '../components/ui/PageHeader';
 import { uiPrimaryButton } from '../components/ui/uiStyles';
 import { shrinkImageDataUrl } from '../services/images';
@@ -658,8 +659,8 @@ export default function App() {
     const tool = (key: TabKey, title: string, description: string, icon: KsIconName, search = '', before?: () => void, id: string = key): MobileTool[] =>
       has(key) ? [{ key: id, title, description, icon, search, onOpen: go(key, before) }] : [];
     const soon = (key: string, title: string, description: string, icon: KsIconName, search = ''): MobileTool => ({ key, title, description, icon, search, soon: true, onOpen: () => {} });
-    const hasPro = isPaidActive || isInFreeTrial;
-    const plan = isGuestProPreview ? t('plans.guestPreviewBadge') : isPaidActive ? 'PRO' : isInFreeTrial ? t('plans.freeTrialBadge') : 'FREE';
+    const hasPro = hasPaidPlan && !isGuestProPreview;
+    const plan = isGuestProPreview ? t('plans.guestPreviewBadge') : isPaidActive ? paidBadge : isInFreeTrial ? t('plans.freeTrialBadge') : 'FREE';
     const lineLinked = Boolean(notifSettings.lineUserId);
     const lineAvailable = isPhaseOneFeatureAvailable('line', fullFeatureAccess) && has('settings');
     const notificationsAvailable = notificationsAccess;
@@ -680,18 +681,18 @@ export default function App() {
           <span className="grid h-[30px] w-[30px] place-items-center overflow-hidden rounded-[8px] bg-[#FFF1E8] dark:bg-[#E65F2B]/15" aria-hidden="true"><Mascot mood="happy" animated={false} size={30} viewBox="12 8 76 76" /></span>
         ) })),
         lineAvailable
-          ? { key: 'line', title: tr("เชื่อมต่อ LINE"), description: tr("ผู้ช่วยการเงินผ่าน LINE"), icon: 'chat', mark: <LineLogo size={30} />, search: "line ไลน์ ผู้ช่วย ai", value: !hasPro ? tr("ต้องใช้ Pro") : lineLinked ? tr("เชื่อมต่อแล้ว") : tr("ยังไม่เชื่อมต่อ"), onOpen: openSettings('line') }
+          ? { key: 'line', title: tr("เชื่อมต่อ LINE"), description: tr("ผู้ช่วยการเงินผ่าน LINE"), icon: 'chat', mark: <LineLogo size={30} />, search: "line ไลน์ ผู้ช่วย ai", value: !lineOpen ? tr("ต้องใช้ Plus") : lineLinked ? tr("เชื่อมต่อแล้ว") : tr("ยังไม่เชื่อมต่อ"), onOpen: openSettings('line') }
           : { ...soon('line', tr("เชื่อมต่อ LINE"), tr("ผู้ช่วยการเงินผ่าน LINE"), 'chat', "line ไลน์ ผู้ช่วย ai"), mark: <LineLogo size={30} /> },
         // Reminders are Pro too (owner, 2026-10-21): the monthly summary, credit-term and 50 ทวิ jobs only
         // send to Pro accounts, the trial and admin grants, so they sit with the package and LINE.
         notificationsAvailable && has('settings')
-          ? { key: 'notif', title: tr("การแจ้งเตือน"), description: fullFeatureAccess ? tr("สรุปรายเดือน เตือนครบกำหนดรับเงิน และใบ 50 ทวิ") : tr("สรุปรายเดือน และเตือนครบกำหนดรับเงิน"), icon: 'bell', search: "แจ้งเตือน เตือน สรุป เครดิตเทอม", value: hasPro ? undefined : tr("ต้องใช้ Pro"), onOpen: openSettings('notif') }
+          ? { key: 'notif', title: tr("การแจ้งเตือน"), description: fullFeatureAccess ? tr("สรุปรายเดือน เตือนครบกำหนดรับเงิน และใบ 50 ทวิ") : tr("สรุปรายเดือน และเตือนครบกำหนดรับเงิน"), icon: 'bell', search: "แจ้งเตือน เตือน สรุป เครดิตเทอม", value: hasPro ? undefined : tr("ต้องใช้ Plus"), onOpen: openSettings('notif') }
           : hasOldNotifications && has('settings')
             ? { key: 'notif', title: tr("จัดการการแจ้งเตือนเดิม"), description: tr("ปิดการแจ้งเตือนหรือช่องทางที่เคยเปิดไว้"), icon: 'bell', search: "แจ้งเตือน เตือน", onOpen: openSettings('notif') }
             : soon('notif', tr("การแจ้งเตือน"), fullFeatureAccess ? tr("สรุปรายเดือน เตือนครบกำหนดรับเงิน และใบ 50 ทวิ") : tr("สรุปรายเดือน และเตือนครบกำหนดรับเงิน"), 'bell', "แจ้งเตือน เตือน"),
         // Unlimited file storage is Pro too (owner, 2026-11-01): the vault, with Free's limit beside it.
         ...tool('vault', tr("เก็บไฟล์ไม่จำกัด"), tr("ใบ 50 ทวิ สลิป บิล และใบเสร็จ ในคลังเอกสาร"), 'folder', 'คลังเอกสาร ไฟล์ สลิป บิล ใบเสร็จ 50 ทวิ ไม่จำกัด', undefined, 'vault-pro')
-          .map(item => ({ ...item, value: hasPro ? tr("ไม่จำกัด") : tr("ฟรี {0} ไฟล์", VAULT_FREE_FILES) })),
+          .map(item => ({ ...item, value: hasPro && !isPlus ? tr("ไม่จำกัด") : isPlus ? tr("{0} ไฟล์", PLAN_LIMITS.plus.vaultFiles) : tr("ฟรี {0} ไฟล์", VAULT_FREE_FILES) })),
         // Price and upgrade last (owner, 2026-11-01): the group is แพ็กเกจ Pro itself, its rows what Pro gives.
         ...tool('plans', hasPro ? tr("สถานะแพ็กเกจ") : tr("ดูราคาและอัปเกรด"), hasPro ? tr("สถานะ การต่ออายุ และการชำระเงิน") : tr("ราคาและสิ่งที่ได้เมื่อเป็น Pro"), 'shield', "Pro สมัคร อัปเกรด ชำระเงิน แพ็กเกจ ราคา").map(item => ({ ...item, value: plan })),
       ],
@@ -750,7 +751,7 @@ export default function App() {
               <span className="block truncate text-[14px] font-semibold text-brand-text">{routeContext?.profile.displayName || session?.user?.email?.split('@')[0] || tr("บัญชีผู้ใช้")}</span>
               <span className="mt-0.5 flex min-w-0 items-center gap-1.5">
                 <span className={`shrink-0 rounded-full px-1.5 py-px text-[10px] font-semibold ${isPaidActive || isGuestProPreview ? 'bg-[#FFF1E8] text-[#C24A16] dark:bg-[#E65F2B]/15 dark:text-[#FF9A6B]' : 'bg-brand-faint text-brand-muted'}`}>
-                  {isGuestProPreview ? t('plans.guestPreviewBadge') : isPaidActive ? 'PRO' : isInFreeTrial ? t('plans.freeTrialBadge') : 'FREE'}
+                  {isGuestProPreview ? t('plans.guestPreviewBadge') : isPaidActive ? paidBadge : isInFreeTrial ? t('plans.freeTrialBadge') : 'FREE'}
                 </span>
               </span>
             </span>
@@ -1358,9 +1359,12 @@ export default function App() {
       .catch(() => { /* Checkout remains closed when readiness cannot be checked. */ });
     return () => controller.abort();
   }, [session?.user?.id, session?.isGuest, activeTab, billingBusy]);
-  const [qrPayment, setQrPayment] = useState<{ period: ProPeriod; checkout: DirectQrPayment | null; status: 'loading' | 'pending' | 'paid' | 'expired'; error?: string } | null>(null);
+  const [qrPayment, setQrPayment] = useState<{ period: ProPeriod; tier: PaidTier; checkout: DirectQrPayment | null; status: 'loading' | 'pending' | 'paid' | 'expired'; error?: string } | null>(null);
   const qrAttempt = React.useRef(0);
-  const [preparingCard, setPreparingCard] = useState<ProPeriod | null>(null);
+  const [preparingCard, setPreparingCard] = useState<{ period: ProPeriod; tier: PaidTier } | null>(null);
+  // เลขา's free monthly allowance for accounts without a paid plan (FREE_MONTHLY_TOKENS on the server; 0 = off).
+  const [freeMonthlyTokens, setFreeMonthlyTokens] = useState(0);
+  const [plusOnSale, setPlusOnSale] = useState(false);
   const [embeddedPayment, setEmbeddedPayment] = useState<EmbeddedPayment | null>(null);
   const [billingPollVersion, setBillingPollVersion] = useState(0);
   const billingUserId = session?.isGuest ? null : session?.user?.id || null;
@@ -1405,18 +1409,27 @@ export default function App() {
   // Guest mode previews local Pro tools with sample data. Server-side Pro access
   // still requires a real account and is checked independently by the API.
   const isGuestProPreview = session?.isGuest === true;
-  const isPro = isGuestProPreview || isInFreeTrial || isPaidActive;
+  // Free / Plus / Pro (shared/plans.ts, owner 2026-11-15). A trial, an owner's grant and guest preview count as Pro.
+  const planTier: PlanTier = isGuestProPreview || isInFreeTrial ? 'pro'
+    : isPaidActive ? (subscription!.plan === 'admin_grant' ? 'pro' : paidTierOfPlan(subscription!.plan)) : 'free';
+  const isPro = planTier === 'pro';
+  const isPlus = planTier === 'plus';
+  /** Plus or Pro: เลขา on a paid allowance and the 08:00 reminders. */
+  const hasPaidPlan = planTier !== 'free';
+  /** LINE and เลขา are open to every account while the free monthly allowance is on (owner, 2026-11-15). */
+  const lineOpen = hasPaidPlan || freeMonthlyTokens > 0;
+  const paidBadge = isPlus ? 'PLUS' : 'PRO';
   // The plans menu asks free and trial accounts to upgrade; paying members see the plan's name (owner, 2026-10-28).
   const navLabelKey = (item: { key: string; labelKey: string }) => (item.key === 'plans' && isPaidActive ? 'nav.plansMember' : item.labelKey);
   // The floating squirrel follows Pro accounts to every page but the chat itself (and steps aside for เมนู on phones).
   const [assistantTransport, setAssistantTransport] = useState<AssistantTransport | undefined>(undefined);
   // Pro that has ended keeps เลขา while tokens are left from its last month (owner, 2026-10-28): the server says so
   // (plan 'lapsed'); every other Pro feature stays off.
-  const proEnded = !isPro && !isAdminProRevoked && Boolean(subscription?.currentPeriodEnd) && subscription?.plan !== 'admin_grant'
+  const proEnded = !hasPaidPlan && !isAdminProRevoked && Boolean(subscription?.currentPeriodEnd) && subscription?.plan !== 'admin_grant'
     && new Date(subscription!.currentPeriodEnd!).getTime() <= Date.now();
   // Friends the owner gave trial tokens (2026-11-04) chat too, without Pro: the server says so (plan 'trial').
   const assistantLapsed = assistantTransport?.plan === 'lapsed' || assistantTransport?.plan === 'trial';
-  const showBuddy = (isPro || assistantLapsed) && !assistantFollowing && activeTab !== 'assistant' && isPhaseOneFeatureAvailable('assistant', fullFeatureAccess) && !(isPhone && isMobileMenuOpen);
+  const showBuddy = (hasPaidPlan || assistantLapsed) && !assistantFollowing && activeTab !== 'assistant' && isPhaseOneFeatureAvailable('assistant', fullFeatureAccess) && !(isPhone && isMobileMenuOpen);
   // The post-payment guide: every screen (phones since 2026-10-29), a paying (or trial) account of its own, not a team's
   // books or the guest view; it steps aside while the phone menu is open.
   const showProGuide = !(isPhone && isMobileMenuOpen) && isPro && !isGuestProPreview && Boolean(session) && !session?.isGuest && !financeGroupId && isPhaseOneFeatureAvailable('assistant', fullFeatureAccess);
@@ -1441,7 +1454,7 @@ export default function App() {
   // เลขากระรอก goes live once /api/assistant is switched on for this account (AI_ENABLED on the server); until then
   // the chat and the floating squirrel keep their labelled sample answers. Personal workspace only for now, and only
   // accounts that can see เลขา at all ask (no extra request for everyone else).
-  const assistantUserId = session && !session.isGuest && (isPro || proEnded) && isPhaseOneFeatureAvailable('assistant', fullFeatureAccess) ? session.user.id : null;
+  const assistantUserId = session && !session.isGuest && (hasPaidPlan || proEnded) && isPhaseOneFeatureAvailable('assistant', fullFeatureAccess) ? session.user.id : null;
   // Every personal account asks once whether เลขา is on for it: the owner can give an account trial tokens without Pro
   // (backend/src/ai/testers.ts, 2026-11-04); everyone else gets plan 'none' and keeps the chat's try mode.
   const assistantCheckId = session && !session.isGuest && isPhaseOneFeatureAvailable('assistant', fullFeatureAccess) ? session.user.id : null;
@@ -1734,7 +1747,9 @@ export default function App() {
     finally { if (billingUserRef.current === userId) setBillingBusy(false); }
   };
 
-  const handleUpgrade = async (requestedMethod?: unknown, period: ProPeriod = 'month', options: Pick<CardOptions, 'autoRenew' | 'saveCard'> = { autoRenew: true, saveCard: true }, quietError = false) => {
+  const handleUpgrade = async (requestedMethod?: unknown, period: ProPeriod = 'month', options: Pick<CardOptions, 'autoRenew' | 'saveCard'> = { autoRenew: true, saveCard: true }, quietError = false, tier: PaidTier = 'pro') => {
+    // Plus is sold by the month only (owner, 2026-11-15).
+    if (tier === 'plus') period = 'month';
     const paymentMethod = requestedMethod === 'promptpay' ? 'promptpay' : 'card';
     const currentUser = session?.user;
     if (session?.isGuest) {
@@ -1753,11 +1768,11 @@ export default function App() {
     if (billingBusy) return;
     setBillingBusy(true);
     if (paymentMethod === 'card' && !hasOpenStripeSubscription) {
-      if (!embeddedPayment) setPreparingCard(period);
+      if (!embeddedPayment) setPreparingCard({ period, tier });
       void import('@stripe/stripe-js').catch(() => { /* The form retries a failed SDK load. */ });
     }
     const attempt = ++qrAttempt.current;
-    if (paymentMethod === 'promptpay' && !hasOpenStripeSubscription) setQrPayment({ period, checkout: null, status: 'loading' });
+    if (paymentMethod === 'promptpay' && !hasOpenStripeSubscription) setQrPayment({ period, tier, checkout: null, status: 'loading' });
     try {
       const userId = currentUser.id;
       const result = await apiJson<EmbeddedPayment & DirectQrPayment & { url?: string; destination: 'qr' | 'embedded' | 'paid_pending' | 'portal' }>('/api/billing', {
@@ -1767,19 +1782,19 @@ export default function App() {
         // when app entitlement or Checkout catalog validation is unavailable.
         body: JSON.stringify({ action: hasOpenStripeSubscription
           ? 'portal'
-          : paymentMethod === 'promptpay' ? 'promptpay_checkout' : 'checkout', ...(hasOpenStripeSubscription ? {} : { period, ...(paymentMethod === 'card' ? { ...options, consentVersion: CARD_CONSENT_VERSION } : {}) }) }),
+          : paymentMethod === 'promptpay' ? 'promptpay_checkout' : 'checkout', ...(hasOpenStripeSubscription ? {} : { period, ...(tier === 'plus' ? { tier } : {}), ...(paymentMethod === 'card' ? { ...options, consentVersion: CARD_CONSENT_VERSION } : {}) }) }),
       });
       if (billingUserRef.current !== userId) return;
       if (qrAttempt.current !== attempt) { setBillingBusy(false); return false; }
       setPreparingCard(null);
       if (result.destination === 'qr') {
-        const expected = proPricing()[period];
+        const expected = tier === 'plus' ? { months: PLUS_PRICE.months } : proPricing()[period];
         const image = new URL(result.qrImage);
         // Either date's price for this period (a QR made just before 1 Dec 2569 keeps its amount).
-        if (result.period !== period || result.months !== expected.months || !proPricePartsForCharge(expected.months, result.amount / 100)
+        if (result.period !== period || result.months !== expected.months || (result.tier ?? 'pro') !== tier || !proPricePartsForCharge(expected.months, result.amount / 100, tier)
           || !result.orderId || image.protocol !== 'https:' || !image.hostname.endsWith('.stripe.com')) throw new Error(tr("ข้อมูล QR ไม่ตรงกับแพ็กเกจที่เลือก"));
         markCheckoutPending(userId); setBillingPollVersion(version => version + 1);
-        if (qrAttempt.current === attempt) setQrPayment({ period, checkout: result, status: 'pending' });
+        if (qrAttempt.current === attempt) setQrPayment({ period, tier, checkout: result, status: 'pending' });
         setBillingBusy(false); return;
       }
       if (result.destination === 'paid_pending') {
@@ -1795,7 +1810,7 @@ export default function App() {
           throw new Error(tr("ข้อมูลการชำระเงินไม่ครบถ้วน"));
         markCheckoutPending(userId);
         setBillingPollVersion(version => version + 1);
-        setEmbeddedPayment(result);
+        setEmbeddedPayment({ ...result, tier: result.tier ?? tier });
         setBillingBusy(false);
         return true;
       }
@@ -1808,7 +1823,7 @@ export default function App() {
       if (qrAttempt.current === attempt) setPreparingCard(null);
       setBillingBusy(false);
       if (paymentMethod === 'promptpay') {
-        if (qrAttempt.current === attempt) setQrPayment({ period, checkout: null, status: 'loading', error: formatError(error) });
+        if (qrAttempt.current === attempt) setQrPayment({ period, tier, checkout: null, status: 'loading', error: formatError(error) });
       } else if (!quietError && qrAttempt.current === attempt) triggerAlert(tr("เปิดหน้าชำระเงินไม่สำเร็จ"), formatError(error));
       return false;
     }
@@ -1973,6 +1988,11 @@ export default function App() {
       if(!financeGroupId)setUserAvatar(data.avatar_data_url || '');
       if (billingUserRef.current === user.id && billingRequest === billingRequestRef.current) {
         setSubscription(billingSubscription(result.subscription, true));
+      }
+      // The server's plan switches, whatever a billing poll is doing meanwhile.
+      if (billingUserRef.current === user.id) {
+        setFreeMonthlyTokens(Number.isInteger(result.free_monthly_tokens) && result.free_monthly_tokens > 0 ? result.free_monthly_tokens : 0);
+        setPlusOnSale(result.plus_on_sale === true);
       }
       cloudReadyRef.current = owner;
       financeConflictRef.current=false;setLoadedFinanceOwner(owner);
@@ -3160,7 +3180,7 @@ export default function App() {
   const [proKvOpen, setProKvOpen] = useState(false);
   const kvParamRef = useRef<string | null | undefined>(undefined);
   if (kvParamRef.current === undefined) kvParamRef.current = new URLSearchParams(window.location.search).get('kv');
-  const proKvEligible = Boolean(session?.user?.id) && !session?.isGuest && !isPro && !financeGroupId && cloudSyncStatus === 'synced'
+  const proKvEligible = Boolean(session?.user?.id) && !session?.isGuest && !hasPaidPlan && !financeGroupId && cloudSyncStatus === 'synced'
     && loadedFinanceOwner === financeOwner && !termsWaiting && !onboardingFirst && !onboardingEdit && !birthOpen && !dialog.isOpen && !isProPromoOpen && !isImportOpen && activeTab === 'dashboard';
   useEffect(() => {
     if (!proKvEligible || proKvOpen || !session?.user?.id) return;
@@ -3179,7 +3199,7 @@ export default function App() {
     }, param === 'pro' ? 300 : 2500);
     return () => window.clearTimeout(timer);
   }, [proKvEligible, proKvOpen, session?.user?.id]);
-  useEffect(() => { if (isPro && proKvOpen) setProKvOpen(false); }, [isPro, proKvOpen]);
+  useEffect(() => { if (hasPaidPlan && proKvOpen) setProKvOpen(false); }, [hasPaidPlan, proKvOpen]);
 
   if (MotionStudy && pathname === '/motion-study') return <Suspense fallback={null}><MotionStudy /></Suspense>;
   if (pathname === '/connect-sheets') return loadingSession
@@ -3255,7 +3275,7 @@ export default function App() {
         ? <main className="flex h-dvh items-center justify-center bg-brand-bg p-6 text-brand-text"><div className="text-center"><p>{tr("เปิดเอกสารไม่สำเร็จ กรุณาลองอีกครั้ง")}</p><button type="button" onClick={() => window.location.reload()} className="mt-4 rounded-xl bg-[#E65F2B] px-5 py-3 font-semibold text-white">{tr("ลองอีกครั้ง")}</button></div></main>
         : <FullPageLoader title={tr("กำลังเปิดเอกสารของคุณ…")} />;
     }
-    return <VaultProvider key={financeOwner} financeKey={financeOwner} available isPro={isInFreeTrial || isPaidActive}
+    return <VaultProvider key={financeOwner} financeKey={financeOwner} available tier={isGuestProPreview ? 'free' : planTier}
       jobs={jobs} expenses={expenses} onUpgrade={() => navigatePath('/plans')} triggerConfirm={triggerConfirm} triggerAlert={triggerAlert}>
       <Suspense fallback={<FullPageLoader title={tr("กำลังเปิดเอกสารของคุณ…")} />}><LineDocumentsPage financeKey={financeOwner} jobs={jobs} expenses={expenses} /></Suspense>
       <CustomDialog dialog={dialog} onClose={() => setDialog(prev => ({ ...prev, isOpen: false }))} />
@@ -3272,7 +3292,7 @@ export default function App() {
       onCopy={() => { if (referral.code) void copyText(referral.code, tr("คัดลอกโค้ดแล้ว")); }}
       onEnter={submitReferral} onClose={() => setReferralView(null)}
       onChat={() => { setReferralView(null); navigateTab('assistant'); }} />, document.body) : null;
-  const chatReferral = referral?.canEnter && !isPro && referralAccount
+  const chatReferral = referral?.canEnter && !hasPaidPlan && referralAccount
     ? { tokens: referral.tokens, onOpen: () => setReferralView('enter') } : null;
 
   return (
@@ -3421,7 +3441,7 @@ export default function App() {
                       ) : isPaidActive ? (
                         <>
                           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                          <span className="text-emerald-600 dark:text-emerald-400 font-display font-black inline-flex items-center gap-1">PRO</span>
+                          <span className="text-emerald-600 dark:text-emerald-400 font-display font-black inline-flex items-center gap-1">{paidBadge}</span>
                           {subscription?.currentPeriodEnd && (
                             <span className="text-[9px] text-brand-muted ml-auto font-mono">
                               {t('sidebar.until', { date: new Date(subscription.currentPeriodEnd).toLocaleDateString(dateLocale(), { month: 'short', day: 'numeric' }) })}
@@ -3529,7 +3549,7 @@ export default function App() {
         <div id="main-content" tabIndex={-1} role="main" inert={switchingFinance} className={`app-content-panel min-h-0 min-w-0 flex-1 overflow-y-auto ${chatFocus ? 'px-3 pt-3 pb-0' : `px-4 sm:px-6 lg:px-8 xl:px-10 ${isPhone ? 'pt-[10px]' : 'pt-16'} pb-6 lg:pb-8`} no-scrollbar bg-brand-bg text-brand-text w-full max-w-none ${chatFocus ? '' : activeTab === 'dashboard' ? 'lg:pt-6' : 'lg:pt-8'}${isPhone ? ' ksm-home-scroller' : ''}${showBuddy && !isPhone ? ' has-buddy' : ''}`}>
           {(activeTab === 'assistant' || assistantFollowing) && <Suspense fallback={null}>
             <div className={activeTab !== 'assistant' ? 'asx-follow-panel' : undefined}>
-              <AssistantChat key={financeOwner} mobile={isPhone} isPro={isPro} accountId={!financeGroupId ? session.user.id : undefined}
+              <AssistantChat key={financeOwner} mobile={isPhone} isPro={hasPaidPlan} accountId={!financeGroupId ? session.user.id : undefined}
                 workspaceSlug={assistantWorkspaceSlug} fullFeatureAccess={fullFeatureAccess} floating={activeTab !== 'assistant'}
                 onExpand={() => navigateTab('assistant')} onBack={() => setIsMobileMenuOpen(true)}
                 onExit={() => { setAssistantFollowing(false); if (activeTab === 'assistant') navigateTab(chatReturnTab.current); }} focus={chatFocus} previewTools={fullFeatureAccess}
@@ -3548,7 +3568,7 @@ export default function App() {
             key={financeOwner}
             financeKey={financeOwner}
             available={isPhaseOneFeatureAvailable('vault', fullFeatureAccess) && !session.isGuest && Boolean(financeOwner)}
-            isPro={isInFreeTrial || isPaidActive}
+            tier={isGuestProPreview ? 'free' : planTier}
             jobs={jobs}
             expenses={expenses}
             onUpgrade={() => navigateTab('plans')}
@@ -3740,7 +3760,8 @@ export default function App() {
                   jobs={jobs}
                   triggerAlert={triggerAlert}
                   triggerConfirm={triggerConfirm}
-                  freePlan={!isPro}
+                  freePlan={planTier === 'free'}
+                  plusPlan={isPlus}
                   onUpgradePrompt={openProPromo}
                   onMobileBack={openPhoneMenu}
                   onOpenIssuer={() => { setSettingsEntry(entry => ({ view: 'business', n: entry.n + 1 })); navigateTab('settings'); }}
@@ -3873,6 +3894,9 @@ export default function App() {
                   onPromptPay={() => void handleUpgrade('promptpay')}
                   onStopAutoRenewal={() => void handleStopRenewal()}
                   onSubscribePeriod={(period, method) => void handleUpgrade(method, period)}
+                  onSubscribePlus={method => void handleUpgrade(method, 'month', undefined, false, 'plus')}
+                  plusOnSale={plusOnSale}
+                  freeMonthlyTokens={freeMonthlyTokens}
                   checkoutReady={checkoutReady}
                   billingBusy={billingBusy}
                   freeDocumentsAvailable
@@ -3923,6 +3947,8 @@ export default function App() {
                   notifSettings={notifSettings}
                   onUpdateNotifSettings={setNotifSettings}
                   isPro={isPro}
+                  isPlus={isPlus}
+                  lineOpen={lineOpen}
                   darkMode={darkMode}
                   onSetDarkMode={setDarkMode}
                   themePref={themePref}
@@ -4043,14 +4069,16 @@ export default function App() {
               </div>
             ) : undefined} />
         )}
-        {qrPayment && <DirectQrModal period={qrPayment.period} checkout={qrPayment.checkout}
+        {qrPayment && <DirectQrModal period={qrPayment.period} tier={qrPayment.tier} checkout={qrPayment.checkout}
           status={qrPayment.status} error={qrPayment.error}
           onClose={() => { qrAttempt.current++; setQrPayment(null); }}
-          onRetry={() => { void handleUpgrade('promptpay', qrPayment.period); }} />}
-        {preparingCard && !embeddedPayment && <PreparingCardModal amount={proPricing()[preparingCard].total} months={proPricing()[preparingCard].months}
+          onRetry={() => { void handleUpgrade('promptpay', qrPayment.period, undefined, false, qrPayment.tier); }} />}
+        {preparingCard && !embeddedPayment && <PreparingCardModal tier={preparingCard.tier}
+          amount={preparingCard.tier === 'plus' ? PLUS_PRICE.total : proPricing()[preparingCard.period].total}
+          months={preparingCard.tier === 'plus' ? PLUS_PRICE.months : proPricing()[preparingCard.period].months}
           onClose={() => { qrAttempt.current++; setPreparingCard(null); }}/>}
         {embeddedPayment?.customCard && <CardPaymentModal checkout={embeddedPayment} busy={billingBusy}
-          onOptions={options => handleUpgrade('card', embeddedPayment.period, options, true)}
+          onOptions={options => handleUpgrade('card', embeddedPayment.period, options, true, embeddedPayment.tier ?? 'pro')}
           onClose={() => { qrAttempt.current++; setEmbeddedPayment(null); }} onComplete={handleEmbeddedComplete}/>}
         {embeddedPayment && !embeddedPayment.customCard && <EmbeddedPaymentModal
           checkout={embeddedPayment}
@@ -4059,7 +4087,7 @@ export default function App() {
           onRetry={() => {
             const previous = embeddedPayment;
             setEmbeddedPayment(null);
-            void handleUpgrade(previous.method, previous.period);
+            void handleUpgrade(previous.method, previous.period, undefined, false, previous.tier ?? 'pro');
           }}
         />}
 

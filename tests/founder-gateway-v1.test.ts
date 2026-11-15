@@ -250,7 +250,8 @@ test('gateway: prompt version and bytes remain unchanged by the knowledge connec
   // every existing rule is byte-identical and a message without that slot builds exactly the v16 prompt.
   assert.equal(PROMPT_VERSION, 'secretary-v34');
   const prompt = await readFile(new URL('../backend/src/ai/prompt.ts', import.meta.url));
-  // Captured before the approved gateway-only connection; recaptured for secretary-v34 (money guru, owner 2026-11-15).
+  // Captured before the approved gateway-only connection; recaptured for secretary-v34 (money guru, owner 2026-11-15) and
+  // for the Plus PLAN line (2026-11-16: only a Plus account's PLAN line differs; every other prompt is byte-identical).
   // No dependency on a local audit folder.
-  assert.equal(createHash('sha256').update(prompt).digest('hex'), 'a23bdfefff68539a83fb7126a2b693d7fdc8e4b22f576327e5cce7a58f49aa62');
+  assert.equal(createHash('sha256').update(prompt).digest('hex'), 'd89a1839620bf2c9b9b93af77a65ac16c12e3849438adb1a5e7fe28d1bf43502');
 });

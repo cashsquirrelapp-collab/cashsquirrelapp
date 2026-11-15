@@ -59,20 +59,23 @@ for (const period of PRO_PERIODS) {
  });
 }
 
-test('the renewal consent names the amount charged, its price and fee, and the step to ฿271 from 1 Dec (v4)', () => {
-  // v4 (owner, 2026-10-25): shown ฿249, ฿271 charged with the payment fee from 1 Dec 2569; while the promotion runs a
-  // monthly renewal agrees to both amounts. v1–v3 subscriptions keep renewing at what they agreed.
+test('the renewal consent names the amount charged, its price and fee, and the step to ฿188 from 1 Dec (v5)', () => {
+  // v5 (owner, 2026-11-15): shown ฿169, ฿188 charged with the payment fee from 1 Dec 2569 (v4 said ฿249 / ฿271); while the
+  // promotion runs a monthly renewal agrees to both amounts. v1–v4 subscriptions keep renewing at what they agreed or less.
   // Since 2026-10-27 the checkbox reads the owner's sentence (the amounts are shown just above it); the record kept with
   // each checkout is that sentence and the amounts it was shown with.
   const label = 'ยินยอมให้ต่ออายุ Pro และตัดเงินอัตโนมัติทุกเดือนตามราคาที่กำหนด จนกว่าจะยกเลิก';
   assert.equal(renewalConsentLabel('month'), label);
   assert.equal(renewalConsentLabel('halfYear'), 'ยินยอมให้ต่ออายุ Pro และตัดเงินอัตโนมัติทุก 6 เดือนตามราคาที่กำหนด จนกว่าจะยกเลิก');
   assert.equal(renewalConsentLabel('year'), 'ยินยอมให้ต่ออายุ Pro และตัดเงินอัตโนมัติทุกปีตามราคาที่กำหนด จนกว่าจะยกเลิก');
-  assert.equal(renewalConsentText('month', new Date('2026-10-24T05:00:00Z')), `${label} (ราคาที่แสดง: ฿177/เดือน (ราคา ฿159 + ค่าธรรมเนียมชำระเงิน ฿18) ถึงวันที่ 30 พ.ย. 2569 จากนั้น ฿271/เดือน (ราคา ฿249 + ค่าธรรมเนียมชำระเงิน ฿22) · ยกเลิกได้ก่อนรอบบิลถัดไปที่หน้าสมาชิก)`);
+  assert.equal(renewalConsentText('month', new Date('2026-10-24T05:00:00Z')), `${label} (ราคาที่แสดง: ฿177/เดือน (ราคา ฿159 + ค่าธรรมเนียมชำระเงิน ฿18) ถึงวันที่ 30 พ.ย. 2569 จากนั้น ฿188/เดือน (ราคา ฿169 + ค่าธรรมเนียมชำระเงิน ฿19) · ยกเลิกได้ก่อนรอบบิลถัดไปที่หน้าสมาชิก)`);
   assert.equal(renewalConsentText('month', new Date('2026-11-30T16:59:00Z')), renewalConsentText('month', new Date('2026-10-24T05:00:00Z')));
-  assert.equal(renewalConsentText('month', new Date('2026-11-30T17:00:00Z')), `${label} (ราคาที่แสดง: ฿271/เดือน (ราคา ฿249 + ค่าธรรมเนียมชำระเงิน ฿22) · ยกเลิกได้ก่อนรอบบิลถัดไปที่หน้าสมาชิก)`);
-  assert.deepEqual([...ACCEPTED_CARD_CONSENT_VERSIONS], ['krarok-card-20261021-v1', 'krarok-card-20261021-v2', 'krarok-card-20261024-v3', 'krarok-card-20261025-v4']);
-  assert.equal(CARD_CONSENT_VERSION, 'krarok-card-20261025-v4');
+  assert.equal(renewalConsentText('month', new Date('2026-11-30T17:00:00Z')), `${label} (ราคาที่แสดง: ฿188/เดือน (ราคา ฿169 + ค่าธรรมเนียมชำระเงิน ฿19) · ยกเลิกได้ก่อนรอบบิลถัดไปที่หน้าสมาชิก)`);
+  // Plus (owner, 2026-11-15): its own name and ฿115 (฿99 + ฿16), monthly only.
+  assert.equal(renewalConsentLabel('month', Date.now(), 'plus'), 'ยินยอมให้ต่ออายุ Plus และตัดเงินอัตโนมัติทุกเดือนตามราคาที่กำหนด จนกว่าจะยกเลิก');
+  assert.match(renewalConsentText('month', new Date('2026-11-20T05:00:00Z'), 'plus'), /ต่ออายุ Plus .*฿115\/เดือน \(ราคา ฿99 \+ ค่าธรรมเนียมชำระเงิน ฿16\)/);
+  assert.deepEqual([...ACCEPTED_CARD_CONSENT_VERSIONS], ['krarok-card-20261021-v1', 'krarok-card-20261021-v2', 'krarok-card-20261024-v3', 'krarok-card-20261025-v4', 'krarok-card-20261116-v5']);
+  assert.equal(CARD_CONSENT_VERSION, 'krarok-card-20261116-v5');
   assert.match(renewalConsentText('halfYear'), /ทุก 6 เดือนตามราคาที่กำหนด จนกว่าจะยกเลิก \(ราคาที่แสดง: ฿895\/6 เดือน \(ราคา ฿849 \+ ค่าธรรมเนียมชำระเงิน ฿46\)/);
   assert.match(renewalConsentText('year'), /ทุกปีตามราคาที่กำหนด จนกว่าจะยกเลิก \(ราคาที่แสดง: ฿1,562\/ปี \(ราคา ฿1,490 \+ ค่าธรรมเนียมชำระเงิน ฿72\)/);
   // The database accepts a consent text longer than 30 characters (cashflow_prepare_prepaid_checkout).
@@ -110,7 +113,8 @@ test('an auto-renewal bought at ฿159 before the payment fee keeps renewing at 
   assert.throws(()=>assertAutoSubscription(sub({...oldPrice,recurring:{...oldPrice.recurring,interval_count:6}}),earlier));
 });
 
-// ---------- the step to ฿271 from 1 Dec 2569 (owner, 2026-10-25: "ขึ้นเป็น ฿271 เองตั้งแต่ ธ.ค.") ----------
+// ---------- the step to the regular month from 1 Dec 2569 (owner, 2026-10-25: "ขึ้นเป็น ฿271 เองตั้งแต่ ธ.ค."; ฿188 since
+// 2026-11-15, consent v5; an order that agreed to ฿271 under v4 moves to ฿188 too) ----------
 const NOV = Date.parse('2026-11-10T03:00:00Z');
 function promoMonth(at = NOV, id = 'order') {
   const order: PrepaidOrder = { id,user_id:'user',period:'month',months:1,amount:17700,price_id:'price_promo',method:'card',customer_id:'cus_owner',livemode:false,
@@ -122,7 +126,7 @@ function promoMonth(at = NOV, id = 'order') {
 const monthPrice = (id: string, amount: number, lookup: string): any => ({ id, product:'prod_VTbexQEI6jrH8r', active:true, livemode:false, type:'recurring', billing_scheme:'per_unit', currency:'thb',
   unit_amount:amount, lookup_key:lookup, recurring:{ interval:'month', interval_count:1, usage_type:'licensed' }, metadata:{ offer:'card' } });
 const promoPrice = monthPrice('price_promo', 17700, recurringLookup('month', NOV));
-const regularPrice = monthPrice('price_regular', 27100, recurringLookup('month', PRO_MONTH_REGULAR_FROM));
+const regularPrice = monthPrice('price_regular', 18800, recurringLookup('month', PRO_MONTH_REGULAR_FROM));
 const subWith = (order: PrepaidOrder, price: any, periodEnd: number, over: any = {}): any => ({ id:'sub_card', livemode:false, customer:'cus_owner', collection_method:'charge_automatically', discounts:[],
   status:'active', cancel_at_period_end:false, metadata:order.request!.metadata, items:{ has_more:false, data:[{ id:'si_1', quantity:1, price, current_period_end:Math.floor(periodEnd/1000) }] }, ...over });
 const renewal = (order: PrepaidOrder, price: string, amount: number, start: number): any => ({ id:'in_card', livemode:false, customer:'cus_owner', currency:'thb', collection_method:'charge_automatically',
@@ -132,34 +136,39 @@ const renewal = (order: PrepaidOrder, price: string, amount: number, start: numb
 
 test('a promotion month agreed during the promotion records the step on its order; one made from 1 Dec has none', () => {
   const order = promoMonth();
-  assert.deepEqual([order.request!.metadata!.renewal_step_from, order.request!.metadata!.renewal_step_amount], ['2026-12-01', '27100']);
-  assert.match(String(order.request!.metadata!.consent_text), /฿177\/เดือน .* จากนั้น ฿271\/เดือน \(ราคา ฿249 \+ ค่าธรรมเนียมชำระเงิน ฿22\)/);
+  assert.deepEqual([order.request!.metadata!.renewal_step_from, order.request!.metadata!.renewal_step_amount], ['2026-12-01', '18800']);
+  assert.match(String(order.request!.metadata!.consent_text), /฿177\/เดือน .* จากนั้น ฿188\/เดือน \(ราคา ฿169 \+ ค่าธรรมเนียมชำระเงิน ฿19\)/);
   assert.ok(renewalStepOf(order));
+  // An order that agreed to ฿271 under v4 still steps (to ฿188, less than it agreed).
+  assert.ok(renewalStepOf({ ...order, request: { ...order.request!, metadata: { ...order.request!.metadata, renewal_step_amount: '27100' } } }));
   const december = promoMonth(Date.parse('2026-12-02T03:00:00Z'));
   assert.equal(december.request!.metadata!.renewal_step_amount, undefined);
-  assert.equal(renewalStepOf({ ...order, amount: 27100 }), null, 'only a promotion month steps');
+  assert.equal(renewalStepOf({ ...order, amount: 18800 }), null, 'only a promotion month steps');
   assert.equal(renewalStepOf({ ...order, request: { ...order.request!, metadata: { ...order.request!.metadata, renewal_step_amount: '30000' } } }), null);
 });
 
-test('the step: ฿271 accepted only from a period starting 1 Dec, only for an order that agreed; paying less is never refused', () => {
+test('the step: ฿188 accepted only from a period starting 1 Dec, only for an order that agreed; paying less is never refused', () => {
   const order = promoMonth();
   const dec = Date.parse('2026-12-10T03:00:00Z');
   // Moved to the regular price: the subscription still belongs to its order.
   assert.doesNotThrow(() => assertAutoSubscription(subWith(order, regularPrice, dec), order));
   const at = dec + 3600_000; // the renewal is processed on 10 Dec
-  assert.deepEqual(validateAutoInvoiceCharge(renewal(order, 'price_regular', 27100, dec), subWith(order, regularPrice, dec + 30 * 86400_000), order, at).amount, 27100);
+  assert.deepEqual(validateAutoInvoiceCharge(renewal(order, 'price_regular', 18800, dec), subWith(order, regularPrice, dec + 30 * 86400_000), order, at).amount, 18800);
+  const v4 = { ...order, request: { ...order.request!, metadata: { ...order.request!.metadata, renewal_step_amount: '27100' } } } as PrepaidOrder;
+  assert.equal(validateAutoInvoiceCharge(renewal(v4, 'price_regular', 18800, dec), subWith(v4, regularPrice, dec + 30 * 86400_000), v4, at).amount, 18800, 'v4 pays ฿188, not the ฿271 it agreed');
+  assert.throws(() => validateAutoInvoiceCharge(renewal(v4, 'price_regular', 27100, dec), subWith(v4, { ...regularPrice, unit_amount: 27100 }, dec), v4, at), 'never ฿271 any more');
   // Not moved in time: the old ฿177 is still accepted for December.
   assert.equal(validateAutoInvoiceCharge(renewal(order, 'price_promo', 17700, dec), subWith(order, promoPrice, dec + 30 * 86400_000), order, at).amount, 17700);
-  // Never ฿271 for a November period, never another amount, never without the agreement.
-  assert.throws(() => validateAutoInvoiceCharge(renewal(order, 'price_regular', 27100, NOV), subWith(order, regularPrice, dec), order, at));
+  // Never ฿188 for a November period, never another amount, never without the agreement.
+  assert.throws(() => validateAutoInvoiceCharge(renewal(order, 'price_regular', 18800, NOV), subWith(order, regularPrice, dec), order, at));
   assert.throws(() => validateAutoInvoiceCharge(renewal(order, 'price_regular', 30000, dec), subWith(order, { ...regularPrice, unit_amount: 30000 }, dec), order, at));
   const plain = { ...order, request: { ...order.request!, metadata: { ...order.request!.metadata, renewal_step_amount: undefined, renewal_step_from: undefined } } } as unknown as PrepaidOrder;
   assert.throws(() => assertAutoSubscription(subWith(plain, regularPrice, dec), plain));
-  assert.throws(() => validateAutoInvoiceCharge(renewal(plain, 'price_regular', 27100, dec), subWith(plain, regularPrice, dec), plain, at));
+  assert.throws(() => validateAutoInvoiceCharge(renewal(plain, 'price_regular', 18800, dec), subWith(plain, regularPrice, dec), plain, at));
   assert.throws(() => assertAutoSubscription(subWith(order, { ...regularPrice, lookup_key: 'something_else' }, dec), order), 'only the regular price itself');
 });
 
-test('the daily job moves a promotion month to ฿271 before its first renewal on or after 1 Dec; nothing else', async () => {
+test('the daily job moves a promotion month to ฿188 before its first renewal on or after 1 Dec; nothing else', async () => {
   const order = promoMonth();
   const second = promoMonth(NOV, 'order2');
   const third = promoMonth(NOV, 'order3');
@@ -188,7 +197,7 @@ test('the daily job moves a promotion month to ฿271 before its first renewal o
   const result = await advanceCardRenewals({ rows: async () => rows, stripe, livemode: false, dryRun: false });
   assert.deepEqual(updates, [['sub_due', { items: [{ id: 'si_1', price: 'price_regular' }], proration_behavior: 'none' }, 'krarok-month-step-20261201:sub_due']]);
   assert.deepEqual([result.processed, result.sent, result.skipped, result.failed], [4, 1, 3, 0], 'the plain one is not in the list; the cancelled one is not processed');
-  // Staging never changes Stripe; without the ฿271 price in Stripe, nothing moves and the job says so.
+  // Staging never changes Stripe; without the ฿188 price in Stripe, nothing moves and the job says so.
   updates.length = 0;
   assert.equal((await advanceCardRenewals({ rows: async () => rows, stripe, livemode: false, dryRun: true })).sent, 1);
   assert.equal(updates.length, 0);

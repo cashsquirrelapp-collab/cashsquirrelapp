@@ -150,6 +150,10 @@ interface SettingsTabProps {
   notifSettings: NotifSettings;
   onUpdateNotifSettings: (notifSettings: NotifSettings) => void;
   isPro?: boolean;
+  /** Plus (owner, 2026-11-15): the 08:00 reminders, not the monthly summary or 50 ทวิ. */
+  isPlus?: boolean;
+  /** LINE is open to every account while เลขา's free monthly allowance is on; otherwise to Plus and Pro. */
+  lineOpen?: boolean;
   darkMode: boolean;
   onSetDarkMode: (dark: boolean) => void;
   /** Light and dark by the clock or by hand (shared/themeSchedule.ts); the display sheet sets it. */
@@ -194,6 +198,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   notifSettings,
   onUpdateNotifSettings,
   isPro,
+  isPlus = false,
+  lineOpen,
   isGroupFinance = false,
   darkMode,
   themePref,
@@ -244,6 +250,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   // Settings opens on an overview of grouped rows; a row opens its detail page (or a small sheet).
   // LINE and the notification settings follow the launch policy (shared/featureAvailability.ts), not the admin-only switch.
   const lineAccess = isPhaseOneFeatureAvailable('line', fullFeatureAccess);
+  const hasPaidPlan = Boolean(isPro || isPlus);
+  const canLine = lineOpen ?? Boolean(isPro);
   const notificationsAccess = isPhaseOneFeatureAvailable('notifications', fullFeatureAccess);
   const [requestedView, setView] = useState<SettingsView>(initialView);
   const mobile = useMobileLayout();
@@ -716,7 +724,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
   const startLineConnect = (way: 'code' | 'login' = lineLoginOn ? 'login' : 'code') => {
     if (!lineAccess) return;
-    if (!isPro) { onSwitchTab('plans'); return; }
+    if (!canLine) { onSwitchTab('plans'); return; }
     // Pressing ยืนยัน is the LINE consent (owner, 2026-11-05; shared/consents.ts): kept with its time before the code is made.
     triggerConfirm(
       tr("ยินยอมการเชื่อมต่อ LINE"),
@@ -1073,24 +1081,29 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             : session?.isGuest ? <Note>{t('plans.guestPreviewSettingsNote')}</Note> : (<>
             <div className={`${uiSurface} divide-y divide-brand-border overflow-hidden`}>
               {([
-                [tr("สรุปการเงินรายเดือน"), tr("ส่งทุกวันที่ 1 ของเดือน ทางอีเมลของบัญชีนี้ (และ LINE ถ้าเชื่อมต่อไว้)"), !!notifSettings.monthlyReportEnabled, handleToggleMonthlyReport],
-                [tr("แจ้งเตือนเครดิตเทอม"), tr("เตือนก่อนครบกำหนดรับเงิน 1–2 วัน วันนี้ และเลยกำหนด ทุกวันประมาณ 08:00 น. (เวลาไทย) ทางอีเมลและ LINE ที่เชื่อมไว้"), !!notifSettings.dailyDigestEnabled, handleToggleDailyDigest],
-                [tr("แจ้งเตือนวันส่งงาน"), tr("เตือนงานที่ยังไม่ได้ส่งลูกค้า ก่อนถึงวันส่ง 1–2 วัน วันนี้ และเลยกำหนด ทุกวันประมาณ 08:00 น. (เวลาไทย) ทางอีเมลและ LINE ที่เชื่อมไว้"), deliveryReminderOn(notifSettings), handleToggleDeliveryReminder],
+                // Which plan each needs (shared/plans.ts): the 08:00 reminders are Plus and Pro, the rest Pro.
+                [tr("สรุปการเงินรายเดือน"), tr("ส่งทุกวันที่ 1 ของเดือน ทางอีเมลของบัญชีนี้ (และ LINE ถ้าเชื่อมต่อไว้)"), !!notifSettings.monthlyReportEnabled, handleToggleMonthlyReport, 'pro'],
+                [tr("แจ้งเตือนเครดิตเทอม"), tr("เตือนก่อนครบกำหนดรับเงิน 1–2 วัน วันนี้ และเลยกำหนด ทุกวันประมาณ 08:00 น. (เวลาไทย) ทางอีเมลและ LINE ที่เชื่อมไว้"), !!notifSettings.dailyDigestEnabled, handleToggleDailyDigest, 'plus'],
+                [tr("แจ้งเตือนวันส่งงาน"), tr("เตือนงานที่ยังไม่ได้ส่งลูกค้า ก่อนถึงวันส่ง 1–2 วัน วันนี้ และเลยกำหนด ทุกวันประมาณ 08:00 น. (เวลาไทย) ทางอีเมลและ LINE ที่เชื่อมไว้"), deliveryReminderOn(notifSettings), handleToggleDeliveryReminder, 'plus'],
                 // The 50 ทวิ page and its monthly LINE reminder opened to everyone on 2026-10-31 (owner: "แจ้งเตือนได้ด้วย").
                 ...(isPhaseOneFeatureAvailable('wht50', fullFeatureAccess) || notifSettings.wht50ReminderEnabled
-                  ? [[tr("ติดตามใบ 50 ทวิ"), tr("รวมงานที่รับเงินแล้วอย่างน้อย 7 วันและยังไม่มีใบ 50 ทวิแนบ ส่งเข้า LINE ที่เชื่อมไว้วันที่ 1 ของเดือนประมาณ 08:00 น. (เวลาไทย) เมื่อมีรายการค้างเท่านั้น"), wht50ReminderOn(notifSettings), handleToggleWht50Reminder] as const]
+                  ? [[tr("ติดตามใบ 50 ทวิ"), tr("รวมงานที่รับเงินแล้วอย่างน้อย 7 วันและยังไม่มีใบ 50 ทวิแนบ ส่งเข้า LINE ที่เชื่อมไว้วันที่ 1 ของเดือนประมาณ 08:00 น. (เวลาไทย) เมื่อมีรายการค้างเท่านั้น"), wht50ReminderOn(notifSettings), handleToggleWht50Reminder, 'pro'] as const]
                   : []),
-              ] as const).map(([title, desc, on, toggle]) => (
+              ] as const).map(([title, desc, on, toggle, need]) => {
+                const allowed = need === 'pro' ? Boolean(isPro) : hasPaidPlan;
+                return (
                 <div key={title} className={rowShell} data-guide-target={isPro && title === tr("แจ้งเตือนเครดิตเทอม") ? 'notif-digest' : undefined}>
                   <RowIcon icon={title === tr("สรุปการเงินรายเดือน") ? Mail : Bell} />
-                  <RowText title={<>{title}{!isPro && <ProBadge />}</>} desc={isPro ? desc : tr("ฟีเจอร์สำหรับสมาชิก Pro — สมัครเพื่อเปิดใช้งาน")} />
-                  {isPro ? <Switch on={on} onClick={toggle} label={title} />
+                  <RowText title={<>{title}{!allowed && <ProBadge name={need === 'pro' ? 'Pro' : 'Plus'} />}</>}
+                    desc={allowed ? desc : need === 'pro' ? tr("ฟีเจอร์สำหรับสมาชิก Pro — สมัครเพื่อเปิดใช้งาน") : tr("ฟีเจอร์สำหรับสมาชิก Plus และ Pro — สมัครเพื่อเปิดใช้งาน")} />
+                  {allowed ? <Switch on={on} onClick={toggle} label={title} />
                     : <button type="button" onClick={() => onSwitchTab('plans')} className={`${uiSecondaryButton} shrink-0 px-3 text-xs`}>{tr("อัปเกรด")}</button>}
                 </div>
-              ))}
+                );
+              })}
               <NavRow lead={<LineLogo size={30} />} title="LINE" desc={tr("เชื่อมต่อเพื่อรับสรุปและติดตามเอกสารในแชท LINE")} value={lineStatus} onClick={() => openView('line')} />
             </div>
-            {lineConnected && isPro && <Panel title={tr("ลองรับแจ้งเตือนทาง LINE")} desc={tr("ส่งข้อความตัวอย่างใกล้ครบกำหนด วันนี้ และเลยกำหนด เข้าบัญชี LINE ที่คุณเชื่อมไว้เท่านั้น ไม่มีผลกับงานหรือยอดเงินจริง")}>
+            {lineConnected && hasPaidPlan && <Panel title={tr("ลองรับแจ้งเตือนทาง LINE")} desc={tr("ส่งข้อความตัวอย่างใกล้ครบกำหนด วันนี้ และเลยกำหนด เข้าบัญชี LINE ที่คุณเชื่อมไว้เท่านั้น ไม่มีผลกับงานหรือยอดเงินจริง")}>
               <button type="button" onClick={handleTestReminder} disabled={reminderTestBusy} className={`${uiSecondaryButton} min-h-11 px-4 text-[13px] disabled:opacity-50`}>
                 <Bell className="h-4 w-4" />{reminderTestBusy ? tr("กำลังส่ง…") : tr("ทดสอบแจ้งเตือนเข้า LINE")}
               </button>
@@ -1142,7 +1155,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               <div className="flex items-center gap-4">
                 <LineLogo size={56} />
                 <div className="min-w-0 flex-1">
-                  <p className="flex items-center gap-2 text-[16px] font-semibold text-brand-text">LINE {!isPro && !lineConnected && <ProBadge />}</p>
+                  <p className="flex items-center gap-2 text-[16px] font-semibold text-brand-text">LINE {!canLine && !lineConnected && <ProBadge name="Plus" />}</p>
                   <p className="mt-0.5 flex items-center gap-1.5">
                     <span className={`h-2 w-2 rounded-full ${lineConnected ? 'bg-[#06C755]' : 'bg-[#B8B2AB]'}`} />{lineStatus}
                   </p>
@@ -1151,9 +1164,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               <p className="text-[13px] leading-relaxed text-brand-muted">
                 {lineConnected
                   ? tr("แจ้งเตือนจะส่งเข้า LINE และผู้ช่วยสนทนาอาจส่งข้อมูลที่เกี่ยวข้องให้ผู้ให้บริการ AI ประมวลผล")
-                  : isPro
+                  : hasPaidPlan
                     ? tr("เชื่อมบัญชี LINE เพื่อรับแจ้งเตือนเดียวกับอีเมล เผื่อพลาดดูอีเมล (ข้อมูลงานและยอดเงินจะปรากฏในแชท LINE)")
-                    : tr("ฟีเจอร์สำหรับสมาชิก Pro — สมัครเพื่อเปิดใช้งาน")}
+                    : canLine
+                    ? tr("เชื่อมบัญชี LINE เพื่อคุยกับเลขากระรอกและจดงานในแชท แจ้งเตือนรายวันมีในแพ็กเกจ Plus และ Pro")
+                    : tr("ฟีเจอร์สำหรับสมาชิก Plus และ Pro — สมัครเพื่อเปิดใช้งาน")}
               </p>
               {lineLoginResult && (
                 <p role={LINE_LINK_RESULTS[lineLoginResult].ok ? 'status' : 'alert'} data-testid="line-link-result"
@@ -1169,9 +1184,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                   <button type="button" onClick={() => startLineConnect()} disabled={isGeneratingLineCode || lineLoginBusy} data-guide-target={isPro ? 'line-connect' : undefined} data-testid="line-connect"
                     className="inline-flex h-10 items-center rounded-xl bg-[#06C755] px-5 text-[13px] font-semibold text-white transition-colors hover:bg-[#05B34C] disabled:opacity-50 cursor-pointer">
-                    {isGeneratingLineCode ? tr("กำลังสร้างรหัส…") : lineLoginBusy ? tr("กำลังไปที่ LINE…") : isPro ? tr("เชื่อมต่อ LINE") : tr("อัปเกรดเป็น Pro")}
+                    {isGeneratingLineCode ? tr("กำลังสร้างรหัส…") : lineLoginBusy ? tr("กำลังไปที่ LINE…") : canLine ? tr("เชื่อมต่อ LINE") : tr("อัปเกรด")}
                   </button>
-                  {isPro && lineLoginOn && (
+                  {canLine && lineLoginOn && (
                     <button type="button" onClick={() => startLineConnect('code')} disabled={isGeneratingLineCode || lineLoginBusy} data-testid="line-connect-code"
                       className="text-[13px] font-medium leading-[1.5] text-brand-muted underline underline-offset-4 hover:text-brand-text disabled:opacity-50 cursor-pointer">
                       {tr("หรือเชื่อมด้วยรหัส")}
@@ -1315,11 +1330,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     </div>}
                   </Section>
 
-                  {/* LINE and the reminders are Pro (the reminder jobs only send to Pro, the trial and admin grants),
-                      so they share one section (owner, 2026-10-21), as in the phone menu's LINE AI Pro. */}
-                  {(lineAccess || notificationsAccess || hasExistingNotifications) && <Section icon={Link2} title={tr("LINE AI Pro · การแจ้งเตือน")} id="settings-connect">
+                  {/* LINE and the reminders share one section (owner, 2026-10-21). Since 2026-11-15 LINE is open to every
+                      account and the 08:00 reminders come with Plus, so the title no longer says Pro. */}
+                  {(lineAccess || notificationsAccess || hasExistingNotifications) && <Section icon={Link2} title={tr("LINE · การแจ้งเตือน")} id="settings-connect">
                     {lineAccess && <NavRow lead={<LineLogo size={30} />} title="LINE" desc={tr("เชื่อมต่อ LINE เพื่อรับแจ้งเตือน")} value={lineStatus} onClick={() => openView('line')} guide="line" />}
-                    {(notificationsAccess || hasExistingNotifications) && <NavRow icon={Bell} title={notificationsAccess ? tr("การแจ้งเตือน") : tr("จัดการการแจ้งเตือนเดิม")} desc={notificationsAccess ? tr("เลือกช่องทางและเรื่องที่อยากให้แจ้งเตือน") : tr("ปิดการแจ้งเตือนหรือยกเลิกช่องทางที่เชื่อมต่อไว้")} value={notificationsAccess && !isPro ? <ProBadge /> : undefined} onClick={() => openView('notif')} guide="notif" />}
+                    {(notificationsAccess || hasExistingNotifications) && <NavRow icon={Bell} title={notificationsAccess ? tr("การแจ้งเตือน") : tr("จัดการการแจ้งเตือนเดิม")} desc={notificationsAccess ? tr("เลือกช่องทางและเรื่องที่อยากให้แจ้งเตือน") : tr("ปิดการแจ้งเตือนหรือยกเลิกช่องทางที่เชื่อมต่อไว้")} value={notificationsAccess && !hasPaidPlan ? <ProBadge name="Plus" /> : undefined} onClick={() => openView('notif')} guide="notif" />}
                   </Section>}
 
                   {/* Admins only (owner, 2026-11-03: "อยากเห็นพรีวิวคู่มือหลังเติมโปร ... เป็นปุ่มไว้ที่ตั้งค่า"): the same scenes a

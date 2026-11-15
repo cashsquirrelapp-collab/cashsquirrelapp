@@ -1,18 +1,19 @@
 import { withGuard, HttpError, readRawBody } from '../http/guard.js';
 import { requireUser } from '../security/session.js';
 import { rateLimit } from '../security/rateLimit.js';
-import { hasProAccess, resolveVaultScope, storeVaultFile, vaultMetaSchema } from '../services/vault.js';
-import { VAULT_FREE_FILES, VAULT_MAX_BYTES, VAULT_MAX_FILES } from '../../../shared/vault.js';
+import { planTierForUser, resolveVaultScope, storeVaultFile, vaultMetaSchema } from '../services/vault.js';
+import { VAULT_MAX_BYTES } from '../../../shared/vault.js';
+import { PLAN_LIMITS } from '../../../shared/plans.js';
 
 // Upload one file to the document vault. The body is the raw file; what it is (kind, linked job,
-// original name) travels in the X-Vault-Meta header as URI-encoded JSON. Free accounts keep up to
-// VAULT_FREE_FILES files; Pro has no limit (owner, 2026-10-31).
+// original name) travels in the X-Vault-Meta header as URI-encoded JSON. Each plan keeps its own number of files
+// (shared/plans.ts: Free 5, Plus 50, Pro without limit; owner, 2026-10-31 and 2026-11-15).
 export default withGuard(async (req, res) => {
   if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
   const user = await requireUser(req, res);
   const scope = await resolveVaultScope(req, user);
   await rateLimit('vault-upload', user.id, 30, 60);
-  const maxFiles = (await hasProAccess(user)) ? VAULT_MAX_FILES : VAULT_FREE_FILES;
+  const maxFiles = PLAN_LIMITS[await planTierForUser(user)].vaultFiles;
   let meta: unknown;
   try { meta = JSON.parse(decodeURIComponent(String(req.headers['x-vault-meta'] || ''))); }
   catch { throw new HttpError(400, 'ข้อมูลไฟล์ไม่ถูกต้อง'); }

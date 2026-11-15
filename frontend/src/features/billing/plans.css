@@ -133,8 +133,8 @@
 /* ── Computers and iPads: design F (owner, 2026-10-28/29) ─────────────────────────────────────────────────────────────
    The hero line, then the price card in the middle as the one focal point, then three small cards of what Pro gives.
    CI colours only (orange, rust, caramel, cream); gradients and glow are allowed on this page alone (DESIGN.md). */
-.pf-page { --pf-ink-soft: #5D5753; --pf-cream: #FFF1E8; --pf-card-a: rgba(255, 255, 255, 0.97); --pf-card-b: rgba(255, 244, 236, 0.95); --pf-chip: #FFFFFF; --pf-inner: #FFFFFF; }
-.dark .pf-page { --pf-ink-soft: #C9C4BF; --pf-cream: rgba(255, 164, 115, 0.1); --pf-card-a: #27221F; --pf-card-b: #201B18; --pf-chip: #332B27; --pf-inner: #2A2420; }
+.pf-page { --pf-line: #ECE3DB; --pf-ink-soft: #5D5753; --pf-cream: #FFF1E8; --pf-card-a: rgba(255, 255, 255, 0.97); --pf-card-b: rgba(255, 244, 236, 0.95); --pf-chip: #FFFFFF; --pf-inner: #FFFFFF; }
+.dark .pf-page { --pf-line: #3A322D; --pf-ink-soft: #C9C4BF; --pf-cream: rgba(255, 164, 115, 0.1); --pf-card-a: #27221F; --pf-card-b: #201B18; --pf-chip: #332B27; --pf-inner: #2A2420; }
 .pf-page button:focus-visible { outline: 2px solid #E65F2B; outline-offset: 2px; }
 
 .pf-hero { position: relative; display: flex; flex-direction: column; align-items: center; padding-top: 8px; text-align: center; }
@@ -328,3 +328,33 @@
 .pf-row-detail .pf-line-note { margin-top: 2px; }
 @keyframes pf-drop { from { opacity: 0; transform: translateY(-8px) scale(0.98); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .pf-row-detail { animation: none; } .pf-row .pf-go { transition: none; } }
+
+/* ── Free / Plus / Pro (owner, 2026-11-15) ─────────────────────────────────────────────────────────────────────────
+   The note a member reads on the other plan's card, and the comparison under the card: one table on computers and
+   iPads, the same rows with three values under each line on phones. Warm CI only, flat; the chosen plan's column is
+   tinted cream, the account's own plan is named in its head. */
+.pf-other-plan { margin: 0; padding: 12px 14px; border-radius: 14px; background: var(--pf-cream); color: var(--text); font-size: 13px; line-height: 1.6; text-align: center; }
+.pf-compare { margin-top: 36px; }
+.pf-cmp-wrap { overflow: hidden; border: 1px solid var(--pf-line); border-radius: 20px; background: var(--pf-inner); }
+.pf-cmp-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 13.5px; line-height: 1.5; }
+.pf-cmp-table th, .pf-cmp-table td { padding: 11px 14px; border-top: 1px solid var(--pf-line); text-align: center; vertical-align: middle; }
+.pf-cmp-table thead th { border-top: 0; padding-top: 16px; padding-bottom: 14px; vertical-align: top; }
+.pf-cmp-table tbody th { width: 40%; font-weight: 500; color: var(--text); text-align: left; }
+.pf-cmp-corner { width: 40%; }
+.pf-cmp-plan b { display: block; font-size: 15px; font-weight: 600; color: var(--text); }
+.pf-cmp-plan small { display: block; margin-top: 2px; font-size: 12px; font-weight: 500; color: var(--muted); }
+.pf-cmp-now { display: inline-block; margin-top: 6px; padding: 1px 8px; border-radius: 999px; background: #FFEFC4; color: #8A5A0B; font-size: 11px; font-style: normal; font-weight: 600; line-height: 1.5; }
+.dark .pf-cmp-now { background: rgba(242, 183, 107, 0.18); color: #F2B76B; }
+.pf-cmp-cell.is-chosen, .pf-cmp-plan.is-chosen { background: var(--pf-cream); }
+.pf-cmp-val { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.pf-cmp-yes { display: inline-block; color: #E65F2B; }
+.pf-cmp-no { display: inline-block; color: var(--muted); opacity: 0.6; }
+.pf-cmp-list { margin: 0; padding: 0; list-style: none; border: 1px solid var(--pf-line); border-radius: 18px; background: var(--pf-inner); overflow: hidden; }
+.pf-cmp-heads { display: grid; grid-template-columns: repeat(3, 1fr); padding: 10px 8px 8px; }
+.pf-cmp-heads .pf-cmp-plan { padding: 6px 4px; border-radius: 12px; text-align: center; }
+.pf-cmp-heads .pf-cmp-plan.is-current b::after { content: ' •'; color: #E65F2B; }
+.pf-cmp-item { padding: 10px 8px 10px; border-top: 1px solid var(--pf-line); }
+.pf-cmp-label { margin: 0 6px 6px; font-size: 13px; font-weight: 500; line-height: 1.5; color: var(--text); }
+.pf-cmp-values { display: grid; grid-template-columns: repeat(3, 1fr); }
+.pf-cmp-values .pf-cmp-cell { display: flex; align-items: center; justify-content: center; min-height: 30px; padding: 2px 4px; border-radius: 10px; font-size: 13px; line-height: 1.45; text-align: center; }
+.pf-page.is-phone .pf-compare { margin-top: 28px; }

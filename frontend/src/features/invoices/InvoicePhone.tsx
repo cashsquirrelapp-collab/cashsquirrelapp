@@ -104,6 +104,9 @@ export interface InvoicePhoneModel {
   print: () => void;
   notify: (title: string, message: string) => void;
   freePlan: boolean;
+  /** Free or Plus: new documents are counted (the strip shows how many are left). */
+  quotaPlan: boolean;
+  quotaLabel: string;
   quota: { used: number; limit: number } | null;
   quotaLeft: number;
   upgradeQuota: () => void;
@@ -424,9 +427,9 @@ function ListScreen({ m, title, onOpen, onIssuer, onNew }: { m: InvoicePhoneMode
           {m.legacy && <button type="button" onClick={m.importLegacy}>{tr("นำเข้าเอกสารเดิมจากเครื่อง")}</button>}
         </div>
       )}
-      {m.freePlan && m.quota && (
+      {m.quotaPlan && m.quota && (
         <div data-testid="document-quota" role="status" className={`dp-quota${m.quotaLeft === 0 ? ' is-full' : ''}`}>
-          <span>{tr("โควตาออกเอกสารฟรีเดือนนี้:")}{' '}<b>{Math.min(m.quota.used, m.quota.limit)}/{m.quota.limit}</b> {tr("ฉบับ")}{m.quotaLeft === 0 ? tr(" · ครบแล้ว") : tr(" · เหลือ {0} ฉบับ", m.quotaLeft)}</span>
+          <span>{m.quotaLabel}{' '}<b>{Math.min(m.quota.used, m.quota.limit)}/{m.quota.limit}</b> {tr("ฉบับ")}{m.quotaLeft === 0 ? tr(" · ครบแล้ว") : tr(" · เหลือ {0} ฉบับ", m.quotaLeft)}</span>
           {m.quotaLeft === 0 && <button type="button" onClick={m.upgradeQuota}>{tr("อัปเกรดเป็น Pro")}</button>}
         </div>
       )}

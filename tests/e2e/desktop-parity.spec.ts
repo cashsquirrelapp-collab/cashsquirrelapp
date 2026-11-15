@@ -135,7 +135,7 @@ test('computer, dark mode: orange buttons read white', async ({ page }) => {
 
 test('computer: notifications sit with LINE in the Pro section of settings', async ({ page }) => {
   await open(page, 1280, 800, '/settings');
-  const pro = page.getByRole('region', { name: 'LINE AI Pro · การแจ้งเตือน' });
+  const pro = page.getByRole('region', { name: 'LINE · การแจ้งเตือน' });
   await expect(pro.getByRole('button', { name: /^LINE/ })).toBeVisible();
   await expect(pro.getByRole('button', { name: /^การแจ้งเตือน/ })).toBeVisible();
   await expect(page.getByRole('region', { name: 'การใช้งาน' }).getByRole('button', { name: /^การแจ้งเตือน/ })).toHaveCount(0);

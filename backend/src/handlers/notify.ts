@@ -9,7 +9,7 @@ import { canViewAdminAnalytics } from '../security/adminAnalyticsAccess.js';
 import { buildLineSampleCards } from '../services/lineSampleCards.js';
 import { buildLineDisconnected } from '../services/lineLinkCards.js';
 import { buildReminderTestMessages } from '../services/lineReminders.js';
-import { hasProAccess } from '../services/vault.js';
+import { planTierForUser } from '../services/vault.js';
 
 // Authenticated notifications go only to the verified account's server-managed LINE link.
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -32,7 +32,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (event === 'reminder-test') {
     // Keep test sends bounded and scoped to the authenticated account, never a body recipient.
     await rateLimit('line-reminder-test', userId, 1, 60);
-    if (!(await hasProAccess(user))) throw new HttpError(402, 'การแจ้งเตือนเป็นฟีเจอร์สำหรับสมาชิก Pro', 'pro_required');
+    // The 08:00 reminders are Plus's as well as Pro's (shared/plans.ts), so either may test them.
+    if ((await planTierForUser(user)) === 'free') throw new HttpError(402, 'การแจ้งเตือนเป็นฟีเจอร์สำหรับสมาชิก Plus และ Pro', 'pro_required');
   }
   // The owner's own LINE only (admin page, 2026-11-03): every card a Pro account receives, from sample data.
   if (event === 'admin-line-samples') {

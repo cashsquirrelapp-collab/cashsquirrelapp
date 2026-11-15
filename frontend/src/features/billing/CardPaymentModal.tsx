@@ -7,15 +7,16 @@ import { CARD_SAVE_DISCLOSURE, renewalConsentLabel, type CardOptions } from '../
 import { PRO_MONTH_PROMO_NEXT_DAY, PRO_MONTH_RENEWAL_STEP, proMonthPromoRunning, proPricePartsForCharge } from '../../../../shared/proPricing';
 import { promoDay } from './promoNotice';
 import type { EmbeddedPayment } from './EmbeddedPaymentModal';
+import { PLAN_NAMES, type PaidTier } from '../../../../shared/plans';
 
 import { tr } from '../../i18n/tr';
 import { confirmationDetail } from './confirmationDetail';
 /** Show the selected package immediately while the server validates/prepares it. */
-export function PreparingCardModal({ amount, months, onClose }: { amount: number; months: number; onClose: () => void }) {
+export function PreparingCardModal({ amount, months, tier = 'pro', onClose }: { amount: number; months: number; tier?: PaidTier; onClose: () => void }) {
   return <Modal open onClose={onClose} label={tr("ชำระด้วยบัตร")} width={520}>
     <div className="p-6 pt-9 font-sans sm:p-7 sm:pt-10">
-      <CardHeader duration={months === 12 ? tr("1 ปี") : tr("{0} เดือน", months)} />
-      <AmountSummary amount={amount.toLocaleString('th-TH')} parts={proPricePartsForCharge(months, amount)} />
+      <CardHeader duration={months === 12 ? tr("1 ปี") : tr("{0} เดือน", months)} tier={tier} />
+      <AmountSummary amount={amount.toLocaleString('th-TH')} parts={proPricePartsForCharge(months, amount, tier)} />
       <p role="status" className="mt-6 text-[13px] text-brand-muted">{tr("กำลังเตรียมช่องกรอกบัตร…")}</p>
       <div aria-hidden="true" className="mt-3 h-28 animate-pulse rounded-2xl bg-brand-faint motion-reduce:animate-none"/>
       <SecureNote />
@@ -25,11 +26,11 @@ export function PreparingCardModal({ amount, months, onClose }: { amount: number
 
 // One type scale for the whole dialog (owner, 2026-10-21: the text looked untidy and oddly bold):
 // a 18px title, 13px body and labels, 12px notes, and weight only on the amount and the button.
-function CardHeader({ duration }: { duration: string }) {
+function CardHeader({ duration, tier = 'pro' }: { duration: string; tier?: PaidTier }) {
   return <div className="flex items-center gap-3.5">
     <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#FFF1E8] text-[#C24A16] dark:bg-[#E65F2B]/15 dark:text-[#FFA473]"><CreditCard size={21} strokeWidth={1.8}/></span>
     <div className="min-w-0"><h2 className="text-[18px] font-semibold leading-snug text-brand-text dark:text-white">{tr("ชำระด้วยบัตร")}</h2>
-      <p className="mt-0.5 text-[13px] text-brand-muted">{tr("กระรอกตุนเงิน · Pro {0}", duration)}</p></div>
+      <p className="mt-0.5 text-[13px] text-brand-muted">{tr("กระรอกตุนเงิน · {0} {1}", PLAN_NAMES[tier], duration)}</p></div>
   </div>;
 }
 // What the amount is made of (owner, 2026-10-25): the membership and the payment fee, shown before paying.
@@ -104,6 +105,7 @@ export function CardPaymentModal({ checkout, busy, onOptions, onClose, onComplet
   }, [autoRenew, checkout.autoRenew, checkout.clientSecret, busy, syncing, syncError, retry, completed]);
   const amount = (checkout.amount / 100).toLocaleString('th-TH');
   const duration = checkout.months === 12 ? tr("1 ปี") : tr("{0} เดือน", checkout.months);
+  const tier: PaidTier = checkout.tier ?? 'pro';
   React.useEffect(() => {
     let canceled = false;
     let payment: StripePaymentElement | undefined;
@@ -197,7 +199,7 @@ export function CardPaymentModal({ checkout, busy, onOptions, onClose, onComplet
   // A monthly renewal agreed to while the monthly promotion runs costs ฿271 (฿249 + the payment fee) from 1 Dec 2569
   // (consent v4, owner 2026-10-25).
   const nextRenewal = new Date(Date.now() + 7 * 3600_000); nextRenewal.setUTCMonth(nextRenewal.getUTCMonth() + 1);
-  const stepUp = checkout.months === 1 && proMonthPromoRunning() && checkout.amount === PRO_MONTH_RENEWAL_STEP.fromTotal * 100;
+  const stepUp = tier === 'pro' && checkout.months === 1 && proMonthPromoRunning() && checkout.amount === PRO_MONTH_RENEWAL_STEP.fromTotal * 100;
   const regular = PRO_MONTH_RENEWAL_STEP.total.toLocaleString('en-US');
   const nextRound = checkout.months === 12 ? tr("รอบถัดไป ฿{0} ทุกปี · ปิดการต่ออายุได้", amount)
     : stepUp && nextRenewal.toISOString().slice(0, 10) >= PRO_MONTH_PROMO_NEXT_DAY ? tr("รอบถัดไป ฿{0} ทุกเดือน · ปิดการต่ออายุได้", regular)
@@ -206,9 +208,9 @@ export function CardPaymentModal({ checkout, busy, onOptions, onClose, onComplet
     : tr("รอบถัดไป ฿{0} ทุก 6 เดือน · ปิดการต่ออายุได้", amount);
   return <Modal open onClose={paying ? () => {} : onClose} label={tr("ชำระด้วยบัตร")} width={520}>
     <div className="overflow-y-auto p-6 pt-9 font-sans sm:p-7 sm:pt-10">
-      <CardHeader duration={duration} />
-      <AmountSummary amount={amount} note={completed ? undefined : nextRound} parts={proPricePartsForCharge(checkout.months, checkout.amount / 100)} />
-      {completed ? <p role="status" className="py-8 text-center text-[14px] text-brand-text dark:text-white">{tr("กำลังยืนยันยอดชำระ สิทธิ์ Pro จะเปิดให้อัตโนมัติ")}</p> : <>
+      <CardHeader duration={duration} tier={tier} />
+      <AmountSummary amount={amount} note={completed ? undefined : nextRound} parts={proPricePartsForCharge(checkout.months, checkout.amount / 100, tier)} />
+      {completed ? <p role="status" className="py-8 text-center text-[14px] text-brand-text dark:text-white">{tr("กำลังยืนยันยอดชำระ สิทธิ์ {0} จะเปิดให้อัตโนมัติ", PLAN_NAMES[tier])}</p> : <>
         <div className="mt-6" />
         {!ready && !error && <p role="status" className="mb-3 text-[13px] text-brand-muted">{tr("กำลังเตรียมช่องกรอกบัตร…")}</p>}
         <div ref={mount} data-testid="custom-card-fields" inert={optionsPending || !!syncError || paying} className={optionsPending ? 'opacity-40' : ''}/>
@@ -216,7 +218,7 @@ export function CardPaymentModal({ checkout, busy, onOptions, onClose, onComplet
           <label className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-3.5 text-[13px] leading-relaxed text-brand-text transition-colors dark:text-white ${consented ? 'border-[#F3B08C] bg-[#FFF8F3] dark:border-[#E65F2B]/50 dark:bg-[#E65F2B]/10' : 'border-brand-border hover:bg-brand-faint/60'}`}>
             <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-[#E65F2B]" checked={consented}
               onChange={e => setConsented(e.target.checked)}/>
-            <span>{renewalConsentLabel(checkout.period)}</span>
+            <span>{renewalConsentLabel(checkout.period, Date.now(), tier)}</span>
           </label>
         </fieldset>
         {!consented && !optionsPending && !syncError && <p className="mt-2 text-[12px] text-brand-muted">{tr("ติ๊กยินยอมการต่ออายุก่อน จึงจะกดชำระได้")}</p>}

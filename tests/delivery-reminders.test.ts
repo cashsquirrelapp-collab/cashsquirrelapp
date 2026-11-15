@@ -128,7 +128,7 @@ test('a ส่งแล้ว press reaches the assistant after the account and 
   assert.deepEqual(calls, ['deliver:done']);
   assert.equal((reply?.[0] as { text?: string })?.text, 'ok');
   const expired = await handleAssistantMessage('U1', 'deliver:done:job-1', 'op-deliver-2', { ...deps, async isProUser() { return false; } } as never);
-  assert.match(JSON.stringify(expired), /Pro ของบัญชีนี้หมดอายุ/);
+  assert.match(JSON.stringify(expired), /แพ็กเกจของบัญชีนี้หมดอายุ/);
   assert.deepEqual(calls, ['deliver:done']);
 });
 

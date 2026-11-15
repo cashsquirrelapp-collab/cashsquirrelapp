@@ -31,6 +31,8 @@ let origin: string;
 let role: 'admin' | 'user' = 'admin';
 let stripeCalls: string[] = [];
 let catalog: Record<string, unknown>[] = [];
+// Stripe products the fake holds: Plus's is made by the button (owner, 2026-11-15).
+let products: string[] = [];
 
 const price = (lookup: string, amount: number, recurring: boolean) => ({
   id: `price_${lookup}`, object: 'price', active: true, livemode: true, type: recurring ? 'recurring' : 'one_time', currency: 'thb', unit_amount: amount * 100,
@@ -60,9 +62,20 @@ before(async () => {
         const form = new URLSearchParams(String(init?.body));
         const lookup = form.get('lookup_key')!;
         catalog = catalog.filter(item => item.lookup_key !== lookup);
-        const made = price(lookup, Number(form.get('unit_amount')) / 100, form.has('recurring[interval]'));
+        const metadata = Object.fromEntries([...form.entries()].filter(([key]) => key.startsWith('metadata[')).map(([key, value]) => [key.slice(9, -1), value]));
+        const made = { ...price(lookup, Number(form.get('unit_amount')) / 100, form.has('recurring[interval]')), product: form.get('product'), metadata };
         catalog.push(made);
         return json(made);
+      }
+      if (url.pathname.startsWith('/v1/products/') && method === 'GET') {
+        const id = decodeURIComponent(url.pathname.slice('/v1/products/'.length));
+        return products.includes(id) ? json({ id, object: 'product' })
+          : new Response(JSON.stringify({ error: { type: 'invalid_request_error', code: 'resource_missing', message: 'No such product' } }), { status: 404, headers: { 'content-type': 'application/json' } });
+      }
+      if (method === 'POST' && url.pathname === '/v1/products') {
+        const id = new URLSearchParams(String(init?.body)).get('id')!;
+        products.push(id);
+        return json({ id, object: 'product' });
       }
       if (url.pathname === '/v1/payment_method_configurations') return json({ object: 'list', has_more: false, data: [{ id: 'pmc_1', object: 'payment_method_configuration', active: true, is_default: true, livemode: true,
         card: { available: true, display_preference: { value: 'on' } }, promptpay: { available: true, display_preference: { value: 'on' } } }] });
@@ -78,6 +91,7 @@ before(async () => {
 beforeEach(() => {
   role = 'admin';
   stripeCalls = [];
+  products = [];
   catalog = [price(prepaidLookup('month'), 159, false), price(recurringLookup('month'), 159, true)];
 });
 
@@ -105,8 +119,11 @@ test('the owner\'s button creates the missing prices, and the answer after it is
   assert.equal(response.status, 200);
   const body = await response.json() as { status: string; created: number };
   const writes = stripeCalls.filter(call => call.startsWith('POST '));
-  assert.equal(body.created, writes.length);
-  assert.ok(writes.length >= 2 && writes.every(call => call === 'POST /v1/prices'), writes.join(', '));
+  const prices = writes.filter(call => call === 'POST /v1/prices');
+  assert.equal(body.created, prices.length);
+  // Pro's prices, and Plus's product (once) and its two prices.
+  assert.ok(prices.length >= 4 && writes.every(call => call === 'POST /v1/prices' || call === 'POST /v1/products'), writes.join(', '));
+  assert.equal(writes.filter(call => call === 'POST /v1/products').length, 1);
   assert.equal(body.status, 'ready');
 });
 

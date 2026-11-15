@@ -33,7 +33,7 @@ export default function AdminUsageTable({ accounts, figures, month, appDays, cop
     if (plan) return ({ paid: copy('Pro (จ่ายเงิน)', 'Pro (paid)'), trial: copy('ทดลองใช้', 'Trial'), granted: copy('แอดมินให้สิทธิ์', 'Granted'), admin: copy('แอดมิน', 'Admin'), free: 'Free' })[plan];
     return row.who ? ({ pro: 'Pro', trial: copy('ทดลองใช้', 'Trial'), admin: copy('แอดมิน', 'Admin'), free: 'Free', expired: copy('หมดอายุ', 'Expired') } as Record<string, string>)[row.who.planStatus] ?? row.who.planStatus : '—';
   };
-  const isPro = (row: UsageRow) => row.fig?.plan === 'paid' || row.who?.planStatus === 'pro';
+  const isPro = (row: UsageRow) => row.fig?.plan === 'paid' || row.who?.planStatus === 'pro' || row.who?.planStatus === 'plus';
   const shown = useMemo(() => {
     const list = rows.filter(row => filter === 'all' || (filter === 'heavy' ? row.level === 'heavy' : filter === 'light' ? row.level === 'light'
       : filter === 'none' ? row.level === 'none' : isPro(row) && row.level === 'none'));

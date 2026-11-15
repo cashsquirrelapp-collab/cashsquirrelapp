@@ -170,11 +170,11 @@ test('stale or invalid stored proposals never overwrite a record or change their
 test('new documents enforce quota before apply, return reserved slots on conflict/failure and leave edits uncharged', async () => {
   const f = fixture(); await executeDocumentAction('propose_add_document', args, f.context);
   const changes = proposalChanges(f.saved[0], null);
-  let allowed = false, slots: string[] | null = ['slot-10'], applied = true, failure = false;
+  let limit: number | null = 10, slots: string[] | null = ['slot-10'], applied = true, failure = false;
   let calls = 0, claims = 0, entitlementReads = 0; const released: string[][] = [];
   const deps = {
-    async unlimited(userId: string) { assert.equal(userId, owner); entitlementReads++; return allowed; },
-    async claim(userId: string, count: number) { assert.equal(userId, owner); assert.equal(count, 1); claims++; return slots; },
+    async limit(userId: string) { assert.equal(userId, owner); entitlementReads++; return limit; },
+    async claim(userId: string, count: number, max: number) { assert.equal(userId, owner); assert.equal(count, 1); assert.equal(max, limit); claims++; return slots; },
     async release(keys: string[]) { released.push(keys); },
     async apply(userId: string) { assert.equal(userId, owner); calls++; if (failure) throw new Error('transaction failed'); return applied; },
   };
@@ -193,8 +193,11 @@ test('new documents enforce quota before apply, return reserved slots on conflic
   const oldClaims = claims, oldReads = entitlementReads;
   assert.equal(await applyWithDocumentQuota(owner, [{ ...changes[0], version: 1 }], deps), true);
   assert.equal(claims, oldClaims); assert.equal(entitlementReads, oldReads);
-  allowed = true;
+  limit = 30;
   assert.equal(await applyWithDocumentQuota(owner, changes, deps), true);
-  assert.equal(claims, oldClaims, 'Pro and trial use the app entitlement and consume no free-document slot');
-  await assert.rejects(applyWithDocumentQuota(owner, changes, { ...deps, async unlimited() { throw new Error('entitlement unavailable'); } }), /entitlement unavailable/);
+  assert.equal(claims, oldClaims + 1, 'Plus counts against its own 30 a month');
+  limit = null;
+  assert.equal(await applyWithDocumentQuota(owner, changes, deps), true);
+  assert.equal(claims, oldClaims + 1, 'Pro and trial use the app entitlement and consume no document slot');
+  await assert.rejects(applyWithDocumentQuota(owner, changes, { ...deps, async limit() { throw new Error('entitlement unavailable'); } }), /entitlement unavailable/);
 });

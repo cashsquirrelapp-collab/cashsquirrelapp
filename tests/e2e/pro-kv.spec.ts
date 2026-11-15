@@ -39,7 +39,7 @@ test('a free account gets the invitation once a week; ✕ and ไว้ทีห
   await expect(kv(page).getByRole('heading', { name: /จ้างเลขาส่วนตัว\s*วันละไม่ถึง\s*฿6/ })).toBeVisible();
   await expect(page).not.toHaveURL(/kv=/);
   await expect(kv(page).getByTestId('kv-price')).toContainText('฿159');
-  await expect(kv(page).getByTestId('kv-price')).toContainText('฿249');
+  await expect(kv(page).getByTestId('kv-price')).toContainText('฿169');
   await expect(kv(page).getByRole('button', { name: 'สมัคร Pro เลย', exact: true })).toBeVisible();
   // เลขากระรอก is the app's own drawing, and what Pro gives is listed.
   await expect(kv(page).locator('.pkv-hero svg').first()).toBeVisible();

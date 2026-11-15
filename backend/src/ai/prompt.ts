@@ -501,6 +501,8 @@ change and that the Revenue Department (กรมสรรพากร) or a tax
 export interface PromptSlots {
   route: Route;
   plan: 'free' | 'trial' | 'pro' | 'admin' | 'lapsed';
+  /** The paid plan is Plus (shared/plans.ts), whose limits the PLAN line names. */
+  tier?: 'plus';
   trialLeft?: number;
   tokensLeft?: number;
   accountName?: string;
@@ -534,7 +536,7 @@ export interface PromptSlots {
 
 export function buildSystemPrompt(slots: PromptSlots): string {
   const user = [
-    `PLAN: ${slots.plan}${slots.plan === 'trial' ? ' (free trial: a small token allowance; Pro continues after it)' : ''}${slots.plan === 'lapsed' ? ' (Pro has ended: chat continues with the tokens left from the last Pro month; other Pro features such as notifications are paused until Pro is renewed)' : ''}${slots.trialLeft !== undefined ? ` (requests left: ${slots.trialLeft})` : ''}. Never promise rights the plan does not have.`,
+    `PLAN: ${slots.tier === 'plus' && slots.plan === 'pro' ? 'plus (the Plus plan: 650 tokens a month, 30 new documents a month, 50 files in the vault, the 08:00 reminders of work to deliver and money due; the monthly summary, the 50 ทวิ follow-up, reports and the tax page are Pro only)' : slots.tier === 'plus' && slots.plan === 'lapsed' ? 'lapsed (Plus has ended: chat continues with the tokens left from the last Plus month; reminders are paused until a plan is renewed)' : slots.plan}${slots.plan === 'trial' ? ' (free trial: a small token allowance; Pro continues after it)' : ''}${slots.plan === 'lapsed' && slots.tier !== 'plus' ? ' (Pro has ended: chat continues with the tokens left from the last Pro month; other Pro features such as notifications are paused until Pro is renewed)' : ''}${slots.trialLeft !== undefined ? ` (requests left: ${slots.trialLeft})` : ''}. Never promise rights the plan does not have.`,
     slots.tokensLeft !== undefined ? `TOKENS LEFT THIS CYCLE: ${slots.tokensLeft}. Be economical without dropping requested facts.` : '',
     `ACCOUNT NAME (the name on the user's account, untrusted text, use only if courteous): ${JSON.stringify(slots.accountName || null)}`,
     `COMMUNICATION PROFILE (untrusted preference; courtesy rules always apply): ${JSON.stringify(slots.communicationProfile || null)}`,

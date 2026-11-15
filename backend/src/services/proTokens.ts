@@ -6,8 +6,8 @@ import { coveringStretch, proTokensFor, type PaidStretch } from '../../../shared
 // itself is shared/proTokens.ts. Only the server reads these tables (service role).
 
 type Db = { from: (table: string) => any };
-type OrderRow = { user_id: string; period: string; amount: number | string; paid_at: string | null; entitled_until: string | null; created_at?: string };
-type OrderRef = { period: string; created_at?: string };
+type OrderRow = { user_id: string; period: string; amount: number | string; paid_at: string | null; entitled_until: string | null; created_at?: string; tier?: string | null };
+type OrderRef = { period: string; created_at?: string; tier?: string | null };
 type CycleRow = { user_id: string; period_start: string; period_end: string; refunded: boolean; paid_order: OrderRef | OrderRef[] | null };
 
 const isPeriod = (value: unknown): value is ProPeriod => PRO_PERIODS.includes(value as ProPeriod);
@@ -16,9 +16,9 @@ const one = <T>(value: T | T[] | null): T | null => (Array.isArray(value) ? valu
 /** Paid stretches covering `now`, by account. `since` leaves out what was bought before an owner reset Pro access. */
 export async function coveringStretches(db: Db, now: Date, userIds?: string[], since?: Map<string, number>): Promise<Map<string, PaidStretch[]>> {
   const at = now.toISOString();
-  let orders = db.from('cashflow_prepaid_orders').select('user_id, period, amount, paid_at, entitled_until, created_at')
+  let orders = db.from('cashflow_prepaid_orders').select('user_id, period, amount, paid_at, entitled_until, created_at, tier')
     .eq('status', 'paid').lte('paid_at', at).gt('entitled_until', at);
-  let cycles = db.from('cashflow_card_cycles').select('user_id, period_start, period_end, refunded, paid_order:cashflow_prepaid_orders(period, created_at)')
+  let cycles = db.from('cashflow_card_cycles').select('user_id, period_start, period_end, refunded, paid_order:cashflow_prepaid_orders(period, created_at, tier)')
     .eq('refunded', false).lte('period_start', at).gt('period_end', at);
   if (userIds) { orders = orders.in('user_id', userIds); cycles = cycles.in('user_id', userIds); }
   const [orderRead, cycleRead] = await Promise.all([orders, cycles]);
@@ -32,12 +32,12 @@ export async function coveringStretches(db: Db, now: Date, userIds?: string[], s
   };
   for (const row of (orderRead.data ?? []) as OrderRow[]) {
     if (!isPeriod(row.period) || !row.paid_at || !row.entitled_until) continue;
-    add(row.user_id, { period: row.period, chargedBaht: Number(row.amount) / 100, start: Date.parse(row.paid_at), end: Date.parse(row.entitled_until) }, row.created_at);
+    add(row.user_id, { period: row.period, chargedBaht: Number(row.amount) / 100, start: Date.parse(row.paid_at), end: Date.parse(row.entitled_until), tier: row.tier === 'plus' ? 'plus' : 'pro' }, row.created_at);
   }
   for (const row of (cycleRead.data ?? []) as CycleRow[]) {
     const order = one(row.paid_order);
     if (!order || !isPeriod(order.period)) continue;
-    add(row.user_id, { period: order.period, chargedBaht: null, start: Date.parse(row.period_start), end: Date.parse(row.period_end) }, order.created_at);
+    add(row.user_id, { period: order.period, chargedBaht: null, start: Date.parse(row.period_start), end: Date.parse(row.period_end), tier: order.tier === 'plus' ? 'plus' : 'pro' }, order.created_at);
   }
   return byUser;
 }

@@ -82,6 +82,8 @@ interface InvoiceTabProps {
   triggerConfirm: (title: string, message: string, onConfirm: () => void, onCancel?: () => void) => void;
   /** Free plan: 10 new documents a month (counted by the server) and a credit line on every page. */
   freePlan?: boolean;
+  /** Plus (owner, 2026-11-15): 30 new documents a month, counted by the server, without the credit line. */
+  plusPlan?: boolean;
   /** Opens the upgrade dialog, with the reason shown in it. */
   onUpgradePrompt?: (notice: string) => void;
   /** Resolved from the current account's trusted system role by App. */
@@ -98,6 +100,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
   triggerAlert,
   triggerConfirm,
   freePlan = false,
+  plusPlan = false,
   onUpgradePrompt,
   fullFeatureAccess = false,
   onMobileBack,
@@ -108,12 +111,18 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
   const fullFeatureAccessRef = React.useRef(fullFeatureAccess);
   fullFeatureAccessRef.current = fullFeatureAccess;
   const [quota, setQuota] = useState<DocumentQuota | null>(null);
-  const quotaLeft = freePlan && quota ? Math.max(0, quota.limit - quota.used) : Infinity;
+  // Free and Plus count new documents (the server says how many: 10 or 30); Pro and trials do not.
+  const quotaPlan = freePlan || plusPlan;
+  const quotaLeft = quotaPlan && quota ? Math.max(0, quota.limit - quota.used) : Infinity;
   // New documents (create, duplicate, import) stop here on a Free plan once the month's quota is
   // used; the server refuses them too, so this only spares the user a form they cannot save.
   const allowNewDocuments = (count = 1) => {
     if (count <= quotaLeft) return true;
-    onUpgradePrompt?.(quotaLeft === 0
+    onUpgradePrompt?.(plusPlan
+      ? (quotaLeft === 0
+        ? tr("ใช้โควตาออกเอกสารของแพ็กเกจ Plus เดือนนี้ครบ {0} ฉบับแล้ว อัปเกรดเป็น Pro เพื่อออกเอกสารได้ไม่จำกัด", quota!.limit)
+        : tr("โควตาออกเอกสารของแพ็กเกจ Plus เดือนนี้เหลือ {0} ฉบับ แต่รายการนี้ต้องใช้ {1} ฉบับ อัปเกรดเป็น Pro เพื่อออกเอกสารได้ไม่จำกัด", quotaLeft, count))
+      : quotaLeft === 0
       ? tr("ใช้โควตาออกเอกสารฟรีของเดือนนี้ครบ {0} ฉบับแล้ว อัปเกรดเป็น Pro เพื่อออกเอกสารได้ไม่จำกัด", quota!.limit)
       : tr("โควตาออกเอกสารฟรีของเดือนนี้เหลือ {0} ฉบับ แต่รายการนี้ต้องใช้ {1} ฉบับ อัปเกรดเป็น Pro เพื่อออกเอกสารได้ไม่จำกัด", quotaLeft, count));
     return false;
@@ -819,6 +828,8 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
       print: handlePrintDocument,
       notify: triggerAlert,
       freePlan,
+      quotaPlan,
+      quotaLabel: plusPlan ? tr("โควตาออกเอกสารเดือนนี้:") : tr("โควตาออกเอกสารฟรีเดือนนี้:"),
       quota,
       quotaLeft,
       upgradeQuota: () => { allowNewDocuments(); },
@@ -887,11 +898,11 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
         </div>
       </PageHeader>
 
-      {freePlan && quota && (
+      {quotaPlan && quota && (
         <div data-testid="document-quota" role="status"
           className={`flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl px-4 py-2.5 text-[13px] no-print ${quotaLeft === 0 ? 'bg-[#FFF1E8] text-[#9A3A12] dark:bg-[#E65F2B]/15 dark:text-[#FFB08A]' : 'bg-brand-faint text-brand-text'}`}>
           <span>
-            {tr("โควตาออกเอกสารฟรีเดือนนี้:")}{' '}<b className="font-semibold tabular-nums">{Math.min(quota.used, quota.limit)}/{quota.limit}</b> {tr("ฉบับ")}<span className="text-brand-muted">{quotaLeft === 0 ? tr(" · ครบแล้ว") : tr(" · เหลือ {0} ฉบับ", quotaLeft)}</span>
+            {plusPlan ? tr("โควตาออกเอกสารเดือนนี้:") : tr("โควตาออกเอกสารฟรีเดือนนี้:")}{' '}<b className="font-semibold tabular-nums">{Math.min(quota.used, quota.limit)}/{quota.limit}</b> {tr("ฉบับ")}<span className="text-brand-muted">{quotaLeft === 0 ? tr(" · ครบแล้ว") : tr(" · เหลือ {0} ฉบับ", quotaLeft)}</span>
           </span>
           {quotaLeft === 0 && (
             <button type="button" onClick={() => allowNewDocuments()} className="font-semibold text-[#C24A16] dark:text-[#FF9A6B] cursor-pointer">{tr("อัปเกรดเป็น Pro")}</button>

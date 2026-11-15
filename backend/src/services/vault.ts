@@ -1,4 +1,5 @@
 import { inFreeTrial } from '../../../shared/trial.js';
+import { PLAN_LIMITS, planTierOf, type PlanTier } from '../../../shared/plans.js';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { User } from '@supabase/supabase-js';
@@ -33,19 +34,20 @@ export function ensureVaultBucket(): Promise<void> {
   return bucketReady;
 }
 
-/** Same rule as the app: active trial, admin grant, or unexpired paid period. Fails closed. */
-export async function hasProAccess(user: User): Promise<boolean> {
-  if (await stagingOwnerAccount(user.id)) return true;
+/**
+ * The plan an account has now (shared/plans.ts: Free / Plus / Pro): the staging owner, a trial and an admin grant count
+ * as Pro; a paid period is Plus or Pro as the database names it; a ban or a removed grant is Free. Fails closed.
+ */
+export async function planTierForUser(user: Pick<User, 'id' | 'created_at'>): Promise<PlanTier> {
+  if (await stagingOwnerAccount(user.id)) return 'pro';
   const { data, error } = await getSupabaseAdmin().from('subscriptions').select('status, plan, current_period_end').eq('user_id', user.id).maybeSingle();
   if (error) throw error;
-  if (data?.plan === 'admin_revoked') return false;
+  return planTierOf({ sub: data, trial: inFreeTrial(user.created_at) });
+}
 
-  const trial = inFreeTrial(user.created_at);
-  if (trial) return true;
-  return data?.status === 'active' && (
-    data.plan === 'admin_grant' ||
-    (!!data.current_period_end && new Date(data.current_period_end).getTime() > Date.now())
-  );
+/** Full Pro (not Plus): the features only Pro has (shared/plans.ts PLAN_LIMITS.pro). Fails closed. */
+export async function hasProAccess(user: User): Promise<boolean> {
+  return (await planTierForUser(user)) === 'pro';
 }
 
 async function isGroupMember(userId: string, groupId: string): Promise<boolean> {
@@ -86,7 +88,7 @@ export const vaultMetaSchema = z.object({
   fileName: z.string().max(400),
 }).strict();
 
-/** `maxFiles`: VAULT_FREE_FILES for a free account (the upload is refused with 402 vault_free_full at the limit). */
+/** `maxFiles`: the plan's limit (shared/plans.ts: Free 5, Plus 50); the upload is refused with 402 vault_free_full at it. */
 export async function storeVaultFile(scope: VaultScope, user: User, body: Buffer, meta: z.infer<typeof vaultMetaSchema>, maxFiles = VAULT_MAX_FILES): Promise<VaultFile> {
   if (!body.length) throw new HttpError(400, 'ไฟล์ว่างเปล่า');
   if (body.length > VAULT_MAX_BYTES) throw new HttpError(413, 'ไฟล์ใหญ่เกิน 10 MB');
@@ -98,7 +100,10 @@ export async function storeVaultFile(scope: VaultScope, user: User, body: Buffer
   if (counted.error) throw counted.error;
   const count = counted.count || 0;
   if (maxFiles < VAULT_MAX_FILES && count >= maxFiles) {
-    throw new HttpError(402, `บัญชีฟรีเก็บไฟล์ในคลังเอกสารได้ ${VAULT_FREE_FILES} ไฟล์ อัปเกรดเป็น Pro เพื่อเก็บได้ไม่จำกัด`, 'vault_free_full');
+    // Free keeps 5 files, Plus 50 (shared/plans.ts); each is told what the next plan up gives.
+    throw new HttpError(402, maxFiles === VAULT_FREE_FILES
+      ? `บัญชีฟรีเก็บไฟล์ในคลังเอกสารได้ ${VAULT_FREE_FILES} ไฟล์ อัปเกรดเป็น Plus เพื่อเก็บได้ ${PLAN_LIMITS.plus.vaultFiles} ไฟล์ หรือ Pro เพื่อเก็บได้ไม่จำกัด`
+      : `แพ็กเกจ Plus เก็บไฟล์ในคลังเอกสารได้ ${maxFiles} ไฟล์ อัปเกรดเป็น Pro เพื่อเก็บได้ไม่จำกัด หรือลบไฟล์ที่ไม่ใช้`, 'vault_free_full');
   }
   if (count >= VAULT_MAX_FILES) throw new HttpError(409, 'คลังเอกสารเต็มแล้ว กรุณาลบไฟล์ที่ไม่ใช้ก่อน');
   await ensureVaultBucket();

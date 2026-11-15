@@ -15,7 +15,8 @@ import { loadSmartSwitch } from '../repositories/aiSwitch.js';
 import { loadLabs } from '../repositories/labs.js';
 import { labState } from '../../../shared/labs.js';
 import type { UserRow } from '../services/lineAssistant.js';
-import { listVaultFiles, hasProAccess } from '../services/vault.js';
+import { listVaultFiles, planTierForUser } from '../services/vault.js';
+import { PLAN_LIMITS, paidTierOfPlan } from '../../../shared/plans.js';
 import type { AssistantDb, PlanInfo, StoredProposal } from './service.js';
 import { MEMORY_LIMIT, type MemoryRow } from './memory.js';
 import { claimDocumentSlots, releaseDocumentSlots } from '../services/documentQuota.js';
@@ -63,9 +64,12 @@ export async function assistantPlan(user: User, now = Date.now()): Promise<PlanI
   if (sub?.plan === 'admin_revoked') return { plan: 'none' };
   if (sub?.plan === 'admin_removed') return grantedOnly(grants);
   if (sub?.status === 'active' && sub.plan === 'admin_grant') return { plan: 'pro', ...(grants ? { grants } : {}) };
-  // Paid Pro: tokens renew monthly on the renewal day of current_period_end.
+  // Paid Pro or Plus: tokens renew monthly on the renewal day of current_period_end. Plus (shared/plans.ts) chats as Pro
+  // does, on its own 650 tokens; the plan stays 'pro' for the chat's switches and `tier` says which.
   if (sub?.status === 'active' && sub.current_period_end && new Date(sub.current_period_end).getTime() > now) {
-    return { plan: 'pro', periodEnd: sub.current_period_end, tokens: sub.plan === 'pro_prepaid' ? await paidPlanTokens(user.id, now, sub.pro_access_reset_at) : undefined, ...(grants ? { grants } : {}) };
+    const plus = paidTierOfPlan(sub.plan) === 'plus';
+    const tokens = ['pro_prepaid', 'plus_prepaid'].includes(String(sub.plan)) ? await paidPlanTokens(user.id, now, sub.pro_access_reset_at) : undefined;
+    return { plan: 'pro', periodEnd: sub.current_period_end, tokens: tokens ?? (plus ? PLAN_LIMITS.plus.tokens! : undefined), ...(plus ? { tier: 'plus' as const } : {}), ...(grants ? { grants } : {}) };
   }
   // A friend trying เลขา (testers.ts): 200 tokens once, in a bucket of their own.
   if (await isTester(user.id)) return { plan: 'trial', tokens: TESTER_TOKENS, bucket: TESTER_BUCKET, ...(grants ? { grants } : {}) };
@@ -75,7 +79,9 @@ export async function assistantPlan(user: User, now = Date.now()): Promise<PlanI
   // every other Pro feature has already stopped (hasProAccess). Only after a paid period (an end date that has passed),
   // never for a removed or revoked admin grant, nor a subscription whose first payment never went through.
   if (sub && proHasEnded(sub, now)) {
-    return { plan: 'lapsed', periodEnd: sub.current_period_end, tokens: sub.plan === 'pro_prepaid' ? await paidPlanTokens(user.id, Date.parse(sub.current_period_end!) - 1, sub.pro_access_reset_at) : undefined, ...(grants ? { grants } : {}) };
+    const plus = paidTierOfPlan(sub.plan) === 'plus';
+    const tokens = ['pro_prepaid', 'plus_prepaid', 'plus_monthly'].includes(String(sub.plan)) ? await paidPlanTokens(user.id, Date.parse(sub.current_period_end!) - 1, sub.pro_access_reset_at) : undefined;
+    return { plan: 'lapsed', periodEnd: sub.current_period_end, tokens: tokens ?? (plus ? PLAN_LIMITS.plus.tokens! : undefined), ...(plus ? { tier: 'plus' as const } : {}), ...(grants ? { grants } : {}) };
   }
   // An account made on the morning of 5 Nov 2569 (signupTokens.ts): 200 free tokens once, in a bucket of its own; given
   // tokens (the owner's, or ชวนเพื่อน rewards) are added to it.
@@ -282,12 +288,12 @@ export const supabaseAssistantDb: AssistantDb = {
   },
   async applyChanges(userId, changes) {
     return applyWithDocumentQuota(userId, changes, {
-      unlimited: async owner => {
+      limit: async owner => {
         const { data, error } = await getSupabaseAdmin().auth.admin.getUserById(owner);
         if (error || !data?.user || data.user.id !== owner) throw error ?? new Error('auth user missing');
-        return hasProAccess(data.user);
+        return PLAN_LIMITS[await planTierForUser(data.user)].documentsPerMonth;
       },
-      claim: claimDocumentSlots,
+      claim: (owner, count, limit) => claimDocumentSlots(owner, count, new Date(), limit),
       release: releaseDocumentSlots,
       apply: async (owner, validated) => {
         // A pending goal proposal cannot outlive the account's verified admin feature access.

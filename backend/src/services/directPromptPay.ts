@@ -4,7 +4,7 @@ import type Stripe from 'stripe';
 import { stripe, configuredStripeLivemode } from '../config/stripe.js';
 import { getSupabaseAdmin } from '../config/supabase.js';
 import { HttpError } from '../http/guard.js';
-import { orderPriceAllowed, prepaidMetadata, PREPAID_OFFER, stripeId, type PrepaidOrder } from './prepaidPlans.js';
+import { orderPriceAllowed, orderTier, prepaidMetadata, PREPAID_OFFER, stripeId, type PrepaidOrder } from './prepaidPlans.js';
 import { rpc, orderById } from './prepaidBilling.js';
 
 const FLOW = 'direct_promptpay';
@@ -17,7 +17,7 @@ export function buildDirectQr(order: PrepaidOrder, email: string): Stripe.Paymen
     allowed_payment_method_types: ['promptpay'],
     payment_method_data: { type: 'promptpay', billing_details: { email } },
     confirm: true, metadata: metadata(order),
-    description: `krarok.com Pro ${order.months} months · one-time`, expand };
+    description: `krarok.com ${orderTier(order) === 'plus' ? 'Plus' : 'Pro'} ${order.months} months · one-time`, expand };
 }
 export function assertDirectQr(pi: Stripe.PaymentIntent, order: PrepaidOrder) {
   if (!isDirectQr(order) || order.method !== 'promptpay' || order.session_id
@@ -97,7 +97,7 @@ export async function startDirectQr(user: User, order: PrepaidOrder) {
   }
   await apply(pi, order);
   const common = { orderId: order.id, method: 'promptpay', amount: order.amount, months: order.months,
-    period: order.period, expiresAt: order.expires_at };
+    period: order.period, tier: orderTier(order), expiresAt: order.expires_at };
   if (['succeeded','processing'].includes(pi.status)) return { ...common, destination: 'paid_pending' };
   const qr = pi.next_action?.promptpay_display_qr_code;
   if (pi.status !== 'requires_action' || pi.next_action?.type !== 'promptpay_display_qr_code' || !qr?.image_url_png)

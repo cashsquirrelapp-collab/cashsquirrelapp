@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import type Stripe from 'stripe';
 import { createMissingPrices, paymentReadiness } from '../backend/src/services/paymentReadiness';
-import { PREPAID_OFFER, prepaidLookup, validPrepaidPrice } from '../backend/src/services/prepaidPlans';
+import { PREPAID_OFFER, plusProductId, prepaidLookup, validPrepaidPrice } from '../backend/src/services/prepaidPlans';
 import { recurringLookup, recurringProductId, validRecurringPrice } from '../backend/src/services/cardPlans';
 import { PRO_MONTH_REGULAR_FROM } from '../shared/proPricing';
 
@@ -14,6 +14,8 @@ process.env.APP_URL = 'https://kraroktunngern.cashsquirrelapp.workers.dev';
 process.env.KRAROK_PREPAID_ENABLED = 'true';
 process.env.STRIPE_PUBLISHABLE_KEY = 'pk_test_fake_publishable';
 delete process.env.KRAROK_PAYMENT_CONFIGURATION;
+// Pro's checks first; Plus (owner, 2026-11-15) has its own test below and is switched on there.
+process.env.KRAROK_PLUS_ENABLED = 'false';
 
 const NOW = Date.parse('2026-10-27T05:00:00Z');
 const DEC = PRO_MONTH_REGULAR_FROM;
@@ -30,7 +32,7 @@ const recurring = (amount: number, lookup = recurringLookup('month', NOW)): Stri
   recurring: { interval: 'month', interval_count: 1, usage_type: 'licensed', trial_period_days: null }, metadata: { offer: 'card' },
 } as unknown as Stripe.Price);
 const todays = () => [oneTime(177), recurring(177)];
-const decembers = () => [oneTime(271, prepaidLookup('month', DEC)), recurring(271, recurringLookup('month', DEC))];
+const decembers = () => [oneTime(188, prepaidLookup('month', DEC)), recurring(188, recurringLookup('month', DEC))];
 
 const on = { available: true, display_preference: { overridable: true, preference: 'on', value: 'on' } };
 const off = { available: true, display_preference: { overridable: true, preference: 'off', value: 'off' } };
@@ -67,7 +69,7 @@ function fakeStripe({ catalog = [] as Stripe.Price[], configs = [methods()], end
   return { stripe, created, keys, catalog };
 }
 
-test('ready: today\'s ฿177 prices, card and PromptPay on, the webhook reaching this app; 1 Dec\'s ฿271 prices too', async () => {
+test('ready: today\'s ฿177 prices, card and PromptPay on, the webhook reaching this app; 1 Dec\'s ฿188 prices too', async () => {
   const { stripe } = fakeStripe({ catalog: [...todays(), ...decembers()] });
   const result = await paymentReadiness(stripe, false, NOW);
   assert.equal(result.status, 'ready');
@@ -76,7 +78,7 @@ test('ready: today\'s ฿177 prices, card and PromptPay on, the webhook reaching
   assert.deepEqual([result.server.state, result.methods.state, result.prices.state, result.webhook.state], ['ok', 'ok', 'ok', 'ok']);
   assert.deepEqual(result.prices.items.map(item => [item.kind, item.from, item.later, item.expected, item.current, item.state]), [
     ['one_time', '2026-11-30', false, 177, 177, 'ok'], ['recurring', '2026-11-30', false, 177, 177, 'ok'],
-    ['one_time', '2026-12-01', true, 271, 271, 'ok'], ['recurring', '2026-12-01', true, 271, 271, 'ok'],
+    ['one_time', '2026-12-01', true, 188, 188, 'ok'], ['recurring', '2026-12-01', true, 188, 188, 'ok'],
   ]);
   assert.deepEqual(result.webhook.missingEvents, []);
   // Only the periods on sale are checked: 6 months and a year are closed.
@@ -100,14 +102,14 @@ test('the old ฿159 prices stop payment; the owner\'s button makes exactly the 
   assert.equal(before.status, 'blocked');
   assert.equal(before.prices.state, 'problem');
   assert.deepEqual(before.prices.items.map(item => [item.state, item.current, item.expected, item.creatable]), [
-    ['wrong', 159, 177, true], ['wrong', 159, 177, true], ['missing', null, 271, true], ['missing', null, 271, true],
+    ['wrong', 159, 177, true], ['wrong', 159, 177, true], ['missing', null, 188, true], ['missing', null, 188, true],
   ]);
   assert.equal(before.creatable, 4);
 
   assert.equal(await createMissingPrices(fake.stripe, false, NOW), 4);
   assert.deepEqual(fake.created.map(params => [params.lookup_key, params.unit_amount, params.transfer_lookup_key]), [
     [prepaidLookup('month', NOW), 17700, true], [recurringLookup('month', NOW), 17700, true],
-    [prepaidLookup('month', DEC), 27100, true], [recurringLookup('month', DEC), 27100, true],
+    [prepaidLookup('month', DEC), 18800, true], [recurringLookup('month', DEC), 18800, true],
   ]);
   assert.ok(fake.keys.every(key => key.startsWith('krarok-price:test:')) && new Set(fake.keys).size === 4);
   // Each new price passes checkout's own check for its day.
@@ -187,7 +189,38 @@ test('from 1 Dec 2569 only the regular price matters', async () => {
   const result = await paymentReadiness(fakeStripe({ catalog: decembers() }).stripe, false, later);
   assert.equal(result.status, 'ready');
   assert.equal(result.nextPriceReady, null);
-  assert.deepEqual(result.prices.items.map(item => [item.from, item.later, item.expected]), [['2026-12-01', false, 271], ['2026-12-01', false, 271]]);
+  assert.deepEqual(result.prices.items.map(item => [item.from, item.later, item.expected]), [['2026-12-01', false, 188], ['2026-12-01', false, 188]]);
   const missing = await paymentReadiness(fakeStripe({ catalog: todays() }).stripe, false, later);
   assert.equal(missing.status, 'blocked');
+});
+
+test('Plus: its two ฿115 prices are checked too; the button makes Plus\'s product, then the prices, once', async () => {
+  process.env.KRAROK_PLUS_ENABLED = 'true';
+  try {
+    const fake = fakeStripe({ catalog: [...todays(), ...decembers()] });
+    const products: string[] = [];
+    let made = 0;
+    (fake.stripe as unknown as { products: unknown }).products = {
+      retrieve: async (id: string) => { if (!products.includes(id)) throw Object.assign(new Error('No such product'), { statusCode: 404 }); return { id }; },
+      create: async (params: { id: string }) => { made += 1; products.push(params.id); return params; },
+    };
+    const before = await paymentReadiness(fake.stripe, false, NOW);
+    assert.equal(before.status, 'blocked', 'Plus is on sale, so its missing prices stop it');
+    assert.deepEqual(before.prices.items.filter(item => item.tier === 'plus').map(item => [item.kind, item.expected, item.state, item.creatable]),
+      [['one_time', 115, 'missing', true], ['recurring', 115, 'missing', true]]);
+    assert.equal(await createMissingPrices(fake.stripe, false, NOW), 2);
+    assert.deepEqual([made, products], [1, [plusProductId()]]);
+    const plusPrices = fake.created.filter(params => params.product === plusProductId());
+    assert.deepEqual(plusPrices.map(params => [params.lookup_key, params.unit_amount, params.metadata?.tier]),
+      [[prepaidLookup('month', NOW, 'plus'), 11500, 'plus'], [recurringLookup('month', NOW, 'plus'), 11500, 'plus']]);
+    const at = (lookup: string) => fake.catalog.find(price => price.lookup_key === lookup)!;
+    assert.equal(validPrepaidPrice(at(prepaidLookup('month', NOW, 'plus')), 'month', false, NOW, 'plus'), true);
+    assert.equal(validRecurringPrice(at(recurringLookup('month', NOW, 'plus')), 'month', false, NOW, 'plus'), true);
+    // A Plus price never passes as Pro's.
+    assert.equal(validPrepaidPrice(at(prepaidLookup('month', NOW, 'plus')), 'month', false, NOW), false);
+    const after = await paymentReadiness(fake.stripe, false, NOW);
+    assert.equal(after.status, 'ready');
+    assert.equal(await createMissingPrices(fake.stripe, false, NOW), 0, 'pressed again: nothing new');
+    assert.equal(made, 1);
+  } finally { process.env.KRAROK_PLUS_ENABLED = 'false'; }
 });

@@ -67,6 +67,9 @@
     // again, set a later time (one reset a day; backend/src/ai/service.ts allowance()).
     "AI_ADMIN_TOKENS_RESET_AT": "2026-10-29T13:00:00+07:00",
     "AI_MESSAGE_TOKEN_CAP": "100",
+    // Free / Plus / Pro (owner, 2026-11-15): an account without a paid plan chats with เลขา in the app and in LINE on 100
+    // tokens a month, refilled on the 1st with no carry-over (backend/src/services/lineFirst.ts). 0 or unset turns it off.
+    "FREE_MONTHLY_TOKENS": "100",
     // ฟีเจอร์ทดลอง phase 2, Google Sheets (backend/src/services/googleSheets.ts). Public values only. Until the owner sets
     // GOOGLE_CLIENT_SECRET, GOOGLE_TOKEN_KEY and GOOGLE_PICKER_API_KEY here (wrangler secret put … -c
     // wrangler.production.jsonc), the panel says the connection is not ready and nothing reaches Google.

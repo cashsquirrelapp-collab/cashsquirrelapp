@@ -1,10 +1,11 @@
 import type { LineMessage } from './line.js';
 import { lineAppLink, lineCard, LINE_CARD_COLORS } from './lineCards.js';
-import { findUserByLineId, isProUser, recentChatHistory, saveChatHistory, type UserRow } from './lineAssistant.js';
+import { findUserByLineId, linePlanTier, recentChatHistory, saveChatHistory, type UserRow } from './lineAssistant.js';
 import { checkLinkedAccountWriteAccess } from './linkedAccountAccess.js';
 import { getSupabaseAdmin } from '../config/supabase.js';
 import { listVaultFiles, storeVaultFile, updateVaultFile } from './vault.js';
-import { VAULT_FREE_FILES, VAULT_KIND_LABEL, VAULT_MAX_BYTES, VAULT_MAX_FILES, sniffVaultMime, type VaultKind } from '../../../shared/vault.js';
+import { VAULT_KIND_LABEL, VAULT_MAX_BYTES, sniffVaultMime, type VaultKind } from '../../../shared/vault.js';
+import { PLAN_LIMITS } from '../../../shared/plans.js';
 import { freeMonthlyTokens, lineSignupOn } from './lineFirst.js';
 import { buildConnectFirst } from './lineLinkCards.js';
 import { ATTACHMENT_MAX_BYTES, MAX_FILES, checkAttachment, checkAttachments } from '../ai/attachment.js';
@@ -47,11 +48,12 @@ async function owner(lineUserId: string): Promise<{ user: UserRow; auth: NonNull
   const account = await getSupabaseAdmin().auth.admin.getUserById(user.user_id);
   // Files follow the LINE chat (owner, 2026-11-13: "ปลดให้หมด"): every account while the free allowance is on, with the
   // free vault's file count as on the website (vault-upload.ts); Pro only while it is off, as production is today.
-  const pro = account.error || !account.data.user ? false : await isProUser(user.user_id);
-  if (account.error || !account.data.user || (!pro && !freeMonthlyTokens())) {
-    return { type: 'text', text: 'การแนบไฟล์ผ่าน LINE ใช้ได้ในช่วงทดลองหรือแพ็กเกจ Pro ครับ' };
+  // Each plan keeps its own number of files (shared/plans.ts: Free 5, Plus 50, Pro without limit).
+  const tier = account.error || !account.data.user ? 'free' : await linePlanTier(user.user_id);
+  if (account.error || !account.data.user || (tier === 'free' && !freeMonthlyTokens())) {
+    return { type: 'text', text: 'การแนบไฟล์ผ่าน LINE ใช้ได้ในช่วงทดลองหรือแพ็กเกจ Plus และ Pro ครับ' };
   }
-  return { user, auth: account.data.user, maxFiles: pro ? VAULT_MAX_FILES : VAULT_FREE_FILES };
+  return { user, auth: account.data.user, maxFiles: PLAN_LIMITS[tier].vaultFiles };
 }
 
 /** Limit the bytes while streaming; LINE may omit or misstate the Content-Length. */

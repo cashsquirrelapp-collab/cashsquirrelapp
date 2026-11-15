@@ -8,7 +8,8 @@ import type { PaymentReadiness, ReadinessPrice, ReadinessState } from '../../../
 import { trustedOrigins } from '../config/env.js';
 import { HttpError } from '../http/guard.js';
 import { inspectPaymentMethods, prepaidEnabled } from './prepaidBilling.js';
-import { planReprice, priceMomentsFrom, type PlannedPrice } from './stripeCatalog.js';
+import { planPlusPrices, planReprice, priceMomentsFrom, type PlannedPrice } from './stripeCatalog.js';
+import { plusOnSale, plusProductId } from './prepaidPlans.js';
 import { STRIPE_PAYMENT_EVENTS, STRIPE_WEBHOOK_EVENTS } from './stripeWebhookEvents.js';
 
 type StripeReader = Pick<Stripe, 'prices' | 'paymentMethodConfigurations' | 'webhookEndpoints'>;
@@ -25,7 +26,7 @@ async function attempt<T>(read: () => Promise<T>, permission: string): Promise<{
 
 const priceItem = (row: PlannedPrice, now: number): ReadinessPrice => ({
   // Today's prices are planned at the promotion's last moment; only the regular price from 1 Dec 2569 is sold later.
-  kind: row.kind, period: row.period, from: row.from, later: now < PRO_MONTH_REGULAR_FROM && row.at >= PRO_MONTH_REGULAR_FROM, expected: row.newAmount, current: row.currentAmount,
+  kind: row.kind, tier: row.tier, period: row.period, from: row.from, later: now < PRO_MONTH_REGULAR_FROM && row.at >= PRO_MONTH_REGULAR_FROM, expected: row.newAmount, current: row.currentAmount,
   state: row.action === 'ok' ? 'ok' : row.currentAmount === null ? 'missing' : 'wrong',
   creatable: row.action === 'create' && Boolean(row.params),
 });
@@ -49,7 +50,7 @@ export async function paymentReadiness(stripe: StripeReader, livemode: boolean, 
   const server = { state: (prepaidEnabled() && publishableKey ? 'ok' : 'problem') as ReadinessState, prepaid: prepaidEnabled(), publishableKey };
   const [configurations, plan, endpoints] = await Promise.all([
     attempt(() => stripe.paymentMethodConfigurations.list({ limit: 100 }).then(list => list.data), 'Payment Method Configurations: Read'),
-    attempt(() => planReprice(stripe, livemode, priceMomentsFrom(now), PRO_PERIODS_ON_SALE), 'Prices: Read'),
+    attempt(async () => [...await planReprice(stripe, livemode, priceMomentsFrom(now), PRO_PERIODS_ON_SALE), ...(plusOnSale() ? await planPlusPrices(stripe, livemode, now) : [])], 'Prices: Read'),
     attempt(() => stripe.webhookEndpoints.list({ limit: 100 }).then(list => list.data), 'Webhook Endpoints: Read'),
   ]);
 
@@ -84,9 +85,26 @@ export async function paymentReadiness(stripe: StripeReader, livemode: boolean, 
  * 1 Dec's (each copied from a price of the same kind, its lookup key moved over; existing subscriptions keep theirs).
  * Nothing else in Stripe changes. The same request repeated creates nothing twice (idempotency key per price).
  */
-export async function createMissingPrices(stripe: Pick<Stripe, 'prices'>, livemode: boolean, now = Date.now()): Promise<number> {
-  const plan = await planReprice(stripe, livemode, priceMomentsFrom(now), PRO_PERIODS_ON_SALE);
+export async function createMissingPrices(stripe: Pick<Stripe, 'prices'> & Partial<Pick<Stripe, 'products'>>, livemode: boolean, now = Date.now()): Promise<number> {
+  const plus = plusOnSale() ? await planPlusPrices(stripe, livemode, now) : [];
+  const plan = [...await planReprice(stripe, livemode, priceMomentsFrom(now), PRO_PERIODS_ON_SALE), ...plus];
   let created = 0;
+  // Plus's product first, with its fixed id, when a Plus price is to be made and the product is not there yet.
+  if (plus.some(row => row.action === 'create') && stripe.products) {
+    try {
+      await stripe.products.retrieve(plusProductId());
+    } catch (error) {
+      if (permissionDenied(error)) throw new HttpError(403, 'คีย์ Stripe ของเซิร์ฟเวอร์ไม่มีสิทธิ์อ่านหรือสร้างสินค้า (Products: Write)', 'stripe_permission');
+      if ((error as { statusCode?: number }).statusCode !== 404) throw error;
+      try {
+        await stripe.products.create({ id: plusProductId(), name: 'Krarok Plus', metadata: { tier: 'plus' } },
+          { idempotencyKey: `krarok-product:${livemode ? 'live' : 'test'}:${plusProductId()}` });
+      } catch (made) {
+        if (permissionDenied(made)) throw new HttpError(403, 'คีย์ Stripe ของเซิร์ฟเวอร์ไม่มีสิทธิ์สร้างสินค้า (Products: Write)', 'stripe_permission');
+        throw made;
+      }
+    }
+  }
   for (const row of plan) {
     if (row.action !== 'create' || !row.params) continue;
     try {

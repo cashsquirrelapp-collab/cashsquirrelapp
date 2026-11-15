@@ -4,9 +4,12 @@ import { publicSnapshot } from "../repositories/accounts.js";
 import { validateChanges } from "../../../shared/validation.js";
 import { getSupabaseAdmin } from "../config/supabase.js";
 import { rateLimit } from "../security/rateLimit.js";
-import { hasProAccess } from "../services/vault.js";
+import { planTierForUser } from "../services/vault.js";
+import { PLAN_LIMITS, type PlanTier } from "../../../shared/plans.js";
 import { STAGING_PRO } from "../security/stagingUnlock.js";
 import { stagingOwnerAccount } from "../repositories/stagingOwner.js";
+import { freeMonthlyTokens } from "../services/lineFirst.js";
+import { plusOnSale } from "../services/prepaidPlans.js";
 import {
   claimDocumentSlots,
   documentQuota,
@@ -60,11 +63,14 @@ export default withGuard(
       const personalFinanceRequest = groupId
         ? Promise.resolve(null)
         : publicSnapshot(user.id);
-      // The documents page shows a Free account how many of this month's new documents are left.
-      // A failed lookup only hides the counter; saving still checks the quota.
+      // The documents page shows a Free or Plus account how many of this month's new documents are left
+      // (shared/plans.ts: 10 and 30). A failed lookup only hides the counter; saving still checks the quota.
       const quotaRequest = includeInvoices
-        ? hasProAccess(user)
-            .then((pro) => (pro ? null : documentQuota(user.id)))
+        ? planTierForUser(user)
+            .then((tier) => {
+              const limit = PLAN_LIMITS[tier].documentsPerMonth;
+              return limit === null ? null : documentQuota(user.id, new Date(), limit);
+            })
             .catch(() => null)
         : Promise.resolve(undefined);
       const [subscription, groupFinance, personalFinance, quota] = await Promise.all([
@@ -106,6 +112,10 @@ export default withGuard(
       const result = {
         ...finance,
         subscription: publicSubscription,
+        // What an account without a paid plan gets from เลขา each month (0 = off), so LINE and the plans page say so.
+        free_monthly_tokens: freeMonthlyTokens(),
+        // Whether Plus is sold (KRAROK_PLUS_ENABLED; on unless switched off).
+        plus_on_sale: plusOnSale(),
         ...(quota !== undefined ? { document_quota: quota } : {}),
       };
       if (Buffer.byteLength(JSON.stringify(result)) > 4 * 1024 * 1024)
@@ -146,12 +156,16 @@ export default withGuard(
       (c) => c.table === "cashflow_invoices" && c.op === "set" && c.version === null,
     ).length;
     let quotaSlots: string[] | null = null;
-    if (createdDocuments > 0 && !(await hasProAccess(user))) {
-      quotaSlots = await claimDocumentSlots(user.id, createdDocuments);
+    const quotaTier: PlanTier = createdDocuments > 0 ? await planTierForUser(user) : "pro";
+    const quotaLimit = PLAN_LIMITS[quotaTier].documentsPerMonth;
+    if (createdDocuments > 0 && quotaLimit !== null) {
+      quotaSlots = await claimDocumentSlots(user.id, createdDocuments, new Date(), quotaLimit);
       if (!quotaSlots)
         throw new HttpError(
           402,
-          `ใช้โควตาออกเอกสารฟรีของเดือนนี้ครบ ${FREE_DOCUMENT_LIMIT} ฉบับแล้ว อัปเกรดเป็น Pro เพื่อออกเอกสารได้ไม่จำกัด`,
+          quotaTier === "plus"
+            ? `ใช้โควตาออกเอกสารของแพ็กเกจ Plus เดือนนี้ครบ ${quotaLimit} ฉบับแล้ว อัปเกรดเป็น Pro เพื่อออกเอกสารได้ไม่จำกัด`
+            : `ใช้โควตาออกเอกสารฟรีของเดือนนี้ครบ ${FREE_DOCUMENT_LIMIT} ฉบับแล้ว อัปเกรดเป็น Plus เพื่อออกได้ ${PLAN_LIMITS.plus.documentsPerMonth} ฉบับต่อเดือน หรือ Pro เพื่อออกได้ไม่จำกัด`,
           "document_quota_exceeded",
         );
     }
@@ -184,7 +198,7 @@ export default withGuard(
       return;
     }
     // The save has happened: a failed recount must not turn it into an error.
-    const quotaAfter = quotaSlots ? await documentQuota(user.id).catch(() => null) : null;
+    const quotaAfter = quotaSlots && quotaLimit !== null ? await documentQuota(user.id, new Date(), quotaLimit).catch(() => null) : null;
     res.json(quotaAfter ? { ok: true, document_quota: quotaAfter } : { ok: true });
   },
   { csrf: true },

@@ -223,4 +223,8 @@ export const vault: Record<string, string> = {
   "ไม่อยู่ในรายการยังรอ และไม่ถูกเตือนใน LINE · กลับมาติดตามได้ที่แท็บทั้งหมด": "It leaves the waiting list and LINE reminders · chase it again from the All tab",
   "กลับมาติดตามใบ 50 ทวิแล้ว": "Chasing the WHT certificate again",
   "งานนี้อยู่ในรายการยังรออีกครั้ง": "This job is back on the waiting list",
+  "เกิน {0} ไฟล์ของแพ็กเกจ Plus": "Over the {0} files of Plus",
+  "แพ็กเกจ Plus เก็บไฟล์ได้ {0} ไฟล์ ลบไฟล์ที่ไม่ใช้แล้วเพื่อเพิ่มไฟล์ใหม่ หรืออัปเกรดเป็น Pro เพื่อเก็บได้ไม่จำกัด": "Plus keeps {0} files. Delete files you no longer need to add new ones, or upgrade to Pro for unlimited storage.",
+  "แพ็กเกจ Plus เพิ่มได้อีก {0} จาก {1} ไฟล์ · Pro เก็บได้ไม่จำกัด": "Plus can add {0} more of {1} files · Pro keeps unlimited files",
+  "แพ็กเกจ Plus เก็บได้ {0} ไฟล์ · ใช้ไป {1} ไฟล์": "Plus keeps {0} files · {1} used",
 };

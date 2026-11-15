@@ -76,7 +76,7 @@ test('a free account keeps up to 5 files; the 6th is refused and nothing more is
   assert.equal(sixth.status, 402);
   const body = await sixth.json();
   assert.equal(body.code, 'vault_free_full');
-  assert.match(body.error, /บัญชีฟรีเก็บไฟล์ในคลังเอกสารได้ 5 ไฟล์ อัปเกรดเป็น Pro เพื่อเก็บได้ไม่จำกัด/);
+  assert.match(body.error, /บัญชีฟรีเก็บไฟล์ในคลังเอกสารได้ 5 ไฟล์ อัปเกรดเป็น Plus เพื่อเก็บได้ 50 ไฟล์ หรือ Pro เพื่อเก็บได้ไม่จำกัด/);
   assert.equal(stored.length, 5); assert.equal(rows.length, 5);
   // Deleting a file frees its place.
   rows.pop();

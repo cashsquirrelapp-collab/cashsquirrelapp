@@ -69,7 +69,8 @@ export function regularAccounts(accounts: AdminAnalyticsAccount[], extras: Regul
     .map(account => ({ ...account, extra: byId.get(account.userId) ?? null }))
     .filter(account => account.activeDays >= filter.minDays)
     // Paying: a paid Pro now. Everyone else (free, trial, admin-granted, expired) is "not paying".
-    .filter(account => filter.plan === 'all' || (filter.plan === 'paying') === (account.planStatus === 'pro'))
+    // Paying: a paid Plus or Pro now (Plus since 2026-11-15).
+    .filter(account => filter.plan === 'all' || (filter.plan === 'paying') === ['pro', 'plus'].includes(account.planStatus))
     .filter(account => !text || `${account.displayName} ${account.publicId} ${account.extra?.email ?? ''} ${regularType(account.extra) ?? ''}`.toLowerCase().includes(text))
     .sort((a, b) => b.activeDays - a.activeDays || b.pageViews - a.pageViews || Date.parse(b.lastSeenAt || '0') - Date.parse(a.lastSeenAt || '0'));
 }
@@ -102,7 +103,7 @@ export function regularSegments(accounts: AdminAnalyticsAccount[], extras: Regul
       if (account.activeDays >= minDays) row.returned += 1;
       if ((extra?.aiRequests ?? 0) > 0) row.ai += 1;
       if (extra?.lineLinked) row.line += 1;
-      if (account.planStatus === 'pro') row.paying += 1;
+      if (['pro', 'plus'].includes(account.planStatus)) row.paying += 1;
       rows.set(key, row);
     }
   }

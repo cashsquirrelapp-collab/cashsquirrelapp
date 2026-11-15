@@ -126,7 +126,7 @@ export default function AdminRegulars({ userId, range, accounts, revision = 0, l
                     <span className="arg-seg-name">{row.label}</span>
                     <span className="arg-seg-nums">{copy(`สมัคร ${row.signups} · กลับมา ${row.returned} (${percent(row.returned, row.signups)}%)`, `${row.signups} signed up · ${row.returned} back (${percent(row.returned, row.signups)}%)`)}</span>
                     <span className="arg-seg-bar" aria-hidden="true"><i style={{ width: `${percent(row.returned, row.signups)}%` }} /></span>
-                    <span className="arg-muted">{copy(`ใช้เลขา ${row.ai} · LINE ${row.line} · จ่าย Pro ${row.paying}`, `Assistant ${row.ai} · LINE ${row.line} · Paid Pro ${row.paying}`)}</span>
+                    <span className="arg-muted">{copy(`ใช้เลขา ${row.ai} · LINE ${row.line} · จ่ายเงิน ${row.paying}`, `Assistant ${row.ai} · LINE ${row.line} · Paying ${row.paying}`)}</span>
                   </li>
                 ))}
               </ul>
@@ -184,7 +184,7 @@ export default function AdminRegulars({ userId, range, accounts, revision = 0, l
                   <th className="w-[19%] px-3 py-3 font-semibold">{copy('% กลับมา', '% back')}</th>
                   <th className="w-[10%] px-3 py-3 text-right font-semibold">{copy('ใช้เลขา', 'Assistant')}</th>
                   <th className="w-[10%] px-3 py-3 text-right font-semibold">LINE</th>
-                  <th className="w-[10%] px-5 py-3 text-right font-semibold">{copy('จ่าย Pro', 'Paid Pro')}</th>
+                  <th className="w-[10%] px-5 py-3 text-right font-semibold">{copy('จ่ายเงิน', 'Paying')}</th>
                 </tr>
               </thead>
               <tbody>

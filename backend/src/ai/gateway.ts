@@ -56,6 +56,8 @@ export class AiUnavailableError extends Error {
 export interface AssistantRequest {
   user: UserRow;
   plan: PromptSlots['plan'];
+  /** The paid plan is Plus (shared/plans.ts): เลขา tells Plus's limits. */
+  planTier?: 'plus';
   text: string;
   /** Earlier turns of this conversation, oldest first (the gateway keeps only the most recent ones). */
   history?: ChatTurn[];
@@ -579,7 +581,7 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
     // (its answer has a 20-second deadline), two in the app.
     const web = Boolean(decision.web && route === 'chat' && name === 'anthropic' && !asLight && config.webSearchMaxUses > 0);
     const system = buildSystemPrompt({
-      route, plan: request.plan, trialLeft: request.trialLeft, tokensLeft: request.tokensLeft,
+      route, plan: request.plan, ...(request.planTier ? { tier: request.planTier } : {}), trialLeft: request.trialLeft, tokensLeft: request.tokensLeft,
       accountName: request.accountName, communicationProfile: request.communicationProfile, memories: request.memories,
       nowLocal: bangkokNow(deps.now), pageName: request.pageName, channel: request.channel, knowledge, founder, accounting: accounting?.text, accountContext: context,
       offer: offerLine(offerState(request.text, request.history)),

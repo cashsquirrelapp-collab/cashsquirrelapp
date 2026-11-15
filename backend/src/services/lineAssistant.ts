@@ -1,3 +1,4 @@
+import { planTierOf, type PlanTier } from '../../../shared/plans.js';
 import { guessExpenseCategory } from '../../../shared/expenseCategory.js';
 import { isPhaseOneFeatureAvailable } from '../../../shared/featureAvailability.js';
 import { inFreeTrial } from '../../../shared/trial.js';
@@ -99,28 +100,24 @@ const CHAT_HISTORY_MAX_TURNS = 3;
 // prompt instead of processing the message. The trial length comes from shared/trial.ts, the one rule
 // every check uses.
 
-export async function isProUser(userId: string): Promise<boolean> {
-  if (await stagingOwnerAccount(userId)) return true;
+/** The plan of a LINE user's account (shared/plans.ts): Free, Plus or Pro. Fails closed (Free) on a lookup error. */
+export async function linePlanTier(userId: string): Promise<PlanTier> {
+  if (await stagingOwnerAccount(userId)) return 'pro';
   const [{ data: authUser, error: authErr }, { data: sub, error: subErr }] = await Promise.all([
     supabaseAdmin.auth.admin.getUserById(userId),
     supabaseAdmin.from('subscriptions').select('status, plan, current_period_end').eq('user_id', userId).maybeSingle(),
   ]);
-  // Fail closed when the subscription or auth lookup fails; do not grant Pro on an unknown state.
+  // Fail closed when the subscription or auth lookup fails; do not grant a paid plan on an unknown state.
   if (authErr || subErr) {
-    console.error('isProUser: lookup failed, denying access:', { authErr, subErr });
-    return false;
+    console.error('linePlanTier: lookup failed, denying access:', { authErr, subErr });
+    return 'free';
   }
+  return planTierOf({ sub, trial: inFreeTrial(authUser?.user?.created_at) });
+}
 
-  const createdAt = authUser?.user?.created_at;
-  const isAdminRevoked = ['admin_revoked', 'admin_removed'].includes(sub?.plan || '');
-  const isInFreeTrial = !isAdminRevoked && inFreeTrial(createdAt);
-
-  const isPaidActive = sub?.status === 'active' && (
-    sub.plan === 'admin_grant' ||
-    (!!sub.current_period_end && new Date(sub.current_period_end).getTime() > Date.now())
-  );
-
-  return !isAdminRevoked && (isInFreeTrial || isPaidActive);
+/** A paid plan (Plus or Pro) or the trial: เลขา in LINE on its own allowance (owner, 2026-11-15: Plus has เลขา too). */
+export async function isProUser(userId: string): Promise<boolean> {
+  return (await linePlanTier(userId)) !== 'free';
 }
 
 // Shown instead of processing anything once a user's trial/paid period has lapsed -- polite,
@@ -133,7 +130,7 @@ function buildRenewalMessage(user: UserRow): LineMessage {
   const url = new URL('/plans', appOrigin());
   return {
     type: 'text',
-    text: `แพ็กเกจ Pro ของบัญชีนี้หมดอายุแล้วครับ การใช้งานเลขาผ่าน LINE เป็นสิทธิ์ของสมาชิก Pro\n\nต่ออายุได้ที่ลิงก์นี้ เมื่อชำระเงินแล้วกลับมาใช้งานต่อได้ทันที: ${url.toString()}`,
+    text: `แพ็กเกจของบัญชีนี้หมดอายุแล้วครับ การใช้งานเลขาผ่าน LINE เป็นสิทธิ์ของสมาชิก Plus และ Pro\n\nต่ออายุได้ที่ลิงก์นี้ เมื่อชำระเงินแล้วกลับมาใช้งานต่อได้ทันที: ${url.toString()}`,
   };
 }
 

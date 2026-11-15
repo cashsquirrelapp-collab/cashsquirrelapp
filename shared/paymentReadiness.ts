@@ -8,6 +8,8 @@ export type ReadinessState = 'ok' | 'problem' | 'unknown';
 
 export interface ReadinessPrice {
   kind: 'one_time' | 'recurring';
+  /** Which plan's price (Plus since 2026-11-15). */
+  tier: 'plus' | 'pro';
   period: ProPeriod;
   /** The Bangkok day this price is sold from: today's prices, or the regular monthly price from 2026-12-01. */
   from: string;

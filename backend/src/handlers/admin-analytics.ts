@@ -1,3 +1,4 @@
+import { paidTierOfPlan } from '../../../shared/plans.js';
 import { inFreeTrial } from '../../../shared/trial.js';
 import { createHmac } from 'node:crypto';
 import { z } from 'zod';
@@ -75,7 +76,8 @@ function jobTypesOf(data: Record<string, unknown> | null | undefined): string[] 
 
 export function planStatusOf(profile: Pick<ProfileRow, 'created_at'>, subscription: Pick<SubscriptionRow, 'status' | 'plan' | 'current_period_end'> | undefined, now: number): AccountPlanStatus {
   if (subscription?.status === 'active' && subscription.plan === 'admin_grant') return 'admin';
-  if (subscription?.status === 'active' && subscription.current_period_end && new Date(subscription.current_period_end).getTime() > now) return 'pro';
+  // A paid period is Plus or Pro as the database names it (shared/plans.ts).
+  if (subscription?.status === 'active' && subscription.current_period_end && new Date(subscription.current_period_end).getTime() > now) return paidTierOfPlan(subscription.plan);
   if (subscription && (['admin_revoked', 'admin_removed'].includes(subscription.plan || '') || subscription.current_period_end)) return 'expired';
   if (inFreeTrial(profile.created_at, now)) return 'trial';
   return 'free';

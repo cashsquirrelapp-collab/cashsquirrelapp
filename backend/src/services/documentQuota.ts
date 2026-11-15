@@ -1,8 +1,10 @@
+import { PLAN_LIMITS } from '../../../shared/plans.js';
 import { getSupabaseAdmin } from '../config/supabase.js';
 import { claimDelivery, releaseDelivery } from '../repositories/deliveries.js';
 
-/** New documents (quotations, invoices, receipts, tax invoices) a Free account may create in a calendar month. */
-export const FREE_DOCUMENT_LIMIT = 10;
+/** New documents (quotations, invoices, receipts, tax invoices) a Free account may create in a calendar month; Plus has
+ *  its own (shared/plans.ts: Free 10, Plus 30, Pro without limit). */
+export const FREE_DOCUMENT_LIMIT = PLAN_LIMITS.free.documentsPerMonth!;
 
 export interface DocumentQuota { used: number; limit: number; month: string }
 
@@ -23,20 +25,20 @@ export async function documentQuotaUsed(userId: string, month = documentQuotaMon
   return count ?? 0;
 }
 
-export async function documentQuota(userId: string, now = new Date()): Promise<DocumentQuota> {
+export async function documentQuota(userId: string, now = new Date(), limit = FREE_DOCUMENT_LIMIT): Promise<DocumentQuota> {
   const month = documentQuotaMonth(now);
-  return { used: await documentQuotaUsed(userId, month), limit: FREE_DOCUMENT_LIMIT, month };
+  return { used: await documentQuotaUsed(userId, month), limit, month };
 }
 
 /**
  * Takes `needed` free slots of this month. Returns the claimed keys, or null (holding nothing) when
  * fewer than `needed` are left. Starts after the slots already used, so a normal save makes one insert.
  */
-export async function claimDocumentSlots(userId: string, needed: number, now = new Date()): Promise<string[] | null> {
+export async function claimDocumentSlots(userId: string, needed: number, now = new Date(), limit = FREE_DOCUMENT_LIMIT): Promise<string[] | null> {
   const month = documentQuotaMonth(now);
   const used = await documentQuotaUsed(userId, month);
-  if (used + needed > FREE_DOCUMENT_LIMIT) return null;
-  const order = Array.from({ length: FREE_DOCUMENT_LIMIT }, (_, i) => ((used + i) % FREE_DOCUMENT_LIMIT) + 1);
+  if (used + needed > limit) return null;
+  const order = Array.from({ length: limit }, (_, i) => ((used + i) % limit) + 1);
   const claimed: string[] = [];
   for (const slot of order) {
     if (claimed.length === needed) break;

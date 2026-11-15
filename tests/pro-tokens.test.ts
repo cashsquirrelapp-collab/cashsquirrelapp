@@ -36,13 +36,14 @@ test('profit per member: 70% or more on ฿249 at full use, the 54% the owner ac
 });
 
 test('the plan of a paid stretch: by the amount charged for a one-time month, by the date for a card renewal', () => {
+  assert.equal(proTokenPlan(stretch({ chargedBaht: 188 })), 'month');
   assert.equal(proTokenPlan(stretch({ chargedBaht: 271 })), 'month');
   assert.equal(proTokenPlan(stretch({ chargedBaht: 177 })), 'monthPromo');
   assert.equal(proTokenPlan(stretch({ chargedBaht: 159 })), 'monthPromo');
   // An order made on 30 Nov at ฿177 and paid just after midnight keeps the promotion it was sold at.
   assert.equal(proTokenPlan(stretch({ chargedBaht: 177, start: PRO_MONTH_REGULAR_FROM + 60_000 })), 'monthPromo');
   assert.equal(proTokenPlan(stretch({ chargedBaht: null, start: PRO_MONTH_REGULAR_FROM - 1 })), 'monthPromo');
-  assert.equal(proTokenPlan(stretch({ chargedBaht: null, start: PRO_MONTH_REGULAR_FROM })), 'month', 'renewals charge ฿271 from 1 Dec');
+  assert.equal(proTokenPlan(stretch({ chargedBaht: null, start: PRO_MONTH_REGULAR_FROM })), 'month', 'renewals charge ฿188 from 1 Dec');
   assert.equal(proTokenPlan(stretch({ period: 'halfYear', chargedBaht: 895 })), 'halfYear');
   assert.equal(proTokenPlan(stretch({ period: 'year', chargedBaht: null })), 'year');
 });
@@ -52,7 +53,9 @@ test('every paid stretch gets 1,650 a month, also one paid before the change (ow
     assert.equal(proTokensFor(stretch({ period, start: CUTOVER - 30 * day })), 1650, `${period} paid earlier`);
     assert.equal(proTokensFor(stretch({ period, chargedBaht: null })), 1650, period);
   }
-  assert.equal(proTokensFor(stretch({ chargedBaht: 271, start: PRO_MONTH_REGULAR_FROM + day })), 1650);
+  assert.equal(proTokensFor(stretch({ chargedBaht: 188, start: PRO_MONTH_REGULAR_FROM + day })), 1650);
+  // Plus: 650 a month (owner, 2026-11-15), whatever it was charged.
+  assert.equal(proTokensFor(stretch({ chargedBaht: 115, tier: 'plus' })), 650);
 });
 
 test('the stretch that covers a moment: the latest one when two overlap, none outside them', () => {
@@ -131,6 +134,7 @@ test('the loader reads paid one-time orders and card cycles covering now, with t
       { user_id: 'u-old', period: 'halfYear', amount: 89500, paid_at: iso(CUTOVER - day), entitled_until: iso(CUTOVER + 180 * day), created_at: iso(CUTOVER - day) },
       { user_id: 'u-reset', period: 'month', amount: 17700, paid_at: iso(AFTER), entitled_until: iso(AFTER + 30 * day), created_at: iso(AFTER) },
       { user_id: 'u-bad', period: 'week', amount: 100, paid_at: iso(AFTER), entitled_until: iso(AFTER + day), created_at: iso(AFTER) },
+      { user_id: 'u-plus', period: 'month', amount: 11500, paid_at: iso(AFTER), entitled_until: iso(AFTER + 30 * day), created_at: iso(AFTER), tier: 'plus' },
     ],
     cashflow_card_cycles: [
       { user_id: 'u-card', period_start: iso(AFTER + 5 * day), period_end: iso(AFTER + 35 * day), refunded: false, paid_order: { period: 'month', created_at: iso(AFTER) } },
@@ -144,15 +148,16 @@ test('the loader reads paid one-time orders and card cycles covering now, with t
   assert.equal(limits.get('u-card'), 1650, 'a promotion renewal before 1 Dec');
   assert.equal(limits.has('u-reset'), false, 'bought before the owner reset Pro access');
   assert.equal(limits.has('u-bad'), false);
+  assert.equal(limits.get('u-plus'), 650, 'Plus: 650 a month');
   // The cycle in December was given the regular plan; the loader keeps it as a stretch (the dates are the database's job).
   const stretches = await coveringStretches(db, now);
-  assert.deepEqual(stretches.get('u-card-array'), [{ period: 'month', chargedBaht: null, start: PRO_MONTH_REGULAR_FROM, end: PRO_MONTH_REGULAR_FROM + 31 * day }]);
-  assert.deepEqual(stretches.get('u-year'), [{ period: 'year', chargedBaht: 1562, start: AFTER, end: AFTER + 365 * day }]);
+  assert.deepEqual(stretches.get('u-card-array'), [{ period: 'month', chargedBaht: null, start: PRO_MONTH_REGULAR_FROM, end: PRO_MONTH_REGULAR_FROM + 31 * day, tier: 'pro' }]);
+  assert.deepEqual(stretches.get('u-year'), [{ period: 'year', chargedBaht: 1562, start: AFTER, end: AFTER + 365 * day, tier: 'pro' }]);
   const orders = calls.find(call => call.table === 'cashflow_prepaid_orders')!;
   const cycles = calls.find(call => call.table === 'cashflow_card_cycles')!;
   assert.deepEqual(orders.filters, ['status=eq.paid', `paid_at=lte.${at}`, `entitled_until=gt.${at}`]);
   assert.deepEqual(cycles.filters, ['refunded=eq.false', `period_start=lte.${at}`, `period_end=gt.${at}`]);
-  assert.match(cycles.select!, /paid_order:cashflow_prepaid_orders\(period, created_at\)/);
+  assert.match(cycles.select!, /paid_order:cashflow_prepaid_orders\(period, created_at, tier\)/);
   await proTokenLimits(db, now, ['u-year']);
   assert.ok(calls.slice(-2).every(call => call.filters.includes('user_id=in.u-year')), 'one account: filtered by its id');
   await assert.rejects(proTokenLimits(fakeDb({}, 'cashflow_card_cycles').db, now), { code: '42P01' });

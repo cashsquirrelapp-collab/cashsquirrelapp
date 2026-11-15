@@ -169,6 +169,7 @@ async function listAllAuthUsers(): Promise<Map<string, string>> {
   return createdAtByUserId;
 }
 
+/** A paid plan or the trial: the 08:00 reminders are Plus's as well as Pro's (shared/plans.ts PLAN_LIMITS.dailyReminders). */
 function isPro(
   userId: string,
   createdAtByUserId: Map<string, string>,

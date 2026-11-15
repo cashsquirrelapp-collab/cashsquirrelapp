@@ -30,6 +30,7 @@ export const personaLabels: Record<AccountPersona, [string, string]> = {
 
 export const planLabels: Record<AccountPlanStatus, [string, string]> = {
   pro: ['Pro แบบชำระเงิน', 'Paid Pro'],
+  plus: ['Plus แบบชำระเงิน', 'Paid Plus'],
   admin: ['Pro ที่แอดมินให้', 'Admin-granted Pro'],
   trial: ['กำลังทดลอง', 'Trial'],
   free: ['Free', 'Free'],

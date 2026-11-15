@@ -12,7 +12,8 @@ import { getSupabaseAdmin } from '../config/supabase.js';
 import { HttpError } from '../http/guard.js';
 import { isStripeCustomerOwnedByUser } from './stripeSubscriptions.js';
 import { PRO_CHECKOUT_OPEN, type ProPeriod } from '../../../shared/proPricing.js';
-import { assertPrepaidSession, buildPrepaidCheckout, isProPeriod, prepaidLookup, PREPAID_OFFER,
+import type { PaidTier } from '../../../shared/plans.js';
+import { assertPrepaidSession, buildPrepaidCheckout, isProPeriod, orderTier, plusOnSale, prepaidLookup, PREPAID_OFFER,
   stripeId, validatedPrepaidPayment, validPrepaidPrice, type PaymentMethod, type PrepaidOrder } from './prepaidPlans.js';
 
 /** Fixed stage names and durations only: never log customers, sessions, keys or card data. */
@@ -139,12 +140,14 @@ async function cancelOwnedCheckout(order: PrepaidOrder) {
   return { canceled: true };
 }
 /** `origin`: the address the customer pays from, where the payment comes back to (env.ts originFor); else the app's own. */
-export async function startPrepaidCheckout(user: User, periodValue: unknown, method: PaymentMethod, cardOptions?: CardOptions, timing: BillingTimings = billingTimings(), origin: string = appOrigin()) {
+export async function startPrepaidCheckout(user: User, periodValue: unknown, method: PaymentMethod, cardOptions?: CardOptions, timing: BillingTimings = billingTimings(), origin: string = appOrigin(), tier: PaidTier = 'pro') {
   if (!prepaidEnabled()) throw new HttpError(503, 'ระบบชำระเงินกำลังเตรียมเปิดให้บริการ');
   if (!isProPeriod(periodValue)) throw new HttpError(400, 'กรุณาเลือกแพ็กเกจ 1 เดือน, 6 เดือน หรือ 1 ปี');
   const period: ProPeriod = periodValue;
   // Only the periods on sale (owner, 2026-10-25: monthly only for now), whatever an old page or a crafted request asks.
-  if (!PRO_CHECKOUT_OPEN[period]) throw new HttpError(409, 'ตอนนี้เปิดรับเฉพาะแพ็กเกจรายเดือน', 'period_closed');
+  // Plus is sold by the month only (owner, 2026-11-15).
+  if (!PRO_CHECKOUT_OPEN[period] || (tier === 'plus' && period !== 'month')) throw new HttpError(409, 'ตอนนี้เปิดรับเฉพาะแพ็กเกจรายเดือน', 'period_closed');
+  if (tier === 'plus' && !plusOnSale()) throw new HttpError(409, 'แพ็กเกจ Plus ยังไม่เปิดรับชำระ', 'plus_closed');
   const customCard = method === 'card' && process.env.KRAROK_CUSTOM_CARD_ENABLED === 'true';
   const autoRenew = customCard && cardOptions?.autoRenew === true;
   if (cardOptions && !customCard) throw new HttpError(503, 'หน้าบัตรใหม่ยังไม่พร้อม');
@@ -155,13 +158,13 @@ export async function startPrepaidCheckout(user: User, periodValue: unknown, met
   // One moment for the price looked up and checked: on 1 Dec 2569 the monthly price changes at midnight.
   const pricedAt = Date.now();
   const [prices, configuration, pending] = await Promise.all([
-    timing.measure('prices', () => stripe.prices.list({ lookup_keys: [autoRenew ? recurringLookup(period, pricedAt) : prepaidLookup(period, pricedAt)], active: true, limit: 2 })),
+    timing.measure('prices', () => stripe.prices.list({ lookup_keys: [autoRenew ? recurringLookup(period, pricedAt, tier) : prepaidLookup(period, pricedAt, tier)], active: true, limit: 2 })),
     timing.measure('configuration', () => checkoutConfiguration(livemode)),
     timing.measure('pending', () => getSupabaseAdmin().from('cashflow_prepaid_orders').select('*')
       .eq('user_id', user.id).in('status', ['reserved','open'])),
   ]);
   const price = prices.data[0];
-  if (prices.data.length !== 1 || !(autoRenew ? validRecurringPrice(price, period, livemode, pricedAt) : validPrepaidPrice(price, period, livemode, pricedAt))) {
+  if (prices.data.length !== 1 || !(autoRenew ? validRecurringPrice(price, period, livemode, pricedAt, tier) : validPrepaidPrice(price, period, livemode, pricedAt, tier))) {
     throw new HttpError(503, 'ราคายังไม่พร้อมรับชำระ กรุณาลองใหม่ภายหลัง');
   }
   // Abandoned attempts are managed here, never as a task for the customer. Preserve
@@ -170,7 +173,7 @@ export async function startPrepaidCheckout(user: User, periodValue: unknown, met
   for (const old of (pending.data || []) as PrepaidOrder[]) {
     if (old.user_id !== user.id || old.livemode !== livemode) throw new Error('Invalid pending checkout owner');
     // A price changed since the order was made (the monthly price at midnight on 1 Dec 2569) replaces it as well.
-    const replace = old.period !== period || old.method !== method || old.price_id !== price.id
+    const replace = old.period !== period || old.method !== method || old.price_id !== price.id || orderTier(old) !== tier
       || (old.request && (isDirectQr(old) !== directQr || (!isDirectQr(old) && (old.request as Stripe.Checkout.SessionCreateParams).ui_mode !== (customCard ? 'elements' : 'embedded_page'))))
       || (old.request && (isAutoOrder(old) !== autoRenew || (customCard && old.request.metadata?.save_card !== String(cardOptions?.saveCard === true))))
       || (old.request && customCard && cardOptions?.saveCard === true && old.request.metadata?.save_disclosure_version !== CARD_SAVE_DISCLOSURE_VERSION)
@@ -196,11 +199,13 @@ export async function startPrepaidCheckout(user: User, periodValue: unknown, met
   const reservation = await timing.measure('reserve', () => rpc('cashflow_reserve_prepaid_checkout', {
     p_user_id: user.id, p_order_id: randomUUID(), p_period: period, p_method: method,
     p_price_id: price.id, p_livemode: livemode,
+    // Only Plus names its plan: the database reads a missing tier as Pro, so a Pro checkout sends what it always sent.
+    ...(tier === 'plus' ? { p_tier: 'plus' } : {}),
   }));
   if (!['reserved', 'resumed'].includes(reservation.result)) {
     const messages: Record<string, string> = {
       period_mismatch: 'กำลังเปลี่ยนแพ็กเกจ กรุณาลองอีกครั้ง',
-      prepaid_active: 'สิทธิ์ Pro ที่ชำระแล้วยังใช้งานได้ กรุณาต่ออายุเมื่อสิทธิ์หมด',
+      prepaid_active: 'แพ็กเกจที่ชำระแล้วยังใช้งานได้ ซื้อแพ็กเกจใหม่ได้เมื่อสิทธิ์เดิมหมด',
       managed: 'มีการสมัครสมาชิกอยู่แล้ว กรุณาเปิดจัดการการสมัครสมาชิก',
       admin_revoked: 'บัญชีนี้ถูกแบน Pro กรุณาติดต่อแอดมินเพื่อปลดแบน',
       pending: 'มีรายการชำระเงินค้างอยู่ กรุณารอการยืนยันก่อนสร้างรายการใหม่',
@@ -208,13 +213,13 @@ export async function startPrepaidCheckout(user: User, periodValue: unknown, met
     throw new HttpError(409, messages[reservation.result] || 'บัญชีนี้ยังไม่สามารถเริ่มรายการชำระเงินใหม่ได้');
   }
   let order = await timing.measure('order', () => orderById(reservation.order_id));
-  if (order.user_id !== user.id || order.period !== period || order.method !== method || order.price_id !== price.id) throw new Error('Invalid checkout reservation');
+  if (order.user_id !== user.id || order.period !== period || order.method !== method || order.price_id !== price.id || orderTier(order) !== tier) throw new Error('Invalid checkout reservation');
   const response = (session: Stripe.Checkout.Session) => {
     if (session.status === 'open' && (!['embedded_page','elements'].includes(session.ui_mode || '') || !session.client_secret))
       throw new Error('Invalid embedded checkout response');
     return { clientSecret: session.status === 'open' ? session.client_secret : null, publishableKey,
       orderId: order.id, destination: session.status === 'complete' ? 'paid_pending' : 'embedded',
-      method: order.method, amount: order.amount, months: order.months, period: order.period,
+      method: order.method, amount: order.amount, months: order.months, period: order.period, tier: orderTier(order),
       customCard: session.ui_mode === 'elements', autoRenew: isAutoOrder(order), saveCard: order.request?.metadata?.save_card === 'true',
       expiresAt: new Date(session.expires_at * 1000).toISOString() };
   };

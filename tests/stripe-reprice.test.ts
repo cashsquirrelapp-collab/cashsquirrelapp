@@ -6,7 +6,8 @@ import { PREPAID_OFFER, prepaidLookup, validPrepaidPrice } from '../backend/src/
 import { recurringLookup, recurringProductId, validRecurringPrice } from '../backend/src/services/cardPlans';
 import { PRO_MONTH_REGULAR_FROM, proPricing } from '../shared/proPricing';
 
-// The owner's repricing (2026-10-25: the card fee on the customer; ฿271 a month from 1 Dec 2569): the script plans the
+// The owner's repricing (2026-10-25: the card fee on the customer; ฿188 a month from 1 Dec 2569, ฿271 until the 2026-11-15
+// plan): the script plans the
 // prices both dates sell, and each one it would create passes checkout's own checks for its date. A fake catalog: no
 // network, no key.
 
@@ -27,7 +28,7 @@ const reader = (catalog: Stripe.Price[]) => ({ prices: { list: async (params: St
 const created = (row: Awaited<ReturnType<typeof planReprice>>[number]) => ({ ...row.params, id: 'price_new', active: true, livemode: false, type: row.kind, billing_scheme: 'per_unit',
   custom_unit_amount: null, transform_quantity: null, recurring: row.params!.recurring ? { ...row.params!.recurring, trial_period_days: null } : null } as unknown as Stripe.Price);
 
-test('the plan: today\'s keys at the fee prices, and new keys for ฿271 a month from 1 Dec, each passing checkout\'s own checks', async () => {
+test('the plan: today\'s keys at the fee prices, and new keys for ฿188 a month from 1 Dec, each passing checkout\'s own checks', async () => {
   // A catalog still at the 20 Oct prices.
   const catalog = [oneTime('month', 159, 1), oneTime('halfYear', 849, 6), oneTime('year', 1490, 12), recurring('month', 159, 1), recurring('year', 1490, 12)];
   const plan = await planReprice(reader(catalog), false);
@@ -35,7 +36,7 @@ test('the plan: today\'s keys at the fee prices, and new keys for ฿271 a month
     [prepaidLookup('month', PROMO), '2026-11-30', 'create', 159, 177], [recurringLookup('month', PROMO), '2026-11-30', 'create', 159, 177],
     [prepaidLookup('halfYear', PROMO), '2026-11-30', 'create', 849, 895], [recurringLookup('halfYear', PROMO), '2026-11-30', 'missing', null, 895],
     [prepaidLookup('year', PROMO), '2026-11-30', 'create', 1490, 1562], [recurringLookup('year', PROMO), '2026-11-30', 'create', 1490, 1562],
-    [prepaidLookup('month', DEC), '2026-12-01', 'create', null, 271], [recurringLookup('month', DEC), '2026-12-01', 'create', null, 271],
+    [prepaidLookup('month', DEC), '2026-12-01', 'create', null, 188], [recurringLookup('month', DEC), '2026-12-01', 'create', null, 188],
   ]);
   assert.notEqual(prepaidLookup('month', DEC), prepaidLookup('month', PROMO), 'both monthly prices exist side by side');
   for (const row of plan.filter(item => item.action === 'create')) {
@@ -47,9 +48,13 @@ test('the plan: today\'s keys at the fee prices, and new keys for ฿271 a month
   // Already at today's prices (the owner ran it on 25 Oct): only the two December prices are new.
   const today = [oneTime('month', 177, 1), oneTime('halfYear', 895, 6), oneTime('year', 1562, 12), recurring('month', 177, 1), recurring('year', 1562, 12)];
   const again = await planReprice(reader(today), false);
-  assert.deepEqual(again.filter(row => row.action === 'create').map(row => [row.lookupKey, row.newAmount]), [[prepaidLookup('month', DEC), 271], [recurringLookup('month', DEC), 271]]);
+  assert.deepEqual(again.filter(row => row.action === 'create').map(row => [row.lookupKey, row.newAmount]), [[prepaidLookup('month', DEC), 188], [recurringLookup('month', DEC), 188]]);
   // And once those exist: nothing to do.
-  const done = [...today, oneTime('month', 271, 1, prepaidLookup('month', DEC)), recurring('month', 271, 1, recurringLookup('month', DEC))];
+  const done = [...today, oneTime('month', 188, 1, prepaidLookup('month', DEC)), recurring('month', 188, 1, recurringLookup('month', DEC))];
+  // A ฿271 price made before the 2026-11-15 plan is replaced by the ฿188 one (the key moves to the new price).
+  const stale = [...today, oneTime('month', 271, 1, prepaidLookup('month', DEC)), recurring('month', 271, 1, recurringLookup('month', DEC))];
+  assert.deepEqual((await planReprice(reader(stale), false)).filter(row => row.action === 'create').map(row => [row.lookupKey, row.currentAmount, row.newAmount]),
+    [[prepaidLookup('month', DEC), 271, 188], [recurringLookup('month', DEC), 271, 188]]);
   assert.equal((await planReprice(reader(done), false)).filter(row => row.action === 'create').length, 0);
   assert.deepEqual([...PRICE_MOMENTS], [PROMO, DEC]);
 });

@@ -1,3 +1,4 @@
+import { PLAN_NAMES, type PaidTier } from '../../../../shared/plans';
 import React from 'react';
 import { loadStripe } from '@stripe/stripe-js/pure';
 import type { StripeEmbeddedCheckout } from '@stripe/stripe-js';
@@ -10,6 +11,8 @@ export type EmbeddedPayment = {
   clientSecret: string; publishableKey: string; orderId: string;
   amount: number; months: number; period: ProPeriod; method: 'card' | 'promptpay'; expiresAt: string;
   customCard?: boolean; autoRenew?: boolean; saveCard?: boolean;
+  /** Which plan this pays for (Plus since 2026-11-15); none = Pro. */
+  tier?: PaidTier;
 };
 // Stripe permits one embedded instance at a time. Serialize initialization so a
 // closed dialog/StrictMode cleanup cannot leave a late iframe in the next dialog.
@@ -54,8 +57,8 @@ export function EmbeddedPaymentModal({ checkout, onClose, onComplete, onRetry }:
   return <Modal open onClose={onClose} label={checkout.method === 'card' ? tr("ชำระด้วยบัตร") : tr("ชำระด้วย QR พร้อมเพย์")} width={760}>
     <div className="overflow-y-auto p-4 pt-10 sm:p-6 sm:pt-10">
       <h2 className="text-xl font-bold text-brand-text dark:text-white">{checkout.method === 'card' ? tr("ชำระด้วยบัตร") : tr("ชำระด้วย QR พร้อมเพย์")}</h2>
-      <p className="mb-4 mt-1 text-sm text-brand-muted">Pro {checkout.months === 12 ? tr("1 ปี") : tr("{0} เดือน", checkout.months)}{' '}{tr("· ฿{0} จ่ายครั้งเดียว ไม่ต่ออายุอัตโนมัติ", (checkout.amount / 100).toLocaleString('th-TH'))}</p>
-      {completed ? <p role="status" className="py-8 text-center text-brand-muted">{tr("กำลังยืนยันยอดชำระ สิทธิ์ Pro จะเปิดให้อัตโนมัติ")}</p>
+      <p className="mb-4 mt-1 text-sm text-brand-muted">{PLAN_NAMES[checkout.tier ?? 'pro']} {checkout.months === 12 ? tr("1 ปี") : tr("{0} เดือน", checkout.months)}{' '}{tr("· ฿{0} จ่ายครั้งเดียว ไม่ต่ออายุอัตโนมัติ", (checkout.amount / 100).toLocaleString('th-TH'))}</p>
+      {completed ? <p role="status" className="py-8 text-center text-brand-muted">{tr("กำลังยืนยันยอดชำระ สิทธิ์ {0} จะเปิดให้อัตโนมัติ", PLAN_NAMES[checkout.tier ?? 'pro'])}</p>
         : expired || error ? <div className="space-y-4 py-8 text-center">
           <p role="alert" className="text-brand-muted">{expired ? tr("หน้าชำระนี้หมดเวลาแล้ว กดเปิดใหม่เพื่อชำระต่อได้เลย") : tr("โหลดหน้าชำระไม่สำเร็จ กรุณาลองอีกครั้ง")}</p>
           <button type="button" onClick={onRetry} className={uiPrimaryButton}>{tr("เปิดหน้าชำระใหม่")}</button>

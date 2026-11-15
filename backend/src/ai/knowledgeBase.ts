@@ -1,6 +1,9 @@
 import { isPhaseOneFeatureAvailable } from '../../../shared/featureAvailability.js';
 import { PRO_CHECKOUT_OPEN, PRO_MONTH_REGULAR_FROM, PRO_MONTH_RENEWAL_STEP, proMonthPromoRunning, proPriceParts } from '../../../shared/proPricing.js';
 import { proTokensOnSale } from '../../../shared/proTokens.js';
+import { PLAN_LIMITS } from '../../../shared/plans.js';
+import { PLUS_PRICE } from '../../../shared/proPricing.js';
+import { freeMonthlyTokens } from '../services/lineFirst.js';
 
 /** The Pro prices in words for เลขา, at that time: the shown price, the payment fee and the amount paid, only for the
  * periods on sale (owner, 2026-10-25: monthly only for now), and the AI tokens a month of each (shared/proTokens.ts). */
@@ -16,7 +19,7 @@ export function proPlanText(now: Date | number = Date.now()): string {
   return (proMonthPromoRunning(now) ? 'ราคาโปรโมชั่น ฿' : 'ราคา ฿') + baht(month.price) + '/เดือน + ค่าธรรมเนียมชำระเงิน ฿' + month.fee + ' (ยอดชำระ ฿' + baht(month.total) + ')' + tokens('month')
     + (proMonthPromoRunning(now) ? ' (ถึง 30 พ.ย. 2569; ตั้งแต่ 1 ธ.ค. 2569 รายเดือน ฿' + step.price + ' + ค่าธรรมเนียม ฿' + step.fee + ' ยอดชำระ ฿' + step.total + ' เลขากระรอก ' + baht(proTokensOnSale('month', PRO_MONTH_REGULAR_FROM)) + ' โทเคน/เดือน)' : '')
     + long + closed
-    + '; เอกสารไม่จำกัด คลังเอกสารเก็บไฟล์ได้ไม่จำกัด และบริการ Pro ตามสถานะบัญชี; เลขากระรอกใช้โควตาตามสถานะบริการ';
+    + '; เอกสารไม่จำกัด คลังเอกสารเก็บไฟล์ได้ไม่จำกัด แจ้งเตือนทุกแบบ (รวมสรุปรายเดือนและติดตามใบ 50 ทวิ) รายงาน หน้าภาษี และบริการ Pro ตามสถานะบัญชี; เลขากระรอกใช้โควตาตามสถานะบริการ';
 }
 
 // Maintained against implemented screens. Runtime status and account permissions remain authoritative.
@@ -41,14 +44,22 @@ function feature(entry: Omit<AppFeature, 'status'>): AppFeature {
 }
 
 export const KNOWLEDGE_BASE = {
-  version: 'kb-2026-10-31.3',
+  version: 'kb-2026-11-16.1',
   route_pattern: '/{page}/{workspace}; workspace is the current permitted workspace slug, never invent it.',
-  availability: 'ส่วนที่เปิดให้ผู้ใช้ทุกคนตามเมนูของผู้ใช้ทั่วไป ส่วนอื่นยังไม่เปิดให้ใช้งาน เลขากระรอก, LINE, แจ้งเตือน และชำระเงินยังขึ้นกับสิทธิ์ Pro การเชื่อมบัญชี และสถานะบริการจริง',
+  availability: 'ส่วนที่เปิดให้ผู้ใช้ทุกคนตามเมนูของผู้ใช้ทั่วไป ส่วนอื่นยังไม่เปิดให้ใช้งาน เลขากระรอก, LINE, แจ้งเตือน และชำระเงินขึ้นกับแพ็กเกจของบัญชี (Free / Plus / Pro) การเชื่อมบัญชี และสถานะบริการจริง',
   plans: {
-    free: 'เครื่องมือเงินหลักและเอกสารใหม่ 10 ฉบับต่อเดือน; คลังเอกสารเก็บไฟล์ได้ 5 ไฟล์; สิทธิ์ใช้เลขากระรอกตรวจจากสถานะบัญชี หน้าตัวอย่างไม่ใช่เลขากระรอกตัวจริง',
+    // Free / Plus / Pro (owner, 2026-11-15; shared/plans.ts).
+    get free() {
+      const tokens = freeMonthlyTokens();
+      return 'เครื่องมือเงินหลักและเอกสารใหม่ ' + PLAN_LIMITS.free.documentsPerMonth + ' ฉบับต่อเดือน; คลังเอกสารเก็บไฟล์ได้ ' + PLAN_LIMITS.free.vaultFiles + ' ไฟล์; '
+        + (tokens ? 'เลขากระรอกในแอปและ LINE ' + tokens + ' โทเคนต่อเดือน เติมใหม่ทุกวันที่ 1 ไม่สะสม; ไม่มีแจ้งเตือนรายวัน' : 'สิทธิ์ใช้เลขากระรอกตรวจจากสถานะบัญชี หน้าตัวอย่างไม่ใช่เลขากระรอกตัวจริง');
+    },
+    plus: 'ราคา ฿' + PLUS_PRICE.price + '/เดือน + ค่าธรรมเนียมชำระเงิน ฿' + PLUS_PRICE.fee + ' (ยอดชำระ ฿' + PLUS_PRICE.total + ') รายเดือนเท่านั้น; เลขากระรอก '
+      + PLAN_LIMITS.plus.tokens!.toLocaleString('en-US') + ' โทเคน/เดือน ใช้ร่วมกันในแอปและ LINE; เอกสารใหม่ ' + PLAN_LIMITS.plus.documentsPerMonth + ' ฉบับต่อเดือน ไม่มีข้อความเครดิตของแอปบนเอกสาร; คลังเอกสาร '
+      + PLAN_LIMITS.plus.vaultFiles + ' ไฟล์; แจ้งเตือน 08:00 วันส่งงานและวันรับเงิน ทาง LINE และอีเมล; สรุปรายเดือน การติดตามใบ 50 ทวิ รายงาน และหน้าภาษีเป็นของ Pro',
     trial: 'สิทธิ์ Pro ตามวันสิ้นสุดและโควตาที่บัญชีได้รับ; โควตาเลขากระรอกตรวจจากสถานะปัจจุบัน ไม่รับประกันจำนวนข้อความต่อโทเคน',
     // The shown price plus the payment fee, as the plans page shows it (owner, 2026-10-25), at the time it is read:
-    // the monthly promotion ends on 30 Nov 2569 and from 1 Dec a month is ฿249 + the fee.
+    // the monthly promotion ends on 30 Nov 2569 and from 1 Dec a month is ฿169 + the fee (฿249 was planned before 2026-11-15).
     get pro() { return proPlanText(); },
     admin: 'ผู้ดูแลเห็นเมนูจำกัดสิทธิ์; หน้าภาพรวมผู้ดูแลต้องมีสิทธิ์ดูสถิติผู้ดูแลเพิ่มเติม',
   },

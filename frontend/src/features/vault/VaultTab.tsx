@@ -112,7 +112,7 @@ export function VaultTab({ jobs, expenses, phone }: {
         {hero}
         {vault.freeLeft !== null && (
           <p className="dp-quota" data-testid="vault-free-usage">
-            <span>{tr("บัญชีฟรีเก็บได้ {0} ไฟล์ · ใช้ไป {1} ไฟล์", VAULT_FREE_FILES, vault.files.length)}</span>
+            <span>{(vault.plusPlan ? tr("แพ็กเกจ Plus เก็บได้ {0} ไฟล์ · ใช้ไป {1} ไฟล์", vault.fileLimit ?? 0, vault.files.length) : tr("บัญชีฟรีเก็บได้ {0} ไฟล์ · ใช้ไป {1} ไฟล์", VAULT_FREE_FILES, vault.files.length))}</span>
             <button type="button" onClick={vault.upgrade}>{tr("Pro เก็บได้ไม่จำกัด")}</button>
           </p>
         )}
@@ -206,7 +206,7 @@ export function VaultTab({ jobs, expenses, phone }: {
           {/* Free accounts keep VAULT_FREE_FILES files; Pro has no limit (owner, 2026-10-31). */}
           {vault.freeLeft !== null && (
             <p className="mt-1 text-[12.5px] leading-[1.5] text-brand-muted" data-testid="vault-free-usage">
-              {tr("บัญชีฟรีเก็บได้ {0} ไฟล์ · ใช้ไป {1} ไฟล์", VAULT_FREE_FILES, vault.files.length)}{' · '}
+              {(vault.plusPlan ? tr("แพ็กเกจ Plus เก็บได้ {0} ไฟล์ · ใช้ไป {1} ไฟล์", vault.fileLimit ?? 0, vault.files.length) : tr("บัญชีฟรีเก็บได้ {0} ไฟล์ · ใช้ไป {1} ไฟล์", VAULT_FREE_FILES, vault.files.length))}{' · '}
               <button type="button" onClick={vault.upgrade} className="font-medium text-[#C24A16] hover:underline cursor-pointer dark:text-[#FF9A6B]">{tr("Pro เก็บได้ไม่จำกัด")}</button>
             </p>
           )}

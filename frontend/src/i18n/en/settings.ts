@@ -289,4 +289,7 @@ export const settings: Record<string, string> = {
   "กำลังไปที่ LINE…": "Going to LINE…",
   "หรือเชื่อมด้วยรหัส": "Or connect with a code",
   "เชื่อม LINE เพื่อรับแจ้งเตือนงาน ชื่อลูกค้า และยอดเงิน และคุยกับเลขากระรอกได้ในแชตส่วนตัว ระบบใช้รหัสผู้ใช้ LINE เพื่อส่งข้อความถึงคุณคนเดียว แนะนำให้เชื่อมกับบัญชี LINE ของคุณเอง การคุยกับเลขาใน LINE ใช้ความยินยอมเดียวกับในแอป ถอนความยินยอมได้ทุกเมื่อด้วยการยกเลิกการเชื่อมต่อ กดยืนยันเพื่อยินยอมและไปเข้าสู่ระบบ LINE": "Connect LINE to get job reminders with client names and amounts, and chat with Krarok Assistant privately. We use your LINE user ID to message only you; connect your own LINE account. Chatting in LINE uses the same consent as in the app. You can withdraw it any time by disconnecting. Press Confirm to agree and sign in to LINE",
+  "ฟีเจอร์สำหรับสมาชิก Plus และ Pro — สมัครเพื่อเปิดใช้งาน": "For Plus and Pro members. Subscribe to turn it on.",
+  "เชื่อมบัญชี LINE เพื่อคุยกับเลขากระรอกและจดงานในแชท แจ้งเตือนรายวันมีในแพ็กเกจ Plus และ Pro": "Connect LINE to chat with Krarok Assistant and record work in the chat. Daily reminders come with Plus and Pro.",
+  "LINE · การแจ้งเตือน": "LINE · Notifications",
 };

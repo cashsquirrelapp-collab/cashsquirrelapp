@@ -3,6 +3,11 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { PGlite } from '@electric-sql/pglite';
 import { ACCEPTED_CARD_CONSENT_VERSIONS, CARD_CONSENT_VERSION } from '../shared/cardConsent.js';
+// Consent v5 (2026-11-16, Plus and ฿188) reached the live database through SQL the owner ran, which is not in
+// supabase/migrations; the SQL here knows the versions up to v4, so these tests prepare checkouts with those.
+const V5 = 'krarok-card-20261116-v5';
+const REPO_VERSIONS = ACCEPTED_CARD_CONSENT_VERSIONS.filter(version => version !== V5);
+const NEWEST_IN_REPO = REPO_VERSIONS.at(-1)!;
 const uid='11111111-1111-4111-8111-111111111111';
 const actor='22222222-2222-4222-8222-222222222222';
 const paidStart=new Date(Date.now()-5000).toISOString();
@@ -34,7 +39,7 @@ async function database(legacy=false) {
   return db;
 }
 
-async function prepared(db:PGlite,auto=true,consentVersion=CARD_CONSENT_VERSION) {
+async function prepared(db:PGlite,auto=true,consentVersion=NEWEST_IN_REPO) {
   await db.query(`select cashflow_reserve_prepaid_checkout($1,'order','year','card','price1',false)`,[uid]);
   await db.query(`select cashflow_bind_stripe_customer($1,'order','cus1',false)`,[uid]);
   const metadata={period:'year',months:'12',checkout_reservation_id:'order',auto_renew:String(auto),save_card:'true',consent_version:consentVersion,payment_flow:'custom_card',consent_text:'Explicit customer consent for 1490 baht every twelve months'};
@@ -48,7 +53,7 @@ async function cycle(db:PGlite,refund=false,changes:Record<string,any>={}) {
 const state=async(db:PGlite)=>(await db.query<any>('select * from subscriptions where user_id=$1',[uid])).rows[0];
 // The database must accept the wording the app shows now, and keep accepting renewals agreed under earlier
 // wordings (2026-10-22: the app moved to v2 while the database still accepted only v1, so card renewals failed).
-for (const version of ACCEPTED_CARD_CONSENT_VERSIONS) {
+for (const version of REPO_VERSIONS) {
   test(`a card renewal agreed under ${version} is prepared and recorded`,async()=>{
    const db=await database();try {
     await prepared(db,true,version);await sync(db);

@@ -133,6 +133,8 @@ export const GRANT_TOKEN_BUCKET = '2026-10';
 
 export interface PlanInfo {
   plan: AssistantPlan; periodEnd?: string | null;
+  /** A paid plan that is Plus (shared/plans.ts): เลขา chats as on Pro, on Plus's allowance, and tells Plus's limits. */
+  tier?: 'plus';
   /** Tokens a month for the plan this account paid for (shared/proTokens.ts); none = the default allowance. */
   tokens?: number;
   /** A trial counted in a bucket of its own (testers.ts): the usage table's cycle key. */
@@ -388,7 +390,7 @@ export async function handleMessage(db: AssistantDb, deps: MessageDeps, userId: 
     // Off unless the owner pressed the button; a read error counts as off.
     const smartForLight = (await db.smartForLight?.().catch(() => false)) === true;
     reply = await runAssistant({
-      user, plan, text: input.text, history, pageName: input.pageName, channel: input.channel, attachments: turnFiles(input),
+      user, plan, ...(asPlan(value).tier ? { planTier: asPlan(value).tier } : {}), text: input.text, history, pageName: input.pageName, channel: input.channel, attachments: turnFiles(input),
       // The account's name, never a remembered nickname: an old "เรียกผมว่า…" kept winning over a newer one.
       accountName: accountName ?? undefined, communicationProfile: selected.communicationProfile, memories: selected.memories,
       trialLeft: limits.requestLimit === null ? undefined : Math.max(0, limits.requestLimit - reserved.usedRequests),

@@ -79,6 +79,7 @@ async function openPlans(
   billingResponse: Record<string, unknown> = {},
   packageEnabled = false,
   checkoutReady = true,
+  dataExtra: Record<string, unknown> = {},
 ): Promise<Request[]> {
   const billingRequests: Request[] = [];
 
@@ -93,7 +94,7 @@ async function openPlans(
   await page.route('**/api/usage-analytics', route => route.fulfill({ json: { ok: true } }));
   await page.route('**/api/account', route => route.fulfill({ json: { backupEmail: null } }));
   await page.route('**/api/data*', route => route.fulfill({
-    json: { snapshot, versions, subscription, package_features: {free_documents: packageEnabled} },
+    json: { snapshot, versions, subscription, package_features: {free_documents: packageEnabled}, ...dataExtra },
   }));
   await page.route('**/api/billing', async route => {
     if (route.request().method() === 'GET') {
@@ -102,7 +103,7 @@ async function openPlans(
     }
     billingRequests.push(route.request());
     const body = route.request().postDataJSON();
-    const plan = body.period === 'year' ? {amount:156200,months:12} : body.period === 'halfYear' ? {amount:89500,months:6} : {amount:17700,months:1};
+    const plan = body.tier === 'plus' ? {amount:11500,months:1,tier:'plus'} : body.period === 'year' ? {amount:156200,months:12} : body.period === 'halfYear' ? {amount:89500,months:6} : {amount:17700,months:1};
     await route.fulfill({ json: body.action === 'portal' ? {url:stripeUrl,destination:'portal'} : {
       ...billingResponse, ...plan, destination:'embedded',period:body.period,
       method:body.action==='promptpay_checkout'?'promptpay':'card',
@@ -221,7 +222,7 @@ test('the Pro card and its prices stay readable on mobile', async ({ page }) => 
   const size = await monthly.evaluate(el => parseFloat(getComputedStyle(el).fontSize));
   expect(size).toBeGreaterThanOrEqual(56);
   expect(size).toBeLessThanOrEqual(64);
-  await expect(page.getByTestId('pro-price').getByText('ประหยัด ฿90 ทุกเดือน', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('pro-price').getByText('ประหยัด ฿10 ทุกเดือน', { exact: true })).toBeVisible();
   await expect(page.getByTestId('pro-actions').getByRole('button', { name: /^สมัคร Pro$/ })).toBeVisible();
   await expect(page.getByTestId('pro-actions').getByRole('button', { name: 'จ่ายครั้งเดียวด้วยพร้อมเพย์ QR' })).toBeVisible();
   if (PRO_CHECKOUT_OPEN.year) {
@@ -313,7 +314,7 @@ test('plans page: Pro only at the owner\'s prices; squirrel and price lead; noth
   await expect(page.getByText('฿0',{exact:true})).toHaveCount(0);
   await expect(page.getByText('ทุกอย่างใน Free',{exact:true})).toHaveCount(0);
   await expect(page.getByRole('heading',{name:'Free',exact:true})).toHaveCount(0);
-  // no earlier offer anywhere on the page; ฿249 appears only as the struck regular price
+  // no earlier offer anywhere on the page; ฿169 appears only as the struck regular price
   await expect(page.locator('#main-content').getByText(/฿(199|149)\b/)).toHaveCount(0);
   // a Free account with nothing running has no status line
   await expect(page.getByTestId('plan-status')).toHaveCount(0);
@@ -349,10 +350,10 @@ test('plans page: Pro only at the owner\'s prices; squirrel and price lead; noth
     await expect(page.getByTestId('pro-actions').getByTestId('checkout-not-open')).toBeVisible();
     await expect(card.getByRole('button',{name:/สมัคร Pro|ชำระด้วย QR|พร้อมเพย์ QR/})).toHaveCount(0);
   };
-  // monthly: the regular ฿249 struck, ฿159 as the promotion, then the payment fee and the amount to pay (owner, 2026-10-25)
+  // monthly: the regular ฿169 struck (฿249 until the owner's 2026-11-15 plan), ฿159 as the promotion
   await expect(card).toHaveAttribute('data-period','month');
-  await expect(price.locator('s')).toContainText('฿249');
-  await expect(price.getByText('ประหยัด ฿90 ทุกเดือน',{exact:true})).toBeVisible();
+  await expect(price.locator('s')).toContainText('฿169');
+  await expect(price.getByText('ประหยัด ฿10 ทุกเดือน',{exact:true})).toBeVisible();
   await expect(price.getByText(/คุ้มที่สุด|เฉลี่ย/)).toHaveCount(0);
   await closed();
   if (PRO_CHECKOUT_OPEN.halfYear && PRO_CHECKOUT_OPEN.year) {
@@ -423,7 +424,7 @@ test('plans page: every account sees the same monthly price, with or without the
   await openPlans(page,{status:'free',plan:null,current_period_end:null,cancel_at_period_end:false,stripe_status:null,has_subscription:false,intro_eligible:false,managed:false},'https://checkout.stripe.com/c/pay/mock');
   const price=page.getByTestId('pro-price');
   await expect(price.getByText('฿159',{exact:true})).toBeVisible();
-  await expect(price.locator('s')).toContainText('฿249');
+  await expect(price.locator('s')).toContainText('฿169');
   await expect(page.getByRole('radio')).toHaveCount(PRO_CHECKOUT_OPEN.halfYear && PRO_CHECKOUT_OPEN.year ? 3 : 0);
 });
 
@@ -888,9 +889,9 @@ test('plans page: the price, saving, payment fee and notice lines never overlap,
   }
 });
 
-// Owner, 2026-10-25: from 1 Dec 2569 a month is shown at ฿249 with the ฿22 payment fee and ฿271 to pay; the promotion's
+// Owner, 2026-10-25 (prices of 2026-11-15): from 1 Dec 2569 a month is shown at ฿169 with the ฿19 payment fee and ฿188 to pay; the promotion's
 // struck price and saving line go away by themselves at midnight, and nothing overlaps.
-test('plans page from 1 Dec 2569: ฿249 shown, fee ฿22 and ฿271 to pay, no struck price, nothing overlapping', async ({ page }) => {
+test('plans page from 1 Dec 2569: ฿169 shown, fee ฿19 and ฿188 to pay, no struck price, nothing overlapping', async ({ page }) => {
   await page.clock.setFixedTime(new Date('2026-12-02T03:00:00Z'));
   const checker = path.resolve(process.cwd(), '../../text-overlap-check/appcheck.js');
   const overlapScript = fs.existsSync(checker) ? fs.readFileSync(checker, 'utf8') : null;
@@ -901,8 +902,8 @@ test('plans page from 1 Dec 2569: ฿249 shown, fee ฿22 and ฿271 to pay, no 
       await page.setViewportSize(size);
       if (await page.getByRole('radio').count()) await page.getByRole('radio', { name: 'รายเดือน', exact: true }).click();
       const price = page.getByTestId('pro-price');
-      await expect(price.getByTestId('plan-fee')).toHaveCount(0); // no fee line on this page (the dialogs show ฿22 and ฿271)
-      await expect(price.locator('.plan-figure')).toHaveText('฿249');
+      await expect(price.getByTestId('plan-fee')).toHaveCount(0); // no fee line on this page (the dialogs show ฿19 and ฿188)
+      await expect(price.locator('.plan-figure')).toHaveText('฿169');
       await expect(price.getByText(/ประหยัด/)).toHaveCount(0);
       await expect(price.locator('.plan-was')).toHaveCount(0);
       await expect(price.getByTestId('plan-promo-ends')).toHaveCount(0);
@@ -927,7 +928,7 @@ test('plans page from 1 Dec 2569: ฿249 shown, fee ฿22 and ฿271 to pay, no 
   }
 });
 
-test('the monthly card renewal consent (v4) names ฿177 until 30 Nov and ฿271 (฿249 + ฿22 fee) from 1 Dec, readable on a phone', async ({ page }) => {
+test('the monthly card renewal consent (v5) names ฿177 until 30 Nov and ฿188 (฿169 + ฿19 fee) from 1 Dec, readable on a phone', async ({ page }) => {
   await page.clock.setFixedTime(new Date('2026-11-10T03:00:00Z'));
   const free = { status: 'free', plan: null, current_period_end: null, cancel_at_period_end: false, stripe_status: null, has_subscription: false, intro_eligible: false, managed: false };
   await openPlans(page, free, '');
@@ -949,8 +950,8 @@ test('the monthly card renewal consent (v4) names ฿177 until 30 Nov and ฿271
   const dialog = page.locator('[role="dialog"]');
   await expect(dialog).toContainText('฿159');
   await expect(dialog).toContainText('฿18');
-  // The next renewal (10 Dec) is after 1 Dec: it says ฿271.
-  await expect(page.getByText(/รอบถัดไป ฿271 ทุกเดือน/)).toBeVisible();
+  // The next renewal (10 Dec) is after 1 Dec: it says ฿188.
+  await expect(page.getByText(/รอบถัดไป ฿188 ทุกเดือน/)).toBeVisible();
   if (process.env.SHOT_DIR) await page.locator('[role="dialog"]').screenshot({ path: path.join(process.env.SHOT_DIR, 'card-consent-v4-390.png') });
   const checker = path.resolve(process.cwd(), '../../text-overlap-check/appcheck.js');
   if (fs.existsSync(checker)) {
@@ -983,14 +984,14 @@ test('promotion countdown keeps ticking, survives reload and updates prices at e
   await expect(price.locator('.plan-figure')).toHaveText('฿159');
   await page.clock.setFixedTime(PRO_MONTH_REGULAR_FROM);
   await expect(timer).toHaveCount(0);
-  await expect(price.locator('.plan-figure')).toHaveText('฿249');
+  await expect(price.locator('.plan-figure')).toHaveText('฿169');
   await expect(price.getByTestId('plan-fee')).toHaveCount(0); // design F: the dialogs show the fee and the total
   await expect(price.locator('.plan-was')).toHaveCount(0);
 });
 
 // Computers and iPads (design F, 2026-10-29): the same clock as small chips under the price; at the deadline the struck
-// price and the chips go and ฿249 shows, with no fee line on this layout (the dialogs show it before paying).
-test('the countdown chips on a computer tick, survive reload and give way to ฿249 at the deadline', async ({ page }) => {
+// price and the chips go and ฿169 shows, with no fee line on this layout (the dialogs show it before paying).
+test('the countdown chips on a computer tick, survive reload and give way to ฿169 at the deadline', async ({ page }) => {
   const start = PRO_MONTH_REGULAR_FROM - (86400 + 2 * 3600 + 3 * 60 + 4) * 1000;
   await page.clock.setFixedTime(start);
   await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -1010,7 +1011,75 @@ test('the countdown chips on a computer tick, survive reload and give way to ฿
   await page.clock.setFixedTime(PRO_MONTH_REGULAR_FROM);
   await page.evaluate(() => window.dispatchEvent(new Event('pageshow')));
   await expect(timer).toHaveCount(0);
-  await expect(price.locator('.plan-figure')).toHaveText('฿249');
+  await expect(price.locator('.plan-figure')).toHaveText('฿169');
   await expect(price.locator('.plan-was')).toHaveCount(0);
   await expect(price.getByTestId('plan-fee')).toHaveCount(0);
+});
+
+
+// Free / Plus / Pro (owner, 2026-11-15): with Plus on sale the card switches between Plus and Pro, a table compares the
+// three plans (computers and iPads) or lists them row by row (phones), and buying Plus asks the server for Plus.
+test('Plus beside Pro: the switch, the comparison, and buying Plus asks for Plus', async ({ page }) => {
+  const free = { status: 'free', plan: null, current_period_end: null, cancel_at_period_end: false, stripe_status: null, has_subscription: false, intro_eligible: false, managed: false };
+  await page.setViewportSize({ width: 1280, height: 900 });
+  // The clock's light / dark switch already applied, so the screen follows the light / dark asked for below.
+  await page.addInitScript(() => localStorage.setItem('cashflow_theme_auto_period', String(Math.floor((Date.now() + 7 * 3600e3 - 6 * 3600e3) / (12 * 3600e3)))));
+  const requests = await openPlans(page, free, '', {}, false, true, { plus_on_sale: true, free_monthly_tokens: 100 });
+  const plans = page.locator('#main-content');
+  await expect(plans.getByText('เริ่มต้นวันละไม่ถึง 4 บาท', { exact: true })).toBeVisible();
+  const switcher = page.getByTestId('tier-switch');
+  await expect(switcher.getByRole('radio', { name: /Pro/ })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByTestId('pro-card')).toBeVisible();
+  const table = page.getByTestId('plan-compare').getByRole('table');
+  await expect(table.getByRole('columnheader')).toHaveText([/สิ่งที่ได้/, /Free.*฿0/, /Plus.*฿99/, /Pro.*฿159/]);
+  await expect(table.getByRole('columnheader', { name: /Free/ })).toContainText('แพ็กเกจปัจจุบัน');
+  await expect(table.getByRole('row', { name: /เลขากระรอก/ }).getByRole('cell')).toHaveText(['100', '650', '1,650']);
+  await expect(table.getByRole('row', { name: /ออกเอกสารใหม่/ }).getByRole('cell')).toHaveText(['10 ฉบับ', '30 ฉบับ', 'ไม่จำกัด']);
+  await expect(table.getByRole('row', { name: /เก็บไฟล์/ }).getByRole('cell')).toHaveText(['5 ไฟล์', '50 ไฟล์', 'ไม่จำกัด']);
+  await expect(table.getByRole('row', { name: /รายงานและหน้าภาษี/ }).getByRole('cell')).toHaveText(['ไม่มีใน Free', 'ไม่มีใน Plus', 'มีใน Pro']);
+  await switcher.getByRole('radio', { name: /Plus/ }).click();
+  const card = page.getByTestId('plus-card');
+  await expect(card.getByTestId('plus-price').locator('.plan-figure')).toHaveText('฿99');
+  await expect(card.getByTestId('plus-price')).toContainText('650 โทเคน · เอกสาร 30 ฉบับ · ไฟล์ 50 ไฟล์');
+  await expect(page.getByTestId('promo-countdown')).toHaveCount(0);
+  if (process.env.SHOT_DIR) await plans.screenshot({ path: path.join(process.env.SHOT_DIR, 'plans-plus-1280.png') });
+  for (const scheme of ['dark', 'light'] as const) {
+    await page.emulateMedia({ colorScheme: scheme });
+    if (process.env.SHOT_DIR) await page.getByTestId('plan-compare').screenshot({ path: path.join(process.env.SHOT_DIR, `plans-compare-${scheme}-1280.png`) });
+  }
+  await card.getByRole('button', { name: 'สมัคร Plus', exact: true }).click();
+  await expect.poll(() => requests.length).toBe(1);
+  expect(requests[0].postDataJSON()).toMatchObject({ action: 'checkout', period: 'month', tier: 'plus' });
+  await expect(page.getByRole('dialog').getByText(/^Plus 1 เดือน/)).toBeVisible();
+
+  // Phones: the same rows with the three values under each line, nothing wider than the screen.
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto('/plans');
+  const list = page.getByTestId('plan-compare');
+  await expect(list.locator('.pf-cmp-item')).toHaveCount(8);
+  await expect(list.getByRole('table')).toHaveCount(0);
+  await expect(list.locator('.pf-cmp-item').first().locator('.pf-cmp-cell')).toHaveText(['100', '650', '1,650']);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  await expect(page.locator('#app-splash')).toHaveCount(0, { timeout: 8000 });
+  if (process.env.SHOT_DIR) for (const scheme of ['light', 'dark'] as const) {
+    await page.emulateMedia({ colorScheme: scheme });
+    await list.screenshot({ path: path.join(process.env.SHOT_DIR, `plans-compare-${scheme}-375.png`) });
+  }
+});
+
+test('a Plus member: its card says so, and Pro waits until the paid month ends', async ({ page }) => {
+  const until = new Date(Date.now() + 20 * 86400_000).toISOString();
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await openPlans(page, { status: 'active', plan: 'plus_prepaid', current_period_end: until, cancel_at_period_end: false, stripe_status: null, has_subscription: false, intro_eligible: false, managed: false },
+    '', {}, false, true, { plus_on_sale: true, free_monthly_tokens: 100 });
+  await expect(page.getByTestId('tier-switch').getByRole('radio', { name: /Plus/ })).toHaveAttribute('aria-checked', 'true');
+  const card = page.getByTestId('plus-card');
+  await expect(card.getByTestId('plan-status')).toContainText('Plus');
+  await expect(card.getByTestId('plan-status')).not.toContainText('Pro');
+  await expect(card.getByText('แพ็กเกจปัจจุบัน', { exact: true })).toBeVisible();
+  await page.getByTestId('tier-switch').getByRole('radio', { name: /Pro/ }).click();
+  await expect(page.getByTestId('other-plan-note')).toHaveText('ตอนนี้ใช้ Plus อยู่ เปลี่ยนเป็น Pro ได้เมื่อรอบที่ชำระแล้วสิ้นสุด');
+  await expect(page.getByTestId('pro-card').getByRole('button', { name: /สมัคร Pro|พร้อมเพย์/ })).toHaveCount(0);
+  await expect(page.getByTestId('plan-compare').getByRole('columnheader', { name: /Plus/ })).toContainText('แพ็กเกจปัจจุบัน');
+  if (process.env.SHOT_DIR) await page.locator('#main-content').screenshot({ path: path.join(process.env.SHOT_DIR, 'plans-plus-member-1280.png') });
 });
