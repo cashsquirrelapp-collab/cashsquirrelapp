@@ -6,12 +6,18 @@ import { readFileSync } from 'node:fs';
 // owner's own LINE. The cards come from the real builders; their buttons must not touch any account's data.
 process.env.APP_URL ??= 'https://krarok.example.test';
 
-test('the intro and 8 samples (เตือนส่งงาน as one message per job), in three pushes, each card within LINE’s size limit', async () => {
+test('the intro and the samples (the 08:00 push as one message per job), in three pushes, each card within LINE’s size limit', async () => {
   const { buildLineSampleCards, LINE_SAMPLE_INTRO } = await import('../backend/src/services/lineSampleCards.js');
   const messages = await buildLineSampleCards(new Date('2026-11-04T01:00:00Z'));
-  assert.equal(messages.length, 11); // the intro, 7 cards, and เตือนส่งงาน as 3 messages, one per job
+  assert.equal(messages.length, 11); // the intro, the welcome, 5 morning messages, the payment reply and 3 cards
   assert.deepEqual(messages[0], { type: 'text', text: LINE_SAMPLE_INTRO });
-  assert.equal((messages[2] as { altText: string }).altText, 'คุณปาร์ค ตัดต่อคลิปรีวิว ร้านตัวอย่าง ให้ลูกค้าตัวอย่าง D เลยกำหนดส่งมา 1 วันแล้วนะครับ');
+  assert.deepEqual(messages.slice(2, 7).map(message => (message as { altText: string }).altText.split('\n')[0]), [
+    'คุณปาร์ค ตัดต่อคลิปรีวิว ร้านตัวอย่าง ให้ลูกค้าตัวอย่าง D เลยกำหนดส่งมา 1 วันแล้วนะครับ',
+    'วันนี้ต้องส่ง ถ่ายภาพเมนูใหม่ ให้ลูกค้าตัวอย่าง E นะครับ',
+    'ยังไม่ได้รับเงิน ถ่ายภาพสินค้า ร้านตัวอย่าง จากลูกค้าตัวอย่าง A ฿4,500 เลยกำหนดมา 3 วันแล้วนะครับ',
+    'วันนี้ครบกำหนดรับเงิน ออกแบบโลโก้ ร้านตัวอย่าง จากลูกค้าตัวอย่าง B ฿9,700 นะครับ',
+    'เลขาชวนดูครับ งานส่งแล้ว 1 งาน ยังไม่ได้ออกใบแจ้งหนี้',
+  ]);
   assert.ok(JSON.stringify(messages).includes('"data":"deliver:done:demo-late"'), 'ส่งแล้ว on the sample, which only answers that it is a sample');
   for (const message of messages.slice(1)) {
     assert.equal(message.type, 'flex');

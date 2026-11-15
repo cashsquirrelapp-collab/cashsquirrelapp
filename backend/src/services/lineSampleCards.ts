@@ -5,7 +5,8 @@ import { formatMonthKey } from '../../../shared/calendar.js';
 import type { LineMessage } from './line.js';
 import { buildConnectFirst, buildLineHello, buildLineWelcome } from './lineLinkCards.js';
 import { lineSignupOn } from './lineFirst.js';
-import { buildDeliveryMessages, buildDigestFlexMessage, buildInsightFlexMessage, findDeliveriesDue, findJobsNeedingAttention, todayInBangkok, type JobRow } from './lineReminders.js';
+import { buildMorningMessages, findDeliveriesDue, findJobsNeedingAttention, todayInBangkok, type JobRow } from './lineReminders.js';
+import type { MorningInsight } from './morningInsights.js';
 import { handleDueAction, type DuePaymentDependencies } from './lineDuePayments.js';
 import { buildWht50ReminderMessage, findWaitingWht50Jobs } from './lineWht50Reminders.js';
 import { computeMonthlySummary } from './monthlySummary.js';
@@ -13,32 +14,26 @@ import { buildTaxSeasonMessage, filingYear } from './taxSeason.js';
 
 const DAY = 86_400_000;
 
-export const LINE_SAMPLE_INTRO = 'ตัวอย่าง 8 แบบที่ลูกค้า Pro ได้รับใน LINE\nข้อมูลทั้งหมดเป็นตัวอย่าง ปุ่มในการ์ดไม่บันทึกอะไรในบัญชี';
+export const LINE_SAMPLE_INTRO = 'ตัวอย่างข้อความที่ลูกค้า Pro ได้รับใน LINE\nข้อมูลทั้งหมดเป็นตัวอย่าง ปุ่มในการ์ดไม่บันทึกอะไรในบัญชี';
 
-/** The intro, then 8 kinds (7 cards and เตือนส่งงาน's messages) in the order a customer meets them. Job ids start with "demo-": their buttons only answer
+/** The intro, then what a customer meets, in order: the welcome, the 08:00 messages, a payment reply and the cards. Job ids start with "demo-": their buttons only answer
  *  that they are a sample (lineDuePayments.ts). */
 export async function buildLineSampleCards(now = new Date()): Promise<LineMessage[]> {
   const today = Date.parse(`${todayInBangkok(now)}T00:00:00Z`);
   const day = (offset: number) => new Date(today + offset * DAY).toISOString().slice(0, 10);
 
-  const due: JobRow[] = [
-    { id: 'demo-overdue', name: 'ถ่ายภาพสินค้า ร้านตัวอย่าง', client: 'ลูกค้าตัวอย่าง A', status: 'pending', pending: 4500, payDate: day(-3) },
-    { id: 'demo-today', name: 'ออกแบบโลโก้ ร้านตัวอย่าง', client: 'ลูกค้าตัวอย่าง B', status: 'pending', pending: 9700, payDate: day(0) },
-    { id: 'demo-soon', name: 'ตัดต่อวิดีโอรีวิว', client: 'ลูกค้าตัวอย่าง C', status: 'pending', pending: 2500, payDate: day(2) },
-  ];
-  const digest = buildDigestFlexMessage(findJobsNeedingAttention(due, now), {
-    now,
-    insights: [{ kind: 'not_invoiced', title: 'งานส่งแล้ว 1 งาน ยังไม่ได้ออกใบแจ้งหนี้', lines: ['รีวิวสินค้า · ลูกค้าตัวอย่าง D · ฿12,000'], link: { path: '/invoice', label: 'ออกใบแจ้งหนี้' } }],
-  } as Parameters<typeof buildDigestFlexMessage>[1]);
-
-  // เตือนส่งงาน (owner, 2026-11-15): work still to deliver, late, today and in 2 days, one message from เลขา per job with
-  // ส่งแล้ว / ยังไม่ส่ง (their demo- ids only answer that they are a sample); it comes in the same 08:00 push, before the card.
+  // The 08:00 push in เลขา's words (owner, 2026-11-15): work to deliver, then money due, one message each with its
+  // buttons (their demo- ids only answer that they are a sample), then เลขาชวนดู; the same builder as the real push.
   const toDeliver: JobRow[] = [
     { id: 'demo-late', name: 'ตัดต่อคลิปรีวิว ร้านตัวอย่าง', client: 'ลูกค้าตัวอย่าง D', status: 'pending', pending: 6000, payDate: null, isPosted: false, postDate: day(-1), value: 6000 },
     { id: 'demo-deliver-today', name: 'ถ่ายภาพเมนูใหม่', client: 'ลูกค้าตัวอย่าง E', status: 'pending', pending: 8000, payDate: null, isPosted: false, postDate: day(0), value: 8000 },
-    { id: 'demo-deliver-soon', name: 'ออกแบบโปสเตอร์งานอีเวนต์', client: 'ลูกค้าตัวอย่าง F', status: 'pending', pending: 3500, payDate: null, isPosted: false, postDate: day(2), value: 3500 },
   ];
-  const delivery = buildDeliveryMessages(findDeliveriesDue(toDeliver, now), { name: 'ปาร์ค', room: 4 });
+  const due: JobRow[] = [
+    { id: 'demo-overdue', name: 'ถ่ายภาพสินค้า ร้านตัวอย่าง', client: 'ลูกค้าตัวอย่าง A', status: 'pending', pending: 4500, payDate: day(-3) },
+    { id: 'demo-today', name: 'ออกแบบโลโก้ ร้านตัวอย่าง', client: 'ลูกค้าตัวอย่าง B', status: 'pending', pending: 9700, payDate: day(0) },
+  ];
+  const noticed: MorningInsight[] = [{ kind: 'not_invoiced', title: 'งานส่งแล้ว 1 งาน ยังไม่ได้ออกใบแจ้งหนี้', lines: ['รีวิวสินค้า · ลูกค้าตัวอย่าง D · ฿12,000'], link: { path: '/invoice', label: 'ออกใบแจ้งหนี้' } }];
+  const morning = buildMorningMessages({ deliveries: findDeliveriesDue(toDeliver, now), payments: findJobsNeedingAttention(due, now), insights: noticed, name: 'ปาร์ค' }).messages;
 
   // The reply to ได้รับแล้ว, from an in-memory job: no account is read or saved.
   const paidJob = { id: 'sample-paid', name: 'ออกแบบโลโก้ ร้านตัวอย่าง', client: 'ลูกค้าตัวอย่าง B', status: 'pending', pending: 9700, payDate: day(0), value: 10000, received: 0, whtRate: 3 } as unknown as Job;
@@ -46,8 +41,6 @@ export async function buildLineSampleCards(now = new Date()): Promise<LineMessag
     loadJob: async () => ({ data: paidJob, version: 1 }), saveJob: async () => true, today: () => day(0), now: () => now,
   } as unknown as DuePaymentDependencies;
   const paid = await handleDueAction({ user_id: 'sample' }, { kind: 'paid', ref: { jobId: 'sample-paid' } }, memory);
-
-  const insightOnly = buildInsightFlexMessage([{ kind: 'cash_short', title: 'เงินอาจไม่พอจ่ายช่วงปลายเดือน', lines: ['รายจ่ายประจำ ฿18,000 ครบในอีก 3 สัปดาห์', 'เงินที่คาดว่าจะเข้าก่อนนั้น ฿9,700'], link: { path: '/calendar', label: 'ดูปฏิทินเงิน' } }] as Parameters<typeof buildInsightFlexMessage>[0], { now });
 
   const received = (id: string, name: string, client: string, value: number, daysAgo: number) => ({
     id, name, client, value, whtRate: 3, whtAmount: value * 0.03, received: value * 0.97, pending: 0,
@@ -76,7 +69,7 @@ export async function buildLineSampleCards(now = new Date()): Promise<LineMessag
 
   return [
     { type: 'text', text: LINE_SAMPLE_INTRO },
-    buildLineWelcome({ pro: true }), ...delivery, digest, paid, insightOnly, wht50, report, tax,
+    buildLineWelcome({ pro: true }), ...morning, paid, wht50, report, tax,
     // While sign-up in LINE is on (services/lineFirst.ts): what a new friend without an account gets when adding the OA,
     // and when sending anything before connecting.
     ...(lineSignupOn() ? [{ type: 'text', text: 'การ์ดสำหรับคนที่แอด LINE แต่ยังไม่มีบัญชี: ตอนแอด และเมื่อพิมพ์มาก่อนเชื่อมต่อ (กดเริ่มใช้งานแล้วจะเปิดหน้าสมัคร)' } as LineMessage,

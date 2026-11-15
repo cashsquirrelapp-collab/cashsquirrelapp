@@ -43,20 +43,22 @@ test('the switch follows the payment reminder until the account sets it, and is 
 });
 
 test('the LINE messages: one per job from เลขา (owner: "ส่งมาเป็นทีละข้อความดิ"), by name, with ส่งแล้ว / ยังไม่ส่ง', async () => {
-  const { buildDeliveryMessages } = await import('../backend/src/services/lineReminders.js');
+  const { buildMorningMessages } = await import('../backend/src/services/lineReminders.js');
+  const say = (deliveries: ReturnType<typeof findDeliveriesDue>, name?: string) => buildMorningMessages({ deliveries, name }).messages;
   const words = (messages: { type: string; altText?: string; text?: string }[]) => messages.map(message => message.altText ?? message.text);
   const at = (postDate: string, over: Partial<JobRow> = {}) => findDeliveriesDue([job('x', { isPosted: false, postDate, name: 'ถ่ายภาพเมนูใหม่', client: 'ร้านตัวอย่าง', ...over })], now);
-  assert.deepEqual(words(buildDeliveryMessages(at('2026-11-16'), { name: 'ปาร์ค' })), ['คุณปาร์ค วันนี้ต้องส่ง ถ่ายภาพเมนูใหม่ ให้ร้านตัวอย่าง นะครับ']);
-  assert.deepEqual(words(buildDeliveryMessages(at('2026-11-17'))), ['พรุ่งนี้ต้องส่ง ถ่ายภาพเมนูใหม่ ให้ร้านตัวอย่าง นะครับ']);
-  assert.deepEqual(words(buildDeliveryMessages(at('2026-11-18', { client: '' }), { name: '  ' })), ['อีก 2 วันต้องส่ง ถ่ายภาพเมนูใหม่ นะครับ']);
-  assert.deepEqual(words(buildDeliveryMessages(at('2026-11-14'), { name: 'ปาร์ค' })), ['คุณปาร์ค ถ่ายภาพเมนูใหม่ ให้ร้านตัวอย่าง เลยกำหนดส่งมา 2 วันแล้วนะครับ']);
-  // The message itself: the words in a plain bubble, ส่งแล้ว (CI orange) and ยังไม่ส่ง as buttons for this job.
-  const [one] = buildDeliveryMessages(at('2026-11-16'));
+  assert.deepEqual(words(say(at('2026-11-16'), 'ปาร์ค')), ['คุณปาร์ค วันนี้ต้องส่ง ถ่ายภาพเมนูใหม่ ให้ร้านตัวอย่าง นะครับ']);
+  assert.deepEqual(words(say(at('2026-11-17'))), ['พรุ่งนี้ต้องส่ง ถ่ายภาพเมนูใหม่ ให้ร้านตัวอย่าง นะครับ']);
+  assert.deepEqual(words(say(at('2026-11-18', { client: '' }), '  ')), ['อีก 2 วันต้องส่ง ถ่ายภาพเมนูใหม่ นะครับ']);
+  assert.deepEqual(words(say(at('2026-11-14'), 'ปาร์ค')), ['คุณปาร์ค ถ่ายภาพเมนูใหม่ ให้ร้านตัวอย่าง เลยกำหนดส่งมา 2 วันแล้วนะครับ']);
+  // The message itself: the words in a plain bubble, ส่งแล้ว (CI orange) and ยังไม่ส่ง as buttons for this job; no card.
+  const [one] = say(at('2026-11-16'));
   const json = JSON.stringify(one);
   assert.equal(one.type, 'flex');
   assert.ok(json.includes('"data":"deliver:done:x"') && json.includes('"data":"deliver:later:x"'));
   assert.ok(json.includes('"displayText":"ส่งงานแล้ว · ถ่ายภาพเมนูใหม่"'));
   assert.ok(json.includes('"text":"ส่งแล้ว"') && json.includes('"text":"ยังไม่ส่ง"'));
+  assert.ok(!json.includes('"header"') && !json.includes('mascot-v6-'), 'no card header, no mascot');
   assert.ok(Buffer.byteLength(json) < 30_000);
   const many = findDeliveriesDue([
     job('late', { isPosted: false, postDate: '2026-11-15', name: 'ตัดต่อคลิปรีวิว', client: 'ลูกค้า D' }),
@@ -64,22 +66,17 @@ test('the LINE messages: one per job from เลขา (owner: "ส่งมา�
     job('soon', { isPosted: false, postDate: '2026-11-18', name: 'ออกแบบโปสเตอร์', client: 'ลูกค้า F' }),
   ], now);
   // Most urgent first; only the first message carries the name.
-  assert.deepEqual(words(buildDeliveryMessages(many, { name: 'ปาร์ค', room: 4 })), [
+  assert.deepEqual(words(say(many, 'ปาร์ค')), [
     'คุณปาร์ค ตัดต่อคลิปรีวิว ให้ลูกค้า D เลยกำหนดส่งมา 1 วันแล้วนะครับ',
     'วันนี้ต้องส่ง ถ่ายภาพเมนูใหม่ ให้ลูกค้า E นะครับ',
     'อีก 2 วันต้องส่ง ออกแบบโปสเตอร์ ให้ลูกค้า F นะครับ',
   ]);
-  // A push holds 5 messages and the เตือนรับเงิน card keeps one: with no room for all, the last one counts the rest.
-  assert.deepEqual(words(buildDeliveryMessages(many, { name: 'ปาร์ค', room: 2 })), [
-    'คุณปาร์ค ตัดต่อคลิปรีวิว ให้ลูกค้า D เลยกำหนดส่งมา 1 วันแล้วนะครับ',
-    'และยังมีงานที่ต้องส่งอีก 2 งาน ดูในแอปได้ครับ',
-  ]);
+  // A push holds 5 messages: past that, the last one counts the rest.
   const seven = findDeliveriesDue(Array.from({ length: 7 }, (_, i) => job(`j${i}`, { isPosted: false, postDate: '2026-11-17', name: i === 0 ? 'ก'.repeat(80) : `งาน ${i}`, client: '' })), now);
-  const out = words(buildDeliveryMessages(seven, { room: 4 }));
-  assert.equal(out.length, 4);
-  assert.equal(out[3], 'และยังมีงานที่ต้องส่งอีก 4 งาน ดูในแอปได้ครับ');
+  const out = words(say(seven));
+  assert.equal(out.length, 5);
+  assert.equal(out[4], 'และยังมีงานที่ต้องส่งอีก 3 งาน ดูในแอปได้ครับ');
   assert.ok(out[0]!.includes(`${'ก'.repeat(59)}…`), 'long names are cut');
-  assert.equal(buildDeliveryMessages(seven).length, 5, 'never more than a push holds');
   assert.ok(out.every(text => !/[\u{1F300}-\u{1FAFF}]/u.test(text!)), 'no emoji');
 });
 

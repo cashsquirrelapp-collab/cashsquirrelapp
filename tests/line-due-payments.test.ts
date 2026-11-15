@@ -5,7 +5,7 @@ import {
   applyFullPayment, applyPartialPayment, decodeDueAction, dueRefFromDigestId, dueShortRef, encodeDueAction,
   handleDueAction, handleDuePartialText, parsePartialText, partialPrompt, type DuePaymentDependencies,
 } from '../backend/src/services/lineDuePayments';
-import { buildDigestFlexMessage, buildReminderTestMessage, findJobsNeedingAttention } from '../backend/src/services/lineReminders';
+import { buildMorningMessages, buildReminderTestMessages, findJobsNeedingAttention } from '../backend/src/services/lineReminders';
 import { lineEventCommand } from '../backend/src/handlers/line-webhook';
 import { handleAssistantMessage, type LineAssistantDependencies, type UserRow } from '../backend/src/services/lineAssistant';
 
@@ -142,30 +142,51 @@ test('ยังไม่ได้ saves nothing; ได้ไม่ครบ ask
   assert.equal(await handleDuePartialText({ user_id: 'u1', jobs: [] }, 'สรุปเดือนนี้', deps), null);
 });
 
-test('the 08:00 card puts the buttons under today\'s and overdue jobs only, inside the same single message', () => {
+test('the 08:00 messages: one per job in เลขา\'s words, buttons under today\'s and overdue money only, all in one push', () => {
   const now = new Date('2026-10-22T01:00:00Z');
   const rows = findJobsNeedingAttention([
     { id: 'aaaa1111', name: 'งานเลยกำหนด', client: 'A', status: 'pending', pending: 4500, payDate: '2026-10-19' },
     { id: JOB, name: 'งานวันนี้', client: 'B', status: 'pending', pending: 9700, payDate: '2026-10-22' },
     { id: 'cccc3333', name: 'งานใกล้ครบ', client: 'C', status: 'pending', pending: 2500, payDate: '2026-10-24' },
   ] as never, now);
-  const card = buildDigestFlexMessage(rows, { now });
-  const data = [...json(card).matchAll(/"data":"(due:[^"]+)"/g)].map(match => match[1]);
+  const { messages } = buildMorningMessages({ payments: rows, name: 'ปาร์ค' });
+  assert.equal(messages.length, 3);
+  assert.deepEqual(messages.map(message => (message as { altText?: string; text?: string }).altText ?? (message as { text?: string }).text), [
+    'คุณปาร์ค ยังไม่ได้รับเงิน งานเลยกำหนด จากA ฿4,500 เลยกำหนดมา 3 วันแล้วนะครับ',
+    'วันนี้ครบกำหนดรับเงิน งานวันนี้ จากB ฿9,700 นะครับ',
+    'อีก 2 วันครบกำหนดรับเงิน งานใกล้ครบ จากC ฿2,500 ครับ',
+  ]);
+  assert.equal(messages[2].type, 'text', 'money not due yet is a plain message with no buttons');
+  const data = [...json(messages).matchAll(/"data":"(due:[^"]+)"/g)].map(match => match[1]);
   assert.deepEqual(data.sort(), [`due:later:${JOB}`, 'due:later:aaaa1111', `due:paid:${JOB}`, 'due:paid:aaaa1111', `due:partial:${JOB}`, 'due:partial:aaaa1111'].sort());
-  assert.equal(data.some(value => value.includes('cccc3333')), false);
-  assert.match(json(card), /"inputOption":"openKeyboard"/);
-  assert.match(json(card), /กดปุ่มใต้รายการ/);
-  assert.equal((card as { type: string }).type, 'flex');
+  assert.match(json(messages), /"inputOption":"openKeyboard"/);
+  assert.doesNotMatch(json(messages), /mascot-v6-|"header"/, 'no card: no header, no mascot');
   // An instalment gets ได้รับแล้ว and ยังไม่ได้ only.
   const instalment = findJobsNeedingAttention([{ ...installments(), status: 'pending' }] as never, now);
-  const instalmentData = [...json(buildDigestFlexMessage(instalment, { now })).matchAll(/"data":"(due:[^"]+)"/g)].map(match => match[1]);
+  const instalmentData = [...json(buildMorningMessages({ payments: instalment }).messages).matchAll(/"data":"(due:[^"]+)"/g)].map(match => match[1]);
   assert.deepEqual(instalmentData.sort(), [`due:later:${JOB}:installment-1-0`, `due:paid:${JOB}:installment-1-0`]);
-  // The fallback the 08:00 job sends if LINE ever refuses the card with buttons: the same card without them.
-  const plain = buildDigestFlexMessage(rows, { now, buttons: false });
+  // The fallback the 08:00 job sends if LINE ever refuses the buttons: the same words without them.
+  const plain = buildMorningMessages({ payments: rows, buttons: false }).messages;
   assert.equal(/"data":"due:/.test(json(plain)), false);
-  assert.match(json(plain), /อัปเดตสถานะในแอปได้เลย/);
-  // The settings test message shows the buttons too; they only ever answer with a sample notice.
-  assert.match(json(buildReminderTestMessage(now)), /due:paid:demo-today/);
+  assert.ok(plain.every(message => message.type === 'text'));
+  // The Settings test sends the same words after a note that it is a test; its buttons only answer with a sample notice.
+  const test = buildReminderTestMessages(now);
+  assert.match((test[0] as { text: string }).text, /^ข้อความทดสอบครับ/);
+  assert.match(json(test), /due:paid:demo-today/);
+  assert.ok(test.length <= 5);
+});
+
+test('work to deliver and money due share one push: deliveries first, past 5 the last message counts the rest', async () => {
+  const { findDeliveriesDue } = await import('../shared/dueJobs');
+  const now = new Date('2026-10-22T01:00:00Z');
+  const pay = findJobsNeedingAttention(Array.from({ length: 4 }, (_, i) => ({ id: `p${i}`, name: `เงิน ${i}`, client: '', status: 'pending', pending: 1000, payDate: '2026-10-22' })) as never, now);
+  const deliver = findDeliveriesDue(Array.from({ length: 3 }, (_, i) => ({ id: `d${i}`, name: `ส่ง ${i}`, client: '', status: 'pending', pending: 0, payDate: null, isPosted: false, postDate: '2026-10-22', value: 1000 })), now);
+  const { messages, insightsShown } = buildMorningMessages({ deliveries: deliver, payments: pay, insights: [{ kind: 'cash_short', title: 'x', lines: [], link: { path: '/dashboard', label: 'ดูภาพรวม' } }] });
+  const words = messages.map(message => (message as { altText?: string; text?: string }).altText ?? (message as { text?: string }).text);
+  assert.equal(messages.length, 5);
+  assert.deepEqual(words, ['วันนี้ต้องส่ง ส่ง 0 นะครับ', 'วันนี้ต้องส่ง ส่ง 1 นะครับ', 'วันนี้ครบกำหนดรับเงิน เงิน 0 ฿1,000 นะครับ', 'วันนี้ครบกำหนดรับเงิน เงิน 1 ฿1,000 นะครับ',
+    'และยังมีงานที่ต้องส่งอีก 1 งาน และเงินรอรับอีก 2 รายการ ดูในแอปได้ครับ']);
+  assert.deepEqual(insightsShown, [], 'no room left for เลขาชวนดู: it waits for another morning');
 });
 
 test('a button press reaches the assistant and is recorded without the model', async () => {

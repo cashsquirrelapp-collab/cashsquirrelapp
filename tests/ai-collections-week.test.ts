@@ -7,7 +7,7 @@ import { lineAssistantReply } from '../backend/src/ai/lineFormat';
 import { quickAnswer, quickKind } from '../backend/src/ai/quickAnswers';
 import { createToolbox } from '../backend/src/ai/tools';
 import { weekPlan, weekPlanText } from '../backend/src/ai/weekPlan';
-import { buildDigestFlexMessage, buildInsightFlexMessage } from '../backend/src/services/lineReminders';
+import { buildMorningMessages } from '../backend/src/services/lineReminders';
 import { mergeTold, morningInsights } from '../backend/src/services/morningInsights';
 
 // Owner, 2026-11-02: help getting paid, เลขา thinking ahead in the 08:00 message, and a plan for the week. All from the
@@ -121,17 +121,24 @@ test('morning notes: each thing at most once a week; cash short only with record
   assert.deepEqual(mergeTold({ 'bill:x': '2026-10-01', 'bill:y': '2026-10-30', junk: 5 as any }, { 'bill:z': '2026-11-04' }, NOW), { 'bill:y': '2026-10-30', 'bill:z': '2026-11-04' });
 });
 
-test('morning LINE card: the notes under the money due, or on their own with a link to deal with them', () => {
+test('morning LINE messages: เลขาชวนดู after the money due, or on its own, with a tap to deal with it', () => {
   const insights = morningInsights({ jobs: [job('due', { postDate: '2026-10-30', client: 'ลูกค้าหนึ่ง' })] as any[], invoices: [{ id: 'i0', documentType: 'invoice', createdDate: '2026-09-01', client: { name: 'อื่น' } }] as any[], now: NOW }).items;
-  const alone = JSON.stringify(buildInsightFlexMessage(insights, { now: NOW }));
-  assert.match(alone, /เลขาชวนดู/);
-  assert.match(alone, /ส่งงานแล้วยังไม่ออกใบแจ้งหนี้ 1 งาน/);
-  assert.match(alone, /งาน due · ลูกค้าหนึ่ง · ฿10,000 · ส่งงานมา 5 วัน/);
+  const previous = process.env.APP_URL;
+  process.env.APP_URL = 'https://week.example.test'; // the tap opens the app at this address
+  const alone = buildMorningMessages({ insights });
+  if (previous === undefined) delete process.env.APP_URL; else process.env.APP_URL = previous;
+  assert.equal(alone.messages.length, 1);
+  assert.deepEqual(alone.insightsShown, insights);
+  const words = (alone.messages[0] as { altText: string }).altText;
+  assert.match(words, /^เลขาชวนดูครับ ส่งงานแล้วยังไม่ออกใบแจ้งหนี้ 1 งาน/);
+  assert.match(words, /งาน due · ลูกค้าหนึ่ง · ฿10,000 · ส่งงานมา 5 วัน/);
+  assert.match(JSON.stringify(alone.messages), /"type":"uri","label":"ออกใบแจ้งหนี้"/);
   const due = [{ ...job('late', { payDate: '2026-11-01' }), dueDate: '2026-11-01', diffDays: -3 }] as any[];
-  const both = JSON.stringify(buildDigestFlexMessage(due, { insights, now: NOW }));
-  assert.match(both, /เตือนรับเงิน/);
-  assert.match(both, /เลขาชวนดู/);
-  assert.doesNotMatch(JSON.stringify(buildDigestFlexMessage(due, { now: NOW })), /เลขาชวนดู/);
+  const both = buildMorningMessages({ payments: due, insights });
+  assert.equal(both.messages.length, 2);
+  assert.match(JSON.stringify(both.messages[0]), /ยังไม่ได้รับเงิน/);
+  assert.match(JSON.stringify(both.messages[1]), /เลขาชวนดูครับ/);
+  assert.doesNotMatch(JSON.stringify(buildMorningMessages({ payments: due }).messages), /เลขาชวนดู/);
 });
 
 test('week plan: work to deliver, unbilled work, money expected and late, quotations waiting; a quick answer with no model', () => {

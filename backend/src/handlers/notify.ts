@@ -8,7 +8,7 @@ import { systemRole } from '../repositories/roles.js';
 import { canViewAdminAnalytics } from '../security/adminAnalyticsAccess.js';
 import { buildLineSampleCards } from '../services/lineSampleCards.js';
 import { buildLineDisconnected } from '../services/lineLinkCards.js';
-import { buildReminderTestMessage } from '../services/lineReminders.js';
+import { buildReminderTestMessages } from '../services/lineReminders.js';
 import { hasProAccess } from '../services/vault.js';
 
 // Authenticated notifications go only to the verified account's server-managed LINE link.
@@ -59,7 +59,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (event === 'reminder-test') {
-      const sent = await sendLineMessagePayload(lineUserId, buildReminderTestMessage());
+      const sent = await sendLineMessagesOutcome(lineUserId, buildReminderTestMessages()) === 'accepted';
       res.status(sent ? 200 : 502).json(sent ? { ok: true, test: true } : { error: 'ส่งไม่สำเร็จ กรุณาตรวจว่าเพิ่มเพื่อนและไม่ได้บล็อก LINE กระรอกตุนเงิน' });
       return;
     }

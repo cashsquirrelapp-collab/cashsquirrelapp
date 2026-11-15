@@ -1090,11 +1090,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               ))}
               <NavRow lead={<LineLogo size={30} />} title="LINE" desc={tr("เชื่อมต่อเพื่อรับสรุปและติดตามเอกสารในแชท LINE")} value={lineStatus} onClick={() => openView('line')} />
             </div>
-            {lineConnected && isPro && <Panel title={tr("ลองรับแจ้งเตือนทาง LINE")} desc={tr("ส่งการ์ดตัวอย่างใกล้ครบกำหนด วันนี้ และเลยกำหนด เข้าบัญชี LINE ที่คุณเชื่อมไว้เท่านั้น ไม่มีผลกับงานหรือยอดเงินจริง")}>
+            {lineConnected && isPro && <Panel title={tr("ลองรับแจ้งเตือนทาง LINE")} desc={tr("ส่งข้อความตัวอย่างใกล้ครบกำหนด วันนี้ และเลยกำหนด เข้าบัญชี LINE ที่คุณเชื่อมไว้เท่านั้น ไม่มีผลกับงานหรือยอดเงินจริง")}>
               <button type="button" onClick={handleTestReminder} disabled={reminderTestBusy} className={`${uiSecondaryButton} min-h-11 px-4 text-[13px] disabled:opacity-50`}>
                 <Bell className="h-4 w-4" />{reminderTestBusy ? tr("กำลังส่ง…") : tr("ทดสอบแจ้งเตือนเข้า LINE")}
               </button>
-              {reminderTestSent && <p role="status" className="text-[13px] text-brand-green-acc">{tr("LINE รับคำขอส่งแล้ว ลองเปิดแชทกระรอกตุนเงินเพื่อตรวจการ์ดทดสอบ")}</p>}
+              {reminderTestSent && <p role="status" className="text-[13px] text-brand-green-acc">{tr("LINE รับคำขอส่งแล้ว ลองเปิดแชทกระรอกตุนเงินเพื่อตรวจข้อความทดสอบ")}</p>}
             </Panel>}
           </>)}
         </div>

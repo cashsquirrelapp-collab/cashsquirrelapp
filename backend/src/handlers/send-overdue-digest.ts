@@ -6,13 +6,12 @@ import { patchPrivate } from '../repositories/accounts.js';
 import type { VercelRequest, VercelResponse } from '../http/types.js';
 import { supabaseAdmin } from '../config/supabase.js';
 import { sendGmailEmailOutcome } from '../services/gmail.js';
-import { sendLineMessagesToEmailOutcome, type LineMessage } from '../services/line.js';
+import { sendLineMessagesToEmailOutcome } from '../services/line.js';
 import { attemptDelivery, notificationOutcomeCounts, recordChannelOutcome, type DeliveryOutcome } from '../services/notificationOutcome.js';
-import { buildDeliveryMessages, buildDigestFlexMessage, buildInsightFlexMessage, findDeliveriesDue, findJobsNeedingAttention, todayInBangkok, type DeliveryDue, type JobRow, type JobWithDiff } from '../services/lineReminders.js';
+import { buildMorningMessages, findDeliveriesDue, findJobsNeedingAttention, todayInBangkok, type DeliveryDue, type JobRow, type JobWithDiff } from '../services/lineReminders.js';
 import { deliveryReminderOn } from '../../../shared/notifDefaults.js';
-import { mergeTold, morningInsights, type MorningInsights } from '../services/morningInsights.js';
+import { mergeTold, morningInsights, type MorningInsight, type MorningInsights } from '../services/morningInsights.js';
 import type { Expense, Invoice, Job } from '../../../shared/types.js';
-export { buildDigestFlexMessage } from '../services/lineReminders.js';
 
 
 interface NotifSettingsRow {
@@ -64,6 +63,12 @@ function buildSection(title: string, badgeBg: string, badgeColor: string, jobs: 
         <tbody>${buildJobRows(jobs, dateColor)}</tbody>
       </table>
     </div>`;
+}
+
+/** What was told today, for only the things เลขา noticed that made it into the push (morningInsights.ts keys). */
+function toldFor(told: Record<string, string>, shown: MorningInsight[]): Record<string, string> {
+  const kinds = new Set(shown.map(insight => insight.kind));
+  return Object.fromEntries(Object.entries(told).filter(([key]) => (key.startsWith('bill:') ? kinds.has('not_invoiced') : kinds.has(key as MorningInsight['kind']))));
 }
 
 function deliveryLabel(diffDays: number): string {
@@ -283,23 +288,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // promise (no `await`, just `.catch()`) has no guarantee of finishing before this
         // serverless function returns its response and gets frozen/torn down, which was silently
         // dropping the LINE push even when this code was reached.
-        // One push for the morning (LINE counts it once, 5 messages at most): เตือนส่งงาน first, one message from เลขา per
-        // job with ส่งแล้ว / ยังไม่ส่ง, then the เตือนรับเงิน card (or เลขา's notes alone), which keeps one place.
-        const cardFollows = attentionJobs.length > 0 || insights.items.length > 0;
-        const delivery: LineMessage[] = deliveries.length ? buildDeliveryMessages(deliveries, { name: notifSettings.userName, room: cardFollows ? 4 : 5 }) : [];
+        // One push for the morning (LINE counts it once, 5 messages at most), in เลขา's own words, one message per job
+        // (owner, 2026-11-15: "ไม่ต้องส่งมาเป็นการ์ด มันดูรกไป"): work to deliver, then money due, then เลขาชวนดู.
+        const morning = buildMorningMessages({ deliveries, payments: attentionJobs, insights: insights.items, name: notifSettings.userName });
+        let toldNow = toldFor(insights.told, morning.insightsShown);
         let lineOutcome: DeliveryOutcome = 'skipped';
-        if (row.email && attentionJobs.length) {
-          lineOutcome = await attemptDelivery(() => sendLineMessagesToEmailOutcome(row.email, [...delivery, buildDigestFlexMessage(attentionJobs, { insights: insights.items })], notifSettings.lineUserId, randomUUID()));
-          // The payment buttons are new (2026-10-22): if LINE refuses that card, the reminder still
-          // goes out, as the card without buttons (and without เลขา's notes).
-          if (lineOutcome === 'rejected') {
-            console.error('LINE refused the reminder with payment buttons; sending it without them');
-            insights = { items: [], told: {} };
-            lineOutcome = await attemptDelivery(() => sendLineMessagesToEmailOutcome(row.email, [...delivery, buildDigestFlexMessage(attentionJobs, { buttons: false })], notifSettings.lineUserId, randomUUID()));
+        if (row.email && morning.messages.length) {
+          lineOutcome = await attemptDelivery(() => sendLineMessagesToEmailOutcome(row.email, morning.messages, notifSettings.lineUserId, randomUUID()));
+          // If LINE refuses the buttons, the reminder still goes out, as the same words without them (and without
+          // เลขา's notes, which then wait for another morning).
+          if (lineOutcome === 'rejected' && (deliveries.length || attentionJobs.length)) {
+            console.error('LINE refused the morning messages with buttons; sending them without');
+            toldNow = {};
+            const plain = buildMorningMessages({ deliveries, payments: attentionJobs, name: notifSettings.userName, buttons: false });
+            lineOutcome = await attemptDelivery(() => sendLineMessagesToEmailOutcome(row.email, plain.messages, notifSettings.lineUserId, randomUUID()));
           }
-        } else if (row.email && (delivery.length || insights.items.length)) {
-          lineOutcome = await attemptDelivery(() => sendLineMessagesToEmailOutcome(row.email,
-            [...delivery, ...(insights.items.length ? [buildInsightFlexMessage(insights.items)] : [])], notifSettings.lineUserId, randomUUID()));
         }
         record('line', lineOutcome);
 
@@ -323,7 +326,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           if (result.error) throw result.error;
         }
         await patchPrivate(row.user_id, { lastDigestSentDate: todayStr,
-          ...(lineOutcome === 'accepted' && Object.keys(insights.told).length ? { insightTold: mergeTold((notifSettings as { insightTold?: Record<string, string> }).insightTold, insights.told) } : {}) });
+          ...(lineOutcome === 'accepted' && Object.keys(toldNow).length ? { insightTold: mergeTold((notifSettings as { insightTold?: Record<string, string> }).insightTold, toldNow) } : {}) });
 
       } catch {
         if (marking) outcomes.markerFailed += 1;

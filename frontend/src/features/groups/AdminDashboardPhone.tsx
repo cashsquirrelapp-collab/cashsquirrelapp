@@ -405,7 +405,7 @@ export default function AdminDashboardPhone({
           )}
           {isOwner && <button type="button" onClick={sendSamples} disabled={samplesBusy} aria-label={copy('ส่งการ์ด LINE ตัวอย่าง', 'Send sample LINE cards')} data-testid="admin-line-samples">
             <span className="ksm-list-icon"><KsIcon name="chat" /></span>
-            <span className="ksm-grow"><b>{samplesBusy ? copy('กำลังส่ง…', 'Sending…') : copy('ส่งการ์ด LINE ตัวอย่าง', 'Send sample LINE cards')}</b><p>{copy('ตัวอย่าง 8 แบบที่ลูกค้า Pro ได้รับ ส่งเข้า LINE ของบัญชีนี้ ใช้ข้อมูลตัวอย่าง', 'The 8 messages a Pro customer receives, to this account’s LINE, with sample data')}</p></span>
+            <span className="ksm-grow"><b>{samplesBusy ? copy('กำลังส่ง…', 'Sending…') : copy('ส่งการ์ด LINE ตัวอย่าง', 'Send sample LINE cards')}</b><p>{copy('ข้อความตัวอย่างที่ลูกค้า Pro ได้รับ ส่งเข้า LINE ของบัญชีนี้ ใช้ข้อมูลตัวอย่าง', 'The messages a Pro customer receives, to this account’s LINE, with sample data')}</p></span>
             <KsIcon name="chevron" size={16} />
           </button>}
         </div>
