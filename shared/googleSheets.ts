@@ -90,6 +90,8 @@ export interface SheetWrite {
   sheetValues?: { header: string; text: string }[];
 }
 export const UNDO_MS = 30 * 60_000;
+/** How many recent writes are kept (a paste of many records confirms up to 40 cards at once). */
+export const KEPT_WRITES = 40;
 const sheetWriteSchema = z.object({
   proposalId: z.string().max(80),
   at: z.string().max(40),
@@ -106,7 +108,8 @@ const sheetWriteSchema = z.object({
 });
 
 /** The kept record (server only). */
-export interface GoogleRecord { email: string; enc: string; at: string; file?: GoogleFile | null; map?: SheetMap | null; lastWrite?: SheetWrite | null }
+/** `writes`: the recent writes, one per card (owner, 2026-11-16: ten cards confirmed together each keep their own row). */
+export interface GoogleRecord { email: string; enc: string; at: string; file?: GoogleFile | null; map?: SheetMap | null; lastWrite?: SheetWrite | null; writes?: SheetWrite[] }
 const recordSchema = z.object({
   email: z.string().max(320),
   enc: z.string().min(20).max(4000),
@@ -114,6 +117,7 @@ const recordSchema = z.object({
   file: googleFileSchema.nullable().optional(),
   map: sheetMapSchema.nullable().optional(),
   lastWrite: sheetWriteSchema.nullable().optional(),
+  writes: z.array(sheetWriteSchema).max(KEPT_WRITES).optional(),
 });
 
 /** A stored record; anything unreadable counts as not connected. */
@@ -144,9 +148,11 @@ export interface SheetLink { fileId: string; tab: string; row: number; gid?: num
 const columnLetters = (index: number): string => { let s = '', n = index + 1; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
 
 /** The address that opens the file at a tab, with one row selected (Google selects `range` when it opens): ดูในชีต. */
-export function sheetRowUrl(fileId: string, gid?: number | null, row?: number | null, lastColumn = 0): string {
+export function sheetRowUrl(fileId: string, gid?: number | null, row?: number | null, lastColumn = 0, lastRow?: number | null): string {
   const base = `https://docs.google.com/spreadsheets/d/${encodeURIComponent(fileId)}/edit`;
   if (gid === undefined || gid === null || !Number.isInteger(gid)) return base;
-  const range = row && row > 0 ? `&range=A${row}:${columnLetters(Math.max(0, lastColumn))}${row}` : '';
+  // Several new rows open selected together (owner, 2026-11-16: "พาไปหน้าที่เราบันทึก ... จุดโฟกัสอะว่าไหนที่เป็นบันทึกใหม่").
+  const end = lastRow && row && lastRow > row ? lastRow : row;
+  const range = row && row > 0 ? `&range=A${row}:${columnLetters(Math.max(0, lastColumn))}${end}` : '';
   return `${base}#gid=${gid}${range}`;
 }

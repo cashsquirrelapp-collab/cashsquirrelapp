@@ -189,7 +189,8 @@ export async function dropImageParts(userId: string, groupId: string, indexes: n
   await patchPrivate(userId, {}, indexes.map(index => `${PART_PREFIX}${groupId}:${index}`));
 }
 
-export type CardGroup = { cards: unknown[]; files: number; at: string };
+/** `kinds`: each card's kind of record when the group came from a paste of many records (ยืนยันรายรับ / รายจ่าย / งาน). */
+export type CardGroup = { cards: unknown[]; files: number; at: string; kinds?: Record<string, string> };
 
 export async function saveCardGroup(userId: string, groupId: string, group: Omit<CardGroup, 'at'>, now = new Date()): Promise<void> {
   if (!GROUP_ID.test(groupId)) return;

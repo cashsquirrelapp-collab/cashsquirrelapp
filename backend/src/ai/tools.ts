@@ -139,7 +139,8 @@ const ACTION_TOOLS: ToolSpec[] = [
     delivery_date: str('YYYY-MM-DD. Delivered: the day it was delivered (required). In progress: the planned delivery day, if the user gave one.'),
     payment_status: { type: 'string', enum: ['unpaid', 'partial', 'paid'], description: 'unpaid = no money yet; partial = some received (give received_amount); paid = fully paid' },
     received_amount: numArg('Baht already received, when payment_status is partial'),
-    paid_date: str('YYYY-MM-DD the money arrived, when payment_status is paid (default today)'),
+    paid_date: str('YYYY-MM-DD the money arrived, when payment_status is paid, or the deposit\'s day when partial (default today)'),
+    start_date: str('YYYY-MM-DD the job was taken on, if the user said (default today)'),
     credit_term_days: numArg('Credit term: days after delivery until payment is due (เครดิตเทอม), e.g. 0, 7, 15, 30, 45, 60, 90'),
     pay_date: str('YYYY-MM-DD the client must pay by, if the user gave a date instead of a credit term'),
     wht_rate: numArg('Withholding tax percent (หัก ณ ที่จ่าย), usually 0, 1, 3 or 5; 0 if the user says there is none'),
@@ -703,10 +704,10 @@ export function createToolbox(context: ToolContext) {
           : postDate ? calculatePayDate(postDate, creditTerm, false) : null;
         const job = {
           id: randomUUID(), name, type: args.type ? String(args.type).trim() : 'ยังไม่ระบุ', client: client === 'ไม่ระบุ' ? '' : client,
-          value, received, pending: roundMoney(Math.max(0, net - received)), status, creditTerm, postDate, startDate: today,
+          value, received, pending: roundMoney(Math.max(0, net - received)), status, creditTerm, postDate, startDate: isDate(args.start_date) ? String(args.start_date) : today,
           isPosted: Boolean(delivered), payDate, note: args.note ? String(args.note) : '', whtRate: wht, whtAmount, excludeHolidays: false, installments,
           paymentStatus: payment === 'paid' || (payment === 'installment' && received >= net) ? 'paid' : payment === 'partial' || (payment === 'installment' && received > 0) ? 'partial' : 'unpaid',
-          ...(payment === 'partial' ? { depositDate: today, depositAmount: received } : {}),
+          ...(payment === 'partial' ? { depositDate: isDate(args.paid_date) ? String(args.paid_date) : today, depositAmount: received } : {}),
         } as unknown as Job;
         return propose('add_job', job, job as unknown as Record<string, unknown>, 'เพิ่มงานใหม่ 1 งาน', [
           { label: 'งาน', value: name }, { label: 'ลูกค้า', value: client }, { label: 'มูลค่า', value: baht(value) },

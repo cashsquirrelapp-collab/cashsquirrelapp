@@ -668,4 +668,16 @@ export const assistant: Record<string, string> = {
   "ลิงก์จาก LINE หมดเวลาแล้ว พิมพ์บอกเลขาต่อได้เลย": "This link from LINE has expired. Just type here to carry on.",
   "ขอแบบละเอียด": "Show me the details",
   "ต่อจาก LINE": "From LINE",
+  // A paste of many records (2026-11-16): grouped cards, one at a time, the card/sheet switch, a calendar beside taps.
+  "ดูแบบการ์ด": "Show as a card",
+  "ดูแบบชีต": "Show as the sheet",
+  "กำลังบันทึกทีละรายการ": "Saving one by one",
+  "งานรอรับเงิน": "Jobs awaiting payment",
+  "{0} {1} รายการ": "{0}: {1}",
+  "ยืนยัน{0} {1} รายการ": "Confirm {0} ({1})",
+  "หรือเลือกวัน": "Or pick a day",
+  "เลือกวัน": "Pick a day",
+  "ย่อเป็นรายการ": "Show as a list",
+  "ดูและแก้ทีละใบ": "Check and edit one by one",
+  "ไม่ระบุลูกค้า": "No client given",
 };

@@ -79,6 +79,9 @@ export function lineEventCommand(event: LineEvent): string | null {
     // บันทึกทั้งหมด / ดูทีละใบ / ยกเลิกทั้งหมด on the one card for several pictures.
     const group = /^ai:(confirmall|cancelall|showall):(g[A-Za-z0-9]{6,40})$/.exec(data);
     if (group) return `${group[1] === 'confirmall' ? 'บันทึก' : group[1] === 'cancelall' ? 'ยกเลิก' : 'ดู'}ทั้งหมดเลขา ${group[2]}`;
+    // ยืนยันรายรับ / รายจ่าย / งาน on the cards of a paste of many records (ai/lineEntries.ts).
+    const kind = /^ai:confirmkind:(g[A-Za-z0-9]{6,40}):(income|expense|job)$/.exec(data);
+    if (kind) return `บันทึกกลุ่มเลขา ${kind[2]} ${kind[1]}`;
     // สร้างเอกสาร / ยกเลิก on a quotation or invoice draft card (lineDocumentDraft.ts).
     return decodeLineDocumentAction(data) ?? decodeLineDraftAction(data);
   }

@@ -1171,6 +1171,8 @@ export interface LineAssistantDependencies {
   /** เลขากระรอก (ai/lineBridge.ts); tests replace it. null = the real เลขา is not on for this account. */
   assistantAnswer?: (user: UserRow, text: string, history: { role: 'user' | 'assistant'; text: string }[]) => Promise<{ messages: LineMessage[]; text: string } | null>;
   assistantCommand?: (user: UserRow, command: { action: 'confirm' | 'cancel'; proposalId: string }) => Promise<LineMessage[]>;
+  /** A paste of many records and the answers to its questions (ai/batchTurn.ts); null when the message is neither. */
+  entryTurn?: (user: UserRow, text: string) => Promise<{ messages: LineMessage[]; text: string } | null>;
   /** A new quotation or invoice draft card (tests replace the account reads and writes). */
   startDocument?: (user: UserRow, draft: NonNullable<ReturnType<typeof parseLineDocumentCreate>>) => Promise<LineMessage | LineMessage[]>;
   documentCommand?: (user: UserRow, command: { action: 'create' | 'cancel'; key: string }) => Promise<LineMessage | LineMessage[]>;
@@ -1234,6 +1236,8 @@ const lineAssistantAnswer: NonNullable<LineAssistantDependencies['assistantAnswe
   (await import('../ai/lineBridge.js')).lineAssistantAnswer(user, text, history);
 const lineAssistantCommand: NonNullable<LineAssistantDependencies['assistantCommand']> = async (user, command) =>
   (await import('../ai/lineBridge.js')).lineAssistantCommand(user, command);
+const lineEntryTurn: NonNullable<LineAssistantDependencies['entryTurn']> = async (user, text) =>
+  (await import('../ai/lineBridge.js')).lineEntryTurn(user, text);
 const LINE_AI_COMMAND = /^(ยืนยัน|ยกเลิก)รายการเลขา (p_[0-9a-f-]{36})$/;
 
 const defaultLineAssistantDependencies: LineAssistantDependencies = {
@@ -1377,6 +1381,16 @@ async function handleAssistantMessageInner(
 
   const trimmed = text.trim();
   // บันทึกทั้งหมด / ดูทีละใบ / ยกเลิกทั้งหมด on the one card for several pictures (lineFormat.ts cardGroupMessage).
+  // ยืนยันรายรับ / รายจ่าย / งาน on the cards of a paste of many records (ai/lineEntries.ts): that kind only.
+  const kindMatch = /^บันทึกกลุ่มเลขา (income|expense|job) (g[A-Za-z0-9]{6,40})$/.exec(trimmed);
+  if (kindMatch) {
+    try {
+      return await (await import('../ai/lineBridge.js')).lineGroupCommand(user, { action: 'confirm', groupId: kindMatch[2], kind: kindMatch[1] as 'income' | 'expense' | 'job' });
+    } catch {
+      console.error('line-assistant: a group card command failed');
+      return { type: 'text', text: 'บันทึกไม่สำเร็จ ลองกดอีกครั้งนะครับ' };
+    }
+  }
   const groupMatch = /^(บันทึก|ยกเลิก|ดู)ทั้งหมดเลขา (g[A-Za-z0-9]{6,40})$/.exec(trimmed);
   if (groupMatch) {
     try {
@@ -1408,6 +1422,20 @@ async function handleAssistantMessageInner(
   if (wht50Action) return await (dependencies.handleWht50Action ?? handleWht50Action)(user, wht50Action);
   const duePartial = await (dependencies.handleDuePartialText ?? handleDuePartialText)(user, trimmed);
   if (duePartial) return duePartial;
+  // Many records pasted at once (owner, 2026-11-16), and the answers to its questions: every line read by rules, what a line
+  // does not say asked one at a time with taps, then the summary, a card per kind and ยืนยันทั้งหมด. No model, no tokens.
+  try {
+    const entries = await (dependencies.entryTurn ?? lineEntryTurn)(user, trimmed);
+    if (entries) {
+      try { await saveChatHistory(user, trimmed.slice(0, 1000), entries.text.slice(0, 1000)); }
+      catch { console.error('line-assistant: chat history not saved'); }
+      return entries.messages;
+    }
+  } catch (error) {
+    const failure = error as { name?: string; status?: number } | null;
+    console.error('line-assistant: pasted records failed', { name: failure?.name ?? 'unknown', status: failure?.status ?? null });
+    return { type: 'text', text: 'ขออภัยครับ อ่านรายการที่วางมาไม่สำเร็จ ลองส่งใหม่อีกครั้งนะครับ' };
+  }
   // Quotations and invoices as cards, with no model call (owner, 2026-10-30): "ทำ/ออก/ขอ ใบเสนอราคา …" opens a draft
   // card, its form fills what is missing, and สร้างเอกสาร saves it. A lookup ("ขอใบเสนอราคา คุณเอ") still searches below.
   const documentCommand = parseDocumentCommand(trimmed);

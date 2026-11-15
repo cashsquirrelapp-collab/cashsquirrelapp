@@ -9,7 +9,7 @@ import { dateLocale } from '../../utils';
 import { AssistantRequestError, createSampleTransport, splitMemo, tokenLevel, type AssistantTransport } from './assistantApi';
 import { LINE_QUICK_REPLIES, arrivingNotice, dueDisplayText, laterReply, partialPrompt, receiptCard, type LineDueAction, type LineItem } from './lineMock';
 import { LINE_THREAD_ID, NAP_AFTER_MS, PREVIEW_STATES, SAMPLE_TOKENS, SUGGESTIONS, afterReply, sampleConversations, isPendingConfirm, poseFor, statusFor, type AssistantMode, type ChatGroup, type ChatMessage, type ConfirmCard, type Conversation, type LineChatCard, type PreviewState, type SuggestionIcon, type TokenBalance } from './assistantMock';
-import { ChatCardView, type ConfirmState, ConfirmAll } from './ChatCards';
+import { CardsView, ChatCardView, type ConfirmState } from './ChatCards';
 import { MascotSlot } from './MascotSlot';
 import { Markdown } from './Markdown';
 import type { PreparedFile } from './voice';
@@ -1248,14 +1248,13 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                     {message.work && <WorkDone work={message.work} />}
                     {(message.text || message.id === streamingId) && <Markdown text={message.text} onNavigate={message.local ? undefined : go} navigationContext={navigationContext} cards={message.cards} />}
                     {message.id === streamingId && <i className="asx-caret" aria-hidden="true" />}
-                    {message.cards?.map((card, c) => (
+                    <CardsView cards={message.cards} live={live} states={confirmStates} onConfirm={item => confirm(item)} renderCard={(card, c) => (
                       <ChatCardView key={c} live={live} card={card} confirmState={card.kind === 'confirm' ? confirmStates[card.id] : undefined} confirmedPath={card.kind === 'confirm' ? confirmedPaths[card.id] : undefined}
                         onConfirm={item => void confirm(item)} onCancel={item => { setConfirmStates(states => ({ ...states, [item.id]: 'cancelled' })); stopWaiting(); void transport.cancel?.(item); }} onNavigate={go} onLineDue={lineDue}
                         onAnswer={text => send(text)} answered={messages.slice(n + 1).some(later => later.from === 'me') || busy}
                         onAsk={text => send(text)}
                         onRevise={transport.revise ? (item, edits) => revise(item, edits) : undefined} />
-                    ))}
-                    {live && <ConfirmAll cards={message.cards} states={confirmStates} onConfirm={item => void confirm(item)} />}
+                    )} />
                     {message.id !== streamingId && (
                       // No read-aloud button any more (owner, 2026-10-27: "เอาปุ่มที่กดฟังเสียงออก ที่มันเป็นโทรโข่ง").
                       <span className="asx-meta">{live || message.local ? time(message.at) : <>{time(message.at)} · {tr("คำตอบตัวอย่าง")}</>}</span>

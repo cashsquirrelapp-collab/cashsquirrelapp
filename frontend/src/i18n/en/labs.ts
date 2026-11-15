@@ -255,4 +255,12 @@ export const labs: Record<string, string> = {
   'ใช้ยอดก่อนหัก {0}': 'Use {0} before withholding',
   'กำลังเปลี่ยนยอด…': 'Changing the amount…',
   'เปลี่ยนยอดไม่สำเร็จ กรุณาลองใหม่': 'Could not change the amount. Please try again.',
+  // The sheet under a paste of many records (SheetBatchPanel.tsx, 2026-11-16).
+  'ลงชีต {0} › {1} แถว {2}–{3} แล้ว ({4} แถว)': 'Written to {0} › {1}, rows {2}–{3} ({4} rows)',
+  'บันทึกในแอปแล้ว แต่ยังไม่ได้ลงชีต {0} รายการ: {1}': 'Saved in the app, but {0} not written to the sheet: {1}',
+  'กดดูในชีต ระบบจะเปิดแท็บนั้นและเลือกแถวใหม่ไว้ให้เห็นทันที': 'View in the sheet opens that tab with the new rows selected.',
+  'ซ่อนตัวอย่างในชีต': 'Hide the sheet preview',
+  'ดูตัวอย่างในชีต ({0} แถว)': 'Preview in the sheet ({0} rows)',
+  'เพิ่ม {0} แถว · {1} › {2}': 'Add {0} rows · {1} › {2}',
+  'ยังแสดงตัวอย่างไม่ได้ ตรวจว่าเชื่อมชีตและบันทึกแผนที่ชีตแล้ว ที่ ตั้งค่า › ชีตและภาษี': 'No preview yet. Check that a sheet is connected and its map saved in Settings › Sheets and tax.',
 };

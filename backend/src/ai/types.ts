@@ -64,6 +64,8 @@ export type AssistantCard =
   | { kind: 'document'; docType: string; number: string; client: string; amount: string; path: string }
   | { kind: 'navigation'; label: string; path: string; autoOpen: boolean }
   | { kind: 'confirm'; id: string; title: string; changes: { label: string; value: string }[]; edit?: EditField[];
+      /** From a paste of many records (batchEntries.ts): the line it came from and what kind of record, for grouping. */
+      entry?: { line: number; kind: 'income' | 'expense' | 'job' };
       /** Set when a stored chat is opened again, or when the app saved it at once (the user said to save): what became
        * of the proposal since. */
       status?: 'pending' | 'applied' | 'cancelled' | 'stale' | 'expired';

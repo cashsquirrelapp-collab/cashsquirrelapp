@@ -6,7 +6,8 @@ import { freeBucket, freeMonthlyTokens } from '../services/lineFirst.js';
 import type { User } from '@supabase/supabase-js';
 import { getSupabaseAdmin } from '../config/supabase.js';
 import { HttpError } from '../http/guard.js';
-import { accountSnapshot } from '../repositories/accounts.js';
+import { accountSnapshot, patchPrivate } from '../repositories/accounts.js';
+import { ENTRY_BATCH_KEY } from './batchTurn.js';
 import { isOwnerUserId, systemRole } from '../repositories/roles.js';
 import { isOwnerAccount } from '../security/adminAnalyticsAccess.js';
 import { stagingOwnerAccount } from '../repositories/stagingOwner.js';
@@ -152,6 +153,9 @@ const fromRow = (row: ProposalRow): StoredProposal => ({
 export const supabaseAssistantDb: AssistantDb = {
   listVaultFiles: userId => listVaultFiles({ kind: 'user', id: userId }),
   smartForLight: async () => (await loadSmartSwitch()).on,
+  saveEntryBatch: async (userId, batch) => {
+    await (batch ? patchPrivate(userId, { [ENTRY_BATCH_KEY]: batch }) : patchPrivate(userId, {}, [ENTRY_BATCH_KEY]));
+  },
   labOn: async (userId, feature) => {
     const [record, owner] = await Promise.all([loadLabs(userId), isOwnerUserId(userId)]);
     return labState(record, owner).on.includes(feature);

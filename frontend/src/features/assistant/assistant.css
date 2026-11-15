@@ -1630,3 +1630,31 @@ button.asx-party-tile:hover:not(:disabled) .asx-party-copy strong { color: var(-
 .dark .asx-file-notice.is-quiet { background: transparent; color: var(--muted); }
 .asx-file-notice.is-quiet > svg { margin-top: 0; color: var(--muted); }
 .asx.is-mobile .asx-file-notice { margin: 0 10px 8px; }
+
+/* A paste of many records (ChatCards.tsx CardsView): รายรับ · รายจ่าย · งานรอรับเงิน, each headed by its count and total,
+   with its own ยืนยัน; flat, the kind's colour only on the dot and the total (owner: no gradients, CI orange buttons). */
+.asx-entry-group { display: flex; flex-direction: column; gap: 8px; width: min(400px, 100%); margin-top: 12px; min-width: 0; }
+.asx-entry-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 2px 2px 0; font-size: 14.5px; line-height: 1.5; }
+.asx-entry-head b { font-weight: 600; color: var(--text); }
+.asx-entry-dot { flex: none; width: 10px; height: 10px; border-radius: 999px; background: var(--asx-accent-text); }
+.asx-entry-group.is-income .asx-entry-dot { background: var(--asx-income); }
+.asx-entry-group.is-expense .asx-entry-dot { background: var(--asx-expense); }
+.asx-entry-total { margin-left: auto; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--asx-accent-text); white-space: nowrap; }
+.asx-entry-group.is-income .asx-entry-total { color: var(--asx-income); }
+.asx-entry-group.is-expense .asx-entry-total { color: var(--asx-expense); }
+.asx-entry-confirm { align-self: flex-start; border-color: var(--asx-accent); color: var(--asx-accent-text); font-weight: 600; }
+.asx-sheet-toggle { align-self: flex-start; margin: 6px 16px 0; min-height: 30px; font-size: 13px; }
+.asx-entry-rows { display: flex; flex-direction: column; margin: 0; padding: 4px 14px; list-style: none; border: 1px solid var(--border); border-radius: 16px; background: var(--white); min-width: 0; }
+.asx-entry-rows li { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; min-width: 0; }
+.asx-entry-rows li + li { border-top: 1px solid var(--border); }
+.asx-entry-no { flex: none; min-width: 22px; padding-top: 1px; font-size: 12.5px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; line-height: 1.5; }
+.asx-entry-main { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; line-height: 1.5; }
+.asx-entry-main b { font-size: 14px; font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+.asx-entry-main small { font-size: 12.5px; color: var(--muted); overflow-wrap: anywhere; }
+.asx-entry-side { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex: none; line-height: 1.5; }
+.asx-entry-amount { font-size: 14px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.asx-entry-state { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.asx-entry-rows li.is-done .asx-entry-state { color: var(--asx-income); }
+.asx-entry-rows li.is-failed .asx-entry-state, .asx-entry-rows li.is-expired .asx-entry-state { color: var(--asx-expense); }
+.asx-entry-rows li.is-cancelled { opacity: 0.6; }
+.asx-entry-actions { display: flex; flex-wrap: wrap; gap: 8px; }

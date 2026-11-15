@@ -20,6 +20,11 @@ import { patchPrivate } from '../repositories/accounts.js';
 import { QUESTIONS_LEAD } from './gateway.js';
 import { pendingAiQuestions, type PendingAiQuestions } from '../services/lineAiQuestions.js';
 import { buildLineUpgradeCard, markUpgradeCardShown, upgradeCardDue } from '../services/lineUpgrade.js';
+import { activeEntryBatch, ENTRY_BATCH_KEY, entryTurn, mayBeEntryTurn } from './batchTurn.js';
+import { KIND_WORDS, type EntryKind } from './batchEntries.js';
+import { entryQuestionMessages, entryReviewMessages } from './lineEntries.js';
+import { createToolbox } from './tools.js';
+import { proposalBaseVersion } from './proposals.js';
 
 // LINE talks to the same เลขากระรอก as the app: the same Gemini, rules, tools and Krarok Tokens (one pool per
 // account), with answers shaped for LINE (lineFormat.ts). The LINE handler has already checked the account
@@ -175,6 +180,36 @@ export async function lineAssistantAnswer(user: UserRow, text: string, history: 
   }
 }
 
+/**
+ * A paste of many records in LINE, and the answers to its questions (batchTurn.ts, owner 2026-11-16): every line read by
+ * rules, what a line does not say asked one at a time with taps, then the summary, a card per kind and ยืนยันทั้งหมด. No
+ * model, no tokens. Null when the message is neither (it goes on as before; a batch that was waiting is dropped).
+ */
+export async function lineEntryTurn(user: UserRow, text: string, deps: { db?: AssistantDb; now?: Date; saveGroup?: typeof saveCardGroup } = {}): Promise<{ messages: LineMessage[]; text: string } | null> {
+  const now = deps.now ?? new Date();
+  const state = (user.notif_settings as Record<string, unknown> | undefined)?.[ENTRY_BATCH_KEY];
+  if (!mayBeEntryTurn(text, state, now)) return null;
+  const db = deps.db ?? supabaseAssistantDb;
+  const { user: account, versions, absentRecords } = await db.loadAccount(user.user_id);
+  if (account.user_id !== user.user_id) return null;
+  const reader = { ...account, notif_settings: { ...(account.notif_settings ?? {}), ...(user.notif_settings ?? {}) } } as UserRow;
+  const proposals = { save: (proposal: Parameters<AssistantDb['saveProposal']>[0]) => db.saveProposal({ ...proposal, baseVersion: proposalBaseVersion(proposal, versions, absentRecords) }) };
+  const turn = await entryTurn({ text, user: reader, now, channel: 'line',
+    execute: createToolbox({ user: reader, proposals, memory: { remember: async () => undefined }, now, channel: 'line' }) });
+  const keep = turn && !('cleared' in turn) ? turn.state : null;
+  if (turn || activeEntryBatch(state, now)) await db.saveEntryBatch?.(user.user_id, keep).catch(() => console.error('line-assistant: the pasted records were not kept'));
+  if (!turn) return null;
+  if ('cleared' in turn) return { messages: [{ type: 'text', text: turn.text }], text: turn.text };
+  if (turn.questions.length) return { messages: entryQuestionMessages(turn), text: [turn.text, turn.questions[0].text].filter(Boolean).join('\n') };
+  const confirms = turn.cards.filter((card): card is Extract<AssistantCard, { kind: 'confirm' }> => card.kind === 'confirm');
+  const groupId = `g${randomBytes(12).toString('hex')}`;
+  if (confirms.length) {
+    const kinds = Object.fromEntries(confirms.flatMap(card => (card.entry ? [[card.id, card.entry.kind]] : [])));
+    await (deps.saveGroup ?? saveCardGroup)(user.user_id, groupId, { cards: confirms, files: 0, kinds });
+  }
+  return { messages: entryReviewMessages(groupId, turn), text: turn.text };
+}
+
 const DONE: Record<string, { title: string; character: 'working' | 'received' | 'cancelled' | 'spent' }> = {
   add_job: { title: 'เพิ่มงานแล้ว', character: 'working' },
   add_expense: { title: 'บันทึกรายจ่ายแล้ว', character: 'spent' },
@@ -230,7 +265,8 @@ export async function lineAssistantCommand(user: UserRow, command: { action: 'co
 
 /** Replaceable parts of the group commands, for tests. */
 export interface LineGroupDeps {
-  confirm?: (userId: string, proposalId: string) => Promise<{ kind: string; path?: string; jobId?: string; recordId?: string }>;
+  confirm?: (userId: string, proposalId: string) => Promise<{ kind: string; path?: string; jobId?: string; recordId?: string;
+    sheet?: { status: string; url?: string; tab?: string; row?: number; file?: string } | null }>;
   cancel?: (userId: string, proposalId: string) => Promise<boolean>;
   drop?: typeof dropCardGroup;
   take?: typeof takeFilesForProposals;
@@ -243,10 +279,13 @@ export interface LineGroupDeps {
  * ทั้งหมด"). Every card is confirmed on its own, so each keeps the app's checks; one already confirmed with ดูทีละใบ is
  * counted, not saved twice.
  */
-export async function lineGroupCommand(user: UserRow, command: { action: 'confirm' | 'cancel' | 'show'; groupId: string }, deps: LineGroupDeps = {}): Promise<LineMessage[]> {
+export async function lineGroupCommand(user: UserRow, command: { action: 'confirm' | 'cancel' | 'show'; groupId: string; kind?: EntryKind }, deps: LineGroupDeps = {}): Promise<LineMessage[]> {
   const group = cardGroupOf(user.notif_settings, command.groupId, deps.now);
   if (!group) return [{ type: 'text', text: 'การ์ดนี้หมดเวลาแล้วครับ ส่งใหม่หรือพิมพ์บอกเลขาอีกครั้งได้เลย' }];
-  const cards = group.cards.filter((card): card is Extract<AssistantCard, { kind: 'confirm' }> => Boolean(card) && (card as AssistantCard).kind === 'confirm');
+  const every = group.cards.filter((card): card is Extract<AssistantCard, { kind: 'confirm' }> => Boolean(card) && (card as AssistantCard).kind === 'confirm');
+  // ยืนยันรายรับ / รายจ่าย / งาน on a paste of many records: only that kind's cards; the group stays for the rest.
+  const cards = command.kind ? every.filter(card => group.kinds?.[card.id] === command.kind) : every;
+  if (!cards.length) return [{ type: 'text', text: 'ไม่มีรายการในกลุ่มนี้ที่รอยืนยันแล้วครับ' }];
   if (command.action === 'show') return lineAssistantReply('', cards);
   const drop = deps.drop ?? dropCardGroup;
   if (command.action === 'cancel') {
@@ -262,6 +301,8 @@ export async function lineGroupCommand(user: UserRow, command: { action: 'confir
   let failed = 0;
   let path: string | undefined;
   const confirmed: { id: string; done: { kind: string; jobId?: string; recordId?: string } }[] = [];
+  // Rows written to the person's sheet, so the answer says where and opens them selected (owner, 2026-11-16).
+  const sheetRows: { url: string; tab: string; file: string; row: number }[] = [];
   // What became of each card, named in the card that answers (owner, 2026-11-15: "เขียนกำกับ ... ว่าแก้ไขคลิปไหนบ้าง").
   const marks = new Map<string, { text: string; bad?: boolean }>();
   for (const card of cards) {
@@ -271,13 +312,15 @@ export async function lineGroupCommand(user: UserRow, command: { action: 'confir
       path ??= done.path;
       confirmed.push({ id: card.id, done });
       marks.set(card.id, { text: 'บันทึกแล้ว' });
+      const sheet = (done as { sheet?: { status: string; url?: string; tab?: string; row?: number; file?: string } | null }).sheet;
+      if (sheet?.status === 'written' && sheet.row) sheetRows.push({ url: sheet.url ?? '', tab: sheet.tab ?? '', file: sheet.file ?? '', row: sheet.row });
     } catch (error) {
       // Confirmed already (ดูทีละใบ), or no longer waiting: counted, never saved twice.
       if (error instanceof HttpError && error.status === 409) { already += 1; marks.set(card.id, { text: 'ยืนยันไว้ก่อนแล้ว' }); }
       else { failed += 1; marks.set(card.id, { text: 'ยังไม่สำเร็จ', bad: true }); }
     }
   }
-  if (!failed) await drop(user.user_id, command.groupId).catch(() => undefined);
+  if (!failed && !command.kind) await drop(user.user_id, command.groupId).catch(() => undefined);
   // Each saved record gets the picture เลขา said it came from (owner, 2026-11-06: "ทำให้ส่งหลายรูปแล้วผูกบิลอัตโนมัติด้วย"),
   // taken in one read and attached in a batch; saved already, so attaching never costs a record.
   let attached = 0;
@@ -294,9 +337,16 @@ export async function lineGroupCommand(user: UserRow, command: { action: 'confir
   const kinds = cards.map(card => cardKind(card));
   const common = (['job', 'expense', 'income', 'document'] as const).map(kind => ({ kind, count: kinds.filter(item => item === kind).length })).sort((a, b) => b.count - a.count)[0];
   const edits = cards.every(card => card.title.startsWith('แก้ไข'));
+  const firstTab = sheetRows[0]?.tab;
+  const tabRows = sheetRows.filter(item => item.tab === firstTab).map(item => item.row);
+  const first = tabRows.length ? Math.min(...tabRows) : 0;
+  const last = tabRows.length ? Math.max(...tabRows) : 0;
+  const sheetUrl = sheetRows[0]?.url ? sheetRows[0].url.replace(/range=A\d+:([A-Z]+)\d+/, (_, column: string) => `range=A${first}:${column}${last}`) : '';
+  const sheetLine = sheetRows.length ? `ลงชีต ${sheetRows[0].file} แท็บ ${firstTab} ${first === last ? `แถว ${first}` : `แถว ${first}–${last}`}${sheetRows.length > tabRows.length ? ` และแท็บอื่นอีก ${sheetRows.length - tabRows.length} แถว` : ''}` : null;
   return [lineDoneCard({
-    kind: common?.count ? common.kind : 'job',
-    status: failed ? `บันทึกแล้ว ${saved} จาก ${cards.length} รายการ` : edits ? `แก้ไขแล้ว ${saved + already} รายการ` : `บันทึกแล้ว ${saved + already} รายการ`,
+    kind: command.kind ?? (common?.count ? common.kind : 'job'),
+    status: failed ? `บันทึกแล้ว ${saved} จาก ${cards.length} รายการ` : edits ? `แก้ไขแล้ว ${saved + already} รายการ`
+      : command.kind ? `บันทึก${KIND_WORDS[command.kind]}แล้ว ${saved + already} รายการ` : `บันทึกแล้ว ${saved + already} รายการ`,
     altText: `บันทึกแล้ว ${saved} รายการ`,
     rows: cards.slice(0, 10).map(card => {
       const line = cardLine(card);
@@ -305,7 +355,8 @@ export async function lineGroupCommand(user: UserRow, command: { action: 'confir
     }),
     ...(cards.length > 10 ? { more: `และอีก ${cards.length - 10} รายการ` } : {}),
     extra: attached ? [{ label: 'แนบรูปกับรายการ', value: `${attached} รูป` }] : undefined,
-    ...(failed ? { note: 'กด “บันทึกทั้งหมด” อีกครั้ง หรือ “ดูทีละใบ” เพื่อดูรายการที่ยังไม่สำเร็จ' } : {}),
-    footer: lineAppLink(path || '/incomeExpense', 'เปิดในแอป'),
+    ...(failed ? { note: 'กด “บันทึกทั้งหมด” อีกครั้ง หรือ “ดูทีละใบ” เพื่อดูรายการที่ยังไม่สำเร็จ' } : sheetLine ? { note: `${sheetLine} กดดูในชีต ระบบจะเลือกแถวใหม่ไว้ให้` } : {}),
+    // The sheet last (owner, 2026-11-16: "ชีตควรที่จะอยู่ด้านล่างสุดเลย"): ดูในชีต opens the new rows selected.
+    footer: sheetUrl ? { label: 'ดูในชีต', uri: sheetUrl } : lineAppLink(path || '/incomeExpense', 'เปิดในแอป'),
   })];
 }

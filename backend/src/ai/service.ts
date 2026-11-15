@@ -19,6 +19,8 @@ import { ProviderError, turnFiles, type AssistantCard, type ChatFile, type ChatT
 import type { VaultFile } from '../../../shared/vault.js';
 import { bulkDeleteChanges, isDeleteAll, proposalBaseVersion, proposalChanges, proposalTarget } from './proposals.js';
 import { documentPath } from './documentActions.js';
+import type { EntryBatch } from './batchEntries.js';
+import { activeEntryBatch, ENTRY_BATCH_KEY, entryTurn, mayBeEntryTurn } from './batchTurn.js';
 import { MEMORY_LIMIT, overLimit, replacedMemory, selectMemories, type MemoryKind, type MemoryRow } from './memory.js';
 
 // What one เลขากระรอก request does around the model: who may use it, how many Krarok Tokens are left, charging the
@@ -44,6 +46,8 @@ export interface AssistantDb {
   smartForLight?(): Promise<boolean>;
   /** ฟีเจอร์ทดลอง: whether this account has the feature on (shared/labs.ts). Absent or failing means off. */
   labOn?(userId: string, feature: LabFeatureId): Promise<boolean>;
+  /** A paste of many records waiting for its answers (ai/batchTurn.ts), kept in the account's private state; null clears it. */
+  saveEntryBatch?(userId: string, batch: EntryBatch | null): Promise<void>;
   /** บันทึกลงชีตของคุณ: writes a confirmed job or expense into the account's connected sheet (null: no sheet ready or
    *  the feature is off). Never throws for a sheet problem; the app's save stands either way. */
   writeSheet?(userId: string, proposalId: string, kind: 'job' | 'expense', record: Record<string, unknown>): Promise<SheetWriteResult | null>;
@@ -343,7 +347,25 @@ export async function handleMessage(db: AssistantDb, deps: MessageDeps, userId: 
     // A confirm in so many words always applies (owner, 2026-10-28: "ไม่ใช่มาถามกูหรือวนมาถามกูอีกรอบ"); a bare "ใช่" or
     // "ได้เลย" only when เลขา's last word was not a question.
     const waiting = goAhead && pending?.length && (EXPLICIT_GO_AHEAD.test(input.text.trim()) || goAheadFits(lastSeen)) ? pending : [];
-    if (askAgain && pending?.length) {
+    // Many records pasted at once, and the answers to its questions (batchTurn.ts, owner 2026-11-16): every line read by rules,
+    // what a line does not say asked first, then a card per line from the same tools. No model call, no tokens. LINE runs the
+    // same turn from its own handler, with taps.
+    const batchState = (user.notif_settings as Record<string, unknown> | undefined)?.[ENTRY_BATCH_KEY];
+    const entry = channel === 'app' && !turnFiles(input).length && !(askAgain && pending?.length) && !waiting.length && mayBeEntryTurn(input.text, batchState, deps.now)
+      ? await entryTurn({ text: input.text, user, now: deps.now ?? new Date(), channel,
+        execute: createToolbox({ user, proposals, memory: { remember: async () => undefined }, now: deps.now, channel }) })
+      : null;
+    if (entry || activeEntryBatch(batchState, deps.now)) {
+      // A message that is not an answer drops the questions and is answered as it is.
+      const keep = entry && !('cleared' in entry) ? entry.state : null;
+      await db.saveEntryBatch?.(userId, keep).catch(() => console.error('ai: the pasted records were not kept'));
+    }
+    if (entry) {
+      const cards = 'cleared' in entry ? [] : entry.cards;
+      reply = { route: 'chat', handedOff: false, cards, calls: [], costUsd: 0, billableUsd: 0, overheadUsd: 0, tokens: 0, promptVersion: PROMPT_VERSION, text: entry.text,
+        routing: routingRecord(decideRoute({ text: input.text }, config.routingPolicy ?? 'v2'), { tier: 'direct', reason: 'entry_batch', outcome: 'direct',
+          proposal_ids: cards.flatMap(card => (card.kind === 'confirm' ? [card.id] : [])) }) };
+    } else if (askAgain && pending?.length) {
       // "ขอการ์ดอีกรอบ", "การ์ดไม่ขึ้น": the same cards again, no model call, no tokens.
       const cards = pending.map(proposal => cardForStoredProposal(proposal, user));
       reply = { route: 'chat', handedOff: false, cards, calls: [], costUsd: 0, billableUsd: 0, overheadUsd: 0, tokens: 0, promptVersion: PROMPT_VERSION,

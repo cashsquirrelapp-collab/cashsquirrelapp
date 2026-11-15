@@ -1,4 +1,4 @@
-import { UNDO_MS, sheetRowUrl, type GoogleRecord, type SheetMap, type SheetWrite } from '../../../shared/googleSheets.js';
+import { KEPT_WRITES, UNDO_MS, sheetRowUrl, type GoogleRecord, type SheetMap, type SheetWrite } from '../../../shared/googleSheets.js';
 import { chooseTab, dataColumns, displayValue, letter, rowCells, valueFor, type RowCell, type RowKind } from '../../../shared/sheetRow.js';
 import { evaluateRow, shiftFormula } from '../../../shared/sheetFormula.js';
 import { isValidWhtRate, roundMoney, whtAmountFor } from '../../../shared/wht.js';
@@ -102,18 +102,32 @@ const asNumber = (value: string | number | null): number | null => {
 };
 
 /** Where the record goes and what it writes, read from the sheet as it is now. */
-export async function planRow(ops: SheetOps, map: SheetMap, kind: RowKind, record: Record<string, unknown>): Promise<RowPlan | null> {
+/** One read of a tab, shared by the rows of several cards going into it (a paste of many records). */
+export type TabRead = { last: number; recent: string[][] };
+
+/**
+ * Where the record goes and what it writes, read from the sheet as it is now. `offset`: how many rows other cards of the same
+ * answer take before this one (owner, 2026-11-16: "อยู่ลำดับที่ 6 แล้วอันต่อไปเป็นพรีวิวก็จะเป็นลำดับที่ 7 ลำดับที่ 8 ไม่ต้อง
+ * เป็นลำดับ 6 ซ้ำกัน"); `reads` keeps each tab's read for them.
+ */
+export async function planRow(ops: SheetOps, map: SheetMap, kind: RowKind, record: Record<string, unknown>,
+  options: { offset?: number; reads?: Map<string, TabRead> } = {}): Promise<RowPlan | null> {
   const tab = chooseTab(map, kind);
   if (!tab) return null;
   const headerRow = tab.headerRow === null ? null : tab.headerRow + 1;
-  const last = Math.max(headerRow ?? 0, await ops.lastRow(tab.name, dataColumns(tab)));
   const lastColumn = Math.max(0, ...tab.columns.map(column => column.index));
-  const from = Math.max((headerRow ?? 0) + 1, last - 29);
-  const recent = last >= from ? await ops.readRows(tab.name, from, last, lastColumn) : [];
+  let read = options.reads?.get(tab.name);
+  if (!read) {
+    const lastRow = Math.max(headerRow ?? 0, await ops.lastRow(tab.name, dataColumns(tab)));
+    const start = Math.max((headerRow ?? 0) + 1, lastRow - 29);
+    read = { last: lastRow, recent: lastRow >= start ? await ops.readRows(tab.name, start, lastRow, lastColumn) : [] };
+    options.reads?.set(tab.name, read);
+  }
+  const { last, recent } = read;
   const samples: Record<number, string[]> = {};
   for (const column of tab.columns) samples[column.index] = recent.map(row => row[column.index] ?? '').filter(Boolean);
   const pick = (cells: string[]) => Object.fromEntries(tab.columns.map(column => [column.index, cells[column.index] ?? '']));
-  const row = last + 1;
+  const row = last + 1 + Math.max(0, options.offset ?? 0);
   const cells = rowCells(tab, kind, record, samples);
   // The customer's formulas for the new row: its own (a row filled in advance) or the row above's, copied down as the
   // write will copy them. Read by the fixed formula reader; a formula it cannot read stays "คำนวณเอง".
@@ -257,24 +271,31 @@ export async function writeRecordToSheet(userId: string, proposalId: string, kin
     const back = plan.cells.some(cell => cell.formula) ? (await ops.readRows(plan.tab, plan.row, plan.row, span).catch(() => [] as string[][]))[0] ?? [] : [];
     const sheetValues = plan.cells.filter(cell => cell.formula && (back[cell.index] ?? '').trim()).slice(0, 10)
       .map(cell => ({ header: cell.header.slice(0, 200), text: String(back[cell.index]).trim().slice(0, 100) }));
-    await saveGoogle(userId, { ...google, lastWrite: { proposalId, at: now.toISOString(), ok: true, fileId: google.file!.id, tab: plan.tab, row: plan.row, cells, ...(gid === undefined ? {} : { gid }), span, ...(sheetValues.length ? { sheetValues } : {}) } });
+    await saveGoogle(userId, withWrite(google, { proposalId, at: now.toISOString(), ok: true, fileId: google.file!.id, tab: plan.tab, row: plan.row, cells, ...(gid === undefined ? {} : { gid }), span, ...(sheetValues.length ? { sheetValues } : {}) }));
     return { status: 'written', file: google.file!.name, url: gid === undefined ? google.file!.url : sheetRowUrl(google.file!.id, gid, plan.row, span), tab: plan.tab, row: plan.row };
   } catch (error) {
     const message = error instanceof GoogleError ? ERRORS[error.code] : ERRORS.failed;
-    await saveGoogle(userId, { ...google, lastWrite: { proposalId, at: now.toISOString(), ok: false, error: message } }).catch(() => undefined);
+    await saveGoogle(userId, withWrite(google, { proposalId, at: now.toISOString(), ok: false, error: message })).catch(() => undefined);
     return { status: 'failed', error: message };
   }
 }
 
+/** The record with this write kept: the last one, and in the recent list (one per card). */
+export function withWrite(record: GoogleRecord, write: SheetWrite): GoogleRecord {
+  return { ...record, lastWrite: write, writes: [...(record.writes ?? []).filter(item => item.proposalId !== write.proposalId), write].slice(-KEPT_WRITES) };
+}
+const writeOf = (record: GoogleRecord | null | undefined, proposalId: string) =>
+  record?.writes?.find(item => item.proposalId === proposalId) ?? (record?.lastWrite?.proposalId === proposalId ? record.lastWrite : null);
+
 async function keepWrite(userId: string, write: SheetWrite) {
   const record = await loadGoogle(userId);
-  if (record) await saveGoogle(userId, { ...record, lastWrite: write });
+  if (record) await saveGoogle(userId, withWrite(record, write));
 }
 
 /** What became of the sheet write for this card (the card asks after ยืนยัน). */
 export function writeFor(record: GoogleRecord | null, proposalId: string, now = Date.now()) {
-  const write = record?.lastWrite;
-  if (!write || write.proposalId !== proposalId) return null;
+  const write = writeOf(record, proposalId);
+  if (!write) return null;
   if (!write.ok) return { status: 'failed' as const, error: write.error ?? ERRORS.failed };
   return {
     status: write.undone ? 'undone' as const : 'written' as const,
@@ -289,9 +310,11 @@ export function writeFor(record: GoogleRecord | null, proposalId: string, now = 
 /** ย้อนกลับ: empties the cells of the last write, within 30 minutes, if it is still the connected file. */
 export async function undoWrite(userId: string, proposalId: string, now = Date.now()): Promise<boolean> {
   const context = await sheetContext(userId);
-  const write = context?.record.lastWrite;
-  if (!context || !write?.ok || write.undone || write.proposalId !== proposalId || write.fileId !== context.record.file?.id || now - Date.parse(write.at) >= UNDO_MS) return false;
+  const write = writeOf(context?.record, proposalId);
+  if (!context || !write?.ok || write.undone || write.fileId !== context.record.file?.id || now - Date.parse(write.at) >= UNDO_MS) return false;
   await context.ops.clear(write.tab ?? '', write.cells ?? []);
-  await saveGoogle(userId, { ...context.record, lastWrite: { ...write, undone: true } });
+  const undone = { ...write, undone: true };
+  const record = withWrite(context.record, undone);
+  await saveGoogle(userId, context.record.lastWrite?.proposalId === proposalId ? record : { ...record, lastWrite: context.record.lastWrite });
   return true;
 }

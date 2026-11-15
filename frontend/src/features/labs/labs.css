@@ -389,3 +389,13 @@
 .lab-sp-gross p.is-muted { color: var(--muted); font-size: 12.5px; }
 .lab-sp-gross p.is-red { color: var(--lab-red); font-size: 12.5px; }
 .lab-sp-gross .lab-btn { justify-self: start; margin-top: 2px; }
+
+/* The sheet under a paste of many records (SheetBatchPanel.tsx): last under the cards, opened by the person. */
+.lab-sb { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; min-width: 0; }
+.lab-sb-toggle { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 8px 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--white); color: var(--text); font-size: 14px; font-weight: 600; line-height: 1.5; cursor: pointer; text-align: left; }
+.lab-sb-toggle span { flex: 1; min-width: 0; }
+.lab-sb-toggle:hover { background: var(--faint); }
+.lab-sb-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--white); }
+.lab-sb-line p { display: flex; align-items: center; gap: 6px; flex: 1 1 220px; min-width: 0; font-size: 14px; font-weight: 600; line-height: 1.5; }
+.lab-sb-line p svg { flex: none; color: var(--lab-green); }
+.lab-sb-hint { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); line-height: 1.5; }

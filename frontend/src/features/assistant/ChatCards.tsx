@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertCircle, ArrowDown, ArrowUp, ArrowUpRight, BarChart3, BookOpen, Briefcase, Check, CheckCircle2, ChevronRight, Copy, FileText, FolderOpen, Landmark, ListChecks, Loader2, MessageSquareText, Pencil, Send, UserRound, Wallet, X } from 'lucide-react';
+import { AlertCircle, ArrowDown, ArrowUp, ArrowUpRight, BarChart3, BookOpen, Briefcase, Check, CheckCircle2, ChevronRight, Copy, FileText, FolderOpen, Landmark, ListChecks, Loader2, MessageSquareText, Pencil, Send, Table2, UserRound, Wallet, X } from 'lucide-react';
 import { VAULT_KIND_LABEL } from '../../../../shared/vault';
 import { VAULT_ATTACHED_EVENT, VAULT_ATTACH_EVENT, asFile, chatFileFor, type VaultAttachRequest } from './chatFiles';
 import { saveAccountName } from './accountName';
@@ -7,6 +7,7 @@ import { tr, T } from '../../i18n/tr';
 import { partyAnswer, paymentAnswer, thaiDateAnswer, type AskQuestion, type PartyValues } from '../../../../shared/askQuestions';
 import { SheetActions, SheetDoneBlock, SheetPreviewBlock, useSheetRow, type SheetPhase } from '../labs/SheetRowCard';
 import { SheetAskCardView } from '../labs/SheetChatAsk';
+import { SheetBatchPanel } from '../labs/SheetBatchPanel';
 import { isPendingConfirm, type ChatCard, type ConfirmCard, type DocumentCard, type EditField, type MoneyChartCard, type OfficialLinkCard, type ProjectCard, type QuestionsCard, type RenameCard, type SummaryCard, type AttachCard, type SourcesCard, type MessageDraftCard } from './assistantMock';
 import { formatTHB } from '../../../../shared/thb';
 import { isValidWhtRate } from '../../../../shared/wht';
@@ -418,6 +419,9 @@ function openLabel(path: string): string {
   return tr("เปิดเอกสาร");
 }
 
+/** Card or sheet: the view the person last chose in this visit (null: the card, unless the sheet has something to ask). */
+let sheetPreference: boolean | null = null;
+
 function Confirm({ card, state, onConfirm, onCancel, onAsk, confirmedPath, onNavigate, onRevise }: { card: ConfirmCard; state: ConfirmState; onConfirm: () => void; onCancel?: () => void; onAsk?: (text: string) => void; confirmedPath?: string; onNavigate: (path: string) => void; onRevise?: (card: ConfirmCard, edits: Record<string, string>) => Promise<void> }) {
   const live = React.useContext(LiveContext);
   const [editing, setEditing] = React.useState(false);
@@ -435,10 +439,20 @@ function Confirm({ card, state, onConfirm, onCancel, onAsk, confirmedPath, onNav
   const editorId = React.useId();
   const action = primaryAction(card);
   // ฟีเจอร์ทดลอง บันทึกลงชีตของคุณ: with a row to show, the card is the customer's sheet itself (labs/SheetRowCard.tsx).
-  const sheetPhase: SheetPhase = live && !editing && (state === 'pending' || state === 'working' || state === 'done') ? state : 'other';
+  // A card of a paste of many records stays a card: their sheet is one panel under all of them (labs/SheetBatchPanel.tsx).
+  const sheetPhase: SheetPhase = live && !editing && !card.entry && (state === 'pending' || state === 'working' || state === 'done') ? state : 'other';
   const sheet = useSheetRow(card.id, sheetPhase);
-  const sheetMode = live && !editing && sheet.on && Boolean(sheet.preview)
+  // The card first, the sheet when the person asks for it (owner, 2026-11-16: "ถ้าจะมาเป็นการ์ดอ่ะขึ้นมาเป็นการ์ดเลย แต่ถ้า
+  // จะดูแบบเป็นชีตอ่ะก็ให้คนยูสเซอร์กดเองกดดูพรีวิวเอง ... ทำโหมดสลับ").
+  // A sheet with something to answer or know (ยอดก่อนหัก, a formula that counts differently) opens as the sheet by itself.
+  // The view the person last chose stays for the next cards (a mode, not a per-card switch); a card prepared again after
+  // ยอดก่อนหัก keeps the sheet it was answered on.
+  const [chosenView, setChosenView] = React.useState<boolean | null>(sheetPreference);
+  const setSheetView = (next: boolean) => { sheetPreference = next; setChosenView(next); };
+  const sheetView = chosenView ?? Boolean(sheet.preview?.gross || sheet.preview?.differs?.length);
+  const sheetMode = sheetView && live && !editing && sheet.on && Boolean(sheet.preview)
     && (state === 'pending' || state === 'working' || (state === 'done' && sheet.write?.status !== 'failed'));
+  const canToggleSheet = live && !editing && sheet.on && Boolean(sheet.preview) && state === 'pending';
   React.useEffect(() => { if (editing) requestAnimationFrame(() => box.current?.scrollIntoView({ block: 'nearest' })); }, [editing]);
   React.useEffect(() => { if (editScroll.current) editScroll.current.scrollTop = 0; }, [activeSection]);
   const startEdit = (group?: string) => {
@@ -476,7 +490,7 @@ function Confirm({ card, state, onConfirm, onCancel, onAsk, confirmedPath, onNav
     <div ref={box} className={`asx-rcard is-confirm is-${state}${editing ? ' is-editing' : ''}${sheetMode ? ' is-sheet' : ''}`} aria-busy={saving || state === 'working'}>
       {sheetMode ? <SheetPreviewBlock preview={sheet.preview!} phase={sheetPhase} write={sheet.write}
           onUseGross={canEdit && sheet.preview?.gross && fields.some(field => field.field === 'value') && fields.some(field => field.field === 'wht_rate')
-            ? () => onRevise!(card, { value: String(sheet.preview!.gross!.value), wht_rate: String(sheet.preview!.gross!.rate) }) : undefined} />
+            ? () => { sheetPreference = true; return onRevise!(card, { value: String(sheet.preview!.gross!.value), wht_rate: String(sheet.preview!.gross!.rate) }); } : undefined} />
         : <Head icon={kindIcon} title={card.title} state={{ tone: STATE_OF[state], text: stateText[state] }} />}
       {editing ? <div className="asx-edit-sections">
         {sections.length > 1 && <div className="asx-edit-tabs" role="tablist" aria-label={tr("ส่วนของเอกสาร")}>
@@ -534,6 +548,11 @@ function Confirm({ card, state, onConfirm, onCancel, onAsk, confirmedPath, onNav
         </div>
         {problem && <p className="asx-edit-problem" role="alert"><AlertCircle size={14} />{problem}</p>}
       </div> : sheetMode ? null : <ConfirmPreview card={card} onEditParty={canEdit ? startEdit : undefined} />}
+      {canToggleSheet && (
+        <button type="button" className="asx-pill-btn asx-sheet-toggle" aria-pressed={sheetView} onClick={() => setSheetView(!sheetView)} data-testid="sheet-view-toggle">
+          <Table2 size={14} aria-hidden="true" />{sheetView ? tr("ดูแบบการ์ด") : tr("ดูแบบชีต")}
+        </button>
+      )}
       {/* No row to show yet: what the sheet still needs (nothing for accounts without the feature). */}
       {live && !editing && !sheetMode && state === 'pending' && sheet.hint && <p className="lab lab-sr-note">{sheet.hint}</p>}
       {sheetMode && (state === 'pending' || state === 'working') ? (
@@ -614,6 +633,7 @@ function Questions({ card, onAnswer, answered }: { card: QuestionsCard; onAnswer
       return chosen === undefined ? '' : paymentAnswer(dates[question.id] || '', chosen);
     }
     if (question.kind === 'party') return party[question.id]?.name?.trim() ? partyAnswer(party[question.id]) : '';
+    if (question.calendar && dates[question.id] && !picked[question.id] && !typed[question.id]?.trim()) return thaiDateAnswer(dates[question.id]);
     const own = typed[question.id]?.trim();
     if (own) return isWhtQuestion(question) && /^\d+(\.\d+)?$/.test(own) ? `${own}%` : own;
     return picked[question.id] || '';
@@ -685,11 +705,18 @@ function Questions({ card, onAnswer, answered }: { card: QuestionsCard; onAnswer
                   const on = !typed[question.id]?.trim() && picked[question.id] === choice.value;
                   return (
                     <button key={choice.value} type="button" role="radio" aria-checked={on} className="asx-q-row"
-                      onClick={() => { setPicked(state => ({ ...state, [question.id]: choice.value })); setTyped(state => ({ ...state, [question.id]: '' })); }}>
+                      onClick={() => { setPicked(state => ({ ...state, [question.id]: choice.value })); setTyped(state => ({ ...state, [question.id]: '' })); setDates(state => ({ ...state, [question.id]: '' })); }}>
                       <span className="asx-q-row-text">{choice.label}{choice.hint && <small>{choice.hint}</small>}</span><span className="asx-q-tick" aria-hidden="true" />
                     </button>
                   );
                 })}
+                {question.calendar && (
+                  <label className={`asx-q-row is-typed${dates[question.id] ? ' is-on' : ''}`}>
+                    <span className="asx-q-row-text">{tr("หรือเลือกวัน")}</span>
+                    <input type="date" className="asx-q-input asx-q-date" aria-label={tr("เลือกวัน")} value={dates[question.id] ?? ''}
+                      onChange={event => { const value = event.target.value; setDates(state => ({ ...state, [question.id]: value })); if (value) { setPicked(state => ({ ...state, [question.id]: '' })); setTyped(state => ({ ...state, [question.id]: '' })); } }} />
+                  </label>
+                )}
                 {(question.allowText || wht) && (
                   <label className={`asx-q-row is-typed${typed[question.id]?.trim() ? ' is-on' : ''}`}>
                     <span className="asx-q-row-text">{wht ? tr("อัตราอื่น") : question.options.length ? tr("หรือพิมพ์เอง") : tr("พิมพ์คำตอบ")}</span>
@@ -837,15 +864,120 @@ function Attach({ card, onNavigate }: { card: AttachCard; onNavigate: (path: str
 
 /**
  * Several cards waiting in one answer: one tap confirms them all (owner, 2026-10-28: "อะไรที่มันจะเยอะสามารถบอกน้องให้
- * น้องจัดการได้ทั้งหมด"). Each card is still confirmed on its own, with its own checks and state.
+ * น้องจัดการได้ทั้งหมด"). Each card is still confirmed on its own, with its own checks and state, one after another: ten
+ * cards at once all found the same empty row in the person's sheet (owner, 2026-11-16: "ลำดับ 6 ซ้ำกัน").
  */
-export function ConfirmAll({ cards, states, onConfirm }: { cards?: ChatCard[]; states: Record<string, ConfirmState | undefined>; onConfirm: (card: ConfirmCard) => void }) {
+export function ConfirmAll({ cards, states, onConfirm }: { cards?: ChatCard[]; states: Record<string, ConfirmState | undefined>; onConfirm: (card: ConfirmCard) => Promise<void> | void }) {
+  const [busy, setBusy] = React.useState(false);
   const waiting = (cards ?? []).filter((card): card is ConfirmCard => isPendingConfirm(card, states[card.kind === 'confirm' ? card.id : ''] ?? 'pending'));
-  if (waiting.length < 2) return null;
+  if (waiting.length < 2 && !busy) return null;
   return (
-    <button type="button" className="asx-pill-btn is-primary asx-confirm-all" onClick={() => waiting.forEach(card => onConfirm(card))}>
-      <CheckCircle2 size={16} aria-hidden="true" />{tr("ยืนยันทั้งหมด {0} รายการ", waiting.length)}
+    <button type="button" className="asx-pill-btn is-primary asx-confirm-all" disabled={busy} onClick={() => void inTurn(waiting, onConfirm, setBusy)}>
+      {busy ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <CheckCircle2 size={16} aria-hidden="true" />}
+      {busy ? tr("กำลังบันทึกทีละรายการ") : tr("ยืนยันทั้งหมด {0} รายการ", waiting.length)}
     </button>
+  );
+}
+async function inTurn(cards: ConfirmCard[], onConfirm: (card: ConfirmCard) => Promise<void> | void, setBusy: (busy: boolean) => void) {
+  setBusy(true);
+  try { for (const card of cards) await onConfirm(card); }
+  finally { setBusy(false); }
+}
+
+const ENTRY_WORDS = { income: T("รายรับ"), expense: T("รายจ่าย"), job: T("งานรอรับเงิน") } as const;
+const ENTRY_AMOUNT = ['จำนวนเงิน', 'มูลค่า', 'ยอดรับ', 'รับครั้งนี้'];
+const cardAmount = (card: ConfirmCard) => {
+  const value = Number(String(card.changes.find(row => ENTRY_AMOUNT.includes(row.label))?.value ?? '').replace(/[^\d.-]/g, ''));
+  return Number.isFinite(value) ? value : 0;
+};
+const bahtText = (value: number) => `฿${value.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
+
+/**
+ * A message's cards. A paste of many records (cards tagged with their line and kind) is grouped the way the owner asked
+ * (2026-11-16: "อันไหนที่เป็นรายจ่ายกับรายรับอ่ะมึงแยกกันหน่อย ... ลูกค้ามาเลื่อนดูสุดท้ายตาลายเอง"): รายรับ · รายจ่าย ·
+ * งานรอรับเงิน, each with its count, total and own ยืนยัน; then ยืนยันทั้งหมด; the sheet last ("ชีตควรที่จะอยู่ด้านล่างสุด").
+ */
+export function CardsView({ cards, live, states, renderCard, onConfirm }: {
+  cards?: ChatCard[]; live: boolean; states: Record<string, ConfirmState | undefined>;
+  renderCard: (card: ChatCard, key: number) => React.ReactNode;
+  onConfirm: (card: ConfirmCard) => Promise<void> | void;
+}) {
+  const list = cards ?? [];
+  const entries = list.filter((card): card is ConfirmCard => card.kind === 'confirm' && Boolean(card.entry));
+  if (entries.length < 2) return <>{list.map((card, at) => renderCard(card, at))}{live && <ConfirmAll cards={list} states={states} onConfirm={onConfirm} />}</>;
+  const groups = (['income', 'expense', 'job'] as const).map(kind => ({ kind, cards: entries.filter(card => card.entry!.kind === kind) })).filter(group => group.cards.length);
+  return (
+    <>
+      {groups.map(group => <EntryGroup key={group.kind} kind={group.kind} cards={group.cards} live={live} states={states} onConfirm={onConfirm}
+        renderCard={card => renderCard(card, list.indexOf(card))} />)}
+      {list.map((card, at) => (card.kind === 'confirm' && card.entry ? null : renderCard(card, at)))}
+      {live && <ConfirmAll cards={entries} states={states} onConfirm={onConfirm} />}
+      {live && <SheetBatchPanel ids={entries.map(card => card.id)} states={states} />}
+    </>
+  );
+}
+
+const ENTRY_NAME = ['งาน', 'รายการ', 'ชื่องาน', 'ชื่อรายการ'];
+const ENTRY_SKIP = [...ENTRY_NAME, ...ENTRY_AMOUNT, 'หมายเหตุ', 'หัก ณ ที่จ่าย'];
+const SHORT_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+const shortDay = (value: string) => value.replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g, (_, year: string, month: string, day: string) => `${Number(day)} ${SHORT_MONTHS[Number(month) - 1]} ${Number(year) + 543}`);
+/** One record's line in its group: its name, then what else the card says (day, client, payment), short. */
+function entryLine(card: ConfirmCard): { name: string; detail: string } {
+  const name = card.changes.find(row => ENTRY_NAME.includes(row.label))?.value || card.title;
+  const detail = card.changes.filter(row => !ENTRY_SKIP.includes(row.label) && row.value && row.value !== '—')
+    .slice(0, 3).map(row => (row.label === 'ลูกค้า' && row.value === 'ไม่ระบุ' ? tr("ไม่ระบุลูกค้า") : shortDay(row.value))).join(' · ');
+  return { name, detail };
+}
+const ENTRY_STATE: Partial<Record<ConfirmState, string>> = { done: T("บันทึกแล้ว"), working: T("กำลังบันทึก"), failed: T("ไม่สำเร็จ"), cancelled: T("ยกเลิกแล้ว"), expired: T("หมดเวลา") };
+
+function EntryGroup({ kind, cards, live, states, onConfirm, renderCard }: {
+  kind: keyof typeof ENTRY_WORDS; cards: ConfirmCard[]; live: boolean; states: Record<string, ConfirmState | undefined>;
+  onConfirm: (card: ConfirmCard) => Promise<void> | void; renderCard: (card: ConfirmCard) => React.ReactNode;
+}) {
+  const [busy, setBusy] = React.useState(false);
+  // Short lines first, so ten or thirty records read at a glance; ดูและแก้ทีละใบ opens the full cards to check or change.
+  const [open, setOpen] = React.useState(false);
+  const stateOf = (card: ConfirmCard): ConfirmState => states[card.id] ?? (card.status === 'applied' ? 'done' : card.status === 'cancelled' ? 'cancelled' : card.status === 'expired' || card.status === 'stale' ? 'expired' : 'pending');
+  const waiting = cards.filter(card => isPendingConfirm(card, states[card.id] ?? 'pending'));
+  const total = cards.reduce((sum, card) => sum + cardAmount(card), 0);
+  const word = tr(ENTRY_WORDS[kind]);
+  return (
+    <section className={`asx-entry-group is-${kind}`} aria-label={tr("{0} {1} รายการ", word, cards.length)} data-testid={`entry-group-${kind}`}>
+      <header className="asx-entry-head">
+        <span className="asx-entry-dot" aria-hidden="true" />
+        <b>{tr("{0} {1} รายการ", word, cards.length)}</b>
+        <span className="asx-entry-total">{tr("รวม {0}", bahtText(total))}</span>
+      </header>
+      {open ? cards.map(card => <React.Fragment key={card.id}>{renderCard(card)}</React.Fragment>) : (
+        <ul className="asx-entry-rows">
+          {cards.map(card => {
+            const line = entryLine(card);
+            const state = stateOf(card);
+            return (
+              <li key={card.id} className={`is-${state}`}>
+                <span className="asx-entry-no">{card.entry?.line}</span>
+                <span className="asx-entry-main"><b>{line.name}</b>{line.detail && <small>{line.detail}</small>}</span>
+                <span className="asx-entry-side">
+                  <span className="asx-entry-amount">{bahtText(cardAmount(card))}</span>
+                  {ENTRY_STATE[state] && <small className="asx-entry-state">{state === 'done' && <Check size={12} aria-hidden="true" />}{tr(ENTRY_STATE[state]!)}</small>}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <div className="asx-entry-actions">
+        {live && (waiting.length > 0 || busy) && (
+          <button type="button" className="asx-pill-btn asx-entry-confirm" disabled={busy} onClick={() => void inTurn(waiting, onConfirm, setBusy)}>
+            {busy ? <Loader2 size={14} className="animate-spin" aria-hidden="true" /> : <CheckCircle2 size={14} aria-hidden="true" />}
+            {busy ? tr("กำลังบันทึกทีละรายการ") : tr("ยืนยัน{0} {1} รายการ", word, waiting.length)}
+          </button>
+        )}
+        <button type="button" className="asx-pill-btn" aria-expanded={open} onClick={() => setOpen(value => !value)}>
+          {open ? tr("ย่อเป็นรายการ") : tr("ดูและแก้ทีละใบ")}
+        </button>
+      </div>
+    </section>
   );
 }
 

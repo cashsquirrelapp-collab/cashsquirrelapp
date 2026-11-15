@@ -12,6 +12,8 @@ export interface AskQuestion {
   kind?: AskKind;
   /** payment: the app's credit terms in days (shared/creditTerms.ts). */
   terms?: number[];
+  /** choice: a calendar beside the taps (a day for a paste of many records). */
+  calendar?: boolean;
   /** party: whose details, and what is already known (editable). */
   role?: PartyRole; prefill?: PartyValues;
 }

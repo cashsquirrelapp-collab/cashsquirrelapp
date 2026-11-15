@@ -17,8 +17,14 @@ export interface SheetRowPreview {
 }
 /** What became of the sheet write of a confirmed card. */
 export type SheetRowWrite =
-  | { status: 'written' | 'undone'; file: string; url: string; tab: string; row: number; canUndo: boolean; values?: { header: string; text: string }[] }
+  | { status: 'written' | 'undone'; file: string; url: string; tab: string; row: number; canUndo: boolean; values?: { header: string; text: string }[]; gid?: number | null; span?: number }
   | { status: 'failed'; error: string };
+/** The rows several waiting cards of one answer will write, one after another in each tab (backend handlers/google.ts). */
+export interface SheetBatchPreview {
+  file: string; url: string; fileId: string;
+  tabs: { tab: string; gid: number | null; span: number; columns: SheetRowPreview['columns']; before: SheetRowPreview['before'];
+    rows: { proposalId: string; row: number; cells: (string | null)[]; computed?: (string | null)[] }[] }[];
+}
 
 // ฟีเจอร์ทดลอง, phase 2: the account's Google connection (backend/src/handlers/google.ts). The browser never holds the
 // kept Google permission; it gets an hour's access token only to show Google's own file picker.
@@ -47,6 +53,12 @@ export const googleApi = {
   undo: (account: string, proposalId: string) => apiJson<{ undone: boolean; write: SheetRowWrite | null }>('/api/google', {
     method: 'POST', headers: { 'X-Account-ID': account }, body: JSON.stringify({ action: 'undo', proposalId }),
   }),
+  previewMany: (account: string, proposalIds: string[]) => apiJson<{ preview: SheetBatchPreview | null; reason?: string }>('/api/google', {
+    method: 'POST', headers: { 'X-Account-ID': account }, body: JSON.stringify({ action: 'previewMany', proposalIds }),
+  }),
+  writtenMany: (account: string, proposalIds: string[]) => apiJson<{ writes: { proposalId: string; write: SheetRowWrite | null }[] }>('/api/google', {
+    method: 'POST', headers: { 'X-Account-ID': account }, body: JSON.stringify({ action: 'writtenMany', proposalIds }),
+  }).then(reply => reply.writes),
   forget: (account: string) => post(account, { action: 'forget' }).then(reply => reply.google),
   disconnect: (account: string) => post(account, { action: 'disconnect' }).then(reply => reply.google),
 };

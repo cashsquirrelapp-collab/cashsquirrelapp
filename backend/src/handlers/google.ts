@@ -13,7 +13,8 @@ import {
   encryptToken, exchangeCode, revokeToken, stateBack } from '../services/googleSheets.js';
 import { appOrigin } from '../config/env.js';
 import { supabaseAssistantDb } from '../ai/supabaseDb.js';
-import { planRow, previewOf, sheetContext, undoWrite, writeFor } from '../services/sheetWrite.js';
+import { planRow, previewOf, sheetContext, undoWrite, writeFor, type TabRead } from '../services/sheetWrite.js';
+import { chooseTab } from '../../../shared/sheetRow.js';
 
 // ฟีเจอร์ทดลอง, phase 2 (shared/googleSheets.ts, services/googleSheets.ts). GET: this account's connection (never the
 // token). POST {action}: start (Google's sign-in address), token (an hour's access token for Google's file picker),
@@ -34,6 +35,9 @@ const actionSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('preview'), proposalId: z.string().regex(/^p_[0-9a-f-]{36}$/) }).strict(),
   z.object({ action: z.literal('written'), proposalId: z.string().regex(/^p_[0-9a-f-]{36}$/) }).strict(),
   z.object({ action: z.literal('undo'), proposalId: z.string().regex(/^p_[0-9a-f-]{36}$/) }).strict(),
+  // Several cards of one answer (a paste of many records): their rows one after another, and what became of each.
+  z.object({ action: z.literal('previewMany'), proposalIds: z.array(z.string().regex(/^p_[0-9a-f-]{36}$/)).min(1).max(40) }).strict(),
+  z.object({ action: z.literal('writtenMany'), proposalIds: z.array(z.string().regex(/^p_[0-9a-f-]{36}$/)).min(1).max(40) }).strict(),
   z.object({ action: z.literal('forget') }).strict(),
   z.object({ action: z.literal('disconnect') }).strict(),
 ]);
@@ -93,6 +97,47 @@ export default withGuard(async (req, res) => {
     const next = { ...record, file: null, map: null };
     await saveGoogle(user.id, next);
     reply(next);
+    return;
+  }
+
+  if (body.action === 'previewMany' || body.action === 'writtenMany') {
+    need('sheetWrite');
+    await rateLimit('google-row', user.id, 60, 60);
+    if (body.action === 'writtenMany') { res.json({ writes: body.proposalIds.map(id => ({ proposalId: id, write: writeFor(record, id) })) }); return; }
+    if (!record?.file || !record.map || record.map.fileId !== record.file.id) {
+      res.json({ preview: null, reason: record?.file ? 'noMap' : 'none' });
+      return;
+    }
+    // The cards still waiting, read once; each new row goes under the ones before it in the same tab.
+    const waiting = await supabaseAssistantDb.pendingProposals?.(user.id, new Date(Date.now() - 2 * 3600_000).toISOString()).catch(() => []) ?? [];
+    const byId = new Map(waiting.map(proposal => [proposal.id, proposal]));
+    try {
+      const context = await sheetContext(user.id, record);
+      if (!context) { res.json({ preview: null, reason: 'none' }); return; }
+      const reads = new Map<string, TabRead>();
+      const taken = new Map<string, number>();
+      const tabs = new Map<string, { tab: string; gid: number | null; span: number; columns: unknown; before: unknown; rows: { proposalId: string; row: number; cells: unknown; computed: unknown }[] }>();
+      for (const id of body.proposalIds) {
+        const proposal = byId.get(id);
+        const kind = proposal?.kind === 'add_job' ? 'job' as const : proposal?.kind === 'add_expense' ? 'expense' as const : null;
+        if (!proposal || !kind || !proposal.record) continue;
+        const name = chooseTab(record.map, kind)?.name;
+        if (!name) continue;
+        const plan = await planRow(context.ops, record.map, kind, proposal.record, { offset: taken.get(name) ?? 0, reads });
+        if (!plan) continue;
+        taken.set(name, (taken.get(name) ?? 0) + 1);
+        const shown = previewOf(plan, record.file);
+        if (!tabs.has(name)) {
+          const gid = await context.ops.tabId(name).catch(() => undefined);
+          tabs.set(name, { tab: name, gid: gid ?? null, span: Math.max(0, ...plan.cells.map(cell => cell.index)), columns: shown.columns, before: shown.before, rows: [] });
+        }
+        tabs.get(name)!.rows.push({ proposalId: id, row: shown.row, cells: shown.cells, computed: shown.computed });
+      }
+      res.json({ preview: tabs.size ? { file: record.file.name, url: record.file.url, fileId: record.file.id, tabs: [...tabs.values()] } : null, reason: tabs.size ? undefined : 'noTab' });
+    } catch (error) {
+      if (error instanceof GoogleError) throw new HttpError(...MESSAGES[error.code]);
+      throw error;
+    }
     return;
   }
 

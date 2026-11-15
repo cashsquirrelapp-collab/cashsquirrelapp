@@ -9,7 +9,7 @@ import { createSampleTransport, tokenLevel, type AssistantTransport } from './as
 import { TokenRing } from './TokenRing';
 import { PAGE_HELP, SAMPLE_TOKENS, afterReply, buddyPrompts, isPendingConfirm, poseFor, type AssistantMode, type ChatMessage, type ConfirmCard, type TokenBalance } from './assistantMock';
 import { cardSpeech, climbFor, graphemes, speechPreview, type BuddyNews, type Climb } from './buddyClimb';
-import { ChatCardView, type ConfirmState, ConfirmAll } from './ChatCards';
+import { CardsView, ChatCardView, type ConfirmState } from './ChatCards';
 import { BriefingCard, briefingText } from './BriefingCard';
 import { FloatingWindow, MiniMascot, useAvoidZones } from './FloatingChat';
 import { MascotPeek } from '../../components/mascot/MascotPeek';
@@ -638,14 +638,13 @@ export default function AssistantBuddy({ mobile, page, pageName, userName, hidde
                         <div className="asx-msg-body">
                           {message.work && <WorkDone work={message.work} />}
                           {message.text && <Markdown text={message.text} onNavigate={go} navigationContext={navigationContext} cards={message.cards} />}
-                          {message.cards?.map((card, n) => (
+                          <CardsView cards={message.cards} live={live} states={confirmStates} onConfirm={item => confirm(item)} renderCard={(card, n) => (
                             <ChatCardView key={n} live={live} card={card} confirmState={card.kind === 'confirm' ? confirmStates[card.id] : undefined} confirmedPath={card.kind === 'confirm' ? confirmedPaths[card.id] : undefined}
                               onConfirm={item => void confirm(item)} onCancel={item => { setConfirmStates(states => ({ ...states, [item.id]: 'cancelled' })); void transport.cancel?.(item); }} onNavigate={go}
                               onAnswer={text => void send(text)} answered={messages.slice(index + 1).some(later => later.from === 'me') || busy}
                               onAsk={text => void send(text)}
                               onRevise={transport.revise ? (item, edits) => revise(item, edits) : undefined} />
-                          ))}
-                          {live && <ConfirmAll cards={message.cards} states={confirmStates} onConfirm={item => void confirm(item)} />}
+                          )} />
                           {!live && (mode === 'done' || mode === 'awake' || mode === 'listening') && <span className="asx-meta">{tr("คำตอบตัวอย่าง")}</span>}
                         </div>
                       </li>

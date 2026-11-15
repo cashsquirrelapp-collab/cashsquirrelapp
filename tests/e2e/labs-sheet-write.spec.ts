@@ -76,8 +76,16 @@ for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'p
   test(`a new expense card on the ${device.name} shows the row it writes into the sheet, then where it went and ย้อนกลับ`, async ({ page }) => {
     const { googlePosts } = await open(page, device, ['sheets', 'sheetMap', 'sheetWrite']);
     await ask(page, 'ค่าเช่ากล้อง 1200 วันนี้');
+    // The card first; the sheet when the person asks (owner, 2026-11-16: "ให้คนยูสเซอร์กดเองกดดูพรีวิวเอง ... ทำโหมดสลับ").
+    const toggle = page.getByTestId('sheet-view-toggle');
+    await expect(toggle).toHaveText('ดูแบบชีต');
+    await expect(page.locator('.asx-rcard.is-confirm .asx-rcard-rows')).toBeVisible();
     const preview = page.getByTestId('sheet-row-preview');
+    await expect(preview).toHaveCount(0);
+    await page.screenshot({ path: `test-results/labs-sheet-card-first-${device.name}.png` });
+    await toggle.click();
     await expect(preview).toBeVisible();
+    await expect(toggle).toHaveText('ดูแบบการ์ด');
     await expect(preview).toContainText('เพิ่ม 1 แถว · บัญชีร้าน 2569 › รายจ่าย');
     await expect(preview).toContainText('ยังไม่ได้เขียน');
     await expect(preview).toContainText('E สะสม (สูตร)');
