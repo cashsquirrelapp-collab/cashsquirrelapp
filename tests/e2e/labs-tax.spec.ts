@@ -106,7 +106,7 @@ test('the template download: the answers pick โปรดักชันเฮ�
 
 test('Settings › ฟีเจอร์ทดลอง opens the two built features', async ({ page }) => {
   await open(page, LAB_ON, { width: 1440, height: 900 }, '/settings');
-  await page.getByRole('button', { name: /^ฟีเจอร์ทดลอง/ }).click();
+  await page.getByRole('button', { name: /^Google Sheets และ Excel/ }).click();
   await expect(page.getByTestId('lab-open-templates')).toBeVisible();
   await page.getByTestId('lab-open-templates').click();
   await expect(page.getByTestId('business-questions')).toBeVisible();

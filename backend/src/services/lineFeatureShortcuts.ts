@@ -2,6 +2,7 @@ import type { VaultFile } from '../../../shared/vault.js';
 import { isWht50Trackable, wht50StatusOf, wht50WaitingDays, type WhtTrackingJob } from '../../../shared/vaultStatus.js';
 import type { LineMessage } from './line.js';
 import { LINE_CARD_COLORS as C, MAX_LINE_ITEMS, lineAppLink, lineCard, lineJobItem, lineSection } from './lineCards.js';
+import { buildLineUpgradeCard } from './lineUpgrade.js';
 
 export type LineFeatureJob = WhtTrackingJob & { name: string; client?: string };
 export interface LineFeatureContext {
@@ -12,7 +13,7 @@ export interface LineFeatureContext {
 }
 
 const normalize = (text: string) => text.normalize('NFKC').trim().replace(/\s+/g, '').toLocaleLowerCase();
-const commands: Record<string, 'vault' | 'wht50' | 'extras' | 'help' | 'invoice' | 'calendar' | 'upload' | 'record' | 'slip'> = {
+const commands: Record<string, 'vault' | 'wht50' | 'extras' | 'help' | 'invoice' | 'calendar' | 'upload' | 'record' | 'slip' | 'plans'> = {
   คลังเอกสาร: 'vault', เอกสารของฉัน: 'vault',
   '50ทวิ': 'wht50', ใบ50ทวิ: 'wht50', ติดตาม50ทวิ: 'wht50',
   เมนูเพิ่มเติม: 'extras', เมนูอื่นๆ: 'extras',
@@ -23,6 +24,9 @@ const commands: Record<string, 'vault' | 'wht50' | 'extras' | 'help' | 'invoice'
   // The LINE menu's บันทึก and ส่งสลิป tiles (owner, 2026-11-14; lineRichMenus.ts 2026-11-14m).
   บันทึก: 'record', บันทึกรายการ: 'record',
   ส่งสลิป: 'slip', 'ส่งสลิป/ใบเสร็จ': 'slip', ส่งใบเสร็จ: 'slip',
+  // Plus / Pro (owner, 2026-11-16): the card with both plans and a button each (services/lineUpgrade.ts).
+  แพ็กเกจ: 'plans', ดูแพ็กเกจ: 'plans', สมัครแพ็กเกจ: 'plans', สมัครสมาชิก: 'plans', อัปเกรด: 'plans', อัพเกรด: 'plans',
+  สมัครpro: 'plans', สมัครplus: 'plans', เติมpro: 'plans', ราคาpro: 'plans', ราคาแพ็กเกจ: 'plans',
 };
 
 const message = (label: string, text: string) => ({ type: 'action' as const, action: { type: 'message' as const, label, text } });
@@ -65,8 +69,10 @@ export function buildLineFeatureShortcut(
 ): LineMessage | null {
   if (!isLineFeatureShortcut(text)) return null;
   const command = commands[normalize(text)];
+  if (command === 'plans') return buildLineUpgradeCard('menu', now);
   if (command === 'extras') {
     const links = [
+      { type: 'button', style: 'primary', height: 'sm', margin: 'md', color: C.accent, action: { type: 'message', label: 'ดูแพ็กเกจ Plus / Pro', text: 'แพ็กเกจ' } },
       ...(context.vaultOpen === false ? [] : secondaryLink('/line-documents', 'จัดเอกสารของฉัน')),
       ...secondaryLink('/invoice', 'ออกเอกสาร'),
       ...secondaryLink('/calendar', 'ปฏิทินเงิน'),

@@ -32,38 +32,41 @@ async function open(page: Page, labs: unknown, size = { width: 1440, height: 900
   return { labReads };
 }
 
+// Since 2026-11-16 (owner: "ฟีเจอร์ทดลองอ่ะไม่ต้องให้มันเป็นฟีเจอร์ทดลองละ เอาเรียกมันมาใช้จริงได้เลย") the built ones are
+// everyone's, under ตั้งค่า › ชีตและภาษี; a test account also sees the two still being built.
 for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'phone', width: 390, height: 844 }]) {
-  test(`a tester sees ฟีเจอร์ทดลอง in Settings on the ${device.name}; every feature is listed, the unfinished ones locked, the built ones switchable`, async ({ page }) => {
-    await open(page, { labs: { tester: true, on: [] } }, device);
-    const row = page.getByRole('button', { name: /^ฟีเจอร์ทดลอง/ });
+  test(`every account opens Google Sheets และ Excel in Settings on the ${device.name}; a tester also sees the two still being built`, async ({ page }) => {
+    await open(page, { labs: { tester: true, on: ['sheets', 'excel', 'sheetMap', 'sheetWrite', 'sheetJobs', 'templates', 'filingCalendar'] } }, device);
+    const row = page.getByRole('button', { name: /^Google Sheets และ Excel/ });
     await expect(row).toBeVisible();
     expect(await textOverlapIssues(page)).toEqual([]);
     await row.click();
+    const tools = page.getByTestId('tools-list');
+    await expect(tools).toBeVisible();
+    for (const name of ['เชื่อม Google Sheets', 'เชื่อมไฟล์ Excel', 'สร้างชีตตามประเภทธุรกิจ', 'ปฏิทินยื่นภาษี']) await expect(tools).toContainText(name);
+    await expect(tools.getByRole('button', { name: 'เปิด' })).toHaveCount(4);
+    await expect(tools.getByRole('switch')).toHaveCount(0);
     const list = page.getByTestId('labs-list');
     await expect(list).toBeVisible();
     await expect(page.getByText('เห็นเฉพาะบัญชีทดสอบ ลูกค้าทั่วไปไม่เห็น', { exact: false })).toBeVisible();
-    for (const name of ['เชื่อม Google Sheets', 'เชื่อมไฟล์ Excel', 'แผนที่ชีต', 'บันทึกลงชีตของคุณ', 'หน้างานและรายจ่ายจากชีต', 'สร้างชีตตามประเภทธุรกิจ', 'ปฏิทินยื่นภาษี', 'โปรเจกต์และเงินทดรอง', 'สำนักงานบัญชี']) {
-      await expect(list).toContainText(name);
-    }
-    // Phase 1 (2026-11-12): the template download and the filing calendar are built; phase 2: the Google Sheets
-    // connection, the Excel file and the sheet map; phase 3: writing into the sheet; then the jobs page from the sheet
-    // (2026-11-14). The other two are still locked.
+    for (const name of ['โปรเจกต์และเงินทดรอง', 'สำนักงานบัญชี']) await expect(list).toContainText(name);
     await expect(list.getByText('กำลังสร้าง')).toHaveCount(2);
-    await expect(list.getByRole('switch')).toHaveCount(7);
     expect(await textOverlapIssues(page)).toEqual([]);
     await page.screenshot({ path: `test-results/labs-settings-${device.name}.png` });
   });
 }
 
-test('an ordinary account, or one whose state cannot be read, sees Settings as before: no ฟีเจอร์ทดลอง', async ({ page }) => {
-  const { labReads } = await open(page, { labs: { tester: false, on: [] } });
+test('an ordinary account opens the same tools, without the part still being tested', async ({ page }) => {
+  const { labReads } = await open(page, { labs: { tester: false, on: ['sheets', 'excel', 'sheetMap', 'sheetWrite', 'sheetJobs', 'templates', 'filingCalendar'] } });
   await expect(page.getByRole('button', { name: /^ความยินยอม/ })).toBeVisible();
   await expect.poll(() => labReads.length).toBeGreaterThan(0);
-  await expect(page.getByRole('button', { name: /^ฟีเจอร์ทดลอง/ })).toHaveCount(0);
+  await page.getByRole('button', { name: /^Google Sheets และ Excel/ }).click();
+  await expect(page.getByTestId('tools-list').getByRole('button', { name: 'เปิด' })).toHaveCount(4);
+  await expect(page.getByTestId('labs-list')).toHaveCount(0);
   await expect(page.getByText('ฟีเจอร์ทดลอง')).toHaveCount(0);
 });
 
-test('an answer the app cannot read counts as not a tester', async ({ page }) => {
+test('an answer the app cannot read opens nothing still being tested', async ({ page }) => {
   await page.route('**/api/labs', route => route.fulfill({ status: 503, json: { error: 'busy' } }));
   await open(page, { labs: { tester: true, on: [] } });
   await page.unroute('**/api/labs');

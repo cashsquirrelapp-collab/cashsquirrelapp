@@ -86,7 +86,7 @@ async function open(page: Page, size: { width: number; height: number }, start: 
 }
 
 async function openPanel(page: Page) {
-  await page.getByRole('button', { name: /^ฟีเจอร์ทดลอง/ }).click();
+  await page.getByRole('button', { name: /^Google Sheets และ Excel/ }).click();
   await page.getByTestId('lab-open-sheets').click();
   const panel = page.getByTestId('sheets-panel');
   await expect(panel).toBeVisible();
@@ -272,7 +272,7 @@ const EXCEL_FILE = { name: 'บัญชีร้าน ต.ค.xlsx', mimeType:
 for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'phone', width: 390, height: 844 }]) {
   test(`an Excel file on the ${device.name}: read on the device, the sheet map, kept on the device, the overview`, async ({ page }) => {
     const { bodies } = await open(page, device, { connected: false, labsOn: ['sheets', 'excel', 'sheetMap', 'templates'] });
-    await page.getByRole('button', { name: /^ฟีเจอร์ทดลอง/ }).click();
+    await page.getByRole('button', { name: /^Google Sheets และ Excel/ }).click();
     await page.getByTestId('lab-open-excel').click();
     const panel = page.getByTestId('sheets-panel');
     await expect(panel.getByRole('tab', { name: 'ไฟล์ Excel' })).toHaveAttribute('aria-selected', 'true');
@@ -318,7 +318,7 @@ for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'p
 
 test('a file that is not a spreadsheet is refused plainly', async ({ page }) => {
   await open(page, { width: 1440, height: 900 }, { connected: false, labsOn: ['excel', 'sheetMap'] });
-  await page.getByRole('button', { name: /^ฟีเจอร์ทดลอง/ }).click();
+  await page.getByRole('button', { name: /^Google Sheets และ Excel/ }).click();
   await page.getByTestId('lab-open-excel').click();
   const panel = page.getByTestId('sheets-panel');
   await expect(panel.getByRole('tab', { name: 'Google Sheets' })).toHaveCount(0);

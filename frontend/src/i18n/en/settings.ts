@@ -292,4 +292,12 @@ export const settings: Record<string, string> = {
   "ฟีเจอร์สำหรับสมาชิก Plus และ Pro — สมัครเพื่อเปิดใช้งาน": "For Plus and Pro members. Subscribe to turn it on.",
   "เชื่อมบัญชี LINE เพื่อคุยกับเลขากระรอกและจดงานในแชท แจ้งเตือนรายวันมีในแพ็กเกจ Plus และ Pro": "Connect LINE to chat with Krarok Assistant and record work in the chat. Daily reminders come with Plus and Pro.",
   "LINE · การแจ้งเตือน": "LINE · Notifications",
+  "คัดลอกไม่สำเร็จ": "Could not copy",
+  "กรุณาลองใหม่อีกครั้ง": "Please try again",
+  "เมื่อเชื่อมชีตแล้ว เลขากระรอกบอกได้ว่าแต่ละคอลัมน์คืออะไร เพิ่มแถวลงชีตเมื่อคุณกดยืนยัน และหน้างานกับหน้ารายจ่ายแสดงรายการจากชีตของคุณ": "Once a sheet is connected, Krarok Assistant tells you what each column means, adds rows to the sheet when you confirm, and the Jobs and Expenses pages show the sheet's rows",
+  "ฟีเจอร์ในส่วนนี้ยังอยู่ระหว่างทดลอง เห็นเฉพาะบัญชีทดสอบ ลูกค้าทั่วไปไม่เห็น เปิดหรือปิดได้ทุกเมื่อ ข้อมูลเดิมในแอปไม่เปลี่ยน": "The features in this part are still being tested and only test accounts see them. Turn them on or off any time; your existing data does not change.",
+  "Google Sheets และ Excel": "Google Sheets and Excel",
+  "เชื่อมไฟล์บัญชีของคุณ สร้างชีตตามประเภทธุรกิจ และปฏิทินยื่นภาษี": "Connect your account files, create a sheet for your business type, and the tax filing calendar",
+  "ใช้ได้กับบัญชีส่วนตัวที่เข้าสู่ระบบแล้ว": "Available to signed-in personal accounts",
+  "ชีตและภาษี": "Sheets and tax",
 };

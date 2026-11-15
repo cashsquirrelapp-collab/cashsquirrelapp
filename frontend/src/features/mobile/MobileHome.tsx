@@ -84,8 +84,6 @@ export interface MobileHomeProps {
   onFeedback?: () => void;
   onCalendar: () => void;
   onTools: () => void;
-  /** ใส่โค้ด รับ 200 โทเคน (shared/referral.ts): the small button that opens the code, made in App. */
-  referralButton?: React.ReactNode;
 }
 
 export function MobileHome(props: MobileHomeProps) {
@@ -188,7 +186,6 @@ export function MobileHome(props: MobileHomeProps) {
         ))}
       </section>
 
-      {props.referralButton && <div className="ksm-referral">{props.referralButton}</div>}
 
       {receivablesAccess && <button type="button" className={`ksm-notice ${props.hasPending ? 'has-pending' : 'is-empty'}`} onClick={props.onReceivables}
         aria-label={tr("เงินรอรับ · {0} · เปิดดูยอดและรายละเอียด", pendingStatus)}>

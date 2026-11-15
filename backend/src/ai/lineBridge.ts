@@ -19,6 +19,7 @@ import { appOrigin } from '../config/env.js';
 import { patchPrivate } from '../repositories/accounts.js';
 import { QUESTIONS_LEAD } from './gateway.js';
 import { pendingAiQuestions, type PendingAiQuestions } from '../services/lineAiQuestions.js';
+import { buildLineUpgradeCard, markUpgradeCardShown, upgradeCardDue } from '../services/lineUpgrade.js';
 
 // LINE talks to the same เลขากระรอก as the app: the same Gemini, rules, tools and Krarok Tokens (one pool per
 // account), with answers shaped for LINE (lineFormat.ts). The LINE handler has already checked the account
@@ -45,7 +46,13 @@ export interface LineBridgeDeps {
   keepForApp?: typeof keepForApp;
   /** Keeps several cards as one group for ยืนยันทั้งหมด (services/lineFileLinks.ts); tests stand in for it. */
   saveGroup?: typeof saveCardGroup;
+  /** The Plus / Pro card under an answer, at most once a week (services/lineUpgrade.ts); tests stand in for it. */
+  upgradeDue?: (userId: string, now: Date) => Promise<boolean>;
+  markUpgrade?: (userId: string, now: Date) => Promise<void>;
 }
+
+/** An account without a paid plan: free tokens, a gift, given tokens, or a paid plan that has ended. */
+const unpaid = (plan: PlanInfo) => plan.plan === 'trial' || plan.plan === 'lapsed';
 
 /**
  * LINE's answer has to go out inside the Worker's background time (about 30 s after LINE gets its 200; see
@@ -136,6 +143,18 @@ export async function lineAssistantAnswer(user: UserRow, text: string, history: 
       const last = [...messages].reverse().find((message): message is Extract<LineMessage, { type: 'text' }> => message.type === 'text');
       if (last) last.text = `${last.text}\n\n${note}`; else if (messages.length < 5) messages.push({ type: 'text', text: note });
     }
+    // Plus / Pro (owner, 2026-11-16): under an answer to an account without a paid plan when its tokens run low, or once a
+    // week anyway; never under a question, never past LINE's five messages, never more than once a week.
+    const low = reply.tokensLeft !== null && reply.tokensLeft <= Math.max(5, Math.round(limit * 0.1));
+    if (unpaid(plan) && !asking && messages.length < 5) {
+      const now = deps.now ?? new Date();
+      try {
+        if (await (deps.upgradeDue ?? upgradeCardDue)(user.user_id, now)) {
+          messages = [...messages, buildLineUpgradeCard(low ? 'low' : 'weekly', now)];
+          await (deps.markUpgrade ?? markUpgradeCardShown)(user.user_id, now);
+        }
+      } catch { console.error('line-assistant: the plans card was not added'); }
+    }
     // LINE's short history keeps the questions and any card waiting, so a follow-up here or in the app knows them.
     const proposalIds = reply.cards.flatMap(card => (card.kind === 'confirm' ? [card.id] : []));
     return { messages, text: lineHistoryText(reply.text, reply.cards as ChannelTurn['cards']), ...(proposalIds.length ? { proposalIds } : {}), reply: { text: reply.text, cards: reply.cards } };
@@ -145,8 +164,11 @@ export async function lineAssistantAnswer(user: UserRow, text: string, history: 
     // Token, trial and pause answers are messages for the person.
     // Out of tokens: recording by typing still works, with no tokens (owner, 2026-11-14).
     if (error instanceof HttpError && error.status === 402) {
+      // With the Plus / Pro card for an account without a paid plan (owner, 2026-11-16: "ตอนโทเคนหมด").
+      const card = unpaid(plan) ? [buildLineUpgradeCard('out', deps.now ?? new Date())] : [];
+      if (card.length) void (deps.markUpgrade ?? markUpgradeCardShown)(user.user_id, deps.now ?? new Date());
       const said = `${error.message}\nพิมพ์จดรายรับรายจ่ายได้ตามปกติ เช่น “ค่ากาแฟ 60” หรือ “งานตัดต่อ 3000” ไม่ใช้โทเคน`;
-      return { messages: [{ type: 'text', text: said }], text: error.message };
+      return { messages: [{ type: 'text', text: said }, ...card], text: error.message };
     }
     if (error instanceof HttpError && error.status !== 500) return { messages: [{ type: 'text', text: error.message }], text: error.message };
     throw error;

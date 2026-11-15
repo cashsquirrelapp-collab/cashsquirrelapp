@@ -1,4 +1,5 @@
-import { REFERRAL_FROM } from './referral.js';
+/** 5 Nov 2569 15:25 Bangkok: the automatic tokens ended here (the code-for-tokens campaign began; removed 2026-11-16). */
+const REFERRAL_FROM = Date.parse('2026-11-05T15:25:00+07:00');
 
 // The 200 free เลขากระรอก tokens new accounts had for a few hours on 5 Nov 2569 (owner: "แจกโทเค็นให้ใช้น้องกระรอกฟรีทุก
 // บัญชีเลยที่สมัครมาใหม่คนละ200โทเค็น"), until ชวนเพื่อน รับ 200 โทเคน replaced it (shared/referral.ts: "ปิดแจกอัตโนมัติตอน

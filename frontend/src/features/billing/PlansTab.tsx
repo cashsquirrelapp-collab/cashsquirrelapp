@@ -107,6 +107,15 @@ export const PlansTab: React.FC<PlansTabProps> = ({
   const plusSold = plusOnSale && Boolean(onSubscribePlus);
   // The card shows the member's own plan first, else Pro (the page's lead since design F).
   const [choice, setChoice] = React.useState<PaidTier>(memberTier === 'plus' && plusSold ? 'plus' : 'pro');
+  // From LINE's Plus / Pro card (?tier=plus|pro, owner 2026-11-16): the plan pressed shows first, once Plus is known on sale.
+  const askedTier = React.useRef<string | null>((() => { try { return new URLSearchParams(window.location.search).get('tier'); } catch { return null; } })());
+  React.useEffect(() => {
+    const asked = askedTier.current;
+    if (!asked || memberTier) return;
+    if (asked === 'plus' && !plusSold) return;
+    askedTier.current = null;
+    setChoice(asked === 'plus' ? 'plus' : 'pro');
+  }, [plusSold, memberTier]);
   const tierButtons = React.useRef<Record<PaidTier, HTMLButtonElement | null>>({ plus: null, pro: null });
   const onTierKey = (event: React.KeyboardEvent) => {
     if (!['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'].includes(event.key)) return;

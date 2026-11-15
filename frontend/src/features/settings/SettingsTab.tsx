@@ -28,7 +28,7 @@ import {
   ArrowLeft, Bell, Building2, FileSpreadsheet, CalendarClock, Clock3, Copy, Database, Download, ExternalLink, FileJson, FileText,
   Globe, Link2, LogOut, Mail, Monitor, Moon, PenLine, PiggyBank, Plus, RefreshCw, ShieldCheck, Sun, Target, Trash2,
   Upload, User, UserRound,
-  BriefcaseBusiness, Sparkles, FileCheck2, FlaskConical,
+  BriefcaseBusiness, Sparkles, FileCheck2,
 } from 'lucide-react';
 import { Drawer } from '../../components/ui/Drawer';
 import { LineLogo } from '../../components/ui/LineLogo';
@@ -646,7 +646,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
   // ---------- layout pieces (display only; every change still goes through the handlers above) ----------
   const isAccount = Boolean(session && !session.isGuest && !isGroupFinance);
-  // ฟีเจอร์ทดลอง (shared/labs.ts): only testers see the section; everyone else sees Settings exactly as before.
+  // Sheets, Excel, business-type sheets and the filing calendar (shared/labs.ts, released 2026-11-16) for every account;
+  // a test account also sees the features still being built.
   const labs = useLabs(isAccount ? session?.user?.id : null);
   const [templateOpen, setTemplateOpen] = React.useState(false);
   const [sheetsOpen, setSheetsOpen] = React.useState(false);
@@ -656,11 +657,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     try { return new URLSearchParams(window.location.search).get('google'); } catch { return null; }
   });
   React.useEffect(() => {
-    if (!googleResult || !labs.tester) return;
+    if (!googleResult || !labs.on.length) return;
     try { const url = new URL(window.location.href); url.searchParams.delete('google'); window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash); } catch { /* the address keeps its query */ }
     if (labs.on.includes('sheets')) { setView('labs'); setSheetsSource('google'); setSheetsOpen(true); }
     else setGoogleResult(null);
-  }, [googleResult, labs.tester, labs.on]);
+  }, [googleResult, labs.on]);
 
   // The link in the "add an email" message comes back to /settings?loginEmail=added|taken|expired: the profile page says so once.
   const [loginEmailResult] = React.useState<string | null>(() => {
@@ -1115,16 +1116,16 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
       case 'labs': return (
         <div className="max-w-2xl space-y-6">
-          <DetailHeader onBack={() => openView('home')} title={tr("ฟีเจอร์ทดลอง")} subtitle={tr("ลองฟีเจอร์ใหม่ก่อนเปิดให้ทุกคน")} />
-          {isAccount && labs.tester ? <LabsSettings account={session.user.id} labs={labs} triggerAlert={triggerAlert} onOpen={id => {
+          <DetailHeader onBack={() => openView('home')} title={tr("Google Sheets และ Excel")} subtitle={tr("เชื่อมไฟล์บัญชีของคุณ สร้างชีตตามประเภทธุรกิจ และปฏิทินยื่นภาษี")} />
+          {isAccount ? <LabsSettings account={session.user.id} labs={labs} triggerAlert={triggerAlert} onOpen={id => {
             if (id === 'templates') { setTemplateOpen(true); return; }
             if (id === 'sheets' || id === 'excel') { setSheetsSource(id === 'excel' ? 'excel' : 'google'); setSheetsOpen(true); return; }
             // The calendar opens on its ยื่นภาษี view (CalendarTab reads the kept view).
             try { localStorage.setItem('cashsquirrel_calendar_view', 'tax'); } catch { /* the calendar opens on its default view */ }
             onSwitchTab('calendar');
           }} />
-            : <Note>{tr("ฟีเจอร์ทดลองเปิดให้เฉพาะบัญชีทดสอบ")}</Note>}
-          {isAccount && labs.tester && <TemplateDialog open={templateOpen} onClose={() => setTemplateOpen(false)} settings={settings}
+            : <Note>{tr("ใช้ได้กับบัญชีส่วนตัวที่เข้าสู่ระบบแล้ว")}</Note>}
+          {isAccount && labs.on.includes('templates') && <TemplateDialog open={templateOpen} onClose={() => setTemplateOpen(false)} settings={settings}
             onSaveProfile={profile => onUpdateSettings({ ...settings, business: profile })} jobs={jobs} expenses={expenses}
             drive={labs.on.includes('sheets') ? { account: session.user.id, onOpenSheets: () => { setTemplateOpen(false); setSheetsSource('google'); setSheetsOpen(true); },
               onAskInChat: labs.on.includes('sheetMap') ? fileName => { requestSheetAsk(session.user.id, fileName); setTemplateOpen(false); onSwitchTab('assistant'); } : undefined } : undefined} />}
@@ -1343,8 +1344,10 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     <NavRow icon={Sparkles} title={tr("ตัวอย่างหลังชำระ Pro")} desc={tr("น้องเลขามาหาหลังชำระเงิน แล้วเปิดคู่มือ 4 ขั้นแบบทดลอง ไม่มีการชำระเงินจริง")} onClick={onPreviewAfterPay} />
                   </Section>}
 
-                  {isAccount && labs.tester && <Section icon={FlaskConical} title={tr("ฟีเจอร์ทดลอง")} id="settings-labs">
-                    <NavRow icon={FlaskConical} title={tr("ฟีเจอร์ทดลอง")} desc={tr("ลองฟีเจอร์ใหม่ก่อนเปิดให้ทุกคน เห็นเฉพาะบัญชีทดสอบ")} value={labs.on.length ? tr("เปิดอยู่ {0}", labs.on.length) : undefined} onClick={() => openView('labs')} />
+                  {/* The sheet and tax tools, no longer experiments (owner, 2026-11-16: "เอาเรียกมันมาใช้จริงได้เลย"): every account
+                      opens them here; a test account also sees what is still being built. */}
+                  {isAccount && <Section icon={FileSpreadsheet} title={tr("ชีตและภาษี")} id="settings-labs">
+                    <NavRow icon={FileSpreadsheet} title={tr("Google Sheets และ Excel")} desc={tr("เชื่อมไฟล์บัญชีของคุณ สร้างชีตตามประเภทธุรกิจ และปฏิทินยื่นภาษี")} onClick={() => openView('labs')} />
                   </Section>}
 
                   <Section icon={Database} title={tr("ข้อมูล")} id="settings-data">

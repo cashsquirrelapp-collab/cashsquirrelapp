@@ -138,9 +138,6 @@ const LineStartPage = lazy(() => import('../features/onboarding/LineStartPage'))
 // เชื่อมชีตจาก LINE: the page the one-use link opens in the phone's own browser (2026-11-13).
 const ConnectSheetsPage = lazy(() => import('../features/labs/ConnectSheetsPage'));
 import { fireMascot } from '../mascotBus';
-import { enterReferral, forgetSharedCode, readReferral, rememberSharedCode, sharedCodeFor, TOKENS_GRANTED_EVENT } from '../services/referral';
-import type { ReferralStatus } from '../../../shared/referral';
-import { ReferralButtons, ReferralDialog, type ReferralView } from '../features/referral/ReferralCards';
 import { leafBus } from '../leafBus';
 import { DashboardPeriodPicker } from '../features/dashboard/DashboardPeriodPicker';
 import { BrandLockup } from '../components/brand/BrandLogo';
@@ -493,8 +490,6 @@ const markRecentlyDeleted = (storageKey: string, id: string) => {
 const PHONE_OWN_HEADER: string[] = ['incomeExpense', 'receivables', 'split', 'wht50', 'settings', 'adminDashboard', 'invoice', 'vault'];
 const PHONE_PAGE_TITLES: Partial<Record<string, string>> = { plans: T("แพ็กเกจ Pro"), receivables: T("เงินรอรับ") };
 
-// A shared invite link (krarok.com/?ref=SQ-…) keeps its code on this device for the new account (shared/referral.ts).
-if (typeof window !== 'undefined') rememberSharedCode();
 // ทำต่อในแอป from LINE keeps its conversation id on this tab before the address changes (assistant/lineContinue.ts).
 if (typeof window !== 'undefined') rememberLineContinue();
 
@@ -1517,20 +1512,12 @@ export default function App() {
       lastQuiet = Date.now();
       void check(0);
     };
-    // Tokens just given here (a friend's code, shared/referral.ts): asked again at once.
-    const granted = () => {
-      if (!quiet || connected || controller.signal.aborted) return;
-      lastQuiet = Date.now();
-      void check(0);
-    };
     document.addEventListener('visibilitychange', askAgain);
     window.addEventListener('focus', askAgain);
-    window.addEventListener(TOKENS_GRANTED_EVENT, granted);
     return () => {
       controller.abort(); window.clearTimeout(retry);
       document.removeEventListener('visibilitychange', askAgain);
       window.removeEventListener('focus', askAgain);
-      window.removeEventListener(TOKENS_GRANTED_EVENT, granted);
     };
   }, [assistantCheckId, assistantUserId, financeGroupId]);
   const [birthOpen, setBirthOpen] = useState(false);
@@ -1547,38 +1534,9 @@ export default function App() {
   // evening tip once. A change by the sun / moon button holds until the next switch (automatic) or becomes the choice.
   const personalSettings = Boolean(session?.user?.id && !session.isGuest && !financeGroupId);
   const accountLoaded = Boolean(session?.user?.id) && cloudSyncStatus === 'synced' && loadedFinanceOwner === financeOwner;
-  // ใส่โค้ด รับ 200 โทเคน, ส่งต่อให้เพื่อน (owner, 2026-11-05; shared/referral.ts): every personal account has a small button;
-  // one that may still enter a friend's code opens that first (the tokens come at once), the others open their own code.
-  const referralAccount = accountLoaded && session && !session.isGuest && !financeGroupId ? session.user.id : null;
-  const [referral, setReferral] = useState<ReferralStatus | null>(null);
-  const [referralBusy, setReferralBusy] = useState(false);
-  const [referralView, setReferralView] = useState<ReferralView | null>(null);
-  useEffect(() => {
-    setReferral(null);
-    setReferralView(null);
-    if (!referralAccount) return;
-    let live = true;
-    void readReferral(referralAccount).then(status => { if (live) setReferral(status); });
-    return () => { live = false; };
-  }, [referralAccount]);
   const copyText = async (text: string, title: string) => {
     try { await navigator.clipboard.writeText(text); fireMascot({ mood: 'happy', title, message: text }); }
     catch { fireMascot({ mood: 'alert', tone: 'error', title: tr("คัดลอกไม่สำเร็จ"), message: text }); }
-  };
-  /** Enters a friend's code; true once the 200 tokens are this account's (the window then says so). */
-  const submitReferral = async (code: string): Promise<boolean> => {
-    if (!referralAccount || referralBusy) return false;
-    setReferralBusy(true);
-    try {
-      const status = await enterReferral(referralAccount, code);
-      setReferral(status);
-      forgetSharedCode();
-      window.dispatchEvent(new Event(TOKENS_GRANTED_EVENT));
-      return true;
-    } catch (error) {
-      fireMascot({ mood: 'alert', tone: 'error', title: tr("ใช้โค้ดนี้ไม่ได้"), message: (error as Error).message || tr("กรุณาลองใหม่อีกครั้ง") });
-      return false;
-    } finally { setReferralBusy(false); }
   };
   const accountThemePref = personalSettings && accountLoaded ? readThemePreference(settings.theme) : null;
   const [localThemePref, setLocalThemePref] = useState<ThemePreference | null>(() => {
@@ -2955,16 +2913,6 @@ export default function App() {
 
   const onboardingFirst = Boolean(session?.user?.id) && cloudSyncStatus === 'synced' && loadedFinanceOwner === financeOwner && !onboardingDone && !birthOpen && !termsWaiting
     && shouldShowOnboarding({ createdAt: session?.user?.created_at, onboarding: settings.onboarding, guest: session?.isGuest === true, groupWorkspace: Boolean(financeGroupId) });
-  // A new member who came from a friend's link sees the window with the code filled in, once, after the first questions.
-  // Only the account made from that link gets it; an older one opens the window with the field empty.
-  const invitedCode = referralAccount ? sharedCodeFor(session?.user?.created_at) : '';
-  const referralInvited = Boolean(referral?.canEnter && invitedCode);
-  useEffect(() => {
-    if (!referralInvited || !referralAccount || onboardingFirst || termsWaiting || birthOpen || activeTab !== 'dashboard') return;
-    const key = `krarok.referral.asked.${referralAccount}`;
-    try { if (localStorage.getItem(key) === '1') return; localStorage.setItem(key, '1'); } catch { /* asked for this visit */ }
-    setReferralView('enter');
-  }, [referralInvited, referralAccount, onboardingFirst, termsWaiting, birthOpen, activeTab]);
   // The one-time evening tip for a new account, once its own settings have loaded, never over the first questions.
   const showThemeTip = accountLoaded && !termsWaiting && !onboardingFirst && !onboardingEdit && !birthOpen && !isImportOpen
     && shouldOfferThemeTip({ saved: accountThemePref, createdAt: session?.user?.created_at, guest: session?.isGuest === true, groupWorkspace: Boolean(financeGroupId), now: new Date(themeTipClock) });
@@ -3282,23 +3230,9 @@ export default function App() {
     </VaultProvider>;
   }
 
-  // The referral button for the overview (computers: the header; phones: under the quick actions), its window and the
-  // line in เลขา's chat (shared/referral.ts).
-  const referralShown = Boolean(referral?.code && referralAccount && (referral.left > 0 || referral.used > 0));
-  const referralButton = referralShown && referral
-    ? <ReferralButtons phone={isPhone} status={referral} onOpen={setReferralView} /> : null;
-  const referralDialog = referralView && referral ? createPortal(
-    <ReferralDialog status={referral} phone={isPhone} busy={referralBusy} initial={invitedCode} view={referralView}
-      onCopy={() => { if (referral.code) void copyText(referral.code, tr("คัดลอกโค้ดแล้ว")); }}
-      onEnter={submitReferral} onClose={() => setReferralView(null)}
-      onChat={() => { setReferralView(null); navigateTab('assistant'); }} />, document.body) : null;
-  const chatReferral = referral?.canEnter && !hasPaidPlan && referralAccount
-    ? { tokens: referral.tokens, onOpen: () => setReferralView('enter') } : null;
-
   return (
     <div className="app-shell h-screen bg-brand-bg flex lg:flex-row flex-col overflow-hidden">
       <button type="button" onClick={() => { const main = document.getElementById('main-content'); main?.focus(); main?.scrollIntoView({ behavior: 'smooth' }); }} className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-100 focus:rounded-xl focus:bg-white focus:p-3 focus:text-stone-900">{tr("ข้ามไปเนื้อหา")}</button>
-      {referralDialog}
 
       {/* 💻 iPad / MacBook / PC Desktop Sidebar (Hidden on mobile devices) -- own scroll region so
           it stays put while the main content (e.g. a 100-job list) scrolls independently */}
@@ -3557,7 +3491,6 @@ export default function App() {
                 onPreviewGuide={fullFeatureAccess && showProGuide ? () => { setAssistantFollowing(false); navigateTab('dashboard'); window.setTimeout(() => setProGuidePractice(value => value + 1), 300); } : undefined}
                 onOpenNotifications={() => { setAssistantFollowing(false); setSettingsEntry(entry => ({ view: 'notif', n: entry.n + 1 })); navigateTab('settings'); }}
                 onUpgrade={() => { setAssistantFollowing(false); navigateTab('plans'); }}
-                referral={chatReferral}
                 onNavigate={(path, carry) => navigateAssistant(path, true, carry)} onAutoNavigate={path => navigateAssistant(path, true)} transport={assistantTransport}
                 liveNote={fullFeatureAccess ? assistantNote ?? undefined : undefined} lineInbox={lineInbox}
                 handoff={activeTab === 'assistant' ? chatHandoff : null} onHandoff={() => setChatHandoff(null)} connecting={assistantChecking} briefing={briefing} />
@@ -3590,9 +3523,6 @@ export default function App() {
           {activeTab === 'dashboard' && !isPhone && (
             <PageHeader page="dashboard" id="dashboard-title" className="mb-4" keepTitle>
               <div className="contents sm:flex sm:items-center sm:justify-end sm:gap-2">
-                {/* The referral buttons beside the month on computers and iPads (owner, 2026-11-10: "ฝากแก้ในไอแพดให้อยู่ตำแหน่งนี้");
-                    when the row is too narrow, the whole group moves under the title, right-aligned. */}
-                {referralButton}
                 {/* Phones: its own full-width row under the title; wider screens: before the bell. */}
                 <div className="order-last w-full sm:order-none sm:w-auto">
                   <DashboardPeriodPicker monthKey={dashboardMonthKey} onChange={setDashboardMonthKey} />
@@ -3668,7 +3598,6 @@ export default function App() {
                   mobile={isPhone}
                   monthPicker={<DashboardPeriodPicker monthKey={dashboardMonthKey} onChange={setDashboardMonthKey} compact labelOnly />}
                   onOpenTools={() => setIsMobileMenuOpen(true)}
-                  referralButton={isPhone ? referralButton : null}
                 />
               )}
 

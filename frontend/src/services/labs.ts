@@ -3,7 +3,7 @@ import { NO_LABS, isLabId, type LabFeatureId, type LabState } from '../../../sha
 import { apiJson } from './api';
 
 // Settings › ฟีเจอร์ทดลอง (shared/labs.ts): this account's state, read once per account and shared by every screen that
-// asks. An answer that cannot be read counts as not a tester, so nothing experimental shows by mistake.
+// asks. An answer that cannot be read counts as nothing on, so nothing shows by mistake.
 
 const states = new Map<string, LabState>();
 const loading = new Set<string>();
@@ -13,8 +13,9 @@ const subscribe = (listener: () => void) => { listeners.add(listener); return ()
 
 function read(value: unknown): LabState {
   const labs = (value as { labs?: unknown } | null)?.labs as { tester?: unknown; on?: unknown } | undefined;
-  if (!labs || labs.tester !== true) return NO_LABS;
-  return { tester: true, on: Array.isArray(labs.on) ? labs.on.filter(isLabId) : [] };
+  if (!labs) return NO_LABS;
+  // Released features come for every account (shared/labs.ts RELEASED_LABS); the server decides what is on.
+  return { tester: labs.tester === true, on: Array.isArray(labs.on) ? labs.on.filter(isLabId) : [] };
 }
 
 function load(account: string) {

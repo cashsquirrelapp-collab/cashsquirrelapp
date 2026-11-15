@@ -47,7 +47,6 @@ import assistant from '../handlers/assistant.js';
 import adminActivity from '../handlers/admin-activity.js';
 import broadcast from '../handlers/broadcast.js';
 import consent from '../handlers/consent.js';
-import referral from '../handlers/referral.js';
 import labs from '../handlers/labs.js';
 import google, { googleCallback } from '../handlers/google.js';
 import accountEmail from '../handlers/account-email.js';
@@ -73,7 +72,6 @@ routes['admin-activity'] = adminActivity;
 routes.broadcast = broadcast;
 // What the account has agreed to (owner, 2026-11-05): the terms, เลขากระรอก, LINE.
 routes.consent = consent;
-routes.referral = referral;
 routes.labs = labs;
 routes.google = google;
 routes['google/callback'] = googleCallback;
@@ -93,7 +91,7 @@ export function routeHandler(route:string):Handler {
    try{req.body=raw.length?JSON.parse(raw.toString()):{};}catch{throw new HttpError(400,'Invalid JSON');}
   }
   await handler(req,res);
- },{csrf:['line-session','line-signup','line-handoff','auth','data','groups','profile','account','billing','recover-account','admin-users','admin-analytics','admin-stripe-finance','admin-payment-readiness','admin-profit-live','admin-ai-credit','admin-activity','broadcast','usage-analytics','line-link-code','password-reset-email','password-reset-line','notify','vault','vault-upload','feedback','feedback-public','assistant','consent','referral','labs','google','account-email','line-login'].includes(route)});
+ },{csrf:['line-session','line-signup','line-handoff','auth','data','groups','profile','account','billing','recover-account','admin-users','admin-analytics','admin-stripe-finance','admin-payment-readiness','admin-profit-live','admin-ai-credit','admin-activity','broadcast','usage-analytics','line-link-code','password-reset-email','password-reset-line','notify','vault','vault-upload','feedback','feedback-public','assistant','consent','labs','google','account-email','line-login'].includes(route)});
 }
 export default withGuard(async(req:VercelRequest,res:VercelResponse)=>{
  const route=req.query.route;

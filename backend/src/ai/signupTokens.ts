@@ -3,7 +3,7 @@ import { hadSignupGift, SIGNUP_GIFT_FROM, SIGNUP_GIFT_TOKENS } from '../../../sh
 // The automatic 200 tokens of the morning of 5 Nov 2569 (shared/signupGift.ts): once, never refilled, counted in a bucket
 // of their own named after the Bangkok day the account was made (the usage table takes 'YYYY-MM-DD'); the charge is
 // capped at what is left (cashflow_ai_settle_capped). Pro, a Pro that has ended, a ban and a tester's own tokens all come
-// first (supabaseDb.assistantPlan). Later accounts earn tokens by inviting friends (shared/referral.ts, token grants).
+// first (supabaseDb.assistantPlan). Later accounts earn tokens by inviting friends (token grants; the code-for-tokens campaign was removed 2026-11-16).
 
 export const SIGNUP_TOKENS = SIGNUP_GIFT_TOKENS;
 export const SIGNUP_TOKENS_FROM = SIGNUP_GIFT_FROM;

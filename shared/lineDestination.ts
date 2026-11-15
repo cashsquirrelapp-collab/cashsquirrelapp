@@ -1,4 +1,4 @@
-const APP_PATHS = new Set(['/', '/app', '/jobs', '/report', '/receivables', '/incomeExpense', '/vault', '/line-documents', '/wht50', '/calendar', '/invoice', '/assistant']);
+const APP_PATHS = new Set(['/', '/app', '/jobs', '/report', '/receivables', '/incomeExpense', '/vault', '/line-documents', '/wht50', '/calendar', '/invoice', '/assistant', '/plans']);
 const DOCUMENT_TYPES = new Set(['quotation', 'invoice', 'receipt', 'taxInvoice']);
 
 /** A destination is navigation only; it never grants access to the named document. */
@@ -41,6 +41,11 @@ export function safeLineDestination(value: unknown): string | undefined {
   if (url.pathname === '/assistant') {
     const id = url.searchParams.get('continue');
     if (id && /^[A-Za-z0-9_-]{22}$/.test(id)) query.set('continue', id);
+  }
+  // The plans page from LINE's Plus / Pro card (services/lineUpgrade.ts): which plan to show first.
+  if (url.pathname === '/plans') {
+    const tier = url.searchParams.get('tier');
+    if (tier === 'plus' || tier === 'pro') query.set('tier', tier);
   }
   query.set('from', 'line');
   return `${url.pathname}?${query}`;

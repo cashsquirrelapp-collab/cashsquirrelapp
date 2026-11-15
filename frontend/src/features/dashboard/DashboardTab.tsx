@@ -67,9 +67,6 @@ interface DashboardTabProps {
   receivablesAccess?: boolean;
   /** Quotations can be issued (phone overview wording). Defaults to fullFeatureAccess. */
   quotationAccess?: boolean;
-  /** ใส่โค้ด รับ 200 โทเคน (shared/referral.ts): the button made in App, for phones and for screens too narrow to have it
-   *  in the header (under 1280px); null when the header has it. */
-  referralButton?: React.ReactNode;
 }
 
 const MINI_CALENDAR_EVENT_STYLES: Record<CalendarEventKind, { bg: string; color: string }> = {
@@ -102,7 +99,6 @@ export default function DashboardTab({
   fullFeatureAccess = false,
   receivablesAccess = fullFeatureAccess,
   quotationAccess = fullFeatureAccess,
-  referralButton = null,
 }: DashboardTabProps) {
   const { t, language } = useLanguage();
   // Which hero-card figure's job breakdown is currently open ('contract' | 'received' | 'pending'),
@@ -860,7 +856,6 @@ export default function DashboardTab({
         onFeedback={() => onSwitchTab('feedback')}
         onCalendar={() => (onOpenCalendar ? onOpenCalendar() : onSwitchTab('calendar'))}
         onTools={() => onOpenTools?.()}
-        referralButton={referralButton}
       />
     );
   })() : null;

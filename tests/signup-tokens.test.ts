@@ -12,7 +12,7 @@ const { assistantPlan } = await import('../backend/src/ai/supabaseDb.js');
 const { allowance, refuse } = await import('../backend/src/ai/service.js');
 const { aiConfig } = await import('../backend/src/ai/config.js');
 const { SIGNUP_GIFT_UNTIL } = await import('../shared/signupGift.js');
-const { REFERRAL_FROM } = await import('../shared/referral.js');
+const REFERRAL_FROM = Date.parse('2026-11-05T15:25:00+07:00'); // when the code campaign began (removed 2026-11-16)
 
 const config = { ...aiConfig({}), enabled: true, proTokensPerCycle: 1650, trialTokens: 30 };
 const realFetch = globalThis.fetch;

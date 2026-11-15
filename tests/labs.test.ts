@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { LAB_FEATURES, LAB_IDS, NO_LABS, labOn, labReady, labState, readLabs } from '../shared/labs';
+import { LAB_FEATURES, LAB_IDS, NO_LABS, RELEASED_LABS, labOn, labReady, labState, readLabs } from '../shared/labs';
 
-// ฟีเจอร์ทดลอง (owner, 2026-11-12): new features open for testers first, in Settings; everyone else sees nothing.
+// ฟีเจอร์ทดลอง (owner, 2026-11-12): new features open for testers first, in Settings; since 2026-11-16 the built ones are
+// released to every account.
 
 test('labs: a stored record is read strictly; unknown shapes and unknown features count as nothing', () => {
   assert.deepEqual(readLabs(undefined), { tester: false, on: [] });
@@ -12,20 +13,22 @@ test('labs: a stored record is read strictly; unknown shapes and unknown feature
     { tester: true, on: ['sheets'], at: '2026-11-12T10:00:00.000Z' });
 });
 
-test('labs: the owner is always a tester; nothing counts as on unless the account tests it and the feature is built', () => {
-  assert.deepEqual(labState({ tester: false, on: [] }, true), { tester: true, on: [] });
-  assert.deepEqual(labState({ tester: false, on: ['sheets'] }, false), { tester: false, on: [] }, 'not a tester: nothing opens');
-  // Phase 1 (2026-11-12) built the filing calendar and the template download, phase 2 the Google Sheets connection, the
-  // Excel file and the sheet map; the rest are still being built and open nothing even when a tester turned them on.
-  assert.deepEqual(LAB_FEATURES.filter(feature => feature.ready).map(feature => feature.id), ['sheets', 'excel', 'sheetMap', 'sheetWrite', 'sheetJobs', 'templates', 'filingCalendar']);
-  assert.deepEqual(labState({ tester: true, on: ['accountant', 'projects', 'filingCalendar'] }, false), { tester: true, on: ['filingCalendar'] });
+const RELEASED = ['sheets', 'excel', 'sheetMap', 'sheetWrite', 'sheetJobs', 'templates', 'filingCalendar'];
+
+test('labs: the 7 built features are released to every account; the rest open only for testers once built', () => {
+  // Released on 2026-11-16 (owner: "ฟีเจอร์ทดลองอ่ะไม่ต้องให้มันเป็นฟีเจอร์ทดลองละ เอาเรียกมันมาใช้จริงได้เลย").
+  assert.deepEqual([...RELEASED_LABS], RELEASED);
+  assert.deepEqual(LAB_FEATURES.filter(feature => feature.ready).map(feature => feature.id), RELEASED);
+  assert.deepEqual(labState({ tester: false, on: [] }, true), { tester: true, on: RELEASED }, 'the owner');
+  assert.deepEqual(labState({ tester: false, on: [] }, false), { tester: false, on: RELEASED }, 'any account');
+  assert.deepEqual(labState({ tester: false, on: ['projects'] }, false), { tester: false, on: RELEASED }, 'not a tester: nothing more opens');
+  // Still being built: closed even for a tester who turned them on.
+  assert.deepEqual(labState({ tester: true, on: ['accountant', 'projects', 'filingCalendar'] }, false), { tester: true, on: RELEASED });
   assert.equal(labOn(labState({ tester: true, on: ['projects'] }, false), 'projects'), false);
-  assert.equal(labOn(labState({ tester: true, on: ['sheets'] }, false), 'sheets'), true);
-  assert.equal(labOn(labState({ tester: true, on: ['templates'] }, false), 'templates'), true);
-  assert.equal(labOn(labState({ tester: false, on: ['templates'] }, false), 'templates'), false, 'not a tester any more: closed');
-  assert.equal(labOn(NO_LABS, 'filingCalendar'), false);
+  for (const id of RELEASED) assert.equal(labOn(labState({ tester: false, on: [] }, false), id as typeof LAB_IDS[number]), true, id);
+  assert.equal(labOn(NO_LABS, 'filingCalendar'), false, 'not read yet: nothing');
   assert.equal(labOn(null, 'filingCalendar'), false);
-  for (const id of LAB_IDS) assert.equal(labReady(id), ['sheets', 'excel', 'sheetMap', 'sheetWrite', 'sheetJobs', 'templates', 'filingCalendar'].includes(id), id);
+  for (const id of LAB_IDS) assert.equal(labReady(id), RELEASED.includes(id), id);
 });
 
 test('labs: every feature has Thai words a tester can read, and no AI vendor names', () => {

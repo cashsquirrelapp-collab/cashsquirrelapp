@@ -1,7 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { AlertCircle, Archive, ArchiveRestore, ArrowDown, ArrowLeft, ArrowUp, Bell, BellRing, Check, ChevronDown, ChevronLeft, ChevronRight, FileText, FolderPlus, Gift, Image as ImageIcon, ListChecks, Lock, Mic, MoreHorizontal, PanelLeft, PanelLeftClose, Paperclip, Pencil, Pin, PinOff, RotateCcw, Search, Sparkles, SquarePen, Trash2, Wallet, X } from 'lucide-react';
+import { AlertCircle, Archive, ArchiveRestore, ArrowDown, ArrowLeft, ArrowUp, Bell, BellRing, Check, ChevronDown, ChevronLeft, ChevronRight, FileText, FolderPlus, Image as ImageIcon, ListChecks, Lock, Mic, MoreHorizontal, PanelLeft, PanelLeftClose, Paperclip, Pencil, Pin, PinOff, RotateCcw, Search, Sparkles, SquarePen, Trash2, Wallet, X } from 'lucide-react';
 import { Mascot } from '../../components/mascot/Mascot';
 import { Modal } from '../../components/ui/Modal';
 import { tr, trc } from '../../i18n/tr';
@@ -62,8 +62,6 @@ type Props = {
   /** The real notification settings. */
   onOpenNotifications: () => void;
   onUpgrade: () => void;
-  /** ใส่โค้ด รับ 200 โทเคน (shared/referral.ts): offered first to an account without Pro that may still enter a code. */
-  referral?: { tokens: number; onOpen: () => void } | null;
   /** Open a page of the app from a link or card in an answer. */
   /** carry: computers and iPads, the chat to go on in the floating window on the page opened (owner, 2026-10-28). */
   onNavigate: (path: string, carry?: ChatHandoff) => void;
@@ -219,7 +217,7 @@ function storedCardStates(list: ChatMessage[]): Record<string, ConfirmState> {
   return states;
 }
 
-export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = false, previewTools = false, onPreviewBirth, onPreviewGuide, onOpenNotifications, onUpgrade, referral, onNavigate, transport: given, liveNote, lineInbox, accountId, workspaceSlug, fullFeatureAccess, floating = false, onExpand, onAutoNavigate, handoff, onHandoff, connecting = false, briefing }: Props) {
+export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = false, previewTools = false, onPreviewBirth, onPreviewGuide, onOpenNotifications, onUpgrade, onNavigate, transport: given, liveNote, lineInbox, accountId, workspaceSlug, fullFeatureAccess, floating = false, onExpand, onAutoNavigate, handoff, onHandoff, connecting = false, briefing }: Props) {
   const reduce = useReducedMotion();
   const rootRef = React.useRef<HTMLElement>(null);
   const listRef = React.useRef<HTMLDivElement>(null);
@@ -1307,29 +1305,14 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                     <div className="asx-upsell-try" role="group" aria-label={tr("ลองคำถามตัวอย่าง")}>
                       {SUGGESTIONS.map(({ label, ask }) => <button key={label} type="button" onClick={() => send(tr(ask), true)}>{tr(label)}</button>)}
                     </div>
-                    {gate === 'pro' && referral && (
-                      <p className="asx-upsell-gift" data-testid="chat-referral">{tr("มีโค้ดแนะนำ ใส่โค้ดรับ {0} โทเคน ใช้คุยกับเลขาได้โดยไม่ต้องเป็น Pro", referral.tokens)}</p>
-                    )}
                     <div className="asx-upsell-actions">
-                      {gate === 'pro' && referral
-                        ? <>
-                          <button type="button" className="asx-pill-btn is-primary" onClick={referral.onOpen} data-testid="chat-referral-open">{tr("ใส่โค้ด")}</button>
-                          <button type="button" className="asx-pill-btn" onClick={onUpgrade}>{tr("ดูแพ็กเกจ Pro")}</button>
-                        </>
-                        : <button type="button" className="asx-pill-btn is-primary" onClick={onUpgrade}>{tr("ดูแพ็กเกจ Pro")}</button>}
+                      <button type="button" className="asx-pill-btn is-primary" onClick={onUpgrade}>{tr("ดูแพ็กเกจ Pro")}</button>
                       <button type="button" className="asx-pill-btn" onClick={() => setUpsell(false)}>{tr("ไว้ทีหลัง")}</button>
                     </div>
                   </div>
                 </div>
               )}
-              {gate === 'pro' && !upsell && referral && (
-                <p className="asx-notice is-try is-gift" role="status" data-testid="chat-referral">
-                  <Gift size={14} />
-                  {tr("มีโค้ดแนะนำ รับ {0} โทเคน ใช้เลขาได้โดยไม่ต้องเป็น Pro", referral.tokens)}
-                  <button type="button" className="asx-link-btn" onClick={referral.onOpen} data-testid="chat-referral-open">{tr("ใส่โค้ด")}</button>
-                </p>
-              )}
-              {gate && !upsell && !(gate === 'pro' && referral) && (
+              {gate && !upsell && (
                 <p className="asx-notice is-try" role="status">
                   <Lock size={14} />
                   {gate === 'trial' ? tr("ช่วงทดลองใช้ Pro สิ้นสุดแล้ว · กดคำถามตัวอย่างได้ พิมพ์ถามเองต้องใช้ Pro") : tr("โหมดทดลอง · กดคำถามตัวอย่างได้ พิมพ์ถามเองต้องใช้ Pro")}
