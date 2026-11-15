@@ -401,23 +401,65 @@ const LIST_KINDS: { test: RegExp; title: string; character: Parameters<typeof li
 ];
 const TOTAL_IN_TEXT = /รวม(?:ทั้งหมด)?\s*(฿\s*-?[\d,]+(?:\.\d+)?|-?[\d,]+(?:\.\d+)?\s*บาท)/;
 
-function listCard(list: Extract<Segment, { kind: 'list' }>, lead: string): LineMessage {
+/**
+ * What the question is about, so that part of each row stands out (owner, 2026-11-15: "ถ้ากูถามเดดไลน์ชำระเงิน เดดไลน์ต้อง
+ * เด่น ... ถามเดดไลน์ส่งงาน ... ก็ต้องเด่น กูถามยอดเงินก็ต้องเด่น"): the delivery date, the payment date, or the amount.
+ */
+export type ListFocus = 'delivery' | 'payment' | 'amount';
+const DELIVERY_WORDS = /ส่งงาน|กำหนดส่ง|วันส่ง|ส่งเมื่อ|ส่งวัน|ต้องส่ง|เดดไลน์ส่ง|deadline\s*ส่ง|deliver/i;
+const PAYMENT_WORDS = /ชำระ|ครบกำหนด|กำหนดรับ|กำหนดจ่าย|รับเงิน|จ่ายเงิน|โอนเงิน|วันโอน|ค้างจ่าย|ค้างรับ|เลยกำหนด|due|pay/i;
+const AMOUNT_WORDS = /ยอด|เท่าไหร่|เท่าไร|กี่บาท|มูลค่า|ราคา|รวมเงิน|how much|amount/i;
+export function listFocus(question: string): ListFocus | undefined {
+  const asksDate = /เดดไลน์|deadline|วันไหน|เมื่อไหร่|เมื่อไร|วันที่|กำหนด|เลยกำหนด|due|when/i.test(question);
+  if (DELIVERY_WORDS.test(question) && (asksDate || !AMOUNT_WORDS.test(question))) return 'delivery';
+  if (asksDate && PAYMENT_WORDS.test(question)) return 'payment';
+  // "ใครค้างจ่ายบ้าง", "ยอดค้างรับเท่าไหร่": the money is what is asked.
+  if (AMOUNT_WORDS.test(question) || /ค้าง/.test(question)) return 'amount';
+  return undefined;
+}
+const DATE_TOKEN = /(\d{1,2}\s?(?:ม\.ค|ก\.พ|มี\.ค|เม\.ย|พ\.ค|มิ\.ย|ก\.ค|ส\.ค|ก\.ย|ต\.ค|พ\.ย|ธ\.ค)\.(?:\s?25\d{2})?|\d{1,2}\/\d{1,2}(?:\/\d{2,4})?|วันนี้|พรุ่งนี้|มะรืน(?:นี้)?|เมื่อวาน)/;
+
+/** The part of a row the question is about, split into its words and its date ("ส่ง" / "17 พ.ย."); null when none. */
+function focusPart(item: ListItem, focus: ListFocus | undefined): { label: string; value: string; rest: string[] } | null {
+  if (!focus || focus === 'amount' || !item.meta) return null;
+  const parts = item.meta.split(ITEM_SEPARATOR).map(part => part.trim()).filter(Boolean);
+  const words = focus === 'delivery' ? /ส่ง|deliver/i : PAYMENT_WORDS;
+  const dated = parts.map((part, at) => ({ part, at, date: DATE_TOKEN.exec(part)?.[0] })).filter(entry => entry.date);
+  const pick = dated.find(entry => words.test(entry.part)) ?? (dated.length === 1 && !(focus === 'payment' ? /ส่ง/ : PAYMENT_WORDS).test(dated[0].part) ? dated[0] : undefined);
+  if (!pick) return null;
+  const label = pick.part.replace(pick.date!, '').replace(/[:：]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 18) || (focus === 'delivery' ? 'ส่งงาน' : 'ชำระ');
+  return { label, value: pick.date!, rest: parts.filter((_, at) => at !== pick.at) };
+}
+
+function listCard(list: Extract<Segment, { kind: 'list' }>, lead: string, focus?: ListFocus): LineMessage {
   const kind = LIST_KINDS.find(entry => entry.test.test(lead)) ?? { title: 'รายการ', character: 'report' as const, total: 'ยอดรวม', path: '/', link: 'เปิดแอป' };
   const moreCount = Number(/(\d+)/.exec(list.more ?? '')?.[1] ?? 0);
   const count = list.items.length + moreCount;
   const totalText = TOTAL_IN_TEXT.exec(lead)?.[1];
   const total = totalText ? (totalText.startsWith('฿') ? totalText.replace(/\s+/g, '') : `฿${totalText.replace(/\s*บาท$/, '')}`) : undefined;
   const C = LINE_CARD_COLORS;
-  const rows = list.items.flatMap((item, at) => [
-    ...(at > 0 ? [{ type: 'separator', color: C.border, margin: 'lg' }] : []),
-    { type: 'box', layout: 'vertical', margin: 'lg', spacing: 'xs', contents: [
-      { type: 'box', layout: 'horizontal', spacing: 'md', contents: [
-        { type: 'text', text: item.name.slice(0, 120), size: 'sm', color: C.text, wrap: true, maxLines: 2, flex: 1 },
-        ...(item.amount ? [{ type: 'text', text: item.amount.slice(0, 40), size: 'sm', weight: 'bold', color: C.text, align: 'end', flex: 0, wrap: true }] : []),
+  const rows = list.items.flatMap((item, at) => {
+    // The date the question is about stands on the right, large and in the CI colour, with its words above it ("ส่ง");
+    // the amount then joins the details under the name. Asked about money, the amount itself is larger.
+    const date = focusPart(item, focus);
+    const meta = date ? [item.amount, ...date.rest].filter(Boolean).join(' · ') : item.meta;
+    const side = date
+      ? [{ type: 'box', layout: 'vertical', flex: 0, contents: [
+        { type: 'text', text: date.label, size: 'xxs', color: C.muted, align: 'end', wrap: true },
+        { type: 'text', text: date.value.slice(0, 24), size: 'lg', weight: 'bold', color: C.accent, align: 'end', wrap: true },
+      ] }]
+      : item.amount ? [{ type: 'text', text: item.amount.slice(0, 40), size: focus === 'amount' ? 'lg' : 'sm', weight: 'bold', color: focus === 'amount' ? C.accent : C.text, align: 'end', flex: 0, wrap: true }] : [];
+    return [
+      ...(at > 0 ? [{ type: 'separator', color: C.border, margin: 'lg' }] : []),
+      { type: 'box', layout: 'vertical', margin: 'lg', spacing: 'xs', contents: [
+        { type: 'box', layout: 'horizontal', spacing: 'md', contents: [
+          { type: 'text', text: item.name.slice(0, 120), size: 'sm', color: C.text, wrap: true, maxLines: 2, flex: 1, gravity: 'center' },
+          ...side,
+        ] },
+        ...(meta ? [{ type: 'text', text: meta.slice(0, 160), size: 'xs', color: C.muted, wrap: true }] : []),
       ] },
-      ...(item.meta ? [{ type: 'text', text: item.meta.slice(0, 160), size: 'xs', color: C.muted, wrap: true }] : []),
-    ] },
-  ]);
+    ];
+  });
   return lineCard({
     title: kind.title, subtitle: `${count} รายการ`, character: kind.character,
     altText: lead || `${kind.title} ${count} รายการ${total ? ` รวม ${total}` : ''}`,
@@ -493,6 +535,56 @@ export function cardGroupMessage(groupId: string, cards: AssistantCard[], files:
   return message;
 }
 
+/** One card's line in a list of several: its record's name, and what it does (the change, or the amount). */
+export function cardLine(card: ConfirmCardLike): { name: string; detail: string } {
+  const NAME = ['งาน', 'ชื่องาน', 'รายการ', 'ชื่อรายการ'];
+  const name = changeOf(card, NAME) ?? card.title;
+  const first = card.changes.find(change => !NAME.includes(change.label));
+  const detail = first ? `${first.label} ${first.value}` : card.title;
+  return { name: name.slice(0, 120), detail: detail.slice(0, 160) };
+}
+
+/** Rows naming each card's record, the line under it saying what it does (at most `max`, then how many more). */
+export function cardRows(cards: ConfirmCardLike[], max = 10, marks?: Map<string, { text: string; bad?: boolean }>): unknown[] {
+  const C = LINE_CARD_COLORS;
+  const shown = cards.slice(0, max);
+  return [
+    ...shown.flatMap((card, at) => {
+      const line = cardLine(card);
+      const mark = marks?.get(card.id);
+      return [
+        ...(at > 0 ? [{ type: 'separator', color: C.border, margin: 'md' }] : []),
+        { type: 'box', layout: 'vertical', margin: 'md', spacing: 'xs', contents: [
+          { type: 'text', text: line.name, size: 'sm', weight: 'bold', color: C.text, wrap: true, maxLines: 2 },
+          { type: 'text', text: mark ? `${mark.text} · ${line.detail}` : line.detail, size: 'xs', color: mark?.bad ? C.negative : C.muted, wrap: true, maxLines: 2 },
+        ] },
+      ];
+    }),
+    ...(cards.length > shown.length ? [{ type: 'text', text: `และอีก ${cards.length - shown.length} รายการ`, size: 'xs', color: C.muted, margin: 'md', wrap: true }] : []),
+  ];
+}
+
+/**
+ * ยืนยันทั้งหมด under several cards in LINE (owner, 2026-11-15: "แก้ ... 3 โปรเจกต์ ... ต้องมากดยืนยัน 3 รอบ ... อยากให้มีปุ่ม
+ * ยืนยันทั้งหมด ปุ่มเดียว ... เอาปุ่มกดทั้งหมดเอาไว้ใส่ในไลน์ด้วย"): the cards stay above as they are; this one names each
+ * record and confirms them all, or cancels them all. Each is still confirmed on its own, with the app's checks.
+ */
+export function confirmAllMessage(groupId: string, cards: AssistantCard[]): LineMessage {
+  const C = LINE_CARD_COLORS;
+  const confirms = cards.filter((card): card is ConfirmCardLike => card.kind === 'confirm');
+  const message = lineCard({
+    title: `ยืนยันทั้งหมด ${confirms.length} รายการ`, subtitle: 'กดครั้งเดียว บันทึกทุกการ์ดด้านบน', character: 'review', compact: true,
+    altText: `ยืนยันทั้งหมด ${confirms.length} รายการ: ${confirms.map(card => cardLine(card).name).join(', ')}`.slice(0, 400),
+    body: cardRows(confirms), note: 'ยังกดยืนยันทีละการ์ดด้านบนได้เหมือนเดิม การ์ดหมดเวลาใน 30 นาที',
+  }) as LineMessage & { contents: Record<string, unknown> };
+  const button = (label: string, action: string, primary: boolean) => ({ type: 'button', style: primary ? 'primary' : 'secondary', height: 'sm',
+    color: primary ? C.accent : C.subtle, flex: primary ? 2 : 1, action: { type: 'postback', label, data: `ai:${action}:${groupId}`, displayText: label } });
+  message.contents.footer = { type: 'box', layout: 'horizontal', spacing: 'sm', paddingAll: '20px', paddingTop: '0px', contents: [
+    button('ยกเลิกทั้งหมด', 'cancelall', false), button('ยืนยันทั้งหมด', 'confirmall', true),
+  ] };
+  return message;
+}
+
 export function lineAssistantReply(text: string, cards: AssistantCard[], now = new Date()): LineMessage[] {
   return shapeLineReply(text, cards, now).messages;
 }
@@ -511,7 +603,7 @@ export function continueCard(link: { label: string; uri: string }, why: 'cards' 
  * The LINE answer, and what did not fit: `left` cards LINE had no room for, `oversized` when a confirmation card was too
  * long to confirm in LINE. With `options.continueLink`, those (or `options.why` 'detail') end with ทำต่อในแอป instead.
  */
-export function shapeLineReply(text: string, cards: AssistantCard[], now = new Date(), options: { continueLink?: { label: string; uri: string }; why?: 'cards' | 'detail' } = {}):
+export function shapeLineReply(text: string, cards: AssistantCard[], now = new Date(), options: { continueLink?: { label: string; uri: string }; why?: 'cards' | 'detail'; focus?: ListFocus } = {}):
   { messages: LineMessage[]; left: number; oversized: boolean } {
   const context: ReplyContext = { continueLink: options.continueLink };
   const buddhistYear = new Date(now.getTime() + 7 * 3600_000).getUTCFullYear() + 543;
@@ -524,7 +616,7 @@ export function shapeLineReply(text: string, cards: AssistantCard[], now = new D
     const after = textOf(segments.slice(recordAt + 1));
     const lead = before.join(' ').trim();
     out.push(...talkBubbles(before, now, 2).map(part => ({ type: 'text' as const, text: part })));
-    out.push(listCard(segments[recordAt] as Extract<Segment, { kind: 'list' }>, lead));
+    out.push(listCard(segments[recordAt] as Extract<Segment, { kind: 'list' }>, lead, options.focus ?? listFocus(lead)));
     const tail = talkBubbles(after, now, 1);
     out.push(...tail.map(part => ({ type: 'text' as const, text: part })));
   } else {

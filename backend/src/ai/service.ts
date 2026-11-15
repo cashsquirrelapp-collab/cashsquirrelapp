@@ -514,6 +514,8 @@ export async function reviseProposal(db: AssistantDb, userId: string, proposalId
 }
 
 export type ConfirmResult = { status: 'applied'; kind: Proposal['kind']; jobId?: string; recordId?: string; documentId?: string; path?: string; allJobs?: true; count?: number;
+  /** The saved job's or expense's name, so LINE's "แก้ไขงานแล้ว" card says which one (owner, 2026-11-15). */
+  name?: string;
   /** บันทึกลงชีตของคุณ (ฟีเจอร์ทดลอง sheetWrite): the same record written into the account's connected sheet. */
   sheet?: SheetWriteResult };
 
@@ -584,7 +586,8 @@ export async function confirmProposal(db: AssistantDb, userId: string, proposalI
   // The customer's sheet too (owner, 2026-11-12: "ลงชีต + ในแอปด้วย"): saved in the app already, so the sheet never costs it.
   const rowKind = proposal.kind === 'add_job' ? 'job' as const : proposal.kind === 'add_expense' ? 'expense' as const : null;
   const sheet = rowKind && proposal.record && db.writeSheet ? await db.writeSheet(userId, proposalId, rowKind, proposal.record).catch(() => null) : null;
-  const withSheet = sheet ? { sheet } : {};
+  const named = typeof proposal.record?.name === 'string' && proposal.record.name.trim() ? { name: proposal.record.name.trim().slice(0, 120) } : {};
+  const withSheet = { ...(sheet ? { sheet } : {}), ...named };
   if (target.table === 'cashflow_jobs') return { status: 'applied', kind: proposal.kind, jobId: proposal.jobId, path: jobPath(proposal.kind, proposal.jobId), ...withSheet };
   const path = target.table === 'cashflow_invoices' ? (target.op === 'delete' ? '/invoice' : documentPath({ id: proposal.jobId, documentType: proposal.record!.documentType as 'quotation' | 'invoice' }))
     : target.table === 'cashflow_expenses' ? (target.op === 'delete' ? '/incomeExpense' : `/incomeExpense?expense=${encodeURIComponent(proposal.jobId)}`)

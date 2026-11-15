@@ -3,14 +3,15 @@ import type { LineMessage } from '../services/line.js';
 import { lineAppLink, lineCard, lineValueRow } from '../services/lineCards.js';
 import type { UserRow } from '../services/lineAssistant.js';
 import { aiConfig, aiConfigFor } from './config.js';
-import { lineAssistantReply, shapeLineReply } from './lineFormat.js';
+import { randomBytes } from 'node:crypto';
+import { cardRows, confirmAllMessage, lineAssistantReply, listFocus, shapeLineReply } from './lineFormat.js';
 import { continueTurns, continueWhy, keepForApp } from './lineContinue.js';
 import { LINE_CARD_COLORS } from '../services/lineCards.js';
 import { rateLimit } from '../security/rateLimit.js';
 import { confirmProposal, handleMessage, MESSAGE_RATE, thaiDay, usageStatus, type AssistantDb, type PlanInfo, type UsageStatus } from './service.js';
 import { assistantPlanForUserId, supabaseAssistantDb } from './supabaseDb.js';
 import type { AssistantCard, ChatFile, ChatTurn } from './types.js';
-import { attachFilesToRecords, attachFileToRecord, cardGroupOf, dropCardGroup, takeFileForProposal, takeFilesForProposals } from '../services/lineFileLinks.js';
+import { attachFilesToRecords, attachFileToRecord, cardGroupOf, dropCardGroup, saveCardGroup, takeFileForProposal, takeFilesForProposals } from '../services/lineFileLinks.js';
 import { lineHistoryText, type ChannelTurn } from './crossChannel.js';
 import { notifyBillingIssues } from '../services/ownerAlerts.js';
 import { hasConsent } from '../repositories/consents.js';
@@ -42,6 +43,8 @@ export interface LineBridgeDeps {
   keepQuestions?: (userId: string, state: PendingAiQuestions) => Promise<void>;
   /** Keeps the conversation for ทำต่อในแอป and gives the link's id (ai/lineContinue.ts); tests stand in for it. */
   keepForApp?: typeof keepForApp;
+  /** Keeps several cards as one group for ยืนยันทั้งหมด (services/lineFileLinks.ts); tests stand in for it. */
+  saveGroup?: typeof saveCardGroup;
 }
 
 /**
@@ -102,17 +105,30 @@ export async function lineAssistantAnswer(user: UserRow, text: string, history: 
       catch { console.error('line-assistant: questions not kept'); }
     }
     const shown = asking && reply.text.trim() === QUESTIONS_LEAD ? '' : reply.text;
-    let shaped = shapeLineReply(shown, reply.cards);
+    // What the question is about stands out in a list of records (the delivery date, the payment date or the amount).
+    const focus = listFocus(text);
+    let shaped = shapeLineReply(shown, reply.cards, undefined, { focus });
     // ทำต่อในแอป (owner's plan, item 4): an answer LINE cannot give complete goes on in the app's chat with this conversation.
     const why = continueWhy({ text, history, asking: Boolean(asking), left: shaped.left, oversized: shaped.oversized });
     if (why) {
       try {
         const id = await (deps.keepForApp ?? keepForApp)(user.user_id, why, continueTurns(history, text, files, { text: reply.text, cards: reply.cards }));
         const link = lineAppLink(`/assistant?continue=${id}`, 'ทำต่อในแอป');
-        if (link) shaped = shapeLineReply(shown, reply.cards, undefined, { continueLink: link, why });
+        if (link) shaped = shapeLineReply(shown, reply.cards, undefined, { continueLink: link, why, focus });
       } catch { console.error('line-assistant: the conversation was not kept for the app'); }
     }
-    const messages = shaped.messages;
+    let messages = shaped.messages;
+    // ยืนยันทั้งหมด (owner, 2026-11-15): several cards LINE shows in full get one card that confirms them all. It takes the
+    // last place, before ทำต่อในแอป for analysis; cards LINE could not show in full go on in the app instead.
+    const confirms = reply.cards.filter(card => card.kind === 'confirm');
+    if (!asking && confirms.length >= 2 && shaped.left === 0 && !shaped.oversized) {
+      try {
+        const groupId = `g${randomBytes(12).toString('hex')}`;
+        await (deps.saveGroup ?? saveCardGroup)(user.user_id, groupId, { cards: confirms, files: 0 });
+        const base = why === 'detail' ? shapeLineReply(shown, reply.cards, undefined, { focus }).messages : messages;
+        messages = [...base.slice(0, 4), confirmAllMessage(groupId, confirms)];
+      } catch { console.error('line-assistant: the cards were not grouped'); }
+    }
     // Running low: say so under the answer, with the same number the app shows (never under a question).
     const limit = plan.plan === 'trial' ? config.trialTokens : plan.tokens ?? config.proTokensPerCycle;
     if (!asking && reply.tokensLeft !== null && reply.tokensLeft <= Math.max(5, Math.round(limit * 0.1))) {
@@ -171,9 +187,12 @@ export async function lineAssistantCommand(user: UserRow, command: { action: 'co
         if (fileId) attached = await links.attach(user.user_id, fileId, done as { kind: string; jobId?: string; recordId?: string });
       } catch { console.error('line-assistant: the file was not attached'); }
     }
+    // Which record (owner, 2026-11-15: "กูไม่รู้ว่ามันเป็นงานคลิปไหน มึงเขียนกำกับด้วย").
+    const name = (done as { name?: string }).name;
+    const named = name ? [lineValueRow(done.kind === 'add_expense' ? 'รายการ' : 'งาน', name, { bold: true })] : [];
     return [lineCard({
-      title: label.title, subtitle: 'บันทึกในแอปเรียบร้อย', character: label.character, compact: true, altText: label.title,
-      body: [lineValueRow('สถานะ', 'บันทึกแล้ว', { bold: false }), ...(attached ? [lineValueRow('ไฟล์', `แนบกับ ${attached} ในคลังเอกสารแล้ว`, { bold: false })] : []),
+      title: label.title, subtitle: 'บันทึกในแอปเรียบร้อย', character: label.character, compact: true, altText: name ? `${label.title}: ${name}` : label.title,
+      body: [...named, lineValueRow('สถานะ', 'บันทึกแล้ว', { bold: false }), ...(attached ? [lineValueRow('ไฟล์', `แนบกับ ${attached} ในคลังเอกสารแล้ว`, { bold: false })] : []),
         // บันทึกลงชีตของคุณ (ฟีเจอร์ทดลอง): where the same record went in the customer's own sheet, or why it did not.
         ...(done.sheet?.status === 'written' ? [lineValueRow('ชีต', `ลงแถว ${done.sheet.row} แท็บ ${done.sheet.tab} ใน ${done.sheet.file} แล้ว`, { bold: false })]
           : done.sheet?.status === 'failed' ? [lineValueRow('ชีต', `ยังไม่ได้ลงชีต: ${done.sheet.error}`, { bold: false })] : [])],
@@ -202,7 +221,7 @@ export interface LineGroupDeps {
  */
 export async function lineGroupCommand(user: UserRow, command: { action: 'confirm' | 'cancel' | 'show'; groupId: string }, deps: LineGroupDeps = {}): Promise<LineMessage[]> {
   const group = cardGroupOf(user.notif_settings, command.groupId, deps.now);
-  if (!group) return [{ type: 'text', text: 'การ์ดนี้หมดเวลาแล้วครับ ส่งรูปใหม่อีกครั้งได้เลย' }];
+  if (!group) return [{ type: 'text', text: 'การ์ดนี้หมดเวลาแล้วครับ ส่งใหม่หรือพิมพ์บอกเลขาอีกครั้งได้เลย' }];
   const cards = group.cards.filter((card): card is Extract<AssistantCard, { kind: 'confirm' }> => Boolean(card) && (card as AssistantCard).kind === 'confirm');
   if (command.action === 'show') return lineAssistantReply('', cards);
   const drop = deps.drop ?? dropCardGroup;
@@ -210,22 +229,26 @@ export async function lineGroupCommand(user: UserRow, command: { action: 'confir
     for (const card of cards) await (deps.cancel ?? ((id, proposal) => supabaseAssistantDb.cancelProposal(id, proposal)))(user.user_id, card.id).catch(() => false);
     await drop(user.user_id, command.groupId).catch(() => undefined);
     return [lineCard({ title: 'ยกเลิกทั้งหมดแล้ว', subtitle: `${cards.length} รายการนี้ไม่ได้ถูกบันทึก`, character: 'cancelled', compact: true,
-      altText: `ยกเลิก ${cards.length} รายการแล้ว`, body: [{ type: 'text', text: 'รูปยังอยู่ในคลังเอกสาร ส่งรูปใหม่หรือพิมพ์บอกเลขาได้เลย', size: 'sm', color: LINE_CARD_COLORS.muted, wrap: true }] })];
+      altText: `ยกเลิก ${cards.length} รายการแล้ว`, body: [{ type: 'text', text: group.files ? 'รูปยังอยู่ในคลังเอกสาร ส่งรูปใหม่หรือพิมพ์บอกเลขาได้เลย' : 'พิมพ์บอกเลขาใหม่ได้เลย เมื่อพร้อม', size: 'sm', color: LINE_CARD_COLORS.muted, wrap: true }] })];
   }
   let saved = 0;
   let already = 0;
   let failed = 0;
   let path: string | undefined;
   const confirmed: { id: string; done: { kind: string; jobId?: string; recordId?: string } }[] = [];
+  // What became of each card, named in the card that answers (owner, 2026-11-15: "เขียนกำกับ ... ว่าแก้ไขคลิปไหนบ้าง").
+  const marks = new Map<string, { text: string; bad?: boolean }>();
   for (const card of cards) {
     try {
       const done = await (deps.confirm ?? ((id, proposal) => confirmProposal(supabaseAssistantDb, id, proposal, { channel: 'line' })))(user.user_id, card.id);
       saved += 1;
       path ??= done.path;
       confirmed.push({ id: card.id, done });
+      marks.set(card.id, { text: 'บันทึกแล้ว' });
     } catch (error) {
       // Confirmed already (ดูทีละใบ), or no longer waiting: counted, never saved twice.
-      if (error instanceof HttpError && error.status === 409) already += 1; else failed += 1;
+      if (error instanceof HttpError && error.status === 409) { already += 1; marks.set(card.id, { text: 'ยืนยันไว้ก่อนแล้ว' }); }
+      else { failed += 1; marks.set(card.id, { text: 'ยังไม่สำเร็จ', bad: true }); }
     }
   }
   if (!failed) await drop(user.user_id, command.groupId).catch(() => undefined);
@@ -246,9 +269,12 @@ export async function lineGroupCommand(user: UserRow, command: { action: 'confir
     ...(attached ? [lineValueRow('แนบรูปกับรายการ', `${attached} รูป`, { bold: false })] : []),
     ...(already ? [lineValueRow('ยืนยันไว้ก่อนแล้ว', `${already} รายการ`, { bold: false })] : []),
     ...(failed ? [lineValueRow('ยังไม่สำเร็จ', `${failed} รายการ`, { bold: false, color: LINE_CARD_COLORS.negative })] : []),
+    { type: 'separator', color: LINE_CARD_COLORS.border, margin: 'lg' },
+    ...cardRows(cards, 10, marks),
   ];
+  const edits = cards.every(card => card.title.startsWith('แก้ไข'));
   return [lineCard({
-    title: failed ? `บันทึกแล้ว ${saved} จาก ${cards.length} รายการ` : `บันทึกแล้ว ${saved + already} รายการ`, subtitle: 'บันทึกในแอปเรียบร้อย',
+    title: failed ? `บันทึกแล้ว ${saved} จาก ${cards.length} รายการ` : edits ? `แก้ไขแล้ว ${saved + already} รายการ` : `บันทึกแล้ว ${saved + already} รายการ`, subtitle: 'บันทึกในแอปเรียบร้อย',
     character: 'review', compact: true, altText: `บันทึกแล้ว ${saved} รายการ`, body,
     ...(failed ? { note: 'กด “บันทึกทั้งหมด” อีกครั้ง หรือ “ดูทีละใบ” เพื่อดูรายการที่ยังไม่สำเร็จ' } : {}),
     footer: lineAppLink(path || '/incomeExpense', 'เปิดในแอป'),
