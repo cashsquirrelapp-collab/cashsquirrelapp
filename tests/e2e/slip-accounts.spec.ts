@@ -3,8 +3,9 @@ import { textOverlapIssues } from './textOverlap';
 import { loadLayoutFonts } from './testFonts';
 
 // Slips by account (owner, 2026-11-14, item 3): expenses read from slips keep the person's own account (bank + last four
-// digits). With two accounts or more, รายจ่าย shows "KBank •1234" with the bank logo on each row, filters by account and
-// lets each account be named; with one account nothing of this shows. Computer and phone, no overlapping text.
+// digits). Every row that knows its account shows "KBank •1234" with the bank logo, even with one account (owner,
+// 2026-11-15: option 1, "ในเว็บไซต์กูยังไม่เห็น"), and the accounts can be named; the filter comes with two accounts or
+// more. Computer and phone, no overlapping text.
 
 test.use({ serviceWorkers: 'block' });
 
@@ -75,10 +76,44 @@ test('phone: the rows say their account, the filter is in the tools sheet', asyn
   await page.screenshot({ path: 'test-results/slip-accounts-phone.png' });
 });
 
-test('one account: nothing about accounts shows', async ({ page }) => {
+test('one account: each row still says its account and it can be named, with no filter', async ({ page }) => {
   await open(page, { width: 1440, height: 900 }, [TWO[0], TWO[2]]);
   await expect(page.getByText('ร้านสมาน').first()).toBeVisible();
-  await expect(page.getByTestId('account-tag')).toHaveCount(0);
+  const table = page.locator('table');
+  await expect(table.getByTestId('account-tag')).toHaveCount(1);
+  await expect(table.locator('tbody tr').filter({ hasText: 'ร้านสมาน' }).getByTestId('account-tag')).toHaveText('KBank •1234');
+  await expect(table.locator('tbody tr').filter({ hasText: 'ค่ากาแฟ' }).getByTestId('account-tag')).toHaveCount(0);
   await expect(page.getByTestId('account-filter')).toHaveCount(0);
-  await expect(page.getByTestId('account-names-open')).toHaveCount(0);
+  await expect(page.getByTestId('account-names-open').last()).toBeVisible();
+  await page.waitForTimeout(600);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await page.screenshot({ path: 'test-results/slip-accounts-one-computer.png' });
+  // The record's own panel says it too.
+  await table.locator('tbody tr').filter({ hasText: 'ร้านสมาน' }).getByText('ร้านสมาน').first().click();
+  await expect(page.getByRole('dialog').getByTestId('account-tag')).toHaveText('KBank •1234');
+});
+
+test('phone, one account: the row says its account', async ({ page }) => {
+  await open(page, { width: 390, height: 844 }, [TWO[0], TWO[2]]);
+  const list = page.locator('.ksm-moneylist');
+  await expect(list.getByTestId('account-tag')).toHaveCount(1);
+  await expect(list.getByTestId('account-tag')).toHaveText('KBank •1234');
+  await page.waitForTimeout(600);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+  await page.screenshot({ path: 'test-results/slip-accounts-one-phone.png' });
+});
+
+test('banks that were only a code now show their logo', async ({ page }) => {
+  const banks = ['TCRB', 'BOC', 'SMTB', 'CITI', 'HSBC', 'SMBC', 'MIZUHO', 'DB', 'JPM', 'BNP', 'BOFA', 'IOB', 'MEGA', 'OCBC', 'RHB', 'TMN', 'SPAY'];
+  await open(page, { width: 1440, height: 900 }, banks.map((bank, i) => ({ id: `b${i}`, name: `ร้าน ${bank}`, amount: 100 + i, category: 'อื่นๆ', date: '2026-11-10', account: { bank, last4: String(1000 + i) }, slipRef: `REF${1000 + i}0000` })));
+  const table = page.locator('table');
+  for (const bank of banks) {
+    const logo = table.locator('tbody tr').filter({ hasText: `ร้าน ${bank}` }).getByTestId('account-tag').locator('img');
+    await expect(logo).toHaveAttribute('src', `/banks/${bank}.png`);
+    await expect.poll(() => logo.evaluate(img => (img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+  }
+  await page.waitForTimeout(400);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await page.screenshot({ path: 'test-results/slip-accounts-logos.png', fullPage: true });
 });

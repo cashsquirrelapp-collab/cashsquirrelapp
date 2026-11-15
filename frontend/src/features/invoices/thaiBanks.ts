@@ -3,12 +3,15 @@ import { T } from '../../i18n/tr';
 // casperstack/thai-banks-logo set, plus SCBT / EXIM / SME D supplied by the owner, kept locally in
 // public/banks/) identifies it in the picker and
 // on documents; a bank without a logo file falls back to its short code.
+// The other banks a slip can name (shared/slipAccounts.ts SLIP_BANKS: foreign branches and e-wallets) have logos too
+// since 2026-11-15 (owner: "โหลดมาเลยอนุญาต"); where each file comes from is in docs/BANK_LOGOS.md.
 export interface ThaiBank {
   name: string; // stored in issuer.bankName and printed on documents
   code: string; // short code, shown when there is no logo
 }
 
-const WITH_LOGO = new Set(['BBL', 'KBANK', 'KTB', 'SCB', 'TTB', 'BAY', 'UOB', 'CIMB', 'LHBANK', 'TISCO', 'KKP', 'ICBC', 'GSB', 'GHB', 'BAAC', 'ISBT', 'SCBT', 'EXIM', 'SME D']);
+const WITH_LOGO = new Set(['BBL', 'KBANK', 'KTB', 'SCB', 'TTB', 'BAY', 'UOB', 'CIMB', 'LHBANK', 'TISCO', 'KKP', 'ICBC', 'GSB', 'GHB', 'BAAC', 'ISBT', 'SCBT', 'EXIM', 'SME D',
+  'TCRB', 'BOC', 'SMTB', 'CITI', 'HSBC', 'SMBC', 'MIZUHO', 'DB', 'JPM', 'BNP', 'BOFA', 'IOB', 'MEGA', 'OCBC', 'RHB', 'TMN', 'SPAY']);
 
 /** Same-origin logo path for a bank, or null when there is no logo file. */
 export const thaiBankLogo = (bank: ThaiBank | undefined): string | null =>

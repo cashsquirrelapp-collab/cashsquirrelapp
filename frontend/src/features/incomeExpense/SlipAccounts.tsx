@@ -7,12 +7,13 @@ import { THAI_BANKS } from '../invoices/thaiBanks';
 import { accountKey, accountLabel, type SlipAccount } from '../../../../shared/slipAccounts';
 
 // Slips by account (owner, 2026-11-14, item 3: "แยกสลิปไว้แบบเป็นระเบียบ ... เพื่อแบบว่ามันเป็นของคนละบัญชี"): an
-// expense read from a slip keeps the person's own account it left from (bank + last four digits). With two accounts or
-// more, each row shows it as "KBank •1234" with the bank's logo, the list filters by it, and each account can be given
-// a name ("บัญชีธุรกิจ"). With one account nothing of this shows.
+// expense read from a slip keeps the person's own account it left from (bank + last four digits). Each row shows it as
+// "KBank •1234" with the bank's logo, even with one account (owner, 2026-11-15, option 1), and each account can be given
+// a name ("บัญชีธุรกิจ"); the list filters by it once there are two accounts or more.
 
-// Every bank a slip can name (shared/slipAccounts.ts SLIP_BANKS, owner 2026-11-15); one without a logo file here (foreign
-// branches, TrueMoney, ShopeePay…) shows its code in the circle. SME D is "SMED" in a slip account.
+// Every bank a slip can name (shared/slipAccounts.ts SLIP_BANKS, owner 2026-11-15) has a logo file in public/banks/,
+// foreign branches and e-wallets included; a code without one would show its letters in the circle. SME D is "SMED" in a
+// slip account.
 const bankOf = (account: SlipAccount) => THAI_BANKS.find(bank => bank.code.replace(/\s/g, '') === account.bank) ?? { name: account.bank, code: account.bank };
 
 /** The account an expense came from: the bank's logo and "KBank •1234" (or the name given to it). */

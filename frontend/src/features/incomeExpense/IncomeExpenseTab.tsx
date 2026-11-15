@@ -128,6 +128,9 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
     ...(row.recurring ? (settings.fixedExpenseItems || []).filter(item => item.name.trim().toLowerCase() === row.name.trim().toLowerCase()).map(item => fixedSlipId(`fixed-${item.id}`)) : [])];
   const query = search.trim().toLowerCase();
   const accounts = React.useMemo(() => accountsInUse(expenses).map(item => item.account), [expenses]);
+  // Every record that knows its account shows it (owner, 2026-11-15: "ในเว็บไซต์กูยังไม่เห็น"), and the accounts can be named
+  // from the first one; the list filters by account once there are two to choose between.
+  const hasAccounts = accounts.length >= 1;
   const showAccounts = accounts.length >= 2;
   const accountOfRow = (row: ExpenseRow) => {
     if (row.fromSettings) return null;
@@ -141,7 +144,7 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
     && (accountFilter === 'all' || (() => { const own = accountOfRow(r); return Boolean(own && accountKey(own) === accountFilter); })())
     && (!query || r.name.toLowerCase().includes(query) || (r.note || '').toLowerCase().includes(query))), sort);
   const tagFor = (row: ExpenseRow, className = '') => {
-    const own = showAccounts ? accountOfRow(row) : null;
+    const own = accountOfRow(row);
     // On its own line under the name, as the note is.
     return own ? <span className={`block min-w-0 ${className}`}><AccountTag account={own} names={settings.accountNames} /></span> : null;
   };
@@ -273,6 +276,7 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
       {detail && (
         <ExpenseDetail
           fullFeatureAccess={fullFeatureAccess}
+          accountNames={settings.accountNames}
           row={detail}
           expense={detail.fromSettings ? null : expenses.find(e => e.id === detail.id) || null}
           slipExpense={slipExpense(detail)}
@@ -390,7 +394,7 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
                 <span className="ksm-grow"><b>{tr("จัดการรายจ่ายประจำ")}</b><p>{tr("ค่าใช้จ่ายที่ตั้งไว้ทุกเดือน")}</p></span>
                 <KsIcon name="chevron" size={16} />
               </button>
-              {showAccounts && <button type="button" onClick={() => { setToolsOpen(false); setNamesOpen(true); }} data-testid="account-names-open">
+              {hasAccounts && <button type="button" onClick={() => { setToolsOpen(false); setNamesOpen(true); }} data-testid="account-names-open">
                 <span className="ksm-list-icon"><KsIcon name="receipt" /></span>
                 <span className="ksm-grow"><b>{tr("ตั้งชื่อบัญชี")}</b><p>{tr("บัญชีที่อ่านได้จากสลิป")}</p></span>
                 <KsIcon name="chevron" size={16} />
@@ -493,7 +497,7 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
               <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-brand-muted" />
             </div>
           )}
-          {showAccounts && (
+          {hasAccounts && (
             <button type="button" onClick={() => setNamesOpen(true)} className="h-10 shrink-0 rounded-xl px-2 text-[13px] font-medium text-brand-muted underline underline-offset-4 hover:text-brand-text cursor-pointer" data-testid="account-names-open">
               {tr("ตั้งชื่อบัญชี")}
             </button>
@@ -617,8 +621,8 @@ function SidePanel({ title, subtitle, onClose, children, footer }: { title: stri
   );
 }
 
-function ExpenseDetail({ fullFeatureAccess, row, expense, slipExpense, slipAlsoIds, onClose, onEdit, onDelete, onRecordPaid, onManage }: {
-  fullFeatureAccess: boolean; row: ExpenseRow; expense: Expense | null; onClose: () => void; onEdit: () => void; onDelete: () => void; onRecordPaid: () => void; onManage: () => void;
+function ExpenseDetail({ fullFeatureAccess, accountNames, row, expense, slipExpense, slipAlsoIds, onClose, onEdit, onDelete, onRecordPaid, onManage }: {
+  fullFeatureAccess: boolean; accountNames?: Record<string, string>; row: ExpenseRow; expense: Expense | null; onClose: () => void; onEdit: () => void; onDelete: () => void; onRecordPaid: () => void; onManage: () => void;
   /** Where this row's slips are kept: the expense, or the fixed cost's month. */
   slipExpense: Expense | null; slipAlsoIds: string[];
 }) {
@@ -651,6 +655,7 @@ function ExpenseDetail({ fullFeatureAccess, row, expense, slipExpense, slipAlsoI
         {field(tr("ประเภท"), <TypeBadge recurring={row.recurring} />)}
         {!row.fromSettings && field(tr("หมวดหมู่"), categoryText(row.category))}
         {!row.fromSettings && field(tr("หมายเหตุ"), row.note || '—')}
+        {expense && recordAccount(expense) && field(tr("บัญชี"), <AccountTag account={recordAccount(expense)!} names={accountNames} className="justify-end text-[13px]" />)}
       </dl>
       {slipExpense && <ExpenseSlips expense={slipExpense} alsoIds={slipAlsoIds} />}
       {row.fromSettings && (
