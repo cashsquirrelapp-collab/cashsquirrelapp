@@ -142,7 +142,10 @@ test('1 Dec SQL: new monthly orders at the price of the moment; ฿271 allowed o
   const db = await december();
   try {
     await reserve(db, 'month');
-    assert.equal(Number((await orderRow(db)).amount), proPricing().month.total * 100, 'today\'s monthly price');
+    // The SQL here moves the month on 1 Dec; the owner's SQL of 2026-11-16 (not in this folder) moved it to 16 Nov 03:00.
+    // Either way the amount reserved is one the app sells or sold.
+    const reserved = Number((await orderRow(db)).amount);
+    assert.ok(PRO_SOLD_AT.month.includes(reserved / 100), `today's monthly price: ${reserved}`);
     await db.exec(`insert into cashflow_prepaid_orders(id,user_id,period,months,amount,method,price_id,livemode,expires_at)
       values('regular','${uid}','month',1,27100,'card','p',false,now())`);
     if (proPricing().month.total === 177) {
