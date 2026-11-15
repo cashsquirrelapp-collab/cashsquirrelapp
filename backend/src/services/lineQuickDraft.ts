@@ -1,3 +1,4 @@
+import { guessExpenseCategory } from '../../../shared/expenseCategory.js';
 import { validateChanges } from '../../../shared/validation.js';
 import { roundMoney, whtAmountFor } from '../../../shared/wht.js';
 import type { ClassifyResult, ExpenseDraft, JobDraft } from './lineAssistant.js';
@@ -51,7 +52,8 @@ function safeName(name: string): boolean {
 
 function expenseResult(name: string, value: number | undefined, context: LineQuickDraftContext): LineQuickDraftResult | null {
   if (!safeName(name)) return null;
-  const category = Object.prototype.hasOwnProperty.call(expenseKeywords, name) ? expenseKeywords[name] : undefined;
+  // An everyday name says its category ("กะเพรา" is food, owner 2026-11-15); a name no rule knows is still asked about.
+  const category = (Object.prototype.hasOwnProperty.call(expenseKeywords, name) ? expenseKeywords[name] : undefined) ?? guessExpenseCategory(name) ?? undefined;
   return validated({ intent: 'add_expense', expenseName: name,
     ...(value !== undefined ? { expenseAmount: value } : {}),
     ...(category ? { expenseCategory: category } : {}), freshDraft: true }, context);

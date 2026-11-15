@@ -1,3 +1,4 @@
+import { guessExpenseCategory } from '../../../shared/expenseCategory.js';
 import { isPhaseOneFeatureAvailable } from '../../../shared/featureAvailability.js';
 import { inFreeTrial } from '../../../shared/trial.js';
 import { randomUUID, createHash } from 'node:crypto';
@@ -1314,6 +1315,8 @@ async function continueJobDraft(user: UserRow, merged: JobDraft, fresh: boolean,
 
 async function continueExpenseDraft(user: UserRow, merged: ExpenseDraft, fresh: boolean, dependencies: LineAssistantDependencies): Promise<LineMessage | LineMessage[]> {
   const draft: ExpenseDraft = { ...merged };
+  // The category an everyday name already says (owner, 2026-11-15: "กะเพรา" is food, not a question); the card shows it.
+  if (!draft.category && draft.name) { const guessed = guessExpenseCategory(draft.name); if (guessed) draft.category = guessed; }
   const next = nextExpenseQuestion(draft);
   if (next) draft.asking = next; else delete draft.asking;
   await (dependencies.saveExpenseDraft ?? saveExpenseDraft)(user, draft, fresh);

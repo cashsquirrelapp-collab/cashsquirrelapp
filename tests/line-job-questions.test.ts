@@ -143,11 +143,16 @@ test('a new record typed while a question waits is that record, not the answer',
 
 test('an expense: its category asked with taps when it is not known; a day said in the message is kept', async () => {
   const { say, user } = chat();
-  const reply = await say('ซื้อกล้อง 25000');
-  assert.equal(reply.text, 'ซื้อกล้อง ฿25,000 ครับ อยู่หมวดไหนครับ');
+  const reply = await say('ซื้อของขวัญ 2500');
+  assert.equal(reply.text, 'ซื้อของขวัญ ฿2,500 ครับ อยู่หมวดไหนครับ');
   assert.equal(taps(reply).length, 9);
-  const card = await say('หมวด ค่าอุปกรณ์/ซอฟต์แวร์');
+  const card = await say('หมวด อื่นๆ');
   assert.equal(card.type, 'flex');
+  // A name that says its category is not asked about (owner, 2026-11-15: "กะเพรา" is food): the card comes at once.
+  user.notif_settings = {};
+  const camera = await say('ซื้อกล้อง 25000');
+  assert.equal(camera.type, 'flex');
+  assert.equal(user.notif_settings!.pendingExpenseDraft!.draft.category, 'ค่าอุปกรณ์/ซอฟต์แวร์');
   user.notif_settings = {};
   await say('เมื่อวาน ค่ากาแฟ 60');
   const expense = buildExpenseFromDraft(user.notif_settings!.pendingExpenseDraft!.draft as any);
