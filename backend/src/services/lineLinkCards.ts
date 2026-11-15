@@ -1,5 +1,6 @@
 import type { LineMessage, LineQuickReply } from './line.js';
-import { LINE_BRICK, LINE_CARD_COLORS as C, lineAppLink, lineCard, lineValueRow } from './lineCards.js';
+import { LINE_BRICK, LINE_CARD_COLORS as C, lineAppLink, lineCard, lineValueRow, type LineCardTheme } from './lineCards.js';
+import { LINE_TITLE_IMAGES, type LineTitleKey } from './lineTitleImages.js';
 import { LINE_JOB_EXAMPLES } from './lineEntryRouting.js';
 import { encodeTry, greetingHeader, greetingTile, SHEETS_TILE, type TryDraft, type UseType } from './lineTry.js';
 
@@ -99,30 +100,108 @@ function connectFooter(links: { start?: Link; existing?: Link }) {
   return buttons.length ? { type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '20px', paddingTop: '0px', contents: buttons } : undefined;
 }
 
-/**
- * Adding the OA, for a chat without an account: the greeting's look (design C, the brick band with the office buildings and
- * the official mascot), what Krarok does, then how to connect in numbered steps and the buttons for it.
- */
-export function buildLineHello(options: { liffId?: string; signup: boolean; sheets?: boolean }): LineMessage {
+// The greeting as a tour (owner, 2026-11-15: "ข้อความทักทายในไลน์มันไม่มีความน่าสนใจแม้แต่นิดเดียวเลย"): one short hello,
+// then cards to swipe, each showing one thing เลขา does with a real example instead of a list, in its own colour from the
+// card family and its own official mascot pose. The first card says who we are and has the button; the last one teaches
+// connecting. Every card can start. With sign-up in LINE on, the examples on the first card can be tapped: the words are
+// sent, and the connect-first card keeps them as the first record.
+
+/** Words a person sends, as a chat bubble on the right; tapping sends them (sign-up in LINE only). */
+function said(text: string, tap = false) {
+  return { type: 'box', layout: 'horizontal', margin: 'md', contents: [
+    { type: 'filler' },
+    { type: 'box', layout: 'vertical', flex: 0, cornerRadius: '14px', backgroundColor: C.subtle, paddingTop: '7px', paddingBottom: '7px', paddingStart: '12px', paddingEnd: '12px',
+      contents: [{ type: 'text', text, size: 'sm', weight: 'bold', color: C.text, wrap: true }],
+      ...(tap ? { action: { type: 'message', label: text.slice(0, 20), text } } : {}) },
+  ] };
+}
+/** What เลขา makes of it: a small white card with a line of label, then rows. */
+function made(label: string, rows: unknown[], done?: string) {
+  return { type: 'box', layout: 'vertical', spacing: 'xs', margin: 'md', cornerRadius: '12px', borderWidth: '1px', borderColor: C.border, paddingAll: '12px', contents: [
+    { type: 'text', text: label, size: 'xxs', weight: 'bold', color: C.muted, wrap: true },
+    ...rows,
+    ...(done ? [{ type: 'text', text: done, size: 'xxs', weight: 'bold', color: C.positive, wrap: true, margin: 'sm' }] : []),
+  ] };
+}
+function pair(left: string, right: string, opts: { color?: string; bold?: boolean } = {}) {
+  return { type: 'box', layout: 'horizontal', spacing: 'md', contents: [
+    { type: 'text', text: left, size: 'sm', color: opts.bold ? C.text : C.muted, weight: opts.bold ? 'bold' : 'regular', flex: 1, wrap: true },
+    { type: 'text', text: right, size: 'sm', weight: 'bold', color: opts.color ?? C.text, flex: 0, align: 'end' },
+  ] };
+}
+const caption = (text: string) => ({ type: 'text', text, size: 'xs', color: C.muted, wrap: true, margin: 'lg' });
+/** A document in its own colour (orange → rust → espresso, as their LINE cards): its square, its name and one line. */
+function documentStep(color: string, name: string, detail: string) {
+  return { type: 'box', layout: 'horizontal', spacing: 'md', margin: 'md', alignItems: 'center', contents: [
+    { type: 'box', layout: 'vertical', flex: 0, width: '10px', height: '30px', cornerRadius: '4px', backgroundColor: color, contents: [] },
+    { type: 'box', layout: 'vertical', flex: 1, contents: [
+      { type: 'text', text: name, size: 'sm', weight: 'bold', color: C.text, wrap: true },
+      { type: 'text', text: detail, size: 'xs', color: C.muted, wrap: true },
+    ] },
+  ] };
+}
+
+/** One card of the tour in the card family's look, with the button that starts. */
+function tourCard(look: { theme: LineCardTheme; title: LineTitleKey; pose: string }, subtitle: string, body: unknown[], footer?: unknown) {
+  const card = lineCard({ title: LINE_TITLE_IMAGES[look.title].words, subtitle, altText: subtitle, body, look }) as LineMessage & { contents: Record<string, unknown> };
+  if (footer) card.contents.footer = footer;
+  return card.contents;
+}
+
+export function buildLineHello(options: { liffId?: string; signup: boolean; sheets?: boolean }): LineMessage[] {
   const links = connectLinks({ liffId: options.liffId, signup: options.signup });
   const { steps, existing } = connectSteps(options.signup);
-  const footer = connectFooter(links);
-  return { type: 'flex', altText: 'ยินดีที่ได้รู้จักครับ ผมคือเลขากระรอก เลขาการเงินในแชท LINE เชื่อมต่อบัญชีก่อน แล้วพิมพ์บอกรายรับรายจ่ายในแชทนี้ได้เลย', contents: {
-    type: 'bubble', size: 'mega', styles: { header: { backgroundColor: LINE_BRICK }, body: { backgroundColor: '#FFFFFF' }, footer: { backgroundColor: '#FFFFFF' } },
-    header: greetingHeader('ยินดีที่ได้รู้จักครับ', 'ผมคือเลขากระรอก เลขาการเงินในแชท LINE'),
-    body: { type: 'box', layout: 'vertical', paddingAll: '20px', paddingTop: '14px', contents: [
-      { type: 'text', text: 'กระรอกตุนเงินช่วยจดรายรับ รายจ่าย และงานที่รอรับเงิน ออกใบเสนอราคา ใบแจ้งหนี้ ใบเสร็จ และเตือนเมื่อถึงวันรับเงิน ทั้งหมดในแชทนี้', size: 'sm', color: C.text, wrap: true },
-      greetingTile('spent', 'พิมพ์บอกหรือส่งรูปสลิป', 'เช่น ค่ากาแฟ 60 หรือ งานถ่ายรูป 5000'),
-      greetingTile('review', 'ตรวจแล้วกดยืนยัน', 'เลขาทำการ์ดให้ดูก่อนบันทึกทุกครั้ง'),
-      greetingTile('report', 'ดูสรุปเมื่อไหร่ก็ได้', 'พิมพ์ สรุปเดือนนี้ หรือ รอรับเงิน'),
-      ...(options.sheets ? [SHEETS_TILE()] : []),
-      { type: 'separator', color: C.border, margin: 'xl' },
-      { type: 'text', text: options.signup ? 'เริ่มใช้งาน 2 ขั้นตอน' : 'เชื่อมต่อ 3 ขั้นตอน', size: 'md', weight: 'bold', color: C.text, margin: 'lg' },
-      ...steps,
-      ...(existing ? [{ type: 'text', text: existing, size: 'xs', color: C.muted, wrap: true, margin: 'lg' }] : []),
+  const start = connectFooter({ start: links.start });
+  const tap = options.signup && !!options.liffId;
+  const hello = { type: 'bubble', size: 'mega', styles: { header: { backgroundColor: LINE_BRICK }, body: { backgroundColor: '#FFFFFF' }, footer: { backgroundColor: '#FFFFFF' } },
+    header: greetingHeader('ยินดีที่ได้รู้จักครับ', 'ผมคือเลขากระรอก เลขาการเงินในแชท LINE', 'working'),
+    body: { type: 'box', layout: 'vertical', paddingAll: '20px', paddingTop: '16px', contents: [
+      { type: 'text', text: 'จดเงินแค่พิมพ์บอก', size: 'xl', weight: 'bold', color: C.accent, wrap: true },
+      { type: 'text', text: 'รายรับ รายจ่าย งานที่รอรับเงิน เอกสาร และวันรับเงิน เลขาดูแลให้ในแชทนี้', size: 'sm', color: C.text, wrap: true, margin: 'sm' },
+      { type: 'text', text: tap ? 'ลองแตะข้อความด้านล่างดูได้เลย' : 'พิมพ์แบบนี้ได้เลย', size: 'xs', weight: 'bold', color: C.muted, wrap: true, margin: 'lg' },
+      said('ค่ากาแฟ 60', tap), said('งานถ่ายรูป 5,000', tap),
     ] },
-    ...(footer ? { footer } : {}),
-  } } as LineMessage;
+    ...(start ? { footer: { ...start, contents: [...start.contents, { type: 'text', text: 'ปัดดูว่าเลขาทำอะไรได้อีก ›', size: 'xs', color: C.muted, align: 'center', margin: 'md' }] } } : {}),
+  };
+  const cards = [
+    hello,
+    tourCard({ theme: 'expense', title: 'tour-type', pose: 'spent' }, 'พิมพ์เหมือนคุยกับเพื่อน เลขาบันทึกให้', [
+      said('ค่ากาแฟ 60'),
+      made('รายจ่าย · อาหาร', [pair('ค่ากาแฟ', '−฿60', { color: C.negative, bold: true })], '✓ บันทึกแล้ว'),
+      said('ได้ค่าสอน 1,500'),
+      made('รายรับ', [pair('ค่าสอน', '+฿1,500', { color: C.positive, bold: true })], '✓ บันทึกแล้ว'),
+    ], start),
+    tourCard({ theme: 'brand', title: 'tour-slip', pose: 'review' }, 'ส่งรูปสลิปมา เลขาอ่านให้เอง', [
+      said('รูปสลิปโอนเงิน'),
+      made('อ่านจากสลิป', [pair('โอนให้', 'ร้านวัสดุช่าง'), pair('จำนวน', '฿1,250', { bold: true }), pair('จากบัญชี', 'KBANK •1234')], 'ตรวจแล้วกดยืนยันได้เลย'),
+      caption('อ่านได้ทุกธนาคารในไทย รวมถึง TrueMoney และ ShopeePay'),
+    ], start),
+    tourCard({ theme: 'alert', title: 'tour-documents', pose: 'document' }, 'ใบเสนอราคา ใบแจ้งหนี้ ใบเสร็จ ในแชทเดียว', [
+      said('ออกใบเสนอราคา คุณเอ 5,000'),
+      documentStep('#C24A16', 'ใบเสนอราคา', 'ส่งให้ลูกค้าดูก่อนเริ่มงาน'),
+      documentStep('#8A3315', 'ใบแจ้งหนี้', 'เมื่อถึงเวลาเก็บเงิน'),
+      documentStep('#4E2A1C', 'ใบเสร็จรับเงิน', 'เมื่อลูกค้าจ่ายแล้ว'),
+    ], start),
+    tourCard({ theme: 'positive', title: 'tour-summary', pose: 'report' }, 'รู้ยอดเงินได้ทุกเมื่อ ไม่ต้องเปิดแอป', [
+      said('สรุปเดือนนี้'),
+      made('เดือนนี้', [
+        pair('รับแล้ว', '+฿42,000', { color: C.positive }),
+        pair('จ่ายไป', '−฿18,450', { color: C.negative }),
+        { type: 'separator', color: C.border, margin: 'sm' },
+        pair('คงเหลือ', '฿23,550', { bold: true }),
+      ]),
+      caption('ถึงวันรับเงินเมื่อไหร่ เลขาเตือนให้ตอน 08:00'),
+    ], start),
+    tourCard({ theme: 'espresso', title: 'start', pose: 'guide' }, options.signup ? 'ใช้บัญชี LINE ได้เลย ไม่ต้องใช้อีเมล' : 'เชื่อมต่อบัญชี 3 ขั้นตอน', [
+      ...steps,
+      ...(options.sheets ? [SHEETS_TILE()] : []),
+      ...(existing ? [caption(existing)] : []),
+    ], connectFooter(links)),
+  ];
+  return [
+    { type: 'text', text: 'สวัสดีครับ ยินดีที่ได้รู้จัก ผมคือเลขากระรอก เลขาการเงินในแชท LINE ปัดการ์ดด้านล่างดูได้เลยครับว่าผมช่วยอะไรได้บ้าง' },
+    { type: 'flex', altText: 'ยินดีที่ได้รู้จักครับ ผมคือเลขากระรอก เลขาการเงินในแชท LINE ปัดดูว่าช่วยอะไรได้บ้าง แล้วกดเริ่มใช้งาน', contents: { type: 'carousel', contents: cards } },
+  ] as LineMessage[];
 }
 
 const bahtText = (amount: number) => `฿${amount.toLocaleString('th-TH', { minimumFractionDigits: Number.isInteger(amount) ? 0 : 2, maximumFractionDigits: 2 })}`;

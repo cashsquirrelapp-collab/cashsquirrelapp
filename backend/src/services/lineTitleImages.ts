@@ -18,5 +18,10 @@ export const LINE_TITLE_IMAGES = {
   'income': { words: 'รายรับ', width: 126, height: 65 },
   'saving': { words: 'เงินออม', width: 157, height: 65 },
   'withdraw': { words: 'ถอนเงินออม', width: 242, height: 65 },
+  'tour-type': { words: 'พิมพ์บอก', width: 187, height: 65 },
+  'tour-slip': { words: 'ส่งสลิป', width: 146, height: 65 },
+  'tour-documents': { words: 'ออกเอกสาร', width: 227, height: 65 },
+  'tour-summary': { words: 'สรุปยอด', width: 171, height: 65 },
+  'start': { words: 'เริ่มใช้งาน', width: 185, height: 65 },
 } as const;
 export type LineTitleKey = keyof typeof LINE_TITLE_IMAGES;

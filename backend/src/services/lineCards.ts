@@ -104,7 +104,7 @@ export const LINE_CARD_THEMES = {
   // Money in: a warm pale green, a green pill and a green amount.
   positive: { center: '#E7EFD8', amount: '#12804F', tagBg: '#12804F', tagText: '#FFFFFF' },
 } as const;
-type LineCardTheme = keyof typeof LINE_CARD_THEMES;
+export type LineCardTheme = keyof typeof LINE_CARD_THEMES;
 /** The brick the greeting band (with its office buildings) and the monthly report email were approved in; they keep it. */
 export const LINE_BRICK = '#B8481A';
 const PASTEL: ReadonlySet<LineCardTheme> = new Set(['expense', 'positive']);
@@ -210,11 +210,13 @@ export function lineCard(opts: {
   tag?: string;
   /** 'secondary' when the card already has its own primary buttons (the 08:00 reminder). */
   footerStyle?: 'primary' | 'secondary';
+  /** A look outside the card kinds (the greeting tour): one of the themes, a title picture and an official pose. */
+  look?: { theme: LineCardTheme; title: LineTitleKey; pose: string };
 }): LineMessage {
   const requested = opts.character || 'guide';
   // Legacy draft kinds do not imply that money has already changed hands.
   const character = requested === 'income' || requested === 'expense' ? 'review' : requested;
-  const category = CATEGORIES[character];
+  const category: Category = opts.look ?? CATEGORIES[character];
   const themeKey = category.theme;
   const theme = LINE_CARD_THEMES[themeKey];
   const pastel = PASTEL.has(themeKey);

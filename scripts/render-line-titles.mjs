@@ -28,6 +28,12 @@ const TITLES = {
   income: ['รายรับ', INK],
   saving: ['เงินออม', INK],
   withdraw: ['ถอนเงินออม', INK],
+  // The greeting tour (owner, 2026-11-15: "ข้อความทักทายในไลน์มันไม่มีความน่าสนใจ"): one card per thing เลขา does.
+  'tour-type': ['พิมพ์บอก', INK],
+  'tour-slip': ['ส่งสลิป', WHITE],
+  'tour-documents': ['ออกเอกสาร', WHITE],
+  'tour-summary': ['สรุปยอด', INK],
+  start: ['เริ่มใช้งาน', WHITE],
 };
 
 const out = resolve('frontend/public/line', FOLDER);

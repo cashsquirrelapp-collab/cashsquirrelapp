@@ -196,7 +196,8 @@ export function connectFirstFor(messageText: string | null): LineMessage {
 
 /**
  * A follow (someone added the OA), for a chat without an account (owner, 2026-11-15: "ขึ้นข้อความทักหาเขาว่าเราคืออะไร ...
- * สอนวิธีการล็อกอิน"): one card with what Krarok is and how to connect. Someone already linked gets nothing extra.
+ * สอนวิธีการล็อกอิน"): a hello and a tour of cards (since 2026-11-15 evening: "ไม่มีความน่าสนใจ"), what Krarok does and how to
+ * connect. Someone already linked gets nothing extra.
  */
 async function answerFollow(event: LineEvent, accessToken: string): Promise<void> {
   const lineUserId = event.source?.userId;
@@ -204,7 +205,7 @@ async function answerFollow(event: LineEvent, accessToken: string): Promise<void
   if (!(await claimOnce(event.webhookEventId))) return;
   if (!(await findUserByLineId(lineUserId))) {
     const { sheetsForNewcomers } = await import('../services/lineSheetCards.js');
-    await reply(accessToken, event.replyToken, [buildLineHello({ liffId: process.env.LIFF_ID, signup: lineSignupOn(), sheets: sheetsForNewcomers() })]);
+    await reply(accessToken, event.replyToken, buildLineHello({ liffId: process.env.LIFF_ID, signup: lineSignupOn(), sheets: sheetsForNewcomers() }));
   }
   await markDone(event.webhookEventId!);
 }

@@ -71,6 +71,6 @@ export async function buildLineSampleCards(now = new Date()): Promise<LineMessag
     // While sign-up in LINE is on (services/lineFirst.ts): what a new friend without an account gets when adding the OA,
     // and when sending anything before connecting.
     ...(lineSignupOn() ? [{ type: 'text', text: 'การ์ดสำหรับคนที่แอด LINE แต่ยังไม่มีบัญชี: ตอนแอด และเมื่อพิมพ์มาก่อนเชื่อมต่อ (กดเริ่มใช้งานแล้วจะเปิดหน้าสมัคร)' } as LineMessage,
-      buildLineHello({ liffId: process.env.LIFF_ID, signup: true }), buildConnectFirst({ liffId: process.env.LIFF_ID, signup: true, tried: { kind: 'expense', name: 'ข้าวมันไก่', amount: 50 } })] : []),
+      ...buildLineHello({ liffId: process.env.LIFF_ID, signup: true }), buildConnectFirst({ liffId: process.env.LIFF_ID, signup: true, tried: { kind: 'expense', name: 'ข้าวมันไก่', amount: 50 } })] : []),
   ];
 }
