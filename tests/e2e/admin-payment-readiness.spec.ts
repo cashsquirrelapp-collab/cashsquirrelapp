@@ -155,7 +155,8 @@ test('computer in English: the card is all English, dates included', async ({ pa
   const card = page.getByTestId('payment-readiness');
   await expect(card).toContainText('Payments are not working');
   await expect(card.locator('[data-check="later"]')).toContainText('Prices from 1 Dec 2026');
-  await expect(card.locator('[data-check="today"]')).toContainText('One-time (QR and card) ฿177 · Stripe still has ฿159');
+  // Each price names its plan since Plus (2026-11-15).
+  await expect(card.locator('[data-check="today"]')).toContainText('Pro one-time (QR and card) ฿177 · Stripe still has ฿159');
   expect(await card.innerText()).not.toMatch(/[\u0E00-\u0E3E\u0E40-\u0E7F]/); // ฿ (U+0E3F) is the currency sign in English too
 });
 
