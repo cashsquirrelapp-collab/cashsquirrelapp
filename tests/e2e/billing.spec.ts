@@ -602,7 +602,7 @@ for (const plan of [{period:'month',label:'รายเดือน',months:1,am
   await expect(dialog.getByRole('img',{name:'QR พร้อมเพย์สำหรับชำระแพ็กเกจ Pro'})).toBeVisible();
   await expect(dialog.getByText(`฿${(plan.amount/100).toLocaleString('th-TH')}`,{exact:true})).toBeVisible();
   // Before paying: the membership and the payment fee that make up the amount (owner, 2026-10-25).
-  const parts=proPriceParts(plan.period as ProPeriod);
+  const parts=proPriceParts(plan.period as ProPeriod,new Date('2026-11-10T03:00:00Z'));
   await expect(dialog.getByTestId('qr-price')).toHaveText(`ค่าสมาชิก฿${parts.price.toLocaleString('th-TH')}`);
   await expect(dialog.getByTestId('qr-fee')).toHaveText(`ค่าธรรมเนียมชำระเงิน฿${parts.fee.toLocaleString('th-TH')}`);
   await expect(dialog.locator('iframe')).toHaveCount(0);await expect(dialog.getByText('Secure payment form')).toHaveCount(0);
@@ -1030,8 +1030,9 @@ test('the countdown chips on a computer tick, survive reload and give way to ฿
 // Free / Plus / Pro (owner, 2026-11-15): with Plus on sale the card switches between Plus and Pro, a table compares the
 // three plans (computers and iPads) or lists them row by row (phones), and buying Plus asks the server for Plus.
 test('Plus beside Pro: the switch, the comparison, and buying Plus asks for Plus', async ({ page }) => {
-  // The monthly promotion ended on 16 Nov 2569 03:00; this test reads the page while it ran.
-  await page.clock.setFixedTime(new Date('2026-11-10T03:00:00Z'));
+  // The monthly promotion ended on 16 Nov 2569 03:00; this test reads the page while it ran (the clock keeps moving from
+  // there, so the opening logo can finish).
+  await page.clock.setSystemTime(new Date('2026-11-10T03:00:00Z'));
   const free = { status: 'free', plan: null, current_period_end: null, cancel_at_period_end: false, stripe_status: null, has_subscription: false, intro_eligible: false, managed: false };
   await page.setViewportSize({ width: 1280, height: 900 });
   // The clock's light / dark switch already applied, so the screen follows the light / dark asked for below.
