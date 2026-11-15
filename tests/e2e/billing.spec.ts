@@ -1033,7 +1033,9 @@ test('Plus beside Pro: the switch, the comparison, and buying Plus asks for Plus
   const table = page.getByTestId('plan-compare').getByRole('table');
   await expect(table.getByRole('columnheader')).toHaveText([/สิ่งที่ได้/, /Free.*฿0/, /Plus.*฿99/, /Pro.*฿159/]);
   await expect(table.getByRole('columnheader', { name: /Free/ })).toContainText('แพ็กเกจปัจจุบัน');
-  await expect(table.getByRole('row', { name: /เลขากระรอก/ }).getByRole('cell')).toHaveText(['100', '650', '1,650']);
+  await expect(table.getByRole('row', { name: /โทเคนเลขาต่อเดือน/ }).getByRole('cell')).toHaveText(['100', '650', '1,650']);
+  await expect(table.getByRole('row', { name: /โทเคนเลขาต่อเดือน/ })).toContainText('ใช้ตอนคุยหรือสั่งงานเลขา ในแอปและ LINE');
+  await expect(table.getByRole('row', { name: /บันทึกงานและรายจ่ายเอง/ }).getByRole('cell')).toHaveText(['ไม่จำกัด', 'ไม่จำกัด', 'ไม่จำกัด']);
   await expect(table.getByRole('row', { name: /ออกเอกสารใหม่/ }).getByRole('cell')).toHaveText(['10 ฉบับ', '30 ฉบับ', 'ไม่จำกัด']);
   await expect(table.getByRole('row', { name: /เก็บไฟล์/ }).getByRole('cell')).toHaveText(['5 ไฟล์', '50 ไฟล์', 'ไม่จำกัด']);
   await expect(table.getByRole('row', { name: /รายงานและหน้าภาษี/ }).getByRole('cell')).toHaveText(['ไม่มีใน Free', 'ไม่มีใน Plus', 'มีใน Pro']);
@@ -1061,7 +1063,7 @@ test('Plus beside Pro: the switch, the comparison, and buying Plus asks for Plus
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto('/plans');
   const list = page.getByTestId('plan-compare');
-  await expect(list.locator('.pf-cmp-item')).toHaveCount(8);
+  await expect(list.locator('.pf-cmp-item')).toHaveCount(9);
   await expect(list.getByRole('table')).toHaveCount(0);
   await expect(list.locator('.pf-cmp-item').first().locator('.pf-cmp-cell')).toHaveText(['100', '650', '1,650']);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);

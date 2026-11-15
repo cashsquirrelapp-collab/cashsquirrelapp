@@ -308,11 +308,13 @@ function PlanCompare({ phone, current, chosen, freeTokens, proTokens, proPrice }
   phone: boolean; current: 'free' | PaidTier | null; chosen: PaidTier; freeTokens: number; proTokens: number; proPrice: number;
 }) {
   const unlimited = tr('ไม่จำกัด');
-  const rows: { label: string; cells: [CompareCell, CompareCell, CompareCell] }[] = [
-    { label: tr('เลขากระรอก (โทเคนต่อเดือน)'), cells: [freeTokens > 0 ? freeTokens.toLocaleString('en-US') : false, PLAN_LIMITS.plus.tokens!.toLocaleString('en-US'), proTokens.toLocaleString('en-US')] },
+  // Each row says what it counts under its name (owner, 2026-11-16: "โทเค็นเลขาต่อเดือนแล้วก็เอกสารใหม่คืออะไร เก็บไฟล์คืออะไร").
+  const rows: { label: string; note?: string; cells: [CompareCell, CompareCell, CompareCell] }[] = [
+    { label: tr('โทเคนเลขาต่อเดือน'), note: tr('ใช้ตอนคุยหรือสั่งงานเลขา ในแอปและ LINE'), cells: [freeTokens > 0 ? freeTokens.toLocaleString('en-US') : false, PLAN_LIMITS.plus.tokens!.toLocaleString('en-US'), proTokens.toLocaleString('en-US')] },
     { label: tr('แชตและจดงานผ่าน LINE'), cells: [freeTokens > 0, true, true] },
-    { label: tr('ออกเอกสารใหม่ต่อเดือน'), cells: [tr('{0} ฉบับ', PLAN_LIMITS.free.documentsPerMonth!), tr('{0} ฉบับ', PLAN_LIMITS.plus.documentsPerMonth!), unlimited] },
-    { label: tr('เก็บไฟล์ในคลังเอกสาร'), cells: [tr('{0} ไฟล์', PLAN_LIMITS.free.vaultFiles), tr('{0} ไฟล์', PLAN_LIMITS.plus.vaultFiles), unlimited] },
+    { label: tr('ออกเอกสารใหม่ต่อเดือน'), note: tr('ใบเสนอราคา ใบแจ้งหนี้ ใบเสร็จ ในแอปหรือผ่านเลขา'), cells: [tr('{0} ฉบับ', PLAN_LIMITS.free.documentsPerMonth!), tr('{0} ฉบับ', PLAN_LIMITS.plus.documentsPerMonth!), unlimited] },
+    { label: tr('เก็บไฟล์ในคลังเอกสาร'), note: tr('สลิป บิล ใบ 50 ทวิ'), cells: [tr('{0} ไฟล์', PLAN_LIMITS.free.vaultFiles), tr('{0} ไฟล์', PLAN_LIMITS.plus.vaultFiles), unlimited] },
+    { label: tr('บันทึกงานและรายจ่ายเอง'), note: tr('ในแอป ไม่ใช้โทเคน'), cells: [unlimited, unlimited, unlimited] },
     { label: tr('เตือนวันส่งงานและวันรับเงิน 08:00'), cells: [false, true, true] },
     { label: tr('เอกสารไม่มีข้อความเครดิตของแอป'), cells: [false, true, true] },
     { label: tr('สรุปรายเดือน ตามใบ 50 ทวิ และเตือนช่วงยื่นภาษี'), cells: [false, false, true] },
@@ -340,7 +342,7 @@ function PlanCompare({ phone, current, chosen, freeTokens, proTokens, proPrice }
           <li className="pf-cmp-heads" aria-hidden="true">{plans.map(plan => <span key={plan.id} className={`pf-cmp-plan${mark(plan.id)}`}><b>{plan.name}</b><small>{plan.price}</small></span>)}</li>
           {rows.map(row => (
             <li key={row.label} className="pf-cmp-item">
-              <p className="pf-cmp-label">{row.label}</p>
+              <p className="pf-cmp-label">{row.label}{row.note && <small className="pf-cmp-note">{row.note}</small>}</p>
               <div className="pf-cmp-values">{row.cells.map((value, index) => <span key={plans[index].id} className={`pf-cmp-cell${mark(plans[index].id)}`}>{cell(value, plans[index].name)}</span>)}</div>
             </li>
           ))}
@@ -360,7 +362,7 @@ function PlanCompare({ phone, current, chosen, freeTokens, proTokens, proPrice }
             <tbody>
               {rows.map(row => (
                 <tr key={row.label}>
-                  <th scope="row">{row.label}</th>
+                  <th scope="row">{row.label}{row.note && <small className="pf-cmp-note">{row.note}</small>}</th>
                   {row.cells.map((value, index) => <td key={plans[index].id} className={`pf-cmp-cell${mark(plans[index].id)}`}>{cell(value, plans[index].name)}</td>)}
                 </tr>
               ))}

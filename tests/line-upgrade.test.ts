@@ -29,7 +29,10 @@ test('the card: Plus and Pro with today\'s prices and a button each into the pla
   assert.deepEqual(bubbles.contents.map(bubble => (json(bubble).match(/"text":"(Pro|Plus|Free)"/) || [])[1]), ['Pro', 'Plus', 'Free']);
   assert.match(json(bubbles.contents[0]), /"text":"฿169"/);
   assert.match(json(bubbles.contents[1]), /"text":"฿99"/);
-  assert.match(json(bubbles.contents[1]), /"text":"650"/);
+  assert.match(json(bubbles.contents[1]), /"text":"650\/เดือน"/);
+  // Every row says what it counts (owner, 2026-11-16: "ไม่ค่อยเคลียร์").
+  for (const words of ['ใช้ตอนคุยหรือสั่งงานเลขา ในแอปและ LINE', 'ใบเสนอราคา ใบแจ้งหนี้ ใบเสร็จ ในแอปหรือผ่านเลขา', 'สลิป บิล ใบ 50 ทวิ', 'ในแอป ไม่ใช้โทเคน'])
+    assert.match(json(bubbles.contents[2]), new RegExp(words));
   assert.match(json(card), /ราคายังไม่รวมค่าธรรมเนียมชำระเงิน/);
   assert.match(json(card), /mascot-v6-guide\.png/, 'official poses, never redrawn');
   assert.doesNotMatch(json(card), /gradient/i);

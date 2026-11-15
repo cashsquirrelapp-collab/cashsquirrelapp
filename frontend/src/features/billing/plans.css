@@ -358,3 +358,4 @@
 .pf-cmp-values { display: grid; grid-template-columns: repeat(3, 1fr); }
 .pf-cmp-values .pf-cmp-cell { display: flex; align-items: center; justify-content: center; min-height: 30px; padding: 2px 4px; border-radius: 10px; font-size: 13px; line-height: 1.45; text-align: center; }
 .pf-page.is-phone .pf-compare { margin-top: 28px; }
+.pf-cmp-note { display: block; margin-top: 1px; font-size: 11.5px; font-weight: 400; line-height: 1.45; color: var(--muted); }

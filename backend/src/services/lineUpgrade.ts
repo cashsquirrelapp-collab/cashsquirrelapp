@@ -38,7 +38,7 @@ const LOOKS: Record<'pro' | 'plus' | 'free', Look> = {
 
 function planBubble(opts: {
   look: Look; kicker: string; name: string; badge?: string; highlight: string; detail: string;
-  rows: [string, string][]; price: string; was?: string; per?: string; note: string; button: { label: string; path: string };
+  rows: [string, string, string?][]; price: string; was?: string; per?: string; note: string; button: { label: string; path: string };
 }) {
   const { look } = opts;
   const mascot = asset(`/line/mascot-v6-${look.pose}.png`);
@@ -63,11 +63,16 @@ function planBubble(opts: {
           { type: 'text', text: opts.highlight, size: 'sm', weight: 'bold', color: look.boxInk, wrap: true },
           { type: 'text', text: opts.detail, size: 'xxs', color: look === LOOKS.pro ? '#E8D9CF' : C.muted, wrap: true },
         ] },
-        { type: 'box', layout: 'vertical', margin: 'md', contents: opts.rows.flatMap(([label, value], index) => [
+        // Each row says what it counts in plain words under its name (owner, 2026-11-16: "ไม่ค่อยเคลียร์ ... โทเค็นเลขาต่อเดือน
+        // แล้วก็เอกสารใหม่คืออะไร เก็บไฟล์คืออะไร").
+        { type: 'box', layout: 'vertical', margin: 'md', contents: opts.rows.flatMap(([label, value, caption], index) => [
           ...(index ? [{ type: 'separator', color: look.line }] : []),
-          { type: 'box', layout: 'horizontal', paddingTop: '7px', paddingBottom: '7px', contents: [
-            { type: 'text', text: label, size: 'xs', color: look.soft, flex: 5, wrap: true },
-            { type: 'text', text: value, size: 'xs', weight: 'bold', color: look.ink, flex: 4, align: 'end', wrap: true },
+          { type: 'box', layout: 'horizontal', paddingTop: '7px', paddingBottom: '7px', spacing: 'sm', contents: [
+            { type: 'box', layout: 'vertical', flex: 6, contents: [
+              { type: 'text', text: label, size: 'xs', color: look.ink, wrap: true },
+              ...(caption ? [{ type: 'text', text: caption, size: 'xxs', color: look.soft, wrap: true }] : []),
+            ] },
+            { type: 'text', text: value, size: 'xs', weight: 'bold', color: look.ink, flex: 4, align: 'end', gravity: 'center', wrap: true },
           ] },
         ]) },
         { type: 'box', layout: 'baseline', margin: 'lg', spacing: 'sm', contents: [
@@ -82,6 +87,17 @@ function planBubble(opts: {
   };
 }
 
+// The rows, the same on the three cards: what each counts, in the words a customer uses.
+const TOKENS = 'โทเคนเลขา';
+const TOKENS_NOTE = 'ใช้ตอนคุยหรือสั่งงานเลขา ในแอปและ LINE';
+const DOCS = 'ออกเอกสารใหม่';
+const DOCS_NOTE = 'ใบเสนอราคา ใบแจ้งหนี้ ใบเสร็จ ในแอปหรือผ่านเลขา';
+const FILES = 'เก็บไฟล์ในคลังเอกสาร';
+const FILES_NOTE = 'สลิป บิล ใบ 50 ทวิ';
+const REMIND = 'แจ้งเตือนทุกเช้า 08:00';
+const BY_HAND = 'บันทึกงานและรายจ่ายเอง';
+const BY_HAND_NOTE = 'ในแอป ไม่ใช้โทเคน';
+
 /** Free, Plus and Pro as cards side by side (Pro first), the prices of the moment, a button each into the plans page. */
 export function buildLineUpgradeCard(reason: UpgradeReason, now: Date = new Date()): LineMessage {
   const pro = proPriceDetails('month', now);
@@ -91,17 +107,17 @@ export function buildLineUpgradeCard(reason: UpgradeReason, now: Date = new Date
   const bubbles = [
     planBubble({ look: LOOKS.pro, badge: 'แนะนำ', kicker: 'สำหรับคนทำงานเต็มตัว', name: 'Pro',
       highlight: 'ใช้ได้ครบทุกอย่าง ไม่จำกัด', detail: 'สรุปรายเดือน ติดตามใบ 50 ทวิ เตือนช่วงยื่นภาษี รายงาน และหน้าภาษี',
-      rows: [['โทเคนเลขาต่อเดือน', PLAN_LIMITS.pro.tokens!.toLocaleString('en-US')], ['เอกสารใหม่', 'ไม่จำกัด'], ['เก็บไฟล์', 'ไม่จำกัด'], ['แจ้งเตือน 08:00', 'ทุกแบบ']],
+      rows: [[TOKENS, `${PLAN_LIMITS.pro.tokens!.toLocaleString('en-US')}/เดือน`, TOKENS_NOTE], [DOCS, 'ไม่จำกัด', DOCS_NOTE], [FILES, 'ไม่จำกัด', FILES_NOTE], [REMIND, 'ทุกแบบ', 'รวมสรุปรายเดือนและใบ 50 ทวิ'], [BY_HAND, 'ไม่จำกัด', BY_HAND_NOTE]],
       price: baht(pro.price), ...(pro.saving > 0 ? { was: baht(pro.regular) } : {}), per: '/เดือน', note: fee,
       button: { label: `สมัคร Pro ${baht(pro.price)}`, path: '/plans?tier=pro' } }),
     planBubble({ look: LOOKS.plus, kicker: 'สำหรับคนที่ใช้เลขาทุกวัน', name: 'Plus',
       highlight: 'เตือนวันส่งงานและวันรับเงินทุกเช้า', detail: 'ทาง LINE และอีเมล เอกสารไม่มีข้อความเครดิตของแอป',
-      rows: [['โทเคนเลขาต่อเดือน', plus.tokens!.toLocaleString('en-US')], ['เอกสารใหม่', `${plus.documentsPerMonth} ฉบับ/เดือน`], ['เก็บไฟล์', `${plus.vaultFiles} ไฟล์`], ['แจ้งเตือน 08:00', 'ส่งงานและรับเงิน']],
+      rows: [[TOKENS, `${plus.tokens!.toLocaleString('en-US')}/เดือน`, TOKENS_NOTE], [DOCS, `${plus.documentsPerMonth} ฉบับ/เดือน`, DOCS_NOTE], [FILES, `${plus.vaultFiles} ไฟล์`, FILES_NOTE], [REMIND, 'มี', 'วันส่งงานและวันรับเงิน'], [BY_HAND, 'ไม่จำกัด', BY_HAND_NOTE]],
       price: baht(PLUS_PRICE.price), per: '/เดือน', note: fee,
       button: { label: `สมัคร Plus ${baht(PLUS_PRICE.price)}`, path: '/plans?tier=plus' } }),
     planBubble({ look: LOOKS.free, kicker: 'สำหรับเริ่มต้นใช้งาน', name: 'Free',
       highlight: 'เริ่มใช้ฟรี ไม่ต้องผูกบัตร', detail: 'คุยกับเลขาได้ทั้งในแอปและ LINE โทเคนเติมใหม่ทุกวันที่ 1',
-      rows: [['โทเคนเลขาต่อเดือน', freeTokens > 0 ? freeTokens.toLocaleString('en-US') : '—'], ['เอกสารใหม่', `${PLAN_LIMITS.free.documentsPerMonth} ฉบับ/เดือน`], ['เก็บไฟล์', `${PLAN_LIMITS.free.vaultFiles} ไฟล์`], ['แจ้งเตือน 08:00', '—']],
+      rows: [[TOKENS, freeTokens > 0 ? `${freeTokens.toLocaleString('en-US')}/เดือน` : '—', TOKENS_NOTE], [DOCS, `${PLAN_LIMITS.free.documentsPerMonth} ฉบับ/เดือน`, DOCS_NOTE], [FILES, `${PLAN_LIMITS.free.vaultFiles} ไฟล์`, FILES_NOTE], [REMIND, '—'], [BY_HAND, 'ไม่จำกัด', BY_HAND_NOTE]],
       price: 'ฟรี', note: 'ใช้ได้เลย ไม่มีค่าใช้จ่าย',
       button: { label: 'ดูแพ็กเกจทั้งหมด', path: '/plans' } }),
   ];

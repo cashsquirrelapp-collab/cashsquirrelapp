@@ -146,4 +146,10 @@ export const billing: Record<string, string> = {
   "สรุปการเงินรายเดือน ติดตามใบ 50 ทวิ และเตือนช่วงยื่นภาษี มีเฉพาะ Pro": "The monthly summary, 50 Tawi follow-up and tax-season reminders are Pro only",
   "Plus {0} · Free {1} ฉบับ/เดือน": "Plus {0} · Free {1} documents a month",
   "Plus {0} · Free {1} ไฟล์": "Plus {0} · Free {1} files",
+  "โทเคนเลขาต่อเดือน": "Assistant tokens a month",
+  "ใช้ตอนคุยหรือสั่งงานเลขา ในแอปและ LINE": "Used when you chat with or ask the assistant, in the app and LINE",
+  "ใบเสนอราคา ใบแจ้งหนี้ ใบเสร็จ ในแอปหรือผ่านเลขา": "Quotations, invoices and receipts, in the app or through the assistant",
+  "สลิป บิล ใบ 50 ทวิ": "Slips, bills and 50 Tawi certificates",
+  "บันทึกงานและรายจ่ายเอง": "Recording jobs and expenses yourself",
+  "ในแอป ไม่ใช้โทเคน": "In the app, no tokens used",
 };
