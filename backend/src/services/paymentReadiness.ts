@@ -89,24 +89,38 @@ export async function createMissingPrices(stripe: Pick<Stripe, 'prices'> & Parti
   const plus = plusOnSale() ? await planPlusPrices(stripe, livemode, now) : [];
   const plan = [...await planReprice(stripe, livemode, priceMomentsFrom(now), PRO_PERIODS_ON_SALE), ...plus];
   let created = 0;
-  // Plus's product first, with its fixed id, when a Plus price is to be made and the product is not there yet.
-  if (plus.some(row => row.action === 'create') && stripe.products) {
+  // Plus's product, with its fixed id, made just before the first Plus price; Pro's prices come first in the plan, so a
+  // Plus problem never stops the prices Pro needs (2026-11-16: the 1 Dec prices waited on a Products permission).
+  let plusReady = !plus.some(row => row.action === 'create') || !stripe.products;
+  let plusError: unknown = null;
+  const ensurePlusProduct = async () => {
     try {
-      await stripe.products.retrieve(plusProductId());
+      await stripe.products!.retrieve(plusProductId());
+      return;
     } catch (error) {
       if (permissionDenied(error)) throw new HttpError(403, 'คีย์ Stripe ของเซิร์ฟเวอร์ไม่มีสิทธิ์อ่านหรือสร้างสินค้า (Products: Write)', 'stripe_permission');
       if ((error as { statusCode?: number }).statusCode !== 404) throw error;
-      try {
-        await stripe.products.create({ id: plusProductId(), name: 'Krarok Plus', metadata: { tier: 'plus' } },
-          { idempotencyKey: `krarok-product:${livemode ? 'live' : 'test'}:${plusProductId()}` });
-      } catch (made) {
-        if (permissionDenied(made)) throw new HttpError(403, 'คีย์ Stripe ของเซิร์ฟเวอร์ไม่มีสิทธิ์สร้างสินค้า (Products: Write)', 'stripe_permission');
-        throw made;
-      }
     }
-  }
+    // No idempotency key: the fixed id already stops a second product, and a key would make Stripe answer a retry with
+    // the first answer (the first press was refused for a missing permission; pressing again after the owner added it
+    // must really try again).
+    try {
+      await stripe.products!.create({ id: plusProductId(), name: 'Krarok Plus', metadata: { tier: 'plus' } });
+    } catch (made) {
+      const failure = made as { type?: string; code?: string; statusCode?: number; headers?: Record<string, string> } | null;
+      if (failure?.code === 'resource_already_exists') return; // made by an earlier press
+      // What Stripe said, without its message (it names the key).
+      console.warn('stripe_product_create_failed', { type: failure?.type, code: failure?.code, status: failure?.statusCode, replayed: failure?.headers?.['idempotent-replayed'] === 'true' });
+      if (permissionDenied(made)) throw new HttpError(403, 'คีย์ Stripe ของเซิร์ฟเวอร์ไม่มีสิทธิ์สร้างสินค้า (Products: Write)', 'stripe_permission');
+      throw made;
+    }
+  };
   for (const row of plan) {
     if (row.action !== 'create' || !row.params) continue;
+    if (row.tier === 'plus' && !plusReady) {
+      if (plusError) continue;
+      try { await ensurePlusProduct(); plusReady = true; } catch (error) { plusError = error; continue; }
+    }
     try {
       await stripe.prices.create(row.params, { idempotencyKey: `krarok-price:${livemode ? 'live' : 'test'}:${row.lookupKey}:${row.params.unit_amount}` });
     } catch (error) {
@@ -115,5 +129,7 @@ export async function createMissingPrices(stripe: Pick<Stripe, 'prices'> & Parti
     }
     created++;
   }
+  // Pro's prices are made; Plus's wait for its product. Said after, so the owner knows what is still missing.
+  if (plusError) throw plusError;
   return created;
 }

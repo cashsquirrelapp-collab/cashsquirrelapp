@@ -202,7 +202,11 @@ test('Plus: its two ฿115 prices are checked too; the button makes Plus\'s prod
     let made = 0;
     (fake.stripe as unknown as { products: unknown }).products = {
       retrieve: async (id: string) => { if (!products.includes(id)) throw Object.assign(new Error('No such product'), { statusCode: 404 }); return { id }; },
-      create: async (params: { id: string }) => { made += 1; products.push(params.id); return params; },
+      create: async (params: { id: string }, options?: { idempotencyKey?: string }) => {
+        // No idempotency key: a press after a refused one must really try again (the fixed id stops duplicates).
+        assert.equal(options?.idempotencyKey, undefined);
+        made += 1; products.push(params.id); return params;
+      },
     };
     const before = await paymentReadiness(fake.stripe, false, NOW);
     assert.equal(before.status, 'blocked', 'Plus is on sale, so its missing prices stop it');
@@ -222,5 +226,32 @@ test('Plus: its two ฿115 prices are checked too; the button makes Plus\'s prod
     assert.equal(after.status, 'ready');
     assert.equal(await createMissingPrices(fake.stripe, false, NOW), 0, 'pressed again: nothing new');
     assert.equal(made, 1);
+  } finally { process.env.KRAROK_PLUS_ENABLED = 'false'; }
+});
+
+test('Plus\'s product made by an earlier press: the button goes on to the prices', async () => {
+  process.env.KRAROK_PLUS_ENABLED = 'true';
+  try {
+    const fake = fakeStripe({ catalog: [...todays(), ...decembers()] });
+    (fake.stripe as unknown as { products: unknown }).products = {
+      retrieve: async () => { throw Object.assign(new Error('No such product'), { statusCode: 404 }); },
+      create: async () => { throw Object.assign(new Error('Product already exists'), { statusCode: 400, code: 'resource_already_exists' }); },
+    };
+    assert.equal(await createMissingPrices(fake.stripe, false, NOW), 2);
+    // Still refused: the owner is told which permission, never Stripe's own message.
+    const denied = fakeStripe({ catalog: [...todays(), ...decembers()] });
+    (denied.stripe as unknown as { products: unknown }).products = {
+      retrieve: async () => { throw Object.assign(new Error('No such product'), { statusCode: 404 }); },
+      create: async () => { throw Object.assign(new Error('The provided key rk_live_abc does not have the required permissions'), { statusCode: 403, type: 'StripePermissionError' }); },
+    };
+    await assert.rejects(createMissingPrices(denied.stripe, false, NOW), (error: { status?: number; code?: string; message?: string }) =>
+      error.status === 403 && error.code === 'stripe_permission' && !/rk_live/.test(error.message || ''));
+    assert.equal(denied.created.length, 0, 'no Plus price is made before Plus\'s product exists');
+    // Pro's 1 Dec prices are still made when Plus's product is refused.
+    const proFirst = fakeStripe({ catalog: todays() });
+    (proFirst.stripe as unknown as { products: unknown }).products = (denied.stripe as unknown as { products: unknown }).products;
+    await assert.rejects(createMissingPrices(proFirst.stripe, false, NOW), (error: { code?: string }) => error.code === 'stripe_permission');
+    assert.deepEqual(proFirst.created.map(params => [params.lookup_key, params.unit_amount]),
+      [[prepaidLookup('month', DEC), 18800], [recurringLookup('month', DEC), 18800]]);
   } finally { process.env.KRAROK_PLUS_ENABLED = 'false'; }
 });
