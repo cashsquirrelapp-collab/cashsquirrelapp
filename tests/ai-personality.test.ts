@@ -76,7 +76,7 @@ test('everyday conversations go to the light model once each, with the whole thr
     assert.equal(fake.requests.length, 1, `${scenario.name}: one model call, no extra one to pick an offer`);
     assert.ok(reply.calls.every(call => call.provider === 'gemini'), scenario.name);
     const { system, contents } = fake.requests[0];
-    assert.match(system, /EVERYDAY TALK/, scenario.name);
+    assert.match(system, /MONEY GURU/, scenario.name);
     assert.ok(system.includes(offerLine(scenario.offer)), `${scenario.name}: ${offerLine(scenario.offer)}`);
     // The earlier turns reach the model, so a follow-up ("ขอวิธีทำหน่อย") means the dish just discussed.
     const said = contents.map(turn => turn.parts.map(part => part.text ?? '').join('')).join('\n');
@@ -101,26 +101,42 @@ test('offers: unrelated topics, a recent offer, a refusal, a request to stop and
   assert.equal(offerState('stop offering things please'), 'off');
   for (const text of ['แม่ป่วยเข้าโรงพยาบาล', 'เครียดเรื่องงานมาก', 'รู้สึกเหงา ๆ', 'ไม่อยากอยู่แล้ว']) assert.equal(offerState(text), 'sensitive', text);
   assert.match(offerLine('allowed'), /At most one short line/);
-  assert.match(offerLine('sensitive'), /listen and support/);
+  assert.match(offerLine('sensitive'), /listen and support, no app offers and no money line/);
+  // Every other state still comes back to money (owner, 2026-11-15), without pushing an app task.
+  for (const state of ['unrelated', 'recent', 'declined', 'off'] as const) assert.match(offerLine(state), /money/, state);
 });
 
-test('the prompt: everyday talk allowed, the old refusal gone, personality and adapting, money work stays exact', () => {
-  assert.equal(PROMPT_VERSION, 'secretary-v33');
+test('the prompt: a money guru that answers other topics briefly and ends on money, personality and adapting, money work exact', () => {
+  assert.equal(PROMPT_VERSION, 'secretary-v34');
   for (const route of ['chat', 'action'] as const) {
     const prompt = buildSystemPrompt({ route, plan: 'pro', nowLocal: 'x', knowledge: '-', accountContext: '-', offer: offerLine('unrelated') });
     assert.doesNotMatch(prompt, /You are not a general chatbot/, 'the line that made เลขา refuse food talk is gone');
-    assert.match(prompt, /Never refuse or steer away from a topic only because it is not about\s+money/);
-    assert.match(prompt, /a recipe gets the recipe/);
+    // Owner, 2026-11-15: "กูรูเรื่องการเงิน ... ถามเรื่องอย่างอื่นได้ แต่ ... ต้องจบด้วยการวนกลับมาเข้าเรื่องเงิน ... อย่าวนไปนอกประเด็นเยอะ"
+    // (a fitness question ended with "มีอะไรให้ไปหาเพิ่มไหมครับ").
+    assert.match(prompt, /You are a money guru first/);
+    assert.match(prompt, /are never refused, but get a short\s+answer/);
+    assert.match(prompt, /at most three places or options and no\s+long list/);
+    assert.match(prompt, /end EVERY such reply with one short line that brings the talk back to money/);
+    assert.match(prompt, /a fitness\s+place → the monthly membership fee/);
+    assert.match(prompt, /The money line is the last\s+line of the reply/);
+    assert.match(prompt, /Never end by offering more help on the other topic/);
+    assert.match(prompt, /มีอะไรให้ไปหาเพิ่มไหม/);
+    assert.match(prompt, /never invent prices you are not sure of/);
+    assert.match(prompt, /with no money line; the same when they share grief or a serious illness/);
+    assert.doesNotMatch(prompt, /Never refuse or steer away from a topic only because it is not about/, 'the 2026-10-25 everyday rule is replaced');
+    assert.doesNotMatch(prompt, /a recipe gets the recipe/);
+    assert.doesNotMatch(prompt, /Never after food, rest, films or hobbies/);
+    assert.doesNotMatch(prompt, /กูอยาก/, 'the owner\'s words are quoted without กู');
     assert.match(prompt, /a follow-up \("ขอวิธีทำหน่อย"/);
     assert.match(prompt, /friendly, playful, quick-witted/);
     assert.match(prompt, /One message never overrides a long-term\s+preference/);
     assert.match(prompt, /Never mirror profanity, insulting pronouns \(กู\/มึง\)/, 'courtesy kept');
     assert.match(prompt, /This limits what you say about the app, not everyday conversation/);
-    assert.match(prompt, /Most messages get no offer/);
+    assert.match(prompt, /Most messages get no offer of an app task/);
     assert.match(prompt, /An offer states no amounts, job status or records/);
     assert.match(prompt, /Humour never changes a figure, a date, a status or a confirmation step/);
     assert.match(prompt, /สายด่วนสุขภาพจิต 1323/);
-    assert.match(prompt, /OFFER THIS TURN: none\. This message is not about the user's work or money/);
+    assert.match(prompt, /OFFER THIS TURN: none\. This message is not about the user's work or money: answer briefly, then end with one line that brings the talk back to money/);
     // Still no provider names anywhere (confidentiality).
     assert.doesNotMatch(prompt, /gemini|claude|anthropic|openai|sonnet|gpt/i);
   }
@@ -153,4 +169,17 @@ test('a drawing app or a film is everyday talk; analysis of money, clients or th
   }
   // A short follow-up keeps the money question it follows.
   assert.equal(decideRoute({ text: 'แล้วทำไมล่ะ', history: [user('เทียบรายได้เดือนนี้กับเดือนที่แล้ว'), bot('เดือนนี้น้อยกว่า 10%')] }).tier, 'smart');
+});
+
+// Owner, 2026-11-15: "มีฟิตเนสที่มอกรุงเทพแถวไหนน่าเล่นไหม ... มันก็จะบอกว่ามีอะไรให้ไปหาเพิ่มไหมครับ มันไม่ใช่ประเด็นที่มึงต้องหา":
+// a last line offering more on the other topic is dropped; a money line stays.
+test('a last line offering more on another topic is dropped; a money line and a single-line answer stay', () => {
+  const places = 'ใกล้ ม.กรุงเทพ รังสิต มีฟิตเนสในห้างฟิวเจอร์พาร์ค กับยิมเล็ก ๆ แถวหน้ามอครับ';
+  assert.equal(styleReply(`${places}\nมีอะไรให้ไปหาเพิ่มไหมครับ`, { userText: 'ฟิตเนสแถวมอกรุงเทพ' }), places);
+  assert.equal(styleReply(`${places}\nอยากให้แนะนำที่อื่นอีกไหม?`, { userText: 'x' }), places);
+  assert.equal(styleReply(`${places}\nWant me to look up more places?`, { userText: 'x' }), places);
+  const money = `${places}\nค่าสมาชิกที่เล็งไว้เดือนละเท่าไหร่ครับ เดี๋ยวช่วยดูว่าเข้ากับงบเดือนนี้ไหม`;
+  assert.equal(styleReply(money, { userText: 'x' }), money, 'the money line stays');
+  assert.equal(styleReply(`${places}\nอยากให้ช่วยหาวิธีประหยัดค่าสมาชิกเพิ่มไหม`, { userText: 'x' }), `${places}\nอยากให้ช่วยหาวิธีประหยัดค่าสมาชิกเพิ่มไหม`, 'about money: stays');
+  assert.equal(styleReply('มีอะไรให้ไปหาเพิ่มไหมครับ', { userText: 'x' }), 'มีอะไรให้ไปหาเพิ่มไหมครับ', 'never empties a reply');
 });

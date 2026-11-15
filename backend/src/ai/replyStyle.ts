@@ -36,8 +36,21 @@ export function selfName(text: string): string {
     .replace(NAME_AI_EN, 'Krarok Secretary is the personal assistant');
 }
 
+// A last line offering more on another topic (owner, 2026-11-15: a fitness question ended with "มีอะไรให้ไปหาเพิ่มไหมครับ",
+// "มันไม่ใช่ประเด็นที่มึงต้องหาเว้ย ... มึงต้องวนเข้ากลับมาหาเรื่องเงิน"): the prompt says to end on money instead (MONEY GURU);
+// this drops such a line if it still comes, only when it says nothing about money or the app.
+const MORE_OFF_TOPIC = /(?:หา|แนะนำ|ค้น|เช็ก|เช็ค|ดู)(?:ข้อมูล|ร้าน|ที่|สูตร|เมนู|เรื่อง|ให้)?\s*(?:เพิ่ม|อื่น|อีก)|อยากรู้(?:อะไร)?(?:เพิ่ม|อีก)|(?:more|other) (?:places|options|recipes|ideas|suggestions)|look up more/i;
+const ASKS = /(?:ไหม|มั้ย|มั๊ย|หรือเปล่า|ป่าว)\s*(?:ครับ|คะ|ค่ะ|คับ|นะ|จ้า)?\s*[?？!]?\s*$|\?\s*$/;
+const MONEY_OR_APP = /(เงิน|งบ|ค่า|บาท|฿|ราย(?:รับ|จ่าย|ได้)|ประหยัด|ออม|บันทึก|ลงงาน|ภาษี|ราคา|ต้นทุน|กำไร|budget|cost|price|money|spend|sav(?:e|ing)|record)/i;
+export function dropOffTopicCloser(text: string): string {
+  const lines = text.trimEnd().split('\n');
+  const last = lines.at(-1)?.trim() ?? '';
+  if (lines.length < 2 || !last || last.length > 90 || !MORE_OFF_TOPIC.test(last) || !ASKS.test(last) || MONEY_OR_APP.test(last)) return text;
+  return lines.slice(0, -1).join('\n').trimEnd();
+}
+
 export function styleReply(text: string, context: { userText: string; preferences?: (string | undefined)[]; channel?: 'app' | 'line' }): string {
-  let out = selfName(text.replace(TOOL_LINK, (_match, label: string) => label));
+  let out = dropOffTopicCloser(selfName(text.replace(TOOL_LINK, (_match, label: string) => label)));
   const userEmoji = (context.userText.match(EMOJI) || []).length;
   const asked = (context.preferences ?? []).some(value => value && NO_EMOJI.test(value));
   const tidy = (value: string) => value.replace(/[ \t]+$/gm, '').replace(/[ \t]{2,}/g, ' ');

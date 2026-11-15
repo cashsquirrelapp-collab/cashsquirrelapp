@@ -303,11 +303,13 @@ test('prompt: without the accounting slot the prompt is byte-identical to the ap
   // prompt is byte-identical.
   // secretary-v33 (owner, 2026-11-15): the slip rule (file rules, only with a file) asks for own_side and bank_text; both
   // prompts here are byte-identical.
+  // secretary-v34 (owner, 2026-11-15: "กูรูเรื่องการเงิน"): MONEY GURU replaces EVERYDAY TALK (other topics briefly, every
+  // reply ends on money), the offer rules and LINE TALK say so; both prompts recaptured, no other rule changed.
   const slots: PromptSlots[] = [
     { route: 'chat', plan: 'pro', nowLocal: '26 ต.ค. 2569 10:00', knowledge: 'K', accountContext: '{}', offer: 'O' },
     { route: 'action', plan: 'admin', nowLocal: '26 ต.ค. 2569 10:00', knowledge: 'K', accountContext: '{}', founder: 'F', channel: 'line' },
   ];
-  const v30 = ['eaef3184b6fdd494abb9e0f7c1ffb0bcf99344883f6589193e8b2db1753e42de', '73f46c619324e051aa3e4a8bea63b0372fb672831fa6ffa1c39a0a6620c897a8'];
+  const v30 = ['d6c7568e6805b769456fdcd3900631b2e3e5ee32641b05ccf62721e877f85b05', '83e94d08f8b2faf86e5cbadd2cb5fad3aff885b8344ef8f8448a35afc524aeac'];
   slots.forEach((slot, index) => assert.equal(createHash('sha256').update(buildSystemPrompt(slot)).digest('hex'), v30[index]));
   const withAccounting = buildSystemPrompt({ ...slots[0], accounting: 'REF' });
   assert.match(withAccounting, /ACCOUNTING REFERENCE \(selected for this message; general information with sources, not a ruling\)\n\nREF\n\nACCOUNT CONTEXT/);

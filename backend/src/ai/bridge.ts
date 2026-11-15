@@ -4,6 +4,8 @@ import type { ChatTurn } from './types.js';
 // ENGAGEMENT", 2026-10-25, phases 4–5): at most one short line, only when the message touches the user's work or money,
 // never twice in a row, never after the user turned it down or asked for no more, never while they share something
 // personal or hard. Decided here by plain rules on the chat itself: no model call, nothing read from the account.
+// Since 2026-11-15 (owner: "กูอยากให้มันกลายเป็นกูรูเรื่องการเงิน ... ต้องวนกลับมาหาเรื่องเงินให้ได้") a message on another
+// topic gets a short answer that ends on money (prompt.ts MONEY GURU); an app task is still offered only as below.
 
 export type OfferState = 'allowed' | 'unrelated' | 'recent' | 'declined' | 'sensitive' | 'off';
 
@@ -40,10 +42,10 @@ export function offerLine(state: OfferState): string {
   const none = 'OFFER THIS TURN: none.';
   switch (state) {
     case 'allowed': return 'OFFER THIS TURN: allowed. At most one short line, only if it really fits what the user just said; most messages need none.';
-    case 'unrelated': return `${none} This message is not about the user's work or money: just talk.`;
-    case 'recent': return `${none} You offered help a moment ago: just talk.`;
-    case 'declined': return `${none} The user turned down your last offer: do not offer it again in this chat.`;
-    case 'sensitive': return `${none} The user is sharing something personal or hard: listen and support, no app offers.`;
-    case 'off': return `${none} The user asked you to stop offering: suggest app tasks only when they ask.`;
+    case 'unrelated': return `${none} This message is not about the user's work or money: answer briefly, then end with one line that brings the talk back to money (MONEY GURU), not an app task.`;
+    case 'recent': return `${none} You offered an app task a moment ago: none now; the reply still stays on money or comes back to it.`;
+    case 'declined': return `${none} The user turned down your last offer: do not offer it again in this chat; the reply still comes back to money.`;
+    case 'sensitive': return `${none} The user is sharing something personal or hard: listen and support, no app offers and no money line.`;
+    case 'off': return `${none} The user asked you to stop offering: suggest app tasks only when they ask; replies stay money-minded without asking them to do anything.`;
   }
 }
