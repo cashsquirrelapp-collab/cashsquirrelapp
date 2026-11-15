@@ -1,10 +1,10 @@
 import { HttpError } from '../http/guard.js';
 import type { LineMessage } from '../services/line.js';
-import { lineAppLink, lineCard, lineValueRow } from '../services/lineCards.js';
+import { lineAppLink, lineCard, lineDoneCard, type DoneKind } from '../services/lineCards.js';
 import type { UserRow } from '../services/lineAssistant.js';
 import { aiConfig, aiConfigFor } from './config.js';
 import { randomBytes } from 'node:crypto';
-import { cardRows, confirmAllMessage, lineAssistantReply, listFocus, shapeLineReply } from './lineFormat.js';
+import { cardKind, cardLine, confirmAllMessage, lineAssistantReply, listFocus, shapeLineReply } from './lineFormat.js';
 import { continueTurns, continueWhy, keepForApp } from './lineContinue.js';
 import { LINE_CARD_COLORS } from '../services/lineCards.js';
 import { rateLimit } from '../security/rateLimit.js';
@@ -170,8 +170,8 @@ export async function lineAssistantCommand(user: UserRow, command: { action: 'co
   if (command.action === 'cancel') {
     const cancelled = await supabaseAssistantDb.cancelProposal(user.user_id, command.proposalId);
     return [cancelled
-      ? lineCard({ title: 'ยกเลิกรายการแล้ว', subtitle: 'รายการนี้ไม่ได้ถูกบันทึก', character: 'cancelled', compact: true, altText: 'ยกเลิกรายการแล้ว ไม่ได้บันทึก',
-        body: [{ type: 'text', text: 'พิมพ์บอกเลขาใหม่ได้เลย เมื่อพร้อม', size: 'sm', color: '#6B6560', wrap: true }] })
+      ? lineDoneCard({ kind: 'cancelled', status: 'ยกเลิกรายการแล้ว', altText: 'ยกเลิกรายการแล้ว ไม่ได้บันทึก',
+        rows: [{ name: 'รายการนี้ไม่ได้ถูกบันทึก', lines: ['พิมพ์บอกเลขาใหม่ได้เลย เมื่อพร้อม'] }] })
       : { type: 'text', text: 'รายการนี้ยืนยันไปแล้วหรือหมดเวลาแล้วครับ' }];
   }
   try {
@@ -187,16 +187,18 @@ export async function lineAssistantCommand(user: UserRow, command: { action: 'co
         if (fileId) attached = await links.attach(user.user_id, fileId, done as { kind: string; jobId?: string; recordId?: string });
       } catch { console.error('line-assistant: the file was not attached'); }
     }
-    // Which record (owner, 2026-11-15: "กูไม่รู้ว่ามันเป็นงานคลิปไหน มึงเขียนกำกับด้วย").
+    // Which record, by name and client (owner, 2026-11-15: "กูไม่รู้ว่ามันเป็นงานคลิปไหน มึงเขียนกำกับด้วย"), as the slim slip of
+    // design B: a finished record has no big header.
     const name = (done as { name?: string }).name;
-    const named = name ? [lineValueRow(done.kind === 'add_expense' ? 'รายการ' : 'งาน', name, { bold: true })] : [];
-    return [lineCard({
-      title: label.title, subtitle: 'บันทึกในแอปเรียบร้อย', character: label.character, compact: true, altText: name ? `${label.title}: ${name}` : label.title,
-      body: [...named, lineValueRow('สถานะ', 'บันทึกแล้ว', { bold: false }), ...(attached ? [lineValueRow('ไฟล์', `แนบกับ ${attached} ในคลังเอกสารแล้ว`, { bold: false })] : []),
-        // บันทึกลงชีตของคุณ (ฟีเจอร์ทดลอง): where the same record went in the customer's own sheet, or why it did not.
-        ...(done.sheet?.status === 'written' ? [lineValueRow('ชีต', `ลงแถว ${done.sheet.row} แท็บ ${done.sheet.tab} ใน ${done.sheet.file} แล้ว`, { bold: false })]
-          : done.sheet?.status === 'failed' ? [lineValueRow('ชีต', `ยังไม่ได้ลงชีต: ${done.sheet.error}`, { bold: false })] : [])],
-      footer: lineAppLink(done.path || '/jobs', done.path ? 'เปิดรายการในแอป' : 'ดูในหน้างาน'),
+    const client = (done as { client?: string }).client;
+    const kind: DoneKind = /^delete/.test(done.kind) ? 'cancelled' : /expense/.test(done.kind) ? 'expense' : done.kind === 'record_payment' ? 'income'
+      : /document|issuer/.test(done.kind) ? 'document' : 'job';
+    const sheetLine = done.sheet?.status === 'written' ? `ลงชีต: แถว ${done.sheet.row} แท็บ ${done.sheet.tab} ใน ${done.sheet.file}`
+      : done.sheet?.status === 'failed' ? `ยังไม่ได้ลงชีต: ${done.sheet.error}` : null;
+    return [lineDoneCard({
+      kind, status: label.title, altText: name ? `${label.title}: ${name}` : label.title,
+      rows: [{ name: name ? (client ? `${name} · ${client}` : name) : label.title, lines: ['บันทึกในแอปแล้ว', attached ? `แนบกับ ${attached} ในคลังเอกสารแล้ว` : null, sheetLine] }],
+      footer: lineAppLink(done.path || '/jobs', 'เปิดในแอป'),
     })];
   } catch (error) {
     if (error instanceof HttpError && error.status < 500) return [{ type: 'text', text: error.message }];
@@ -228,8 +230,10 @@ export async function lineGroupCommand(user: UserRow, command: { action: 'confir
   if (command.action === 'cancel') {
     for (const card of cards) await (deps.cancel ?? ((id, proposal) => supabaseAssistantDb.cancelProposal(id, proposal)))(user.user_id, card.id).catch(() => false);
     await drop(user.user_id, command.groupId).catch(() => undefined);
-    return [lineCard({ title: 'ยกเลิกทั้งหมดแล้ว', subtitle: `${cards.length} รายการนี้ไม่ได้ถูกบันทึก`, character: 'cancelled', compact: true,
-      altText: `ยกเลิก ${cards.length} รายการแล้ว`, body: [{ type: 'text', text: group.files ? 'รูปยังอยู่ในคลังเอกสาร ส่งรูปใหม่หรือพิมพ์บอกเลขาได้เลย' : 'พิมพ์บอกเลขาใหม่ได้เลย เมื่อพร้อม', size: 'sm', color: LINE_CARD_COLORS.muted, wrap: true }] })];
+    return [lineDoneCard({ kind: 'cancelled', status: 'ยกเลิกทั้งหมดแล้ว', altText: `ยกเลิก ${cards.length} รายการแล้ว`,
+      rows: cards.slice(0, 10).map(card => ({ name: cardLine(card).name, lines: ['ไม่ได้บันทึก'] })),
+      ...(cards.length > 10 ? { more: `และอีก ${cards.length - 10} รายการ` } : {}),
+      note: group.files ? 'รูปยังอยู่ในคลังเอกสาร ส่งรูปใหม่หรือพิมพ์บอกเลขาได้เลย' : 'พิมพ์บอกเลขาใหม่ได้เลย เมื่อพร้อม' })];
   }
   let saved = 0;
   let already = 0;
@@ -264,18 +268,21 @@ export async function lineGroupCommand(user: UserRow, command: { action: 'confir
       if (items.length) attached = (await (deps.attach ?? attachFilesToRecords)(user.user_id, items)).filter(Boolean).length;
     } catch { console.error('line-assistant: the pictures were not attached'); }
   }
-  const body = [
-    lineValueRow('บันทึกแล้ว', `${saved} รายการ`, { bold: true }),
-    ...(attached ? [lineValueRow('แนบรูปกับรายการ', `${attached} รูป`, { bold: false })] : []),
-    ...(already ? [lineValueRow('ยืนยันไว้ก่อนแล้ว', `${already} รายการ`, { bold: false })] : []),
-    ...(failed ? [lineValueRow('ยังไม่สำเร็จ', `${failed} รายการ`, { bold: false, color: LINE_CARD_COLORS.negative })] : []),
-    { type: 'separator', color: LINE_CARD_COLORS.border, margin: 'lg' },
-    ...cardRows(cards, 10, marks),
-  ];
+  // The slim slip of design B: each record by name and client, with what became of it; the kind of most of them colours it.
+  const kinds = cards.map(card => cardKind(card));
+  const common = (['job', 'expense', 'income', 'document'] as const).map(kind => ({ kind, count: kinds.filter(item => item === kind).length })).sort((a, b) => b.count - a.count)[0];
   const edits = cards.every(card => card.title.startsWith('แก้ไข'));
-  return [lineCard({
-    title: failed ? `บันทึกแล้ว ${saved} จาก ${cards.length} รายการ` : edits ? `แก้ไขแล้ว ${saved + already} รายการ` : `บันทึกแล้ว ${saved + already} รายการ`, subtitle: 'บันทึกในแอปเรียบร้อย',
-    character: 'review', compact: true, altText: `บันทึกแล้ว ${saved} รายการ`, body,
+  return [lineDoneCard({
+    kind: common?.count ? common.kind : 'job',
+    status: failed ? `บันทึกแล้ว ${saved} จาก ${cards.length} รายการ` : edits ? `แก้ไขแล้ว ${saved + already} รายการ` : `บันทึกแล้ว ${saved + already} รายการ`,
+    altText: `บันทึกแล้ว ${saved} รายการ`,
+    rows: cards.slice(0, 10).map(card => {
+      const line = cardLine(card);
+      const mark = marks.get(card.id);
+      return { name: line.name, lines: [`${mark?.text ?? 'บันทึกแล้ว'} · ${line.detail}`], bad: mark?.bad };
+    }),
+    ...(cards.length > 10 ? { more: `และอีก ${cards.length - 10} รายการ` } : {}),
+    extra: attached ? [{ label: 'แนบรูปกับรายการ', value: `${attached} รูป` }] : undefined,
     ...(failed ? { note: 'กด “บันทึกทั้งหมด” อีกครั้ง หรือ “ดูทีละใบ” เพื่อดูรายการที่ยังไม่สำเร็จ' } : {}),
     footer: lineAppLink(path || '/incomeExpense', 'เปิดในแอป'),
   })];

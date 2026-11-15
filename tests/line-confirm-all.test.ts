@@ -110,9 +110,10 @@ test('ยืนยันทั้งหมด confirms each card and the answer 
 test('one card confirmed in LINE names its record ("แก้ไขงานแล้ว" says which job)', async () => {
   const fs = await import('node:fs');
   const bridge = fs.readFileSync(new URL('../backend/src/ai/lineBridge.ts', import.meta.url), 'utf8');
-  assert.match(bridge, /lineValueRow\(done\.kind === 'add_expense' \? 'รายการ' : 'งาน', name, \{ bold: true \}\)/);
+  assert.match(bridge, /rows: \[\{ name: name \? \(client \? `\$\{name\} · \$\{client\}` : name\) : label\.title/);
   const service = fs.readFileSync(new URL('../backend/src/ai/service.ts', import.meta.url), 'utf8');
   assert.match(service, /name: proposal\.record\.name\.trim\(\)\.slice\(0, 120\)/);
+  assert.match(service, /client: proposal\.record\.client\.trim\(\)\.slice\(0, 120\)/);
 });
 
 test('what the question is about stands out: the delivery date, the payment date, or the amount', async () => {

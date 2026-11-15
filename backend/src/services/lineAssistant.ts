@@ -26,7 +26,7 @@ import { parseLineDocumentRequest, findLineDocuments, buildLineDocumentMessages 
 import { buildLineCashSummary, lineCashPosition, type LineCashPosition } from './lineCashSummary.js';
 import { monthlyProfitSummary } from '../../../shared/monthlySummary.js';
 import type { CashOpening } from '../../../shared/cashBalance.js';
-import { type LineCardCharacter, lineCard, lineJobItem, lineValueRow, lineSection, lineDivider, lineAppLink, LINE_CARD_COLORS as C, MAX_LINE_ITEMS } from './lineCards.js';
+import { type LineCardCharacter, lineCard, lineDoneCard, lineJobItem, lineValueRow, lineSection, lineDivider, lineAppLink, LINE_CARD_COLORS as C, MAX_LINE_ITEMS } from './lineCards.js';
 import { checkLinkedAccountWriteAccess } from './linkedAccountAccess.js';
 import { decodeDueAction, handleDueAction, handleDuePartialText } from './lineDuePayments.js';
 import { decodeWht50Action, handleWht50Action } from './lineWht50Reminders.js';
@@ -961,24 +961,22 @@ export function buildJobSavedMessage(job: JobCardData, monthNet?: number): LineM
   // it) instead of implying the whole contract amount arrived.
   const displayAmount = isPaidSome ? (job.received ?? job.value) : job.value;
 
-  return buildReceiptCard([
-        isWip
-          ? buildTypeBadge('package', 'กำลังดำเนินการ', headerColor)
-          : isDone
-            ? buildTypeBadge('coin', 'รับเงินแล้ว', headerColor)
-            : isPartial
-              ? buildTypeBadge('partial', rows.length ? 'รับงวดแรกแล้ว' : 'ได้รับมัดจำ', headerColor)
-              : buildTypeBadge('deal', 'ดีลงาน', headerColor),
-        buildStatementRow(headerLabel, `${isPaidSome ? '+' : ''}${formatCurrency(displayAmount)}`, { size: 'xl', color: headerColor }),
-        { type: 'separator', margin: 'md', color: C.border },
-        buildStatementRow('ชื่องาน', job.name, { bold: false }),
-        ...(job.client ? [buildStatementRow('ลูกค้า', job.client, { bold: false })] : []),
-        ...(job.whtRate ? [buildStatementRow(`หัก ณ ที่จ่าย ${job.whtRate}%`, `-${formatCurrency(job.whtAmount || 0)}`, { bold: false, color: C.warning })] : []),
-        buildStatementRow('สถานะ', statusLabel, { bold: false }),
-        ...(rows.length && job.payDate ? [buildStatementRow('งวดถัดไป', thaiDayText(job.payDate, bangkokDay()), { bold: false })] : []),
-        ...(!isWip && (job.pending || 0) > 0 ? [buildStatementRow('ค้างรับ', formatCurrency(job.pending || 0), { bold: false, color: C.warning })] : []),
-        ...(!isWip && monthNet != null ? [{ type: 'separator', margin: 'md', color: C.border }, buildStatementRow('คงเหลือเดือนนี้', formatCurrency(Math.max(0, monthNet)), { color: C.positive })] : []),
-  ], isWip ? `เพิ่มงาน \"${job.name}\" เป็นกำลังดำเนินการแล้วครับ` : `บันทึกงาน \"${job.name}\" สำเร็จแล้วครับ`, !isWip && isPaidSome && displayAmount > 0 ? 'received' : isWip ? 'working' : 'review');
+  // A saved job is a slim slip (design B, owner 2026-11-15): green when money came in, CI orange otherwise; the job by name
+  // and client, what was saved under it, and the month's balance.
+  const status = isWip ? 'เพิ่มงานแล้ว · กำลังทำ' : isDone ? 'บันทึกรับเงินแล้ว' : isPartial ? (rows.length ? 'รับงวดแรกแล้ว' : 'ได้รับมัดจำแล้ว') : 'บันทึกงานแล้ว';
+  return lineDoneCard({
+    kind: !isWip && isPaidSome && displayAmount > 0 ? 'income' : 'job', status,
+    altText: isWip ? `เพิ่มงาน \"${job.name}\" เป็นกำลังดำเนินการแล้วครับ` : `บันทึกงาน \"${job.name}\" สำเร็จแล้วครับ`,
+    rows: [{ name: job.client ? `${job.name} · ${job.client}` : job.name, lines: [
+      `${headerLabel} ${isPaidSome ? '+' : ''}${formatCurrency(displayAmount)}`,
+      statusLabel,
+      job.whtRate ? `หัก ณ ที่จ่าย ${job.whtRate}% -${formatCurrency(job.whtAmount || 0)}` : null,
+      rows.length && job.payDate ? `งวดถัดไป ${thaiDayText(job.payDate, bangkokDay())}` : null,
+      !isWip && (job.pending || 0) > 0 ? `ค้างรับ ${formatCurrency(job.pending || 0)}` : null,
+    ] }],
+    extra: !isWip && monthNet != null ? [{ label: 'คงเหลือเดือนนี้', value: formatCurrency(Math.max(0, monthNet)), color: C.positive }] : undefined,
+    footer: lineAppLink('/jobs', 'เปิดในแอป'),
+  });
 }
 
 // Builds a real Expense record the same way ExpenseRecordView.tsx's add-expense form does.
@@ -1031,14 +1029,13 @@ export function computeMonthNetForUser(user: UserRow, extraJob?: JobRow, extraEx
 // at a glance. No specific-record deep link yet (only jobs support ?job=<id> in App.tsx), so the
 // card confirms the saved expense without adding a navigation button.
 export function buildExpenseSavedMessage(expense: Expense, monthNet?: number): LineMessage {
-  return buildReceiptCard([
-        buildTypeBadge('receipt', 'รายจ่ายใหม่', C.negative),
-        buildStatementRow('จ่ายเงิน', `-${formatCurrency(expense.amount)}`, { size: 'xl', color: C.negative }),
-        { type: 'separator', margin: 'md', color: C.border },
-        buildStatementRow('รายการ', expense.name, { bold: false }),
-        buildStatementRow('หมวด', expense.category, { bold: false }),
-        ...(monthNet != null ? [{ type: 'separator', margin: 'md', color: C.border }, buildStatementRow('คงเหลือเดือนนี้', formatCurrency(Math.max(0, monthNet)), { color: C.positive })] : []),
-  ], `บันทึกรายจ่าย \"${expense.name}\" สำเร็จแล้วครับ`, 'spent');
+  // A saved expense is a slim red slip (design B, owner 2026-11-15).
+  return lineDoneCard({
+    kind: 'expense', status: 'บันทึกรายจ่ายแล้ว', altText: `บันทึกรายจ่าย \"${expense.name}\" สำเร็จแล้วครับ`,
+    rows: [{ name: `${expense.name} · -${formatCurrency(expense.amount)}`, lines: [`หมวด ${expense.category}`] }],
+    extra: monthNet != null ? [{ label: 'คงเหลือเดือนนี้', value: formatCurrency(Math.max(0, monthNet)), color: C.positive }] : undefined,
+    footer: lineAppLink('/incomeExpense', 'เปิดในแอป'),
+  });
 }
 
 // LINE can't delete/unsend a message the bot already pushed -- there's no such API. This sends
@@ -1046,17 +1043,12 @@ export function buildExpenseSavedMessage(expense: Expense, monthNet?: number): L
 // than leaving the original "บันทึกงานสำเร็จ" card looking like it's still active.
 export function buildJobDeletedMessage(job: { name: string; client?: string; value: number; isPosted?: boolean }, monthNet?: number): LineMessage {
   const isWip = job.isPosted === false;
-  const bodyContents = [
-    buildTypeBadge('trash', 'ยกเลิกงาน', C.muted),
-    buildStatementRow('ยกเลิกงาน', formatCurrency(job.value), { size: 'xl', color: C.muted }),
-    { type: 'separator', margin: 'md', color: C.border },
-    buildStatementRow('ชื่องาน', job.name, { bold: false }),
-    ...(job.client ? [buildStatementRow('ลูกค้า', job.client, { bold: false })] : []),
-    ...(!isWip && monthNet != null ? [{ type: 'separator', margin: 'md', color: C.border }, buildStatementRow('คงเหลือเดือนนี้', formatCurrency(Math.max(0, monthNet)), { color: C.positive })] : []),
-  ];
-  // No "เปิดแอป" button here -- the job is gone, there's nothing left in the app for this card
-  // to open to.
-  return buildReceiptCard(bodyContents, `ยกเลิกงาน "${job.name}" แล้วครับ`, 'cancelled');
+  // A slim grey slip (design B); no "เปิดแอป" button: the job is gone, there is nothing left in the app to open.
+  return lineDoneCard({
+    kind: 'cancelled', status: 'ยกเลิกงานแล้ว', altText: `ยกเลิกงาน "${job.name}" แล้วครับ`,
+    rows: [{ name: job.client ? `${job.name} · ${job.client}` : job.name, lines: [`มูลค่า ${formatCurrency(job.value)}`] }],
+    extra: !isWip && monthNet != null ? [{ label: 'คงเหลือเดือนนี้', value: formatCurrency(Math.max(0, monthNet)), color: C.positive }] : undefined,
+  });
 }
 
 // Sent when a job is edited through JobsTab's edit form without that edit also being a full
@@ -1482,11 +1474,10 @@ async function handleAssistantMessageInner(
       if (pendingDraft) await (dependencies.clearJobDraft ?? clearJobDraft)(user);
       if (pendingExpenseDraft) await (dependencies.clearExpenseDraft ?? clearExpenseDraft)(user);
     }
-    return lineCard({
-      title: 'ยกเลิกรายการแล้ว', character: 'cancelled', subtitle: 'รายการร่างนี้ไม่ได้ถูกบันทึก',
+    // A finished card is a slim slip (design B, owner 2026-11-15).
+    return lineDoneCard({ kind: 'cancelled', status: 'ยกเลิกรายการแล้ว',
       altText: 'ยกเลิกรายการที่รอยืนยันแล้วครับ ยังไม่ได้บันทึกเป็นรายรับหรือรายจ่าย',
-      body: [{ type: 'text', text: 'พิมพ์รายการใหม่ได้เลย เมื่อพร้อมบันทึกอีกครั้ง', size: 'sm', color: C.muted, wrap: true }],
-    });
+      rows: [{ name: 'รายการร่างนี้ไม่ได้ถูกบันทึก', lines: ['พิมพ์รายการใหม่ได้เลย เมื่อพร้อมบันทึกอีกครั้ง'] }] });
   }
   const confirmation = /^ยืนยันบันทึก(งาน|รายจ่าย)(?: ([a-f0-9]{16}))?$/.exec(trimmed);
   if (confirmation) {

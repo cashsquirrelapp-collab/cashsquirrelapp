@@ -122,7 +122,7 @@ test('compound withholding/payment edit prepares one review and confirms atomica
       assert.equal(state.proposals.get(card.id)?.status, 'pending', 'a foreign confirmation cannot consume the owner proposal');
       assert.equal(state.attempts.length, 0);
       // The saved job's name comes back too, so LINE's answer says which job (2026-11-15).
-      assert.deepEqual(await confirmProposal(state.db, owner, card.id), { status: 'applied', kind: 'edit_job', jobId: JOB, path: `/jobs?job=${JOB}`, name: (before.jobs![0] as Job).name });
+      assert.deepEqual(await confirmProposal(state.db, owner, card.id), { status: 'applied', kind: 'edit_job', jobId: JOB, path: `/jobs?job=${JOB}`, name: (before.jobs![0] as Job).name, ...((before.jobs![0] as Job).client ? { client: (before.jobs![0] as Job).client } : {}) });
       const job = state.accounts.get(owner)!.jobs![0] as Job; const previous = before.jobs![0] as Job;
       assert.deepEqual([job.whtRate, job.whtAmount, job.received, job.pending, job.paymentStatus, job.status, job.payDate], [0, 0, previous.value, 0, 'paid', 'done', PAID_DATE]);
       for (const key of ['isPosted', 'postDate', 'creditTerm', 'depositAmount', 'depositDate', 'remindAt', 'name', 'client', 'note'] as const) assert.equal(job[key], previous[key], `${key} must be preserved`);

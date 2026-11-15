@@ -16,9 +16,12 @@ const cards = {
     { id: 'a', name: 'งาน A', client: 'ลูกค้า A', status: 'pending', pending: 4500, payDate: '2026-10-19' },
     { id: 'b', name: 'งาน B', client: 'ลูกค้า B', status: 'pending', pending: 9700, payDate: '2026-10-22' },
   ], now), { now }),
-  jobSaved: A.buildJobSavedMessage({ id: 'j', name: 'งาน', client: 'ลูกค้า', value: 10000, received: 9700, status: 'done', whtRate: 3, whtAmount: 300 }, 1000),
   jobEdited: A.buildJobEditedMessage({ id: 'j', name: 'งาน', client: 'ลูกค้า', value: 10000, status: 'pending', pending: 10000 }),
   goal: A.buildGoalCreatedMessage({ name: 'เงินสำรอง', target: 60000 }),
+};
+// Finished records are slim slips (design B, owner 2026-11-15: "เอาแบบ B เลย"): no header, a colour strip for the kind.
+const slips = {
+  jobSaved: A.buildJobSavedMessage({ id: 'j', name: 'งาน', client: 'ลูกค้า', value: 10000, received: 9700, status: 'done', whtRate: 3, whtAmount: 300 }, 1000),
   expense: A.buildExpenseSavedMessage({ id: 'e', name: 'ค่าโฮสติ้ง', category: 'ค่าบริการ', amount: 850, date: '2026-10-22', note: '' }, 900),
 };
 const palette = new Set(Object.values(LINE_CARD_COLORS).map(c => c.toUpperCase()));
@@ -57,14 +60,22 @@ test('an unknown category colour falls back to the text colour', () => {
   assert.ok(!JSON.stringify(card).includes('#7C3AED'));
 });
 
-test('money out is a pastel red card, money in a pastel green one; the amount and pill carry the colour', () => {
-  const expense = (cards.expense as any).contents;
-  const job = (cards.jobSaved as any).contents;
-  assert.equal(expense.header.backgroundColor, LINE_CARD_THEMES.expense.center);
-  assert.equal(job.header.backgroundColor, LINE_CARD_THEMES.positive.center);
-  assert.equal(expense.body.contents[0].contents[1].color, LINE_CARD_COLORS.negative, 'the amount keeps the app red');
-  assert.equal(job.body.contents[0].contents[1].color, LINE_CARD_COLORS.positive, 'the amount keeps the app green');
-  assert.match(JSON.stringify(expense.header), /"text":"บันทึกแล้ว"/, 'a status title becomes the pill');
+test('finished records are slim slips: no header, the strip red for money out and green for money in, palette colours only', () => {
+  const strip = (card: unknown) => (card as any).contents.body.contents[0];
+  for (const [name, card] of Object.entries(slips)) {
+    const json = JSON.stringify(card);
+    assert.equal((card as any).contents.header, undefined, `${name}: no big header on a finished record`);
+    assert.equal(strip(card).width, '6px');
+    assert.ok(!json.includes('linearGradient'));
+    const colours = [...json.matchAll(/"(?:color|backgroundColor)":"(#[0-9A-Fa-f]{6})"/g)].map(m => m[1]);
+    for (const colour of colours) assert.ok(palette.has(colour.toUpperCase()), `${name}: ${colour} is outside the palette`);
+    assert.match(json, /"text":"✓"/);
+    assert.match(json, /คงเหลือเดือนนี้/);
+  }
+  assert.equal(strip(slips.expense).backgroundColor, LINE_CARD_THEMES.expense.amount, 'money out: the app red');
+  assert.equal(strip(slips.jobSaved).backgroundColor, LINE_CARD_THEMES.positive.amount, 'money in: the app green');
+  assert.match(JSON.stringify(slips.expense), /"text":"ค่าโฮสติ้ง · -฿ 850"/);
+  assert.match(JSON.stringify(slips.jobSaved), /"text":"งาน · ลูกค้า"/, 'the job by name and client');
 });
 
 test('each document reads apart: quotation CI orange, invoice rust, receipt espresso, each with its own title picture', async () => {

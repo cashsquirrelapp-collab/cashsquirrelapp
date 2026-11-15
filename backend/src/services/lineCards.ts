@@ -135,6 +135,11 @@ const CATEGORIES: Record<Exclude<LineCardCharacter, 'income' | 'expense'>, Categ
   receipt: { theme: 'espresso', title: 'receipt', pose: 'received', same: ['ใบเสร็จรับเงิน', 'ใบเสร็จ'] },
   receiptTaxInvoice: { theme: 'espresso', title: 'receipt-tax-invoice', pose: 'received', same: ['ใบเสร็จรับเงิน/ใบกำกับภาษี', 'ใบเสร็จ / ใบกำกับภาษี'] },
 };
+/** The words of a card kind's title picture ("งาน", "รายจ่าย"): a title of exactly these is not written again under it. */
+export function lineKindWords(character: LineCardCharacter): string {
+  const requested = character === 'income' || character === 'expense' ? 'review' : character;
+  return LINE_TITLE_IMAGES[CATEGORIES[requested].title].words;
+}
 /** The card kind for an app document type. */
 export function documentCharacter(type: string): LineCardCharacter {
   return type === 'quotation' || type === 'invoice' || type === 'taxInvoice' || type === 'receipt' || type === 'receiptTaxInvoice' ? type : 'document';
@@ -146,6 +151,54 @@ const STATUS_TAGS: Record<string, string> = {
 };
 const ON_DARK = { text: '#FFFFFF', soft: '#FFFFFFD9', ring: '#FFFFFF14', dot: '#FFFFFF10' };
 const ON_LIGHT = { text: LINE_CARD_COLORS.text, soft: LINE_CARD_COLORS.muted };
+
+/**
+ * A finished record as a slim slip (owner, 2026-11-15, design B: "เอาแบบ B เลย"): no big header, a colour strip on the left
+ * saying the kind (CI orange a job, red an expense, green money in, grey cancelled), a ✓ with what happened, then each
+ * record by name with a line or two under it. Cards still waiting for a tap keep the full header, so the chat shows at a
+ * glance what is done and what is not.
+ */
+export type DoneKind = 'job' | 'expense' | 'income' | 'document' | 'cancelled';
+const DONE_COLOR: Record<DoneKind, string> = { job: LINE_CARD_THEMES.brand.center, expense: LINE_CARD_THEMES.expense.amount, income: LINE_CARD_THEMES.positive.amount, document: LINE_CARD_THEMES.brand.center, cancelled: C.muted };
+const DONE_WORD: Record<DoneKind, string> = { job: 'งาน', expense: 'รายจ่าย', income: 'รายรับ', document: 'เอกสาร', cancelled: 'ยกเลิก' };
+export function lineDoneCard(opts: {
+  kind: DoneKind; status: string; altText: string;
+  rows: { name: string; lines?: (string | null | undefined | false)[]; bad?: boolean }[];
+  /** Figures under the records ("คงเหลือเดือนนี้"). */ extra?: { label: string; value: string; color?: string }[];
+  more?: string; note?: string; footer?: { label: string; uri: string };
+}): LineMessage {
+  const color = DONE_COLOR[opts.kind];
+  const mark = opts.kind === 'cancelled' ? '✕' : '✓';
+  const rows = opts.rows.flatMap((row, at) => [
+    ...(at > 0 ? [{ type: 'separator', color: C.border, margin: 'md' }] : []),
+    { type: 'box', layout: 'vertical', spacing: 'xs', margin: 'md', contents: [
+      { type: 'text', text: excerpt(row.name, 160), size: 'sm', weight: 'bold', color: C.text, wrap: true },
+      ...(row.lines ?? []).filter((line): line is string => typeof line === 'string' && line.length > 0)
+        .map(line => ({ type: 'text', text: excerpt(line, 200), size: 'xs', color: row.bad ? C.negative : C.muted, wrap: true })),
+    ] },
+  ]);
+  return { type: 'flex', altText: opts.altText.slice(0, 400), contents: {
+    type: 'bubble', size: 'mega',
+    body: { type: 'box', layout: 'horizontal', paddingAll: '0px', contents: [
+      { type: 'box', layout: 'vertical', width: '6px', flex: 0, backgroundColor: color, contents: [] },
+      { type: 'box', layout: 'vertical', flex: 1, paddingAll: '18px', paddingBottom: opts.footer ? '6px' : '18px', contents: [
+        { type: 'box', layout: 'horizontal', spacing: 'sm', alignItems: 'center', contents: [
+          { type: 'box', layout: 'vertical', width: '22px', height: '22px', flex: 0, cornerRadius: '999px', backgroundColor: color, justifyContent: 'center', alignItems: 'center',
+            contents: [{ type: 'text', text: mark, size: 'xs', weight: 'bold', color: C.white, align: 'center' }] },
+          { type: 'text', text: excerpt(opts.status, 80), size: 'sm', weight: 'bold', color, flex: 1, wrap: true },
+          { type: 'text', text: DONE_WORD[opts.kind], size: 'xs', color: C.muted, flex: 0, wrap: false },
+        ] },
+        ...rows,
+        ...(opts.more ? [{ type: 'text', text: opts.more, size: 'xs', color: C.muted, margin: 'md', wrap: true }] : []),
+        ...(opts.extra?.length ? [{ type: 'separator', color: C.border, margin: 'lg' },
+          ...opts.extra.map(item => lineValueRow(item.label, item.value, { bold: true, color: item.color }))] : []),
+        ...(opts.note ? [{ type: 'text', text: opts.note, size: 'xs', color: C.muted, margin: 'md', wrap: true }] : []),
+        ...(opts.footer ? [{ type: 'button', style: 'link', height: 'sm', color: C.accent, margin: 'sm', action: { type: 'uri', ...opts.footer } }] : []),
+      ] },
+    ] },
+    styles: { body: { backgroundColor: C.white } },
+  } };
+}
 
 export function lineCard(opts: {
   title: string; subtitle?: string; altText: string; body: any[];

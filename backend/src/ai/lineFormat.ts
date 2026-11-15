@@ -1,5 +1,5 @@
 import { aiQuestionMessage, pendingAiQuestions } from '../services/lineAiQuestions.js';
-import { lineAppLink, lineCard, lineValueRow, LINE_CARD_COLORS } from '../services/lineCards.js';
+import { documentCharacter, lineAppLink, lineCard, lineKindWords, lineValueRow, LINE_CARD_COLORS, type DoneKind, type LineCardCharacter } from '../services/lineCards.js';
 import type { LineMessage } from '../services/line.js';
 import type { AssistantCard } from './types.js';
 import { formatTHB } from './moneyChart.js';
@@ -200,21 +200,57 @@ function confirmationPreview(card: ConfirmationCard, context: ReplyContext): Lin
   });
 }
 
+/**
+ * What kind of record a card is about, read from its title (the tools name it: เพิ่มงาน…, บันทึกรายจ่าย…, บันทึกรับเงิน…,
+ * ออกใบเสนอราคา…): its colour and squirrel in LINE (owner, 2026-11-15, design B: "สีตามประเภท").
+ */
+export function cardKind(card: { title: string }): DoneKind | 'other' {
+  const title = card.title;
+  if (/ใบเสนอราคา|ใบแจ้งหนี้|ใบวางบิล|ใบเสร็จ|ใบกำกับ|เอกสาร/.test(title)) return 'document';
+  if (/รายจ่าย|ค่าใช้จ่าย/.test(title)) return 'expense';
+  if (/รับเงิน|รายรับ/.test(title)) return 'income';
+  if (/งาน/.test(title)) return 'job';
+  return 'other';
+}
+function kindCharacter(card: { title: string }): LineCardCharacter {
+  const kind = cardKind(card);
+  if (kind === 'document') return documentCharacter(/ใบเสร็จ.*ใบกำกับ|ใบกำกับ.*ใบเสร็จ/.test(card.title) ? 'receiptTaxInvoice' : /ใบกำกับ/.test(card.title) ? 'taxInvoice'
+    : /ใบเสร็จ/.test(card.title) ? 'receipt' : /ใบแจ้งหนี้|ใบวางบิล/.test(card.title) ? 'invoice' : /ใบเสนอราคา/.test(card.title) ? 'quotation' : 'document');
+  return kind === 'expense' ? 'spent' : kind === 'income' ? 'received' : kind === 'job' ? 'working' : 'review';
+}
+const NAME_LABELS = ['งาน', 'ชื่องาน', 'รายการ', 'ชื่อรายการ'];
+const AMOUNT_LABELS = ['จำนวนเงิน', 'ยอดรับ', 'ยอดเงิน'];
+
 function confirmationMessage(card: ConfirmationCard, context: ReplyContext): LineMessage {
   if (!card.changes.length || card.changes.length > CONFIRM_MAX_ROWS || card.title.length > CONFIRM_MAX_TEXT
     || card.changes.some(row => row.label.length > CONFIRM_MAX_TEXT || row.value.length > CONFIRM_MAX_TEXT)) {
     return confirmationPreview(card, context);
   }
+  // Design B (owner, 2026-11-15): the card in the record's own colour and squirrel, รอยืนยัน as its pill, what it does
+  // under the kind ("แก้ไขงาน"), the record's name and client first, then every other row, complete.
+  const kind = cardKind(card);
+  const name = card.changes.find(row => NAME_LABELS.includes(row.label));
+  const client = card.changes.find(row => row.label === 'ลูกค้า');
+  const amount = kind === 'expense' || kind === 'income' ? card.changes.find(row => AMOUNT_LABELS.includes(row.label)) : undefined;
+  const others = card.changes.filter(row => row !== name && row !== client && row !== amount);
+  const C = LINE_CARD_COLORS;
+  const character = kindCharacter(card);
   const message = lineCard({
-    title: card.title, subtitle: 'รอยืนยัน · ยังไม่บันทึก', character: 'review', compact: true,
+    title: lineKindWords(character), subtitle: card.title, tag: 'รอยืนยัน', character, compact: true,
+    ...(amount ? { metric: { label: amount.label, value: amount.value } } : {}),
     // The general statement-row helper truncates values at 240 characters. A confirmation must preserve
     // the exact complete proposed details, including line items, tax totals and recurring-list replacements.
-    body: card.changes.map(row => ({ type: 'box', layout: 'vertical', spacing: 'xs', margin: 'md', contents: [
-      { type: 'text', text: row.label || 'รายละเอียด', size: 'xs', color: LINE_CARD_COLORS.muted, wrap: true },
-      { type: 'text', text: row.value || '—', size: 'sm', color: LINE_CARD_COLORS.text, wrap: true },
-    ] })),
-    note: 'ตรวจรายละเอียดทั้งหมดก่อนกดยืนยันภายใน 30 นาที ถ้ารายการถูกแก้จากที่อื่นก่อน ระบบจะไม่เขียนทับ',
-    altText: `รอยืนยัน: ${card.title}`,
+    body: [
+      ...(name ? [{ type: 'text', text: name.value || '—', size: 'md', weight: 'bold', color: C.text, wrap: true }] : []),
+      ...(client ? [{ type: 'text', text: client.value || '—', size: 'xs', color: C.muted, wrap: true }] : []),
+      ...((name || client) && others.length ? [{ type: 'separator', color: C.border, margin: 'lg' }] : []),
+      ...others.map(row => ({ type: 'box', layout: 'vertical', spacing: 'xs', margin: 'md', contents: [
+        { type: 'text', text: row.label || 'รายละเอียด', size: 'xs', color: C.muted, wrap: true },
+        { type: 'text', text: row.value || '—', size: 'sm', color: C.text, wrap: true },
+      ] })),
+    ],
+    note: 'ยืนยันภายใน 30 นาที ถ้ารายการถูกแก้จากที่อื่นก่อน ระบบจะไม่เขียนทับ',
+    altText: `รอยืนยัน: ${card.title}${name ? ` ${name.value}` : ''}`,
   }) as Extract<LineMessage, { type: 'flex' }>;
   message.contents = {
     ...(message.contents as object),
@@ -576,7 +612,8 @@ export function confirmAllMessage(groupId: string, cards: AssistantCard[]): Line
   const C = LINE_CARD_COLORS;
   const confirms = cards.filter((card): card is ConfirmCardLike => card.kind === 'confirm');
   const message = lineCard({
-    title: `ยืนยันทั้งหมด ${confirms.length} รายการ`, subtitle: 'กดครั้งเดียว บันทึกทุกการ์ดด้านบน', character: 'review', compact: true,
+    title: 'ยืนยันทั้งหมด', subtitle: 'กดครั้งเดียว บันทึกทุกการ์ดด้านบน', tag: 'รอยืนยัน', character: 'review', compact: true,
+    metric: { label: 'จำนวนที่จะบันทึก', value: `${confirms.length} รายการ` },
     altText: `ยืนยันทั้งหมด ${confirms.length} รายการ: ${confirms.map(card => cardLine(card).name).join(', ')}`.slice(0, 400),
     body: cardRows(confirms), note: 'ยังกดยืนยันทีละการ์ดด้านบนได้เหมือนเดิม การ์ดหมดเวลาใน 30 นาที',
   }) as LineMessage & { contents: Record<string, unknown> };

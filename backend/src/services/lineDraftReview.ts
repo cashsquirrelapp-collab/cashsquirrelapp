@@ -67,10 +67,12 @@ export function buildLineDraftReview(kind: DraftKind, stored: StoredLineDraft): 
       ...(due ? [lineValueRow('จะได้รับเงิน', due, { bold: false })] : []),
     ] : []),
   ];
+  // Design B (owner, 2026-11-15): the record's own colour and squirrel (a job CI orange, an expense peach with its amount in
+  // red), รอยืนยัน as the pill.
   const card = lineCard({
-    title: 'ตรวจรายการก่อนบันทึก',
-    character: 'review', compact: true,
-    subtitle: kind === 'job' ? 'รายรับ / งาน · รอยืนยัน' : 'รายจ่าย · รอยืนยัน',
+    title: kind === 'job' ? 'งาน' : 'รายจ่าย', tag: 'รอยืนยัน',
+    character: kind === 'job' ? 'working' : 'spent', compact: true,
+    subtitle: 'ตรวจรายการก่อนบันทึก',
     metric: { label: draft.name || 'ยังไม่ได้ระบุชื่อ', value: amount > 0 ? formatCurrency(amount) : 'เพิ่มจำนวนเงิน' },
     body: [lineValueRow(kind === 'job' ? 'ชื่องาน' : 'รายการ', draft.name || '—', { bold: false }),
       ...(kind === 'job' ? jobRows : [lineValueRow('หมวด', expense.category || 'อื่นๆ (เปลี่ยนได้)', { bold: false }),
