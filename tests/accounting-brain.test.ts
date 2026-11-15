@@ -301,6 +301,8 @@ test('prompt: without the accounting slot the prompt is byte-identical to the ap
   // replies); the app prompt is byte-identical.
   // secretary-v32 (owner, 2026-11-15): LINE list items name the record in full with its client (LINE only); the app
   // prompt is byte-identical.
+  // secretary-v33 (owner, 2026-11-15): the slip rule (file rules, only with a file) asks for own_side and bank_text; both
+  // prompts here are byte-identical.
   const slots: PromptSlots[] = [
     { route: 'chat', plan: 'pro', nowLocal: '26 ต.ค. 2569 10:00', knowledge: 'K', accountContext: '{}', offer: 'O' },
     { route: 'action', plan: 'admin', nowLocal: '26 ต.ค. 2569 10:00', knowledge: 'K', accountContext: '{}', founder: 'F', channel: 'line' },

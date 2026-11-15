@@ -187,8 +187,9 @@
   }
   // ใช้แบบไหน and a record tried in the chat ride in the เก็บไว้ link (services/lineTry.ts); the server checks them again.
   var launchSearch = window.location.search;
+  // link=1: มีบัญชีอยู่แล้ว on the connect cards (owner, 2026-11-15), straight to signing in with the website's account.
   function startExtras() {
-    var found = { use: null, keep: null };
+    var found = { use: null, keep: null, link: false };
     [launchSearch, window.location.search].forEach(function (search) {
       var params = new URLSearchParams(search);
       var state = params.get('liff.state');
@@ -196,6 +197,7 @@
       var use = params.get('use'); var keep = params.get('keep');
       if (!found.use && (use === 'personal' || use === 'business' || use === 'company')) found.use = use;
       if (!found.keep && keep && /^[A-Za-z0-9_-]{8,600}$/.test(keep)) found.keep = keep;
+      if (params.get('link') === '1') found.link = true;
     });
     return found;
   }
@@ -214,7 +216,7 @@
     var go = function (name) {
       try {
         var extra = startExtras();
-        sessionStorage.setItem('krarok_line_signup', JSON.stringify({ idToken: liff.getIDToken(), name: name || '', destination: destination || null, at: Date.now(), use: extra.use, keep: extra.keep }));
+        sessionStorage.setItem('krarok_line_signup', JSON.stringify({ idToken: liff.getIDToken(), name: name || '', destination: destination || null, at: Date.now(), use: extra.use, keep: extra.keep, link: extra.link }));
       } catch (error) { showStatus('เปิดหน้าเริ่มใช้งานไม่ได้', 'กรุณาลองเปิดใหม่จากแชท LINE', true, 'urgent'); return; }
       window.location.replace('/line-start');
     };

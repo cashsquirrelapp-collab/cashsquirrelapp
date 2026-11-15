@@ -5,9 +5,9 @@ import type { VercelRequest, VercelResponse } from '../http/types.js';
 import crypto from 'crypto';
 import { supabaseAdmin } from '../config/supabase.js';
 import { findUserByLineId, getQuickReply, handleAssistantMessage, isProUser, prefetchLinkedContext } from '../services/lineAssistant.js';
-import { buildLineStart, buildLineWelcome } from '../services/lineLinkCards.js';
+import { buildConnectFirst, buildLineHello, buildLineWelcome } from '../services/lineLinkCards.js';
 import { freeMonthlyTokens, lineSignupOn } from '../services/lineFirst.js';
-import { TRY_CHAT, TRY_POSTBACK, buildTryChat, buildTryPreview, buildTryPrompt, buildTryWelcome, parseTry, type UseType } from '../services/lineTry.js';
+import { TRY_POSTBACK, parseTry, type UseType } from '../services/lineTry.js';
 import type { LineMessage } from '../services/line.js';
 import { toneLineMessages } from '../services/lineTone.js';
 import { decodeLineDraftAction } from '../services/lineDraftReview.js';
@@ -68,7 +68,7 @@ export function lineEventCommand(event: LineEvent): string | null {
       const day = event.postback?.params?.date;
       return day && /^\d{4}-\d{2}-\d{2}$/.test(day) ? `วันที่ ${day}` : null;
     }
-    // ใช้แบบไหน, picked by a new friend before signing up (services/lineTry.ts).
+    // ใช้แบบไหน on a greeting card sent before 2026-11-15 (services/lineTry.ts): answered with the connect-first card.
     if (TRY_POSTBACK.test(data)) return data;
     // A welcome question answered later in the chat, or ไว้ก่อน on the sheet offer (services/lineNudges.ts).
     if (/^(ask:(use|work|occupation|goal|records):[a-z_]{2,24}|nudge:sheet:later)$/.test(data)) return data;
@@ -173,22 +173,52 @@ async function tryLinkAccount(userId: string, messageText: string): Promise<bool
   return !!result.data;
 }
 
-/** A follow (someone added the OA): with sign-up in LINE on, the เริ่มใช้งาน card for a chat without an account. */
+/** Claims a webhook event once: true for the first delivery, false for a repeat (LINE retries). */
+async function claimOnce(key: string | undefined): Promise<boolean> {
+  if (!key) throw new Error('LINE event is missing its ID');
+  const claim = await supabaseAdmin.rpc('cashflow_claim_webhook', { p_key: key });
+  if (claim.error) throw claim.error;
+  if (claim.data === 'done') return false;
+  if (claim.data !== 'claimed') throw new Error('LINE event is still processing');
+  return true;
+}
+async function markDone(key: string): Promise<void> {
+  const done = await supabaseAdmin.from('cashflow_webhook_events').update({ status: 'done' }).eq('key', key);
+  if (done.error) throw done.error;
+}
+
+/** The connect-first card for this chat (lineLinkCards.ts), with a record typed before connecting kept for the sign-up. */
+export function connectFirstFor(messageText: string | null): LineMessage {
+  const text = (messageText ?? '').trim();
+  const picked = TRY_POSTBACK.exec(text);
+  return buildConnectFirst({ liffId: process.env.LIFF_ID, signup: lineSignupOn(), tried: picked || !text ? null : parseTry(text), use: picked ? picked[1] as UseType : null });
+}
+
+/**
+ * A follow (someone added the OA), for a chat without an account (owner, 2026-11-15: "ขึ้นข้อความทักหาเขาว่าเราคืออะไร ...
+ * สอนวิธีการล็อกอิน"): one card with what Krarok is and how to connect. Someone already linked gets nothing extra.
+ */
 async function answerFollow(event: LineEvent, accessToken: string): Promise<void> {
   const lineUserId = event.source?.userId;
-  if (!lineSignupOn() || event.source?.type !== 'user' || !lineUserId || !event.replyToken || !stagingLineAllowed(lineUserId)) return;
-  if (!event.webhookEventId) throw new Error('LINE event is missing its ID');
-  const claim = await supabaseAdmin.rpc('cashflow_claim_webhook', { p_key: event.webhookEventId });
-  if (claim.error) throw claim.error;
-  if (claim.data === 'done') return;
-  if (claim.data !== 'claimed') throw new Error('LINE event is still processing');
-  // The first minute (owner, 2026-11-13): two short lines and one question, not a banner.
+  if (event.source?.type !== 'user' || !lineUserId || !event.replyToken || !stagingLineAllowed(lineUserId)) return;
+  if (!(await claimOnce(event.webhookEventId))) return;
   if (!(await findUserByLineId(lineUserId))) {
     const { sheetsForNewcomers } = await import('../services/lineSheetCards.js');
-    await reply(accessToken, event.replyToken, buildTryWelcome({ sheets: sheetsForNewcomers() }));
+    await reply(accessToken, event.replyToken, [buildLineHello({ liffId: process.env.LIFF_ID, signup: lineSignupOn(), sheets: sheetsForNewcomers() })]);
   }
-  const done = await supabaseAdmin.from('cashflow_webhook_events').update({ status: 'done' }).eq('key', event.webhookEventId);
-  if (done.error) throw done.error;
+  await markDone(event.webhookEventId!);
+}
+
+/** A sticker, voice message, video or place (nothing เลขา reads): connect first for a chat without an account; a linked
+ * chat gets no reply, as before. */
+async function answerOtherMessage(event: LineEvent, accessToken: string): Promise<void> {
+  const lineUserId = event.source?.userId;
+  if (event.type !== 'message' || event.source?.type !== 'user' || !lineUserId || !event.replyToken || !stagingLineAllowed(lineUserId)) return;
+  if (await findUserByLineId(lineUserId)) return;
+  if (!(await claimOnce(event.webhookEventId))) return;
+  await rateLimit('line-message', lineUserId, 30, 60);
+  await reply(accessToken, event.replyToken, [connectFirstFor(null)]);
+  await markDone(event.webhookEventId!);
 }
 
 /** The card sent right after a LINE chat is linked: the Pro or the plain welcome for that account. */
@@ -234,10 +264,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     await Promise.all(
       events.map(async (event) => {
-        // A new friend (LINE_SIGNUP on): the เริ่มใช้งาน card, once per follow; someone already linked gets nothing extra.
+        // A new friend: what Krarok is and how to connect, once per follow; someone already linked gets nothing extra.
         if (event.type === 'follow') { await answerFollow(event, accessToken); return; }
         const messageText = lineEventCommand(event);
-        if (messageText === null || !event.replyToken) return;
+        if (messageText === null) { await answerOtherMessage(event, accessToken); return; }
+        if (!event.replyToken) return;
         const lineUserId = event.source?.userId;
         if (event.source?.type !== 'user' || !lineUserId || !stagingLineAllowed(lineUserId)) return;
 
@@ -329,22 +360,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           await syncMenu(lineUserId);
           return;
         }
-        const replyText = 'ไม่พบรหัสเชื่อมต่อที่ตรงกันครับ ไปที่หน้าตั้งค่าในแอปกระรอกตุนเงิน > เชื่อมต่อ LINE เพื่อรับรหัสใหม่ แล้วส่งรหัสนั้นมาที่นี่ครับ';
-        // With sign-up in LINE on, anything else from a chat without an account gets the เริ่มใช้งาน card; a code that did
-        // not match still gets the code answer.
+        // Anything else from a chat without an account (owner, 2026-11-15: "ไม่ว่าจะเป็นอะไร ... ให้เขาเชื่อมต่อก่อน"): the
+        // connect-first card; a typed record such as "ข้าวมันไก่ 50" rides along and is saved at sign-up. A 16-character
+        // code that matched nothing still gets the code answer.
         const looksLikeCode = LINK_CODE.test(messageText.trim().toUpperCase());
-
-        if (lineSignupOn() && !looksLikeCode) {
-          // A new friend: the use they picked gets an example to try; a typed record shows the card it would make, kept
-          // with one tap at sign-up; anything else gets the เริ่มใช้งาน card.
-          // คุยกับเลขา on the guest menu: sentences to tap, each answered with the card it would make.
-          const picked = TRY_POSTBACK.exec(messageText.trim());
-          const tried = picked ? null : parseTry(messageText);
-          await send([messageText.trim() === TRY_CHAT ? buildTryChat()
-            : picked ? buildTryPrompt(picked[1] as UseType) : tried ? buildTryPreview(tried, null, process.env.LIFF_ID) : buildLineStart(process.env.LIFF_ID)]);
-        } else {
-          await send([{ type: 'text', text: replyText }]);
-        }
+        await send([looksLikeCode
+          ? { type: 'text', text: 'ไม่พบรหัสเชื่อมต่อที่ตรงกันครับ ไปที่หน้าตั้งค่าในแอปกระรอกตุนเงิน > เชื่อมต่อ LINE เพื่อรับรหัสใหม่ แล้วส่งรหัสนั้นมาที่นี่ครับ' }
+          : connectFirstFor(messageText)]);
         await complete();
       })
     );

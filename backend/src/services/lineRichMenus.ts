@@ -25,12 +25,12 @@ import { isOwnerUserId } from '../repositories/roles.js';
 // Every linked chat gets the same six tiles; the admin menu keeps its own name so the publishing stays as it is.
 export const MENU_VERSION = '2026-11-14m';
 // With sign-up in LINE on (LINE_SIGNUP, owner 2026-11-13), a chat without an account gets its own small menu as LINE's
-// default: เริ่มใช้งาน, คุยกับเลขา (example sentences to tap, tried before signing up), รู้จักกระรอก. Every linked chat then
+// default: เริ่มใช้งาน, คุยกับเลขา (answered with the connect-first card since 2026-11-15), รู้จักกระรอก. Every linked chat then
 // gets the members' menu attached to it (its pictures unchanged). With sign-up off, nothing changes.
 export type MenuKind = 'everyone' | 'admin' | 'guest';
 const NAME: Record<MenuKind, string> = { everyone: `กระรอกตุนเงิน ทุกบัญชี ${MENU_VERSION}`, admin: `กระรอกตุนเงิน แอดมิน ${MENU_VERSION}`, guest: `กระรอกตุนเงิน ยังไม่สมัคร ${MENU_VERSION}` };
 const IMAGE: Record<MenuKind, string> = { everyone: '/line/richmenu-members-2026-11-14.jpg', admin: '/line/richmenu-members-2026-11-14.jpg', guest: '/line/richmenu-guest-2026-11-13.jpg' };
-/** The tile the guest menu's คุยกับเลขา sends (lineTry.ts TRY_CHAT answers it). */
+/** The tile the guest menu's คุยกับเลขา sends (line-webhook.ts answers it with the connect-first card). */
 export const GUEST_CHAT_TEXT = 'คุยกับเลขา';
 type MenuIds = Record<'everyone' | 'admin', string> & { guest?: string };
 const kinds = (): MenuKind[] => (lineSignupOn() ? ['everyone', 'admin', 'guest'] : ['everyone', 'admin']);

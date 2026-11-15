@@ -4,7 +4,7 @@ import { isLineOnlyEmail, LINE_ONLY_DOMAIN } from '../shared/lineAccount.js';
 import { freeBucket, freeMonthlyTokens, lineOnlyEmail, lineSignupOn } from '../backend/src/services/lineFirst.js';
 import { jobTypesFor, lineSignupSchema, settingsFor, signUpFromLine, type LineSignupDeps } from '../backend/src/services/lineSignup.js';
 import { createLineSignupHandler, type LineSignupHandlerDeps } from '../backend/src/handlers/line-signup.js';
-import { buildLineStart } from '../backend/src/services/lineLinkCards.js';
+import { buildConnectFirst } from '../backend/src/services/lineLinkCards.js';
 import { validateChanges } from '../shared/validation.js';
 
 // Sign-up inside LINE and the free monthly allowance (owner, 2026-11-13: "แอด LINE แล้วใช้ได้เลย", "ชื่อ + ประเภทงาน",
@@ -199,11 +199,12 @@ test('a welcome card that fails to send never fails the sign-up; an existing lin
   assert.equal(again.log.includes('welcome'), false);
 });
 
-test('the เริ่มใช้งาน card opens the sign-up page inside LINE', () => {
-  const card = buildLineStart('2012039027-neCxHo9L') as any;
+test('the connect-first card opens the sign-up page inside LINE, and its มีบัญชีอยู่แล้ว screen', () => {
+  const card = buildConnectFirst({ liffId: '2012039027-neCxHo9L', signup: true }) as any;
   assert.equal(card.contents.footer.contents[0].action.uri, 'https://liff.line.me/2012039027-neCxHo9L?start=1');
   assert.equal(card.contents.footer.contents[0].action.label, 'เริ่มใช้งาน');
-  assert.match(card.altText, /เริ่มใช้งาน/);
+  assert.equal(card.contents.footer.contents[1].action.uri, 'https://liff.line.me/2012039027-neCxHo9L?start=1&link=1');
+  assert.match(card.altText, /เชื่อมต่อบัญชีก่อน/);
 });
 
 test('a link code sent from a chat that is already linked gets a plain answer, never a guess from เลขา', async () => {

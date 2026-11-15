@@ -1,15 +1,19 @@
 import type { LineMessage } from './line.js';
 import { LINE_CARD_COLORS as C, LINE_BRICK, lineAppLink } from './lineCards.js';
 
-// The first minute in LINE (owner, 2026-11-13: "ใช้ง่าย เข้าใจได้รวดเร็ว สะดวก", and different from the competitor's
-// banner-and-checklist welcome): a new friend gets two short lines and one question (ใช้แบบไหน), can type a record at once
-// and see the card it would make before signing up, then keeps it with one tap. Nothing is stored before sign-up: the
-// choice and the tried record ride in the sign-up link. No AI is called for people without an account.
+// The first minute in LINE (owner, 2026-11-13: "ใช้ง่าย เข้าใจได้รวดเร็ว สะดวก"): the greeting's look (design C) and the
+// record a newcomer types before signing up. Since 2026-11-15 the follow card says what Krarok is and how to connect, and
+// anything sent before connecting gets the connect-first card (lineLinkCards.ts); a typed record such as "ข้าวมันไก่ 50"
+// still rides in the sign-up link and is saved as the first record. Nothing is stored before sign-up, and no AI is called
+// for people without an account.
 
 export const USE_TYPES = ['personal', 'business', 'company'] as const;
 export type UseType = typeof USE_TYPES[number];
 export const USE_LABELS: Record<UseType, string> = { personal: 'ใช้ส่วนตัว', business: 'ฟรีแลนซ์ / ร้านค้า', company: 'บริษัท / สำนักงาน' };
 export const isUseType = (value: unknown): value is UseType => typeof value === 'string' && (USE_TYPES as readonly string[]).includes(value);
+
+/** ใช้แบบไหน on a greeting card sent before 2026-11-15: the pick rides in the sign-up link of the connect-first card. */
+export const TRY_POSTBACK = /^try:use:(personal|business|company)$/;
 
 export interface TryDraft { kind: 'expense' | 'income'; name: string; amount: number; category?: string }
 
@@ -51,7 +55,6 @@ export function decodeTry(value: unknown): TryDraft | null {
 }
 
 const baht = (amount: number) => `฿${amount.toLocaleString('th-TH', { minimumFractionDigits: Number.isInteger(amount) ? 0 : 2, maximumFractionDigits: 2 })}`;
-const EXAMPLE: Record<UseType, string> = { personal: 'ข้าวมันไก่ 50', business: 'ค่าเช่ากล้อง 1200', company: 'ค่าเดินทาง 350' };
 
 const asset = (path: string) => lineAppLink(path)?.uri;
 export const greetingTile = (icon: string, title: string, detail: string) => ({ type: 'box', layout: 'horizontal', spacing: 'md', alignItems: 'center', margin: 'md', contents: [
@@ -62,19 +65,6 @@ export const greetingTile = (icon: string, title: string, detail: string) => ({ 
     { type: 'text', text: detail, size: 'xs', color: C.muted, wrap: true },
   ] },
 ] });
-/** ใช้แบบไหน as three large choices in the card (and the same as taps under it). */
-const useChoices = () => ({ type: 'box', layout: 'vertical', spacing: 'sm', margin: 'md', contents: USE_TYPES.map(use => ({
-  type: 'box', layout: 'vertical', cornerRadius: '10px', paddingAll: '11px', borderWidth: '1px', borderColor: '#D6D3D1', backgroundColor: '#FFFFFF',
-  action: { type: 'postback', label: USE_LABELS[use], data: `try:use:${use}`, displayText: USE_LABELS[use] },
-  contents: [{ type: 'text', text: USE_LABELS[use], size: 'sm', weight: 'bold', color: C.text, align: 'center' }],
-})) });
-
-/**
- * Follow: the greeting card (owner, 2026-11-13, design C of four, "เพิ่มพร็อพ ... ตึกสำนักงาน ให้มันดูสวยๆ"): the brick band
- * with office buildings behind the official mascot, three steps with their icons, and ใช้แบบไหน as three choices. Where
- * the Sheets features are shown to newcomers (sheetsForNewcomers), a fourth line says an existing Google Sheets or Excel
- * file can be connected (owner: "เขาจะรู้ได้ไงว่ามึงมีฟีเจอร์นี้ ... มึงต้องบอกเขา เพราะเขาคือลูกค้าใหม่").
- */
 /** The greeting's band: the brick colour, office buildings along the bottom, the official mascot standing in front. */
 export function greetingHeader(title: string, subtitle: string, pose = 'review') {
   const city = asset('/line/greeting-city-v1.png');
@@ -102,53 +92,6 @@ export function greetingHeader(title: string, subtitle: string, pose = 'review')
 
 /** The line telling a newcomer an existing sheet or Excel file can be used (shown where the Sheets features are). */
 export const SHEETS_TILE = () => greetingTile('document', 'มีชีตหรือ Excel อยู่แล้ว?', 'เชื่อม Google Sheets หรือส่งไฟล์ Excel มาได้ ไม่ต้องย้ายข้อมูล');
-
-export function buildTryWelcome(options: { sheets?: boolean } = {}): LineMessage[] {
-  const band = LINE_BRICK;
-  return [{ type: 'flex', altText: 'ยินดีที่ได้รู้จักครับ ผมเลขากระรอก เลขาการเงินในแชท LINE ใช้แบบไหนครับ', contents: {
-    type: 'bubble', size: 'mega', styles: { header: { backgroundColor: band }, body: { backgroundColor: '#FFFFFF' } },
-    header: greetingHeader('ยินดีที่ได้รู้จักครับ', 'เลขาการเงินในแชท LINE ของคุณ'),
-    body: { type: 'box', layout: 'vertical', paddingAll: '20px', paddingTop: '10px', contents: [
-      greetingTile('spent', 'พิมพ์บอก', 'เช่น ค่ากาแฟ 60 หรือ งานถ่ายรูป 5000'),
-      greetingTile('review', 'ตรวจแล้วกดยืนยัน', 'เลขาทำการ์ดให้ดูก่อนบันทึกทุกครั้ง'),
-      greetingTile('report', 'ดูสรุปเมื่อไหร่ก็ได้', 'พิมพ์ สรุปเดือนนี้'),
-      ...(options.sheets ? [SHEETS_TILE()] : []),
-      { type: 'separator', color: C.border, margin: 'xl' },
-      { type: 'text', text: 'ใช้แบบไหนครับ', size: 'md', weight: 'bold', color: C.text, margin: 'lg' },
-      useChoices(),
-    ] },
-  } } as LineMessage];
-}
-
-/** After the pick: try one now. */
-export function buildTryPrompt(use: UseType): LineMessage {
-  return { type: 'text', text: use === 'personal'
-    ? `ลองพิมพ์รายจ่ายวันนี้ดูเลยครับ เช่น ${EXAMPLE.personal}`
-    : `ลองพิมพ์รายจ่ายหรือรายรับดูเลยครับ เช่น ${EXAMPLE[use]} หรือ งานถ่ายรูป 5000` };
-}
-
-export const TRY_POSTBACK = /^try:use:(personal|business|company)$/;
-
-/** The card a try would make, not saved yet, with one tap to keep it (the sign-up page, LIFF ?start=1). */
-export function buildTryPreview(draft: TryDraft, use: UseType | null, liffId: string | undefined): LineMessage {
-  const income = draft.kind === 'income';
-  const params = new URLSearchParams({ start: '1', keep: encodeTry(draft), ...(use ? { use } : {}) });
-  const keep = liffId ? `https://liff.line.me/${liffId}?${params}` : undefined;
-  return { type: 'flex', altText: `ตัวอย่าง${income ? 'รายรับ' : 'รายจ่าย'} ${draft.name} ${baht(draft.amount)} กดเก็บไว้เพื่อเริ่มใช้งาน`, contents: {
-    type: 'bubble', size: 'kilo',
-    body: { type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '16px', contents: [
-      { type: 'box', layout: 'horizontal', contents: [{ type: 'box', layout: 'vertical', flex: 0, cornerRadius: '10px', borderWidth: '1px', borderColor: C.border,
-        paddingStart: '8px', paddingEnd: '8px', paddingTop: '2px', paddingBottom: '2px', contents: [{ type: 'text', text: 'ตัวอย่าง · ยังไม่บันทึก', size: 'xxs', color: C.muted }] }] },
-      { type: 'text', text: `${income ? 'รายรับ' : 'รายจ่าย'}${draft.category ? ` · ${draft.category}` : ''} · วันนี้`, size: 'xs', color: C.muted, margin: 'md', wrap: true },
-      { type: 'text', text: draft.name, size: 'md', weight: 'bold', color: C.text, wrap: true },
-      { type: 'text', text: `${income ? '+' : '−'}${baht(draft.amount)}`, size: 'xxl', weight: 'bold', color: income ? C.positive : C.negative },
-      { type: 'text', text: 'ใช้ชื่อ LINE ของคุณ ไม่ต้องใช้อีเมล', size: 'xxs', color: C.muted, margin: 'md', wrap: true },
-    ] },
-    ...(keep ? { footer: { type: 'box', layout: 'vertical', paddingAll: '16px', paddingTop: '0px', contents: [
-      { type: 'button', style: 'primary', height: 'sm', color: C.accent, action: { type: 'uri', label: 'เก็บไว้ · เริ่มใช้งาน', uri: keep } },
-    ] } } : {}),
-  } };
-}
 
 /**
  * Right after signing up in LINE: the record they tried, now saved, and one line on what to do next, with buttons for
@@ -180,12 +123,4 @@ export function buildTryWelcomeBack(first: TryDraft | null, name: string | null)
     } },
     { type: 'text', text, quickReply },
   ];
-}
-
-/** คุยกับเลขา on the guest menu: what to type, with sentences to tap; each one comes back as the card it would make. */
-export const TRY_CHAT = 'คุยกับเลขา';
-const TRY_EXAMPLES = ['ค่ากาแฟ 60', 'งานถ่ายรูป 5000', 'ค่าเช่ากล้อง 1200', 'ได้เงินค่าสอน 1500'];
-export function buildTryChat(): LineMessage {
-  return { type: 'text', text: 'พิมพ์บอกเลขาได้เลยครับ ชื่อรายการกับจำนวนเงิน เลขาจะทำการ์ดให้ดูก่อน ยังไม่บันทึกจนกว่าคุณจะกดเก็บไว้\nลองแตะตัวอย่างด้านล่างก็ได้',
-    quickReply: { items: TRY_EXAMPLES.map(text => ({ type: 'action' as const, action: { type: 'message' as const, label: text, text } })) } };
 }

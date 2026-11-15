@@ -33,6 +33,9 @@
     "SUPABASE_URL": "https://odsdgxeaiqdepriqmaya.supabase.co",
     "STRIPE_MODE": "test",
     "STAGING_MODE": "integrated",
+    // The test LINE OA (กระรอกตุนเงิน ทดสอบ) open to anyone, for the owner's friends to try (owner, 2026-11-15). Only LINE
+    // opens: website sign-in, e-mail, admin and Pro stay the owner's (backend/src/security/staging.ts stagingLineOpen).
+    "STAGING_LINE_OPEN": "enabled",
     "CRON_ENABLED": "false",
     // เลขากระรอก as on the real site; it answers only once the owner gives this Worker its own AI keys
     // (wrangler secret put GEMINI_API_KEY / ANTHROPIC_API_KEY -c wrangler.staging.jsonc).

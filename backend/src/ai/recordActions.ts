@@ -94,7 +94,7 @@ export async function executeRecordAction(name: string, args: Record<string, unk
     const value: Record<string, unknown> = { ...(old || {}), ...fields, id: old?.id || randomUUID(), note: input.note ?? old?.note ?? '' };
     value.amount = roundMoney(Number(value.amount));
     // From a transfer slip (2026-11-14): the account it left from and its reference, so the same slip is caught next time.
-    const facts = slipFacts(input.slip);
+    const facts = slipFacts(input.slip, 'out');
     if (facts.account) value.account = facts.account;
     if (facts.ref) value.slipRef = facts.ref;
     const slip = slipCard(facts, { accountNames: record(user.settings).accountNames as Record<string, string> | undefined, expenses: records(user.expenses), jobs: records(user.jobs), except: String(value.id) });

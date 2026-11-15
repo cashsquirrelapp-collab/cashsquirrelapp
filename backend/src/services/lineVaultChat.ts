@@ -5,7 +5,8 @@ import { checkLinkedAccountWriteAccess } from './linkedAccountAccess.js';
 import { getSupabaseAdmin } from '../config/supabase.js';
 import { listVaultFiles, storeVaultFile, updateVaultFile } from './vault.js';
 import { VAULT_FREE_FILES, VAULT_KIND_LABEL, VAULT_MAX_BYTES, VAULT_MAX_FILES, sniffVaultMime, type VaultKind } from '../../../shared/vault.js';
-import { freeMonthlyTokens } from './lineFirst.js';
+import { freeMonthlyTokens, lineSignupOn } from './lineFirst.js';
+import { buildConnectFirst } from './lineLinkCards.js';
 import { ATTACHMENT_MAX_BYTES, MAX_FILES, checkAttachment, checkAttachments } from '../ai/attachment.js';
 import type { ChatFile } from '../ai/types.js';
 import type { LineAnswer } from '../ai/lineBridge.js';
@@ -13,7 +14,6 @@ import { dropImageParts, groupIdFor, linkCardsToFiles, noteImagePart, rememberFi
 import { cardGroupMessage, lineAssistantReply } from '../ai/lineFormat.js';
 import { rateLimit } from '../security/rateLimit.js';
 import { lineAreaOpen } from './lineLaunch.js';
-import { isPhaseOneFeatureAvailable } from '../../../shared/featureAvailability.js';
 import { SheetFileError, sheetFileKind, spreadsheetText } from '../../../shared/sheetFileText.js';
 import { DocumentFileError, documentFileKind, documentText } from '../../../shared/documentFileText.js';
 import { sheetConvertTap } from './lineSheetConvert.js';
@@ -38,7 +38,8 @@ export interface LineFileEvent { id?: string; type: string; fileName?: string; f
 
 async function owner(lineUserId: string): Promise<{ user: UserRow; auth: NonNullable<Awaited<ReturnType<ReturnType<typeof getSupabaseAdmin>['auth']['admin']['getUserById']>>['data']['user']>; maxFiles?: number } | LineMessage> {
   const user = await findUserByLineId(lineUserId);
-  if (!user) return { type: 'text', text: isPhaseOneFeatureAvailable('vault', false) ? 'เชื่อมบัญชีกระรอกตุนเงินกับ LINE ก่อน จึงจะเก็บไฟล์เข้าคลังส่วนตัวได้ครับ' : 'ตอนนี้ LINE ยังรับไฟล์และรูปภาพไม่ได้ครับ' };
+  // A picture or file from a chat without an account: connect first, like anything else it sends (owner, 2026-11-15).
+  if (!user) return buildConnectFirst({ liffId: process.env.LIFF_ID, signup: lineSignupOn() });
   const access = await checkLinkedAccountWriteAccess(user.user_id);
   if (!access.allowed) return { type: 'text', text: access.error };
   // The document vault is not on the website for ordinary accounts yet, so LINE does not keep files for them either.

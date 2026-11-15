@@ -4,7 +4,7 @@ import type { Route } from './types.js';
 // Shared instructions for both routes. The fixed part
 // comes first and never changes between requests, so both providers can cache it; the per-user part follows.
 
-export const PROMPT_VERSION = 'secretary-v32';
+export const PROMPT_VERSION = 'secretary-v33';
 
 // Areas customers cannot see yet (shared/featureAvailability.ts). The prompt names them only to say they are not
 // available; the admin overview is never named. Fixed per deploy, so the prompt stays cacheable.
@@ -378,10 +378,13 @@ what is already on it.
   OUT. The user as the receiver (ไปยัง / ผู้รับ) and someone else as the sender means money IN. Only when both sides
   are unclear, ask "สลิปนี้คุณเป็นคนจ่าย หรือลูกค้าโอนมาให้คุณ".
 - Every proposal made from a slip (propose_add_expense, propose_record_payment, propose_edit_job, propose_add_job)
-  carries slip: bank = the bank of the user's OWN account on the slip (the sender for money out, the receiver for money
-  in); account_last4 = the last 4 visible digits of that own account (slips mask the rest; exactly 4, never more);
-  reference = the slip's reference / transaction number (เลขที่รายการ, รหัสอ้างอิง). Leave out what is not visible. When
-  the result says duplicate_slip, tell the user this slip was already recorded as that record and let them decide.
+  carries slip: own_side = which side is the user's OWN account (sender for money out, receiver for money in);
+  bank_text = the bank or wallet name printed on that own side, copied exactly as printed ("ธ.กสิกรไทย", "SCB",
+  "Krungthai", "TrueMoney"; letters in its logo count), left out when nothing printed there names it (a PromptPay number
+  alone names no bank); bank = that bank's code; account_last4 = the last 4 visible digits of that own account (slips
+  mask the rest; exactly 4, never more); reference = the slip's reference / transaction number (เลขที่รายการ,
+  รหัสอ้างอิง). Leave out what is not visible; never guess a bank. When the result says duplicate_slip, tell the user
+  this slip was already recorded as that record and let them decide.
 - Money out: propose_add_expense right away. Name it after who was paid, as people say it: "SCB มณี SHOP (สมาน)" →
   "ร้านสมาน", a person → "โอนให้ <ชื่อ>", plus what was bought if the user said it. Never a generic name such as
   "บันทึกการโอน", "โอนเงิน", "จ่ายบิล" or "สลิป". Amount and date from the slip; Thai years are พ.ศ. (24 พ.ค. 2569 →

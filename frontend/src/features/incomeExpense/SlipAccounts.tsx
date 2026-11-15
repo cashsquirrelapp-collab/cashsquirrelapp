@@ -11,7 +11,9 @@ import { accountKey, accountLabel, type SlipAccount } from '../../../../shared/s
 // more, each row shows it as "KBank •1234" with the bank's logo, the list filters by it, and each account can be given
 // a name ("บัญชีธุรกิจ"). With one account nothing of this shows.
 
-const bankOf = (account: SlipAccount) => THAI_BANKS.find(bank => bank.code === account.bank);
+// Every bank a slip can name (shared/slipAccounts.ts SLIP_BANKS, owner 2026-11-15); one without a logo file here (foreign
+// branches, TrueMoney, ShopeePay…) shows its code in the circle. SME D is "SMED" in a slip account.
+const bankOf = (account: SlipAccount) => THAI_BANKS.find(bank => bank.code.replace(/\s/g, '') === account.bank) ?? { name: account.bank, code: account.bank };
 
 /** The account an expense came from: the bank's logo and "KBank •1234" (or the name given to it). */
 export function AccountTag({ account, names, className = '' }: { account: SlipAccount; names?: Record<string, string>; className?: string }) {

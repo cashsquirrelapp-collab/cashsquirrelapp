@@ -48,8 +48,20 @@ export function stagingGoogleAllowed(email: unknown, env: StagingEnvironment = p
   return !isStaging(env) || (stagingProviderReady('google', env) && typeof email === 'string' && email.toLowerCase() === STAGING_GOOGLE_EMAIL);
 }
 
+/**
+ * The test LINE OA open to anyone (owner, 2026-11-15: "ไลน์กระรอกตุนเงินทดสอบ ... เอาให้ยูเซอร์ธรรมดาแอดมาได้ด้วยนะ แล้วก็
+ * ลองใช้ดู ... เดี๋ยวกูจะส่งให้เพื่อนกูก่อน"): STAGING_LINE_OPEN=enabled lets any LINE user add it, sign up inside LINE and use
+ * เลขา there, on the test site's own database, LINE channel and test Stripe. Only the LINE side opens: the website's e-mail
+ * and Google sign-in stay the owner's, e-mail still goes only to the owner, and admin and Pro stay the owner's (stagingUnlock).
+ */
+export function stagingLineOpen(env: StagingEnvironment = process.env): boolean {
+  return env.STAGING_LINE_OPEN === 'enabled' && stagingProviderReady('line', env);
+}
+
 export function stagingLineAllowed(userId: unknown, env: StagingEnvironment = process.env): boolean {
-  return !isStaging(env) || (stagingProviderReady('line', env) && userId === env.STAGING_LINE_USER_ID);
+  if (!isStaging(env)) return true;
+  if (!stagingProviderReady('line', env)) return false;
+  return userId === env.STAGING_LINE_USER_ID || (stagingLineOpen(env) && typeof userId === 'string' && /^U[0-9a-f]{32}$/.test(userId));
 }
 
 export function stagingRecipientAllowed(email: unknown, lineUserId: unknown): boolean {

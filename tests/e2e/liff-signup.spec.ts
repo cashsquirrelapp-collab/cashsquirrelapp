@@ -280,3 +280,29 @@ test('มีบัญชีอยู่แล้ว: a wrong password shows the 
   await expect(page.getByTestId('line-link-existing-go')).toHaveText('เชื่อมบัญชี');
   await expect(page).toHaveURL(/\/line-start$/);
 });
+
+// มีบัญชีอยู่แล้ว · เข้าสู่ระบบ on the LINE welcome and connect-first cards (owner, 2026-11-15: "สอนวิธีการล็อกอิน") opens
+// ?start=1&link=1: straight to signing in with the website's account, and back to signing up is one tap.
+for (const device of [{ name: 'phone', width: 390 }, { name: 'iPad', width: 768 }]) {
+  test(`มีบัญชีอยู่แล้ว on a LINE card opens the sign-in screen first (${device.name})`, async ({ page }) => {
+    const sent = await open(page, { width: device.width, query: '?start=1&link=1', reply: { ok: true, created: false, linked: true, destination: null } });
+    await expect(page).toHaveURL(/\/line-start$/);
+    const form = page.getByTestId('line-link-existing');
+    await expect(form.getByRole('heading', { name: 'เชื่อมกับบัญชีเดิม' })).toBeVisible();
+    await loadLayoutFonts(page);
+    await page.waitForTimeout(2200);
+    expect(await textOverlapIssues(page)).toEqual([]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+    await page.screenshot({ path: `test-results/line-link-first-${device.name}.png` });
+    await form.getByRole('button', { name: 'ยังไม่มีบัญชี สมัครใหม่' }).click();
+    await expect(page.locator('#wob-name')).toBeVisible();
+    expect(sent.filter(item => item.url === 'line-signup')).toEqual([]);
+  });
+}
+
+test('เริ่มใช้งาน without link=1 still opens signing up, not the sign-in screen', async ({ page }) => {
+  await open(page);
+  await expect(page).toHaveURL(/\/line-start$/);
+  await expect(page.locator('#wob-name')).toBeVisible();
+  await expect(page.getByTestId('line-link-existing')).toHaveCount(0);
+});

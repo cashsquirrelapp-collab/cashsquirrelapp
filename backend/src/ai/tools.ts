@@ -388,7 +388,7 @@ export function createToolbox(context: ToolContext) {
     // a slip already recorded said on the card before it is saved again.
     let duplicate: ReturnType<typeof slipCard>['duplicate'] = null;
     if (record && (kind === 'add_job' || kind === 'record_payment' || kind === 'edit_job') && current?.args.slip) {
-      const facts = slipFacts(current.args.slip);
+      const facts = slipFacts(current.args.slip, 'in');
       if (facts.account) record.account = facts.account;
       if (facts.ref) record.slipRefs = [...new Set([...(Array.isArray(job.slipRefs) ? job.slipRefs : []), facts.ref])].slice(-200);
       const slip = slipCard(facts, { accountNames: (user.settings as { accountNames?: Record<string, string> } | undefined)?.accountNames,

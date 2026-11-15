@@ -12,8 +12,9 @@ import { tr, trServer } from '../../i18n/tr';
 export const LINE_SIGNUP_KEY = 'krarok_line_signup';
 const MAX_AGE_MS = 50 * 60_000;
 
-/** use and keep: ใช้แบบไหน and the record tried in the chat, from the LINE link (services/lineTry.ts). */
-type Handoff = { idToken: string; name: string; destination: string | null; at: number; use: QuickUse | null; keep: string | null };
+/** use and keep: ใช้แบบไหน and the record tried in the chat, from the LINE link (services/lineTry.ts); link: มีบัญชีอยู่แล้ว
+ * tapped on a connect card (services/lineLinkCards.ts), which opens the sign-in screen first. */
+type Handoff = { idToken: string; name: string; destination: string | null; at: number; use: QuickUse | null; keep: string | null; link: boolean };
 const USE_IDS: readonly string[] = ['personal', 'business', 'company'];
 
 export function readLineHandoff(now = Date.now()): Handoff | null {
@@ -21,7 +22,8 @@ export function readLineHandoff(now = Date.now()): Handoff | null {
     const value = JSON.parse(sessionStorage.getItem(LINE_SIGNUP_KEY) || 'null') as Partial<Handoff> | null;
     if (!value || typeof value.idToken !== 'string' || !value.idToken || typeof value.at !== 'number' || now - value.at > MAX_AGE_MS) return null;
     return { idToken: value.idToken, name: typeof value.name === 'string' ? value.name.slice(0, 60) : '', destination: typeof value.destination === 'string' ? value.destination : null, at: value.at,
-      use: typeof value.use === 'string' && USE_IDS.includes(value.use) ? value.use as QuickUse : null, keep: typeof value.keep === 'string' ? value.keep.slice(0, 600) : null };
+      use: typeof value.use === 'string' && USE_IDS.includes(value.use) ? value.use as QuickUse : null, keep: typeof value.keep === 'string' ? value.keep.slice(0, 600) : null,
+      link: value.link === true };
   } catch { return null; }
 }
 
@@ -32,7 +34,8 @@ export default function LineStartPage() {
   const [preview] = React.useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('preview'));
   const [previewDone, setPreviewDone] = React.useState(false);
   // มีบัญชีอยู่แล้ว (owner, 2026-11-14: one account however you come in): link the website's account instead of a new one.
-  const [linking, setLinking] = React.useState(false);
+  // Opened from มีบัญชีอยู่แล้ว on a connect card (link=1; on the preview too) it starts on the sign-in screen.
+  const [linking, setLinking] = React.useState(() => handoff?.link === true || (preview && new URLSearchParams(window.location.search).get('link') === '1'));
   // The website's own welcome, every question (owner, 2026-11-13: "กูชอบธีมเดิม มึงไปตัดของกูออกทำไม", after the one-tap
   // screen had become the default): where records are kept now (Google Sheets, Excel…) is asked, so the chat can offer to
   // connect them. The one-tap screen stays on ?quick=1.

@@ -237,6 +237,7 @@ test('gateway: prompt version and bytes remain unchanged by the knowledge connec
   // secretary-v25 (owner, 2026-10-31): the ใบ 50 ทวิ follow-up and FILES TO KEEP (attach_file) rules added; none removed.
   // secretary-v24 (owner, 2026-10-31): SELF, เลขากระรอก never calls itself AI and never claims to be a person.
   // secretary-v23 (owner, 2026-10-28): the feedback menu is called แจ้งปัญหา (was บอกเรา).
+  // secretary-v33 (owner, 2026-11-15): slips carry own_side and bank_text (the bank as printed); the bank is decided from it.
   // secretary-v32 (owner, 2026-11-15): LINE list items name the record in full with its client ("มึงต้องเขียนด้วยว่ามันชื่อโปรเจกต์อะไร").
   // secretary-v31 (owner, 2026-11-14): transfer slips carry slip {bank, account_last4, reference}; duplicate_slip is said.
   // secretary-v22 (owner, 2026-10-28): the saved issuer profile comes with the document rules (ISSUER), no read step.
@@ -246,9 +247,9 @@ test('gateway: prompt version and bytes remain unchanged by the knowledge connec
   // replaces the remembered PREFERRED NAME. secretary-v17 (owner-approved
   // 2026-10-26, Accounting Brain): one ACCOUNTING REFERENCE slot added after FOUNDER;
   // every existing rule is byte-identical and a message without that slot builds exactly the v16 prompt.
-  assert.equal(PROMPT_VERSION, 'secretary-v32');
+  assert.equal(PROMPT_VERSION, 'secretary-v33');
   const prompt = await readFile(new URL('../backend/src/ai/prompt.ts', import.meta.url));
-  // Captured before the approved gateway-only connection; recaptured for secretary-v32 (LINE list items name the record in full, owner 2026-11-15).
+  // Captured before the approved gateway-only connection; recaptured for secretary-v33 (slips carry the bank as printed, owner 2026-11-15).
   // No dependency on a local audit folder.
-  assert.equal(createHash('sha256').update(prompt).digest('hex'), 'a322edadb37ba131d14f4cb5cc5f0c07cdd5319a622d056a55146c65a6075f08');
+  assert.equal(createHash('sha256').update(prompt).digest('hex'), '72fdb07268d9d40a2d080f82799af605d8bed42cb3e685d7ec942d4d857ebc55');
 });
