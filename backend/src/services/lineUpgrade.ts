@@ -128,6 +128,40 @@ export function buildLineUpgradeCard(reason: UpgradeReason, now: Date = new Date
   } as LineMessage;
 }
 
+/**
+ * The Pro poster (owner, 2026-11-16: "เพิ่มโฆษณาภาพกราฟิกโฆษณาลงไปในนั้นในไลน์"): the app's own weekly invitation
+ * (frontend ProKvBanner, dark rust and gold, เลขากระรอก peeking out of the KRAROK PRO box, never redrawn) as one picture,
+ * the whole picture and a button under it opening the plans page in LINE with Pro chosen. The picture says ฿169 a month and
+ * "วันละไม่ถึง ฿6", so it goes out only while that is the price; otherwise the plan cards come alone.
+ */
+export const PRO_POSTER = { path: '/line/pro-kv-v1.jpg', price: 169, ratio: '1040:1433', edge: '#8A3414' } as const;
+export function buildLineProPoster(now: Date = new Date()): LineMessage | null {
+  const pro = proPriceDetails('month', now);
+  const url = asset(PRO_POSTER.path);
+  const link = lineAppLink('/plans?tier=pro', `สมัคร Pro ${baht(pro.price)}/เดือน`);
+  if (pro.price !== PRO_POSTER.price || !url || !link) return null;
+  return {
+    type: 'flex',
+    altText: `จ้างเลขาส่วนตัว วันละไม่ถึง ฿${Math.ceil(pro.price / 30)} · Pro ${baht(pro.price)} ต่อเดือน`,
+    contents: {
+      // mega: as wide as a phone's chat always allows (giga can run past the edge beside the avatar).
+      type: 'bubble', size: 'mega',
+      hero: { type: 'image', url, size: 'full', aspectRatio: PRO_POSTER.ratio, aspectMode: 'cover', action: { type: 'uri', ...link } },
+      footer: { type: 'box', layout: 'vertical', spacing: 'sm', paddingAll: '16px', paddingTop: '4px', backgroundColor: PRO_POSTER.edge, contents: [
+        { type: 'button', style: 'primary', height: 'md', color: C.accent, action: { type: 'uri', ...link } },
+        { type: 'text', text: 'ราคายังไม่รวมค่าธรรมเนียมชำระเงิน แสดงยอดก่อนกดจ่าย', size: 'xxs', color: '#F3D3BF', align: 'center', wrap: true },
+      ] },
+    },
+  } as LineMessage;
+}
+
+/** The poster, then the plans side by side, when this reply has room for both (`room`: messages LINE still takes). */
+export function buildLineUpgradeMessages(reason: UpgradeReason, now: Date = new Date(), room = 2): LineMessage[] {
+  const plans = buildLineUpgradeCard(reason, now);
+  const poster = room >= 2 ? buildLineProPoster(now) : null;
+  return poster ? [poster, plans] : [plans];
+}
+
 /** Whether the card under an answer may come again for this account. A read error counts as no (never every message). */
 export async function upgradeCardDue(userId: string, now: Date = new Date()): Promise<boolean> {
   try {

@@ -2,7 +2,7 @@ import type { VaultFile } from '../../../shared/vault.js';
 import { isWht50Trackable, wht50StatusOf, wht50WaitingDays, type WhtTrackingJob } from '../../../shared/vaultStatus.js';
 import type { LineMessage } from './line.js';
 import { LINE_CARD_COLORS as C, MAX_LINE_ITEMS, lineAppLink, lineCard, lineJobItem, lineSection } from './lineCards.js';
-import { buildLineUpgradeCard } from './lineUpgrade.js';
+import { buildLineUpgradeMessages } from './lineUpgrade.js';
 
 export type LineFeatureJob = WhtTrackingJob & { name: string; client?: string };
 export interface LineFeatureContext {
@@ -66,10 +66,11 @@ export function buildLineFeatureShortcut(
   userJobs: readonly LineFeatureJob[],
   now = new Date(),
   context: LineFeatureContext = {},
-): LineMessage | null {
+): LineMessage | LineMessage[] | null {
   if (!isLineFeatureShortcut(text)) return null;
   const command = commands[normalize(text)];
-  if (command === 'plans') return buildLineUpgradeCard('menu', now);
+  // The Pro poster, then the plans side by side (owner, 2026-11-16).
+  if (command === 'plans') return buildLineUpgradeMessages('menu', now);
   if (command === 'extras') {
     const links = [
       { type: 'button', style: 'primary', height: 'sm', margin: 'md', color: C.accent, action: { type: 'message', label: 'ดูแพ็กเกจ Plus / Pro', text: 'แพ็กเกจ' } },

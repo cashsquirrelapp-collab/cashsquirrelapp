@@ -19,7 +19,7 @@ import { appOrigin } from '../config/env.js';
 import { patchPrivate } from '../repositories/accounts.js';
 import { QUESTIONS_LEAD } from './gateway.js';
 import { pendingAiQuestions, type PendingAiQuestions } from '../services/lineAiQuestions.js';
-import { buildLineUpgradeCard, markUpgradeCardShown, upgradeCardDue } from '../services/lineUpgrade.js';
+import { buildLineUpgradeMessages, markUpgradeCardShown, upgradeCardDue } from '../services/lineUpgrade.js';
 import { activeEntryBatch, ENTRY_BATCH_KEY, entryTurn, mayBeEntryTurn } from './batchTurn.js';
 import { KIND_WORDS, type EntryKind } from './batchEntries.js';
 import { entryQuestionMessages, entryReviewMessages } from './lineEntries.js';
@@ -155,7 +155,7 @@ export async function lineAssistantAnswer(user: UserRow, text: string, history: 
       const now = deps.now ?? new Date();
       try {
         if (await (deps.upgradeDue ?? upgradeCardDue)(user.user_id, now)) {
-          messages = [...messages, buildLineUpgradeCard(low ? 'low' : 'weekly', now)];
+          messages = [...messages, ...buildLineUpgradeMessages(low ? 'low' : 'weekly', now, 5 - messages.length)];
           await (deps.markUpgrade ?? markUpgradeCardShown)(user.user_id, now);
         }
       } catch { console.error('line-assistant: the plans card was not added'); }
@@ -170,7 +170,7 @@ export async function lineAssistantAnswer(user: UserRow, text: string, history: 
     // Out of tokens: recording by typing still works, with no tokens (owner, 2026-11-14).
     if (error instanceof HttpError && error.status === 402) {
       // With the Plus / Pro card for an account without a paid plan (owner, 2026-11-16: "ตอนโทเคนหมด").
-      const card = unpaid(plan) ? [buildLineUpgradeCard('out', deps.now ?? new Date())] : [];
+      const card = unpaid(plan) ? buildLineUpgradeMessages('out', deps.now ?? new Date(), 4) : [];
       if (card.length) void (deps.markUpgrade ?? markUpgradeCardShown)(user.user_id, deps.now ?? new Date());
       const said = `${error.message}\nพิมพ์จดรายรับรายจ่ายได้ตามปกติ เช่น “ค่ากาแฟ 60” หรือ “งานตัดต่อ 3000” ไม่ใช้โทเคน`;
       return { messages: [{ type: 'text', text: said }, ...card], text: error.message };

@@ -1,10 +1,11 @@
 import test from 'node:test';
+import { statSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { HttpError } from '../backend/src/http/guard';
 import { lineAssistantAnswer } from '../backend/src/ai/lineBridge';
 import type { AssistantDb, handleMessage } from '../backend/src/ai/service';
 import { buildLineFeatureShortcut, isLineFeatureShortcut } from '../backend/src/services/lineFeatureShortcuts';
-import { buildLineUpgradeCard, UPGRADE_EVERY_MS } from '../backend/src/services/lineUpgrade';
+import { buildLineProPoster, buildLineUpgradeCard, buildLineUpgradeMessages, PRO_POSTER, UPGRADE_EVERY_MS } from '../backend/src/services/lineUpgrade';
 import type { UserRow } from '../backend/src/services/lineAssistant';
 import { safeLineDestination } from '../shared/lineDestination';
 
@@ -84,12 +85,33 @@ test('under an answer: once a week for an account without a paid plan (low token
 test('out of tokens: the message, then the card for an account without a paid plan; a paid plan gets the message only', async () => {
   const out = new HttpError(402, 'โทเคนเลขาของรอบนี้ใช้ครบแล้ว อัปเกรดเป็น Pro เพื่อใช้เลขากระรอกต่อ', 'ai_tokens_used');
   const free = await answer('trial', { fail: out });
-  assert.equal(free.result.messages.length, 2);
+  assert.equal(free.result.messages.length, 3, 'the message, the Pro poster, the plans');
   assert.match(json(free.result.messages[0]), /ใช้ครบแล้ว/);
-  assert.match(json(free.result.messages[1]), /"altText":"โทเคนเลขาเดือนนี้หมดแล้ว/);
-  assert.match(json(free.result.messages[1]), /สมัคร Pro ฿169/);
+  assert.match(json(free.result.messages[1]), /pro-kv-v1\.jpg/);
+  assert.match(json(free.result.messages[2]), /"altText":"โทเคนเลขาเดือนนี้หมดแล้ว/);
+  assert.match(json(free.result.messages[2]), /สมัคร Pro ฿169/);
   const lapsed = await answer('lapsed', { fail: out });
-  assert.equal(lapsed.result.messages.length, 2);
+  assert.equal(lapsed.result.messages.length, 3);
   const paid = await answer('pro', { fail: out });
   assert.equal(paid.result.messages.length, 1);
+});
+
+test('the Pro poster: the app\'s own invitation as one picture, tapped (or its button) into the plans page with Pro chosen', () => {
+  const poster = buildLineProPoster(NOW) as unknown as { altText: string; contents: { size: string; hero: { url: string; aspectRatio: string; action: { uri: string } }; footer: unknown } };
+  assert.ok(poster);
+  assert.equal(poster.contents.size, 'mega');
+  assert.match(poster.contents.hero.url, /^https:\/\/krarok\.com\/line\/pro-kv-v1\.jpg$/);
+  assert.equal(poster.contents.hero.aspectRatio, PRO_POSTER.ratio);
+  assert.match(decodeURIComponent(poster.contents.hero.action.uri), /openPath=\/plans\?tier=pro&from=line/);
+  assert.match(json(poster.contents.footer), /"label":"สมัคร Pro ฿169\/เดือน"/);
+  assert.match(json(poster.contents.footer), /ราคายังไม่รวมค่าธรรมเนียมชำระเงิน/);
+  assert.match(poster.altText, /วันละไม่ถึง ฿6/);
+  // The picture says ฿169: at another price (the ฿159 sale before 16 Nov 2569 03:00) it is not sent, the plans come alone.
+  assert.equal(buildLineProPoster(new Date('2026-11-15T19:00:00Z')), null);
+  assert.equal(buildLineUpgradeMessages('menu', new Date('2026-11-15T19:00:00Z')).length, 1);
+  // First the poster, then the plans; with room for one message only, the plans.
+  assert.deepEqual(buildLineUpgradeMessages('menu', NOW).map(message => (json(message).includes('pro-kv-v1') ? 'poster' : 'plans')), ['poster', 'plans']);
+  assert.equal(buildLineUpgradeMessages('weekly', NOW, 1).length, 1);
+  // The picture is in the app's public files, under LINE's 10 MB.
+  assert.ok(statSync(new URL('../frontend/public/line/pro-kv-v1.jpg', import.meta.url)).size < 1_000_000);
 });
