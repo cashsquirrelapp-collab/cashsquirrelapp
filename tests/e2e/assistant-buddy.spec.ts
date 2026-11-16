@@ -449,15 +449,172 @@ test('computers: docked, the pages keep their text apart at 1280px', async ({ pa
   }
 });
 
-test('narrower screens (iPads upright): no dock, the window floats as before', async ({ page }) => {
-  await openWindow(page, '/jobs', 900, 1100);
-  await expect(win(page).getByTestId('kfw-dock')).toHaveCount(0);
-  const head = await rectOf(page, '.kfw-head');
-  await page.mouse.move(head.x + 70, head.y + 26); await page.mouse.down();
-  await page.mouse.move(900 - 10, head.y + 40, { steps: 8 });
-  await expect(page.getByTestId('kfw-dock-offer')).toHaveCount(0);
-  await page.mouse.up();
-  await expect(win(page)).not.toHaveClass(/is-docked/);
+// iPads (owner, 2026-11-16: "ตรงน้องกระรอกอ่ะ มุมมองอ่ะ ที่ว่าเอาไว้แท็บฝั่งขวา ปรับใช้ในมุมมอง iPad ด้วยนะ"): lying down, the
+// chat docks beside the page as on computers, a little narrower so the page keeps its layout; upright, a page beside it
+// would be narrower than a phone's, so the sheet lies over the page's right side, top to bottom, and the page keeps its
+// width. Fingers drag it to the edge and take its edge by a visible handle.
+async function finger(page: Page, from: { x: number; y: number }) {
+  const cdp = await page.context().newCDPSession(page);
+  let at = from;
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: from.x, y: from.y }] });
+  return {
+    move: async (to: { x: number; y: number }, steps = 8) => {
+      for (let i = 1; i <= steps; i += 1) {
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: at.x + (to.x - at.x) * i / steps, y: at.y + (to.y - at.y) * i / steps }] });
+      }
+      at = to;
+    },
+    up: () => cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }),
+  };
+}
+const IPAD_PAGES = ['/dashboard', '/jobs', '/incomeExpense', '/receivables', '/calendar', '/invoice', '/settings'];
+async function pagesStayWhole(page: Page, name: string) {
+  for (const path of IPAD_PAGES) {
+    await page.evaluate(to => { window.history.pushState({}, '', to); window.dispatchEvent(new PopStateEvent('popstate')); }, path);
+    await page.waitForTimeout(700);
+    await expect(win(page)).toHaveClass(/is-docked/);
+    expect(await textOverlapIssues(page), path).toEqual([]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), path).toBe(true);
+    // Nothing of the page runs out of its card sideways.
+    expect(await page.locator('#main-content').evaluate(el => el.scrollWidth <= el.clientWidth + 1), path).toBe(true);
+    await snap(page, `${name}${path.replace('/', '-')}.png`);
+  }
+}
+async function headerFits(page: Page) {
+  const sheet = await rectOf(page, '.kfw');
+  const items = await page.locator('.kfw-head').evaluate(head => Array.from(head.querySelectorAll('button, .kfw-name, .kfw-dock-face')).map(el => {
+    const r = el.getBoundingClientRect(); return { x: r.x, w: r.width, name: (el as HTMLElement).className };
+  }).filter(item => item.w > 0));
+  for (const item of items) expect(item.x + item.w, item.name).toBeLessThanOrEqual(sheet.x + sheet.w - 4);
+  const sorted = items.sort((a, b) => a.x - b.x);
+  for (let i = 1; i < sorted.length; i += 1) expect(sorted[i].x, `${sorted[i - 1].name} | ${sorted[i].name}`).toBeGreaterThanOrEqual(sorted[i - 1].x + sorted[i - 1].w - 0.5);
+}
+
+test.describe('iPads', () => {
+  test.use({ hasTouch: true });
+
+  for (const dark of [false, true]) {
+    test(`lying down${dark ? ', dark' : ''}: a finger drags the chat to the right edge, it docks beside the page, and its handle resizes it`, async ({ page }) => {
+      await openWindow(page, '/jobs', 1180, 760, dark);
+      const full = await pageCard(page);
+      await expect(win(page).getByTestId('kfw-dock')).toHaveAttribute('aria-label', 'ชิดขวา หน้าแอปหดให้');
+      const head = await rectOf(page, '.kfw-head');
+      const touch = await finger(page, { x: head.x + 70, y: head.y + 26 });
+      await touch.move({ x: 1180 - 140, y: head.y + 40 });
+      await expect(page.getByTestId('kfw-dock-offer')).toHaveCount(0);
+      await touch.move({ x: 1180 - 20, y: head.y + 40 });
+      await expect(page.getByTestId('kfw-dock-offer')).toBeVisible();
+      await snap(page, `ipad-dock-offer${dark ? '-dark' : ''}.png`);
+      await touch.up();
+      await expect(win(page)).toHaveClass(/is-docked/);
+      await expect(win(page)).not.toHaveClass(/is-over/);
+      await settleDock(page);
+      // Top to bottom at the right, narrower than on computers so the page keeps 780px.
+      const docked = await rectOf(page, '.kfw');
+      expect([Math.round(docked.x + docked.w), Math.round(docked.y), Math.round(docked.h), Math.round(docked.w)]).toEqual([1180, 0, 760, 376]);
+      expect(Math.round((await rectOf(page, '.app-sidebar')).w)).toBe(76);
+      const card = await pageCard(page);
+      expect(Math.round(card.x + card.w)).toBe(Math.round(docked.x - 12));
+      expect(card.w).toBeLessThan(full.w - 300);
+      await headerFits(page);
+      expect(await textOverlapIssues(page)).toEqual([]);
+      await snap(page, `ipad-dock-jobs${dark ? '-dark' : ''}.png`);
+      // The handle on its left edge is there for a finger, and the finger resizes it; the page follows.
+      const handle = await rectOf(page, '.kfw-rz.is-w');
+      expect(handle.w).toBeGreaterThanOrEqual(24);
+      expect(await page.locator('.kfw-rz.is-w').evaluate(el => getComputedStyle(el, '::after').height)).toBe('44px');
+      const grip = await finger(page, { x: handle.x + handle.w / 2, y: handle.y + handle.h / 2 });
+      await grip.move({ x: handle.x + handle.w / 2 + 120, y: handle.y + handle.h / 2 });
+      await grip.up();
+      await settleDock(page);
+      const narrow = await rectOf(page, '.kfw');
+      expect(Math.round(narrow.w)).toBe(340);
+      expect(Math.round((await pageCard(page)).x + (await pageCard(page)).w)).toBe(Math.round(narrow.x - 12));
+      await headerFits(page);
+      // A finger dragging its head away floats it again.
+      const dockedHead = await rectOf(page, '.kfw-head');
+      const away = await finger(page, { x: dockedHead.x + dockedHead.w * 0.5, y: dockedHead.y + dockedHead.h / 2 });
+      await away.move({ x: 520, y: 400 });
+      await away.up();
+      await expect(win(page)).not.toHaveClass(/is-docked/);
+      await settleDock(page);
+      expect(Math.round((await pageCard(page)).w)).toBe(Math.round(full.w));
+    });
+  }
+
+  for (const [width, height] of [[1180, 760], [1133, 700], [1080, 760], [1366, 960]] as const) {
+    test(`lying down at ${width}×${height}: docked, every page keeps its text apart and inside its card`, async ({ page }) => {
+      await openWindow(page, '/dashboard', width, height);
+      await win(page).getByRole('button', { name: 'ชิดขวา หน้าแอปหดให้' }).click();
+      await settleDock(page);
+      await headerFits(page);
+      await pagesStayWhole(page, `ipad-${width}`);
+    });
+  }
+
+  for (const dark of [false, true]) {
+    test(`upright${dark ? ', dark' : ''}: the chat docks over the page's right side, top to bottom, and the page keeps its width`, async ({ page }) => {
+      await openWindow(page, '/jobs', 820, 1100, dark);
+      const full = await pageCard(page);
+      const button = win(page).getByTestId('kfw-dock');
+      await expect(button).toHaveAttribute('aria-label', 'ชิดขวาเต็มความสูง');
+      await button.click();
+      await expect(win(page)).toHaveClass(/is-docked/);
+      await expect(win(page)).toHaveClass(/is-over/);
+      await settleDock(page);
+      const sheet = await rectOf(page, '.kfw');
+      expect([Math.round(sheet.x + sheet.w), Math.round(sheet.y), Math.round(sheet.h), Math.round(sheet.w)]).toEqual([820, 0, 1100, 394]);
+      await expect(page.locator('.kfw-perch')).toHaveCount(0);
+      await expect(win(page).locator('.kfw-dock-face')).toBeVisible();
+      // The page is not squeezed: same card, same layout, still in use beside the sheet.
+      expect(await pageCard(page)).toEqual(full);
+      expect(await page.evaluate(() => document.documentElement.classList.contains('has-kfw-dock'))).toBe(false);
+      await headerFits(page);
+      expect(await textOverlapIssues(page)).toEqual([]);
+      await snap(page, `ipad-upright-dock${dark ? '-dark' : ''}.png`);
+      // Its handle resizes it, up to about half the screen.
+      const handle = await rectOf(page, '.kfw-rz.is-w');
+      const grip = await finger(page, { x: handle.x + handle.w / 2, y: handle.y + 300 });
+      await grip.move({ x: handle.x + handle.w / 2 - 300, y: handle.y + 300 });
+      await grip.up();
+      await settleDock(page);
+      expect(Math.round((await rectOf(page, '.kfw')).w)).toBe(394);
+      // Remembered after a reload, and the button floats it again.
+      await page.reload();
+      await page.locator('.asx-buddy-btn').click();
+      await expect(win(page)).toHaveClass(/is-over/);
+      await win(page).getByRole('button', { name: 'แยกเป็นหน้าต่างลอย' }).click();
+      await expect(win(page)).not.toHaveClass(/is-docked/);
+      // A finger dragging it to the right edge docks it again (once it has glided back to where it floated).
+      await settle(page);
+      await settleDock(page);
+      const head = await rectOf(page, '.kfw-head');
+      const touch = await finger(page, { x: head.x + 70, y: head.y + 26 });
+      await touch.move({ x: 820 - 18, y: head.y + 60 });
+      await expect(page.getByTestId('kfw-dock-offer')).toBeVisible();
+      await touch.up();
+      await expect(win(page)).toHaveClass(/is-over/);
+    });
+  }
+
+  test('turned upright and back: over the page upright, beside it lying down, at the width chosen', async ({ page }) => {
+    await openWindow(page, '/jobs', 1180, 760);
+    await win(page).getByRole('button', { name: 'ชิดขวา หน้าแอปหดให้' }).click();
+    await settleDock(page);
+    expect(Math.round((await rectOf(page, '.kfw')).w)).toBe(376);
+    await page.setViewportSize({ width: 820, height: 1100 });
+    await settleDock(page);
+    await expect(win(page)).toHaveClass(/is-over/);
+    expect(await page.evaluate(() => document.documentElement.classList.contains('has-kfw-dock'))).toBe(false);
+    const upright = await rectOf(page, '.kfw');
+    expect([Math.round(upright.x + upright.w), Math.round(upright.h)]).toEqual([820, 1100]);
+    await page.setViewportSize({ width: 1180, height: 760 });
+    await settleDock(page);
+    await expect(win(page)).not.toHaveClass(/is-over/);
+    const back = await rectOf(page, '.kfw');
+    expect(Math.round(back.w)).toBe(376);
+    expect(Math.round((await pageCard(page)).x + (await pageCard(page)).w)).toBe(Math.round(back.x - 12));
+  });
 });
 
 test('computers: while เลขา works, a hologram screen rises in front of the squirrel and its paws tap on it', async ({ page }) => {

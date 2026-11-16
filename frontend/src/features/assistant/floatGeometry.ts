@@ -38,13 +38,24 @@ export function clampRect(rect: Rect, view: Size): Rect {
 }
 
 /**
- * Docked at the right (owner, 2026-11-16): from the top (the squirrel's room kept) to the bottom, against the screen's
- * right edge. `from`: the narrowest screen it docks on; the page card (the sidebar then shows its icons only) keeps at
- * least `page` px beside it, as much as a computer's page is laid out for.
+ * Docked at the right (owner, 2026-11-16): from the top to the bottom, against the screen's right edge, in one of two ways.
+ * - 'side': the page makes room (computers, iPads lying down). From `DOCK.from` the page card (the sidebar then shows its
+ *   icons only) keeps at least `DOCK.page` px beside it, as much as a computer's page is laid out for; on iPads lying down
+ *   (`TABLET_DOCK.side` up to `DOCK.from`) it keeps `TABLET_DOCK.page` px, so the chat starts narrower there.
+ *   Never narrower than `DOCK.min`: its head (squirrel, name, tokens and four buttons) needs that much.
+ * - 'over': iPads upright and narrow windows (owner, 2026-11-16: "ปรับใช้ในมุมมอง iPad ด้วยนะ"): a page beside the chat would
+ *   be narrower than a phone's, so the sheet lies over the page's right side and the page keeps its own layout.
  */
 export const DOCK = { from: 1200, width: 420, min: 340, max: 600, page: 860 };
-export const dockWidth = (width: number, view: Size) =>
-  Math.round(Math.max(DOCK.min, Math.min(width, DOCK.max, view.w - DOCK.page - 2 * EDGE)));
+export const TABLET_DOCK = { side: 1080, over: 744, page: 780, overShare: 0.48 };
+export type DockMode = 'side' | 'over';
+/** How the chat docks on a screen this size; null where it never docks (phones keep their own sheet). */
+export const dockMode = (view: Size): DockMode | null => view.w >= TABLET_DOCK.side ? 'side' : view.w >= TABLET_DOCK.over ? 'over' : null;
+export function dockWidth(width: number, view: Size) {
+  if (view.w >= DOCK.from) return Math.round(Math.max(DOCK.min, Math.min(width, DOCK.max, view.w - DOCK.page - 2 * EDGE)));
+  if (dockMode(view) === 'side') return Math.round(Math.max(DOCK.min, Math.min(width, DOCK.max, view.w - TABLET_DOCK.page - 2 * EDGE)));
+  return Math.round(Math.max(DOCK.min, Math.min(width, DOCK.max, view.w * TABLET_DOCK.overShare)));
+}
 /** Docked: from the very top to the very bottom against the right edge, like the app's side sheets (owner, 2026-11-16:
  *  "ขึ้นมายาวๆแบบนี้เลย"). */
 export function dockRect(width: number, view: Size): Rect {

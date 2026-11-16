@@ -685,4 +685,6 @@ export const assistant: Record<string, string> = {
   "ชิดขวา หน้าแอปหดให้": "Dock at the right, the page makes room",
   "ชิดขวา หน้าแอปหดให้ (หรือลากไปชนขอบขวา)": "Dock at the right, the page makes room (or drag it to the right edge)",
   "วางที่นี่ เพื่อชิดขวา": "Drop here to dock at the right",
+  "ชิดขวาเต็มความสูง": "Dock at the right, full height",
+  "ชิดขวาเต็มความสูง (หรือลากไปชนขอบขวา)": "Dock at the right, full height (or drag it to the right edge)",
 };

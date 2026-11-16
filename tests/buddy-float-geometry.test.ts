@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { bubbleSide, clampRect, clearRect, clearSpot, defaultRect, EDGE, footprint, intersects, mascotSizeFor, MIN_SIZE, overhangFor } from '../frontend/src/features/assistant/floatGeometry.js';
+import { bubbleSide, clampRect, clearRect, clearSpot, defaultRect, DOCK, dockMode, dockRect, dockWidth, EDGE, footprint, intersects, mascotSizeFor, MIN_SIZE, overhangFor } from '../frontend/src/features/assistant/floatGeometry.js';
 
 // The floating เลขากระรอก window (owner's brief "FLOATING TOP MASCOT CHAT UI V2", 2026-10-26): where it may sit.
 const view = { w: 1280, h: 820 };
@@ -62,4 +62,28 @@ test('the folded squirrel finds a free corner, and its words go to a side with r
   assert.equal(bubbleSide({ x: 20, y: 400, w: 76, h: 76 }, { w: 240, h: 56 }, [], view), 'right');
   assert.equal(bubbleSide({ x: 600, y: 716, w: 76, h: 76 }, { w: 240, h: 56 }, [{ x: 300, y: 712, w: 290, h: 100 }, { x: 686, y: 712, w: 300, h: 100 }], view), 'above');
   assert.equal(bubbleSide(anchor, { w: 240, h: 56 }, [{ x: 0, y: 0, w: 1280, h: 712 }, { x: 900, y: 700, w: 270, h: 120 }], view), 'none');
+});
+
+// Docked at the right (owner, 2026-11-16), and on iPads too ("ปรับใช้ในมุมมอง iPad ด้วยนะ"): beside the page on computers and
+// iPads lying down, over the page's right side on iPads upright and narrow windows, never on phones.
+test('how the chat docks follows the screen: beside the page from 1080px, over it from 744px, never on phones', () => {
+  assert.equal(dockMode({ w: 1440, h: 900 }), 'side');
+  for (const w of [1366, 1194, 1180, 1133, 1080]) assert.equal(dockMode({ w, h: 800 }), 'side', `iPad lying down ${w}`);
+  for (const w of [1032, 1024, 834, 820, 810, 744]) assert.equal(dockMode({ w, h: 1100 }), 'over', `iPad upright ${w}`);
+  assert.equal(dockMode({ w: 430, h: 932 }), null);
+});
+
+test('docked widths: computers keep an 860px page, iPads lying down 780px, upright the sheet takes at most about half', () => {
+  assert.equal(dockWidth(DOCK.width, { w: 1440, h: 900 }), 420);
+  assert.equal(dockWidth(DOCK.width, { w: 1280, h: 820 }), 396);
+  assert.equal(dockWidth(DOCK.width, { w: 1180, h: 760 }), 376);
+  // Never narrower than its head needs, even where the page then keeps a little less.
+  assert.equal(dockWidth(DOCK.width, { w: 1133, h: 700 }), 340);
+  assert.equal(dockWidth(DOCK.width, { w: 1080, h: 760 }), 340);
+  assert.equal(dockWidth(200, { w: 1440, h: 900 }), 340);
+  assert.equal(dockWidth(DOCK.width, { w: 820, h: 1180 }), 394);
+  assert.equal(dockWidth(DOCK.width, { w: 744, h: 1133 }), 357);
+  assert.equal(dockWidth(900, { w: 1024, h: 1366 }), 492);
+  // Top to bottom against the right edge.
+  assert.deepEqual(dockRect(DOCK.width, { w: 820, h: 1180 }), { x: 426, y: 0, w: 394, h: 1180 });
 });

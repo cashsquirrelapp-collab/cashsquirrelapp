@@ -5,7 +5,7 @@ import { Maximize2, Minus, PanelRight, PictureInPicture2, X } from 'lucide-react
 import { Mascot, type MascotMood } from '../../components/mascot/Mascot';
 import { MascotPeek } from '../../components/mascot/MascotPeek';
 import { tr } from '../../i18n/tr';
-import { bubbleSide, clampRect, clearRect, clearSpot, defaultRect, DOCK, dockRect, dockWidth, EDGE, footprint, intersects, mascotSizeFor, MIN_SIZE, overhangFor, type Rect, type Size } from './floatGeometry';
+import { bubbleSide, clampRect, clearRect, clearSpot, defaultRect, DOCK, dockMode, dockRect, dockWidth, EDGE, footprint, intersects, mascotSizeFor, MIN_SIZE, overhangFor, type Rect, type Size } from './floatGeometry';
 
 // The floating เลขากระรอก window on computers and iPads (owner's brief "FLOATING TOP MASCOT CHAT UI V2", 2026-10-26):
 // the official squirrel perches on the middle of the window's top edge, paws on the edge, with its name on a dark
@@ -21,11 +21,13 @@ const miniKey = (accountId?: string) => `krarok.buddy.mini.${accountId || 'guest
 // Docked at the right (owner, 2026-11-16: "ลากเมาส์ไปไว้มุมขวาสุดแล้วมันก็จะมีช่องให้ใส่ ... บีบ UI ของฝั่ง preview ... ย่นลงมา
 // อีกนิดนึง เวลาพิมพ์อะไรกรอกอะไรมันจะได้แบบดูง่ายมากขึ้น"): whether it is, and how wide.
 const dockKey = (accountId?: string) => `krarok.buddy.dock.${accountId || 'guest'}`;
+// `w` is the width the user chose; each screen fits it to its own room (dockWidth), so turning an iPad and back keeps it.
 type DockSaved = { on: boolean; w: number };
-/** The page makes room for the docked chat only where the page is a card beside the sidebar (computers, iPads lying down). */
-const canDock = () => window.innerWidth >= DOCK.from;
 /** How near the screen's right edge the pointer must be, while the window is dragged, for the dock to offer itself. */
 const DOCK_REACH = 56;
+/** Docked narrower than this, the head has no room for the name beside the squirrel, the tokens and the four buttons, so
+ *  the name is read out only (the squirrel's face says who it is); 340-379px sheets are iPads lying down, or chosen. */
+const NAMED_FROM = 380;
 // `max` and `restore` were written while the window could be maximised in place (until 2026-10-27).
 type Saved = { rect: Rect; max?: boolean; restore?: Rect };
 function load<T>(key: string): T | null {
@@ -129,10 +131,14 @@ export function FloatingWindow({ accountId, shown, mood, busy = false, label, no
   const [moving, setMoving] = React.useState<null | Edge | 'move'>(null);
   const [dock, setDock] = React.useState<DockSaved>(() => {
     const saved = load<DockSaved>(dockKey(accountId));
-    return saved && typeof saved.w === 'number' ? { on: saved.on === true, w: dockWidth(saved.w, view()) } : { on: false, w: DOCK.width };
+    return saved && typeof saved.w === 'number' && Number.isFinite(saved.w) ? { on: saved.on === true, w: saved.w } : { on: false, w: DOCK.width };
   });
-  const [wide, setWide] = React.useState(canDock);
-  const docked = dock.on && wide;
+  // The screen's size: whether and how the chat docks follows it (an iPad turned upright docks over the page instead).
+  const [screen, setScreen] = React.useState<Size>(view);
+  const mode = dockMode(screen);
+  const docked = dock.on && mode !== null;
+  const side = docked && mode === 'side';
+  const dockW = dockWidth(dock.w, screen);
   const dockRef = React.useRef(dock); dockRef.current = dock;
   const dockedRef = React.useRef(docked); dockedRef.current = docked;
   // The outline at the right while the window is dragged near the edge: let go and it docks there.
@@ -158,18 +164,19 @@ export function FloatingWindow({ accountId, shown, mood, busy = false, label, no
 
   // Keep inside the screen when the browser window changes size.
   React.useEffect(() => {
-    const onResize = () => { setRect(r => clampRect(r, view())); setWide(canDock()); setDock(d => ({ ...d, w: dockWidth(d.w, view()) })); };
+    const onResize = () => { setRect(r => clampRect(r, view())); setScreen(view()); };
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
-  // The page makes room for the docked chat: the page card ends a gap before it (index.css, html.has-kfw-dock).
+  // The page makes room for the chat docked beside it: the page card ends a gap before it (index.css, html.has-kfw-dock).
+  // Docked over the page (iPads upright), the page keeps its width.
   React.useEffect(() => {
     const root = document.documentElement;
-    if (docked && shown) { root.classList.add('has-kfw-dock'); root.style.setProperty('--kfw-dock', `${dock.w}px`); }
+    if (side && shown) { root.classList.add('has-kfw-dock'); root.style.setProperty('--kfw-dock', `${dockW}px`); }
     else root.classList.remove('has-kfw-dock');
     return () => root.classList.remove('has-kfw-dock');
-  }, [docked, shown, dock.w]);
+  }, [side, shown, dockW]);
 
   // Opening the folded squirrel again over a preview is the user's choice: the chat may move aside but stays open.
   const wasShown = React.useRef(shown);
@@ -181,7 +188,8 @@ export function FloatingWindow({ accountId, shown, mood, busy = false, label, no
   // Keep clear of document previews (brief §5): move, then shrink, then fold into the squirrel. When the previews close,
   // go back to where the user had it, unless they moved it meanwhile.
   React.useEffect(() => {
-    // Docked, the chat is beside the page, not over it: previews in the page never reach it.
+    // Docked, the chat stays where the user put it: beside the page, previews never reach it; over the page (iPads
+    // upright), covering its right side was the user's choice, and the button floats it again.
     if (moving || docked) return;
     const auto = autoRef.current;
     if (!zones.key) {
@@ -206,11 +214,13 @@ export function FloatingWindow({ accountId, shown, mood, busy = false, label, no
     event.preventDefault();
     const el = windowRef.current;
     const wasDocked = dockedRef.current;
+    const besidePage = wasDocked && dockMode(view()) === 'side';
     let start = rectRef.current;
     let sx = event.clientX, sy = event.clientY;
     let latest = start;
     let started = false;
-    let width = dockRef.current.w;
+    const startWidth = dockWidth(dockRef.current.w, view());
+    let width = startWidth;
     const onMove = (e: PointerEvent) => {
       const dx = e.clientX - sx, dy = e.clientY - sy;
       if (!started && Math.hypot(dx, dy) < 4) return;
@@ -226,15 +236,15 @@ export function FloatingWindow({ accountId, shown, mood, busy = false, label, no
       }
       if (wasDocked && edge === 'w') {
         // Docked, only its left edge moves: the chat wider or narrower, the page beside it the other way.
-        width = dockWidth(dockRef.current.w - (e.clientX - event.clientX), view());
+        width = dockWidth(startWidth - (e.clientX - event.clientX), view());
         const box = dockRect(width, view());
-        if (el) Object.assign(el.style, { left: `${box.x}px`, width: `${box.w}px` });
-        document.documentElement.style.setProperty('--kfw-dock', `${width}px`);
+        if (el) { Object.assign(el.style, { left: `${box.x}px`, width: `${box.w}px` }); el.classList.toggle('is-narrow', box.w < NAMED_FROM); }
+        if (besidePage) document.documentElement.style.setProperty('--kfw-dock', `${width}px`);
         return;
       }
       latest = resized(start, edge, e.clientX - sx, e.clientY - sy, view());
       if (el) Object.assign(el.style, { left: `${latest.x}px`, top: `${latest.y}px`, width: `${latest.w}px`, height: `${latest.h}px` });
-      if (edge === 'move') showOffer(canDock() && e.clientX >= view().w - DOCK_REACH);
+      if (edge === 'move') showOffer(dockMode(view()) !== null && e.clientX >= view().w - DOCK_REACH);
     };
     const onUp = () => {
       window.removeEventListener('pointermove', onMove);
@@ -268,12 +278,15 @@ export function FloatingWindow({ accountId, shown, mood, busy = false, label, no
     userPlaced(event.altKey ? clampRect({ ...r, w: r.w + d[0], h: r.h + d[1] }, view()) : clampRect({ ...r, x: r.x + d[0], y: r.y + d[1] }, view()));
   };
 
-  const box = docked ? dockRect(dock.w, view()) : rect;
+  const box = docked ? dockRect(dock.w, screen) : rect;
   const size = mascotSizeFor(box.w);
   const toggleDock = () => { snap(); keepDock({ ...dock, on: !dock.on }); };
-  const outline = dockRect(dock.w, view());
+  const outline = dockRect(dock.w, screen);
+  // Beside the page the page makes room; over it (iPads upright) the sheet just runs top to bottom at the right.
+  const dockLabel = mode === 'over' ? tr("ชิดขวาเต็มความสูง") : tr("ชิดขวา หน้าแอปหดให้");
+  const dockTitle = mode === 'over' ? tr("ชิดขวาเต็มความสูง (หรือลากไปชนขอบขวา)") : tr("ชิดขวา หน้าแอปหดให้ (หรือลากไปชนขอบขวา)");
   return (
-    <motion.div ref={windowRef} className={`kfw${moving ? ' is-moving' : ''}${shown ? '' : ' is-folded'}${docked ? ' is-docked' : ''}${snapping ? ' is-snapping' : ''}`} role="dialog" aria-modal="false" aria-label={label}
+    <motion.div ref={windowRef} className={`kfw${moving ? ' is-moving' : ''}${shown ? '' : ' is-folded'}${docked ? ' is-docked' : ''}${docked && !side ? ' is-over' : ''}${docked && dockW < NAMED_FROM ? ' is-narrow' : ''}${snapping ? ' is-snapping' : ''}`} role="dialog" aria-modal="false" aria-label={label}
       aria-hidden={!shown || undefined} inert={!shown || undefined}
       style={{ left: box.x, top: box.y, width: box.w, height: box.h, ['--kfw-perch' as string]: `${size}px` }}
       initial={reduce ? false : { opacity: 0, scale: 0.96, y: 12 }} animate={shown ? { opacity: 1, scale: 1, y: 0 } : { opacity: 0, scale: 0.92, y: 6 }}
@@ -288,18 +301,22 @@ export function FloatingWindow({ accountId, shown, mood, busy = false, label, no
       )}
       <div className="kfw-shell">
         <header className="kfw-head" onPointerDown={begin('move')} onDoubleClick={event => { if (!(event.target as HTMLElement).closest('button')) reset(); }}>
-          <button type="button" className="kfw-grip" onKeyDown={onGripKey}
-            aria-label={tr("ย้ายหน้าต่าง: ลากหรือใช้ปุ่มลูกศร · Alt + ลูกศรเพื่อปรับขนาด · Home เพื่อคืนตำแหน่งเดิม")} title={tr("ลากเพื่อย้าย · ดับเบิลคลิกเพื่อคืนตำแหน่งเดิม")}>
-            <svg viewBox="0 0 10 16" width="8" height="13" aria-hidden="true">{[3, 8, 13].flatMap(y => [2.5, 7.5].map(x => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.3" fill="currentColor" />))}</svg>
-          </button>
+          {/* Docked, the window has no place of its own to move to (its head still drags it away), so the grip goes and
+              leaves its room to the buttons on a narrow sheet (iPads lying down). */}
+          {!docked && (
+            <button type="button" className="kfw-grip" onKeyDown={onGripKey}
+              aria-label={tr("ย้ายหน้าต่าง: ลากหรือใช้ปุ่มลูกศร · Alt + ลูกศรเพื่อปรับขนาด · Home เพื่อคืนตำแหน่งเดิม")} title={tr("ลากเพื่อย้าย · ดับเบิลคลิกเพื่อคืนตำแหน่งเดิม")}>
+              <svg viewBox="0 0 10 16" width="8" height="13" aria-hidden="true">{[3, 8, 13].flatMap(y => [2.5, 7.5].map(x => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.3" fill="currentColor" />))}</svg>
+            </button>
+          )}
           {docked && <span className="kfw-dock-face" aria-hidden="true"><Mascot gear="headset" mood={mood} animated={false} size={30} viewBox="12 8 76 76" /></span>}
           {corner}
           <span className="kfw-name">{tr("เลขากระรอก")}</span>
           <span className="asx-sr">{note}</span>
           <div className="kfw-controls">
-            {wide && (
+            {mode !== null && (
               <button type="button" className="kfw-ctrl" onClick={toggleDock} aria-pressed={docked} data-testid="kfw-dock"
-                aria-label={docked ? tr("แยกเป็นหน้าต่างลอย") : tr("ชิดขวา หน้าแอปหดให้")} title={docked ? tr("แยกเป็นหน้าต่างลอย") : tr("ชิดขวา หน้าแอปหดให้ (หรือลากไปชนขอบขวา)")}>
+                aria-label={docked ? tr("แยกเป็นหน้าต่างลอย") : dockLabel} title={docked ? tr("แยกเป็นหน้าต่างลอย") : dockTitle}>
                 {docked ? <PictureInPicture2 size={15} /> : <PanelRight size={15} />}
               </button>
             )}
