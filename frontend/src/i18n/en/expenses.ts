@@ -81,4 +81,12 @@ export const expenses: Record<string, string> = {
   "บัญชีที่อ่านได้จากสลิป แสดงแค่ธนาคารกับเลข 4 ตัวท้าย ตั้งชื่อให้จำง่ายได้ เช่น บัญชีธุรกิจ": "Accounts read from slips show only the bank and the last 4 digits. Give them names that are easy to remember, such as Business account",
   "เช่น บัญชีธุรกิจ": "e.g. Business account",
   "ชื่อของ {0}": "Name of {0}",
+  // The account's own categories (2026-11-16).
+  'กรุณาระบุชื่อหมวดหมู่': 'Please enter a category name',
+  'หมวดหมู่ของฉัน': 'My categories',
+  '+ เพิ่มหมวดหมู่ใหม่': '+ Add a new category',
+  'ชื่อหมวดหมู่ใหม่': 'New category name',
+  'หมวดหมู่ใหม่จะอยู่ในรายการตลอด ใช้ได้ทั้งในแอป, LINE และเลขากระรอก': 'A new category stays in the list, in the app, LINE and Krarok Assistant.',
+  'ลบหมวดหมู่ {0}': 'Remove the category {0}',
+  'ลบออกจากรายการ (รายจ่ายที่บันทึกไว้แล้วไม่เปลี่ยน)': 'Remove from the list (saved expenses keep it)',
 };

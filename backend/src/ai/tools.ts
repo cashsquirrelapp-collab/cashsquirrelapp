@@ -6,6 +6,7 @@ import { isValidWhtRate, whtAmountFor, roundMoney } from '../../../shared/wht.js
 import { calculatePayDate } from '../../../shared/calendar.js';
 import { jobsInMonth, monthlyProfitSummary } from '../../../shared/monthlySummary.js';
 import { buildDataSnapshot, formatAssistantMonthlySummary, type UserRow } from '../services/lineAssistant.js';
+import { ownCategories } from '../../../shared/expenseCategory.js';
 import { knowledgeSnippets, lookupKnowledge } from './knowledge.js';
 import { launched } from './knowledgeBase.js';
 import { moneyChartDisplay, moneyChartFrom } from './moneyChart.js';
@@ -294,9 +295,11 @@ export function applyCardEdit(tool: string, args: Record<string, unknown>, field
 export const APP_EXPENSE_CATEGORIES = ['ค่าอุปกรณ์/ซอฟต์แวร์', 'ค่าโฆษณา/ยิงแอด', 'ค่าเดินทาง/น้ำมัน', 'อาหาร/รับรองลูกค้า', 'จ้างงานต่อ (Outsource)', 'ภาษี/ธรรมเนียม', 'ค่าบริการ/สาธารณูปโภค', 'อื่นๆ'];
 /** A category on an expense card is picked from the app's list and the account's own categories (owner, 2026-10-25). */
 export function categoryOptions(current: string, user?: UserRow): string[] {
+  // The account's own categories (Settings) first, then names its past expenses used that are in no list.
+  const kept = ownCategories(user?.settings);
   const own = ((user?.expenses ?? []) as { category?: unknown }[]).map(row => String(row.category ?? '').trim()).filter(Boolean);
-  const custom = [...new Set(own)].filter(category => !APP_EXPENSE_CATEGORIES.includes(category)).slice(0, 6);
-  return [...new Set([...APP_EXPENSE_CATEGORIES, ...custom, ...(current ? [current] : [])])];
+  const custom = [...new Set(own)].filter(category => !APP_EXPENSE_CATEGORIES.includes(category) && !kept.includes(category)).slice(0, 6);
+  return [...new Set([...APP_EXPENSE_CATEGORIES, ...kept, ...custom, ...(current ? [current] : [])])];
 }
 /**
  * A waiting proposal's card as it was first shown, with its editable fields, to show it again in the other channel

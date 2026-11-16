@@ -13,6 +13,7 @@ import type { Expense, Goal } from '../../../shared/types.js';
 import type { LineMessage } from './line.js';
 import { appOrigin } from '../config/env.js';
 import { parseLineJobRequest, parseLineQuickDraft } from './lineQuickDraft.js';
+import { ownCategories } from '../../../shared/expenseCategory.js';
 import { getLineAiPolicy, compactLineAiContext } from './lineAiPolicy.js';
 import { listVaultFiles } from './vault.js';
 import { lineDraftKey, lineDraftOperationId, buildLineDraftReview, lineDraftEditLink } from './lineDraftReview.js';
@@ -1291,7 +1292,7 @@ async function keepAiQuestions(user: UserRow, state: PendingAiQuestions | null):
 
 /** What the questions need from the account: today, its jobs (clients and their rates) and the draft's form. */
 function questionContext(user: UserRow, editUrl?: string): QuestionContext {
-  return { today: bangkokDay(), jobs: (user.jobs || []) as QuestionContext['jobs'], ...(editUrl ? { editUrl } : {}) };
+  return { today: bangkokDay(), jobs: (user.jobs || []) as QuestionContext['jobs'], ownCategories: ownCategories(user.settings), ...(editUrl ? { editUrl } : {}) };
 }
 
 /** Saves the job draft, then asks the next question about it, or shows its card when nothing is missing. */
@@ -1565,7 +1566,7 @@ async function handleAssistantMessageInner(
     if (answer) return continueJobDraft(user, { ...pendingDraft, ...answer }, false, dependencies);
   }
   if (!freshRecord?.freshDraft && pendingExpenseDraft?.asking && (!pendingDraft || !jobNewest)) {
-    const answer = answerExpenseQuestion(pendingExpenseDraft.asking as ExpenseQuestion, trimmed, pendingExpenseDraft);
+    const answer = answerExpenseQuestion(pendingExpenseDraft.asking as ExpenseQuestion, trimmed, pendingExpenseDraft, ownCategories(user.settings));
     if (answer) return continueExpenseDraft(user, { ...pendingExpenseDraft, ...answer }, false, dependencies);
   }
   const quickDraft = parseLineQuickDraft(trimmed, { pendingJob: pendingDraft, pendingExpense: pendingExpenseDraft }) ?? parseLineJobRequest(trimmed);

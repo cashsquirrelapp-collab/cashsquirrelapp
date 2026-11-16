@@ -14,6 +14,7 @@ import { Mascot } from '../../components/mascot/Mascot';
 import NumberInput from '../../components/ui/NumberInput';
 import { DashboardPeriodPicker } from '../dashboard/DashboardPeriodPicker';
 import ExpenseDrawer, { EXPENSE_CATEGORIES, categoryLabel, categoryText } from './ExpenseDrawer';
+import { ownCategories } from '../../../../shared/expenseCategory';
 import { SheetExpensesLine, SheetRowLine } from '../labs/SheetSource';
 import type { SheetExpenseChanges } from '../labs/sheetSync';
 import { LEGACY_FIXED_NAME, buildExpenseMonth, sortExpenseRows, type ExpenseRow, type ExpenseSort } from './expenseMonth';
@@ -149,7 +150,8 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
     return own ? <span className={`block min-w-0 ${className}`}><AccountTag account={own} names={settings.accountNames} /></span> : null;
   };
   // Only real production categories (plus any historical label still in use this month).
-  const categoryOptions = Array.from(new Set([...EXPENSE_CATEGORIES, ...month.rows.filter(r => r.category).map(r => categoryLabel(r.category))]));
+  // The app's categories, the account's own (Settings), and any other label still in use this month.
+  const categoryOptions = Array.from(new Set([...EXPENSE_CATEGORIES, ...ownCategories(settings), ...month.rows.filter(r => r.category).map(r => categoryLabel(r.category))]));
   const filtersActive = typeFilter !== 'all' || category !== 'all' || accountFilter !== 'all' || Boolean(query);
 
   const openAdd = (preset?: { name: string; amount: number; recurring: boolean }) => setDrawer({ expense: null, preset });

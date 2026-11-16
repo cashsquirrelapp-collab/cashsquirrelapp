@@ -338,7 +338,7 @@ export function questionsLeft(batch: EntryBatch, jobs: OpenJob[] = []): number {
   return undated >= 2 && !batch.oneByOne ? all - undated + 1 : all;
 }
 
-function questionFor(batch: EntryBatch, entry: Entry, field: EntryField, jobs: OpenJob[]): EntryQuestion {
+function questionFor(batch: EntryBatch, entry: Entry, field: EntryField, jobs: OpenJob[], categories: readonly string[]): EntryQuestion {
   const head = `ข้อ ${entry.line} ${quote(entry)}`;
   const base = { field, lines: [entry.line] };
   const one = (ask: string) => `ข้อ ${entry.line} ${named(entry)}${entry.amount !== null ? ` ${baht(entry.amount)}` : ''} · ${ask}`;
@@ -359,14 +359,15 @@ function questionFor(batch: EntryBatch, entry: Entry, field: EntryField, jobs: O
   }
   if (field === 'credit') return { ...base, typed: true, text: `${head}\nลูกค้าจ่ายภายในกี่วันหลังส่งงานครับ (เครดิตเทอม)`, label: one('ลูกค้าจ่ายภายในกี่วันหลังส่งงาน'),
     options: ['ไม่มีเครดิต', '7 วัน', '15 วัน', '30 วัน', '45 วัน', '60 วัน'] };
-  return { ...base, text: `${head}\nอยู่หมวดไหนครับ`, label: one('อยู่หมวดไหน'), options: [...EXPENSE_CATEGORIES] };
+  return { ...base, text: `${head}\nอยู่หมวดไหนครับ`, label: one('อยู่หมวดไหน'), options: [...categories] };
 }
 
 /**
  * The next questions, at most `max` (LINE asks one, the app's card up to five), or [] when every line is complete. Several
  * lines without a day are asked about together first ("วันนี้ทั้งหมด"); then each line's first missing detail, in order.
  */
-export function questionsFor(batch: EntryBatch, jobs: OpenJob[] = [], max = 1): EntryQuestion[] {
+/** `categories`: the account's expense categories (the app's and its own, shared/expenseCategory.ts allExpenseCategories). */
+export function questionsFor(batch: EntryBatch, jobs: OpenJob[] = [], max = 1, categories: readonly string[] = EXPENSE_CATEGORIES): EntryQuestion[] {
   const live = batch.entries.filter(entry => !entry.skip);
   const out: EntryQuestion[] = [];
   const undated = live.filter(entry => missingOf(entry, jobs).includes('date'));
@@ -382,7 +383,7 @@ export function questionsFor(batch: EntryBatch, jobs: OpenJob[] = [], max = 1): 
     if (out.length >= max) break;
     const field = missingOf(entry, jobs).find(item => !(together && item === 'date'));
     // A line whose kind is not known yet is asked only that first; its other details depend on the answer.
-    if (field) out.push(questionFor(batch, entry, field, jobs));
+    if (field) out.push(questionFor(batch, entry, field, jobs, categories));
   }
   return out.slice(0, max);
 }
@@ -396,7 +397,7 @@ const isoIn = (text: string) => /(\d{4}-\d{2}-\d{2})/.exec(text)?.[1] ?? null;
  * The answer to the question waiting, or null when the message is not an answer (it goes on as a new message). "ไม่บันทึก
  * รายการนี้" leaves the line out (said so on the cards); "ยกเลิกทั้งหมด" is handled by the caller.
  */
-export function answerQuestion(batch: EntryBatch, question: EntryQuestion, input: string, jobs: OpenJob[] = []): EntryBatch | null {
+export function answerQuestion(batch: EntryBatch, question: EntryQuestion, input: string, jobs: OpenJob[] = [], categories: readonly string[] = EXPENSE_CATEGORIES): EntryBatch | null {
   // The app's question card sends "<question>: <answer>"; LINE sends the tap itself.
   const said = tidy(/[:：]/.test(input) ? input.replace(ANSWER_SPLIT, '') : input);
   if (!said || said.length > 120) return null;
@@ -463,7 +464,7 @@ export function answerQuestion(batch: EntryBatch, question: EntryQuestion, input
       return next;
     }
     case 'category': {
-      const category = EXPENSE_CATEGORIES.find(item => item === said) ?? EXPENSE_CATEGORIES.find(item => item.includes(said) || said.includes(item.split('/')[0]))
+      const category = categories.find(item => item === said) ?? categories.find(item => item.includes(said) || said.includes(item.split('/')[0]))
         ?? guessExpenseCategory(said);
       if (!category) return null;
       targets.forEach(entry => { entry.category = category; });
@@ -477,18 +478,18 @@ export function answerQuestion(batch: EntryBatch, question: EntryQuestion, input
  * The answers to the questions asked: LINE's one tap is the whole message; the app's card sends one line per question,
  * "<label>: <answer>". Null when nothing in the message answers them (it goes on as a new message).
  */
-export function answerQuestions(batch: EntryBatch, questions: EntryQuestion[], input: string, jobs: OpenJob[] = []): EntryBatch | null {
+export function answerQuestions(batch: EntryBatch, questions: EntryQuestion[], input: string, jobs: OpenJob[] = [], categories: readonly string[] = EXPENSE_CATEGORIES): EntryBatch | null {
   if (!questions.length) return null;
   if (questions.length === 1 && !input.includes('\n')) {
     const label = questions[0].label;
-    return answerQuestion(batch, questions[0], input.startsWith(`${label}:`) ? input.slice(label.length + 1) : input, jobs);
+    return answerQuestion(batch, questions[0], input.startsWith(`${label}:`) ? input.slice(label.length + 1) : input, jobs, categories);
   }
   let current: EntryBatch | null = null;
   const lines = input.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
   for (const question of questions) {
     const line = lines.find(item => item.startsWith(`${question.label}:`));
     if (!line) continue;
-    const next = answerQuestion(current ?? batch, question, line.slice(question.label.length + 1), jobs);
+    const next = answerQuestion(current ?? batch, question, line.slice(question.label.length + 1), jobs, categories);
     if (next) current = next;
   }
   return current;

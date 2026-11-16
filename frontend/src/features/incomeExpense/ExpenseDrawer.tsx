@@ -3,7 +3,7 @@ import { ownMonthlyExpense } from '../../../../shared/monthlySummary';
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { CalendarDays, FileText, Paperclip, Upload, X } from 'lucide-react';
+import { CalendarDays, FileText, Paperclip, Plus, Upload, X } from 'lucide-react';
 import { AppSettings, Expense } from '../../../../shared/types';
 import { sumFixedExpenseItems, toLocalDateKey } from '../../utils';
 import NumberInput from '../../components/ui/NumberInput';
@@ -11,6 +11,7 @@ import { LEGACY_FIXED_NAME } from './expenseMonth';
 import { isVaultFileType, readyVaultFiles, useVaultMaybe } from '../vault/VaultProvider';
 import { expenseFiles } from '../vault/vaultStatus';
 import { VAULT_ACCEPT, VAULT_MAX_BYTES, formatFileSize } from '../../../../shared/vault';
+import { ownCategories, withCategory } from '../../../../shared/expenseCategory';
 
 import { tr, T } from '../../i18n/tr';
 import { useMobileLayout } from '../mobile/useMobileLayout';
@@ -27,6 +28,8 @@ export const EXPENSE_CATEGORIES = [
   T("อื่นๆ"),
 ];
 const OTHER_CATEGORY = T("อื่นๆ");
+/** The select's last choice: a category of the account's own (owner, 2026-11-16: "รายจ่ายให้ทุกคนสามารถเพิ่มประเภทได้"). */
+const NEW_CATEGORY = '__new__';
 
 // Records saved before the Thai category list stored English keys.
 const LEGACY_CATEGORY_LABELS: Record<string, string> = {
@@ -95,6 +98,20 @@ export default function ExpenseDrawer({ open, expense, preset, settings, onUpdat
   const [date, setDate] = React.useState(toLocalDateKey());
   const [category, setCategory] = React.useState(EXPENSE_CATEGORIES[0]);
   const [customCategory, setCustomCategory] = React.useState('');
+  // A category of the account's own, kept in Settings and offered from then on in the app, LINE and เลขา's cards.
+  const own = ownCategories(settings);
+  const [newCategory, setNewCategory] = React.useState('');
+  const [categoryProblem, setCategoryProblem] = React.useState<string | null>(null);
+  const keepCategories = (list: string[]) => onUpdateSettings({ ...settings, expenseCategories: list });
+  const addCategory = () => {
+    const name = newCategory.replace(/\s+/g, ' ').trim();
+    if (!name) { setCategoryProblem(tr("กรุณาระบุชื่อหมวดหมู่")); return null; }
+    const list = withCategory(settings, name);
+    if (list.length !== own.length) keepCategories(list);
+    const chosen = EXPENSE_CATEGORIES.find(item => item === name) ?? list.find(item => item.toLowerCase() === name.toLowerCase()) ?? name;
+    setCategory(chosen); setNewCategory(''); setCategoryProblem(null);
+    return chosen;
+  };
   const [note, setNote] = React.useState('');
   const [recurring, setRecurring] = React.useState(false);
   const [errors, setErrors] = React.useState<{ name?: string; amount?: string; date?: string }>({});
@@ -109,7 +126,8 @@ export default function ExpenseDrawer({ open, expense, preset, settings, onUpdat
     setAmount(expense ? String(expense.amount) : preset ? String(preset.amount) : '');
     setDate(expense?.date ?? toLocalDateKey());
     const savedCategory = expense ? categoryLabel(expense.category) : EXPENSE_CATEGORIES[0];
-    if (EXPENSE_CATEGORIES.includes(savedCategory)) {
+    setNewCategory(''); setCategoryProblem(null);
+    if (EXPENSE_CATEGORIES.includes(savedCategory) || ownCategories(settings).includes(savedCategory)) {
       setCategory(savedCategory);
       setCustomCategory('');
     } else {
@@ -140,7 +158,16 @@ export default function ExpenseDrawer({ open, expense, preset, settings, onUpdat
     setErrors(next);
     if (next.name || next.amount || next.date) return;
 
-    const finalCategory = category === OTHER_CATEGORY ? customCategory.trim() || OTHER_CATEGORY : category;
+    let finalCategory = category === OTHER_CATEGORY ? customCategory.trim() || OTHER_CATEGORY : category;
+    if (category === NEW_CATEGORY) {
+      const added = addCategory();
+      if (!added) return;
+      finalCategory = added;
+    } else if (category === OTHER_CATEGORY && customCategory.trim()) {
+      // A name typed under "อื่นๆ" is kept too, so it is in the list next time.
+      const list = withCategory(settings, customCategory);
+      if (list.length !== own.length) keepCategories(list);
+    }
     const payload = { name: name.trim(), amount: value, category: finalCategory, date, note };
     const id = expense?.id ?? crypto.randomUUID();
     if (expense) onEdit(expense.id, payload); else onAdd({ ...payload, id });
@@ -237,9 +264,41 @@ export default function ExpenseDrawer({ open, expense, preset, settings, onUpdat
               </div>
               <div>
                 <label htmlFor="expense-category" className={label}>{tr("หมวดหมู่")}{' '}<span className="text-[#C43A3A]">*</span></label>
-                <select id="expense-category" value={category} onChange={(e) => { setCategory(e.target.value); if (e.target.value !== OTHER_CATEGORY) setCustomCategory(''); }} className={`${input()} cursor-pointer`}>
-                  {EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{tr(c)}</option>)}
+                <select id="expense-category" value={category} onChange={(e) => { setCategory(e.target.value); setCategoryProblem(null); if (e.target.value !== OTHER_CATEGORY) setCustomCategory(''); }} className={`${input()} cursor-pointer`}>
+                  {EXPENSE_CATEGORIES.filter(c => c !== OTHER_CATEGORY).map(c => <option key={c} value={c}>{tr(c)}</option>)}
+                  {own.length > 0 && <optgroup label={tr("หมวดหมู่ของฉัน")}>{own.map(c => <option key={c} value={c}>{c}</option>)}</optgroup>}
+                  {/* A category removed from the list stays on the records that have it. */}
+                  {category && ![...EXPENSE_CATEGORIES, ...own, NEW_CATEGORY].includes(category) && <option value={category}>{category}</option>}
+                  <option value={OTHER_CATEGORY}>{tr(OTHER_CATEGORY)}</option>
+                  <option value={NEW_CATEGORY}>{tr("+ เพิ่มหมวดหมู่ใหม่")}</option>
                 </select>
+                {category === NEW_CATEGORY && (
+                  <div className="mt-2 rounded-[10px] bg-brand-faint/70 p-3" data-testid="expense-new-category">
+                    <label htmlFor="expense-new-category" className={label}>{tr("ชื่อหมวดหมู่ใหม่")}</label>
+                    <div className="flex gap-2">
+                      <input id="expense-new-category" type="text" autoFocus maxLength={60} value={newCategory} placeholder={tr("เช่น ค่าดูแลสัตว์เลี้ยง")}
+                        onChange={(e) => { setNewCategory(e.target.value); setCategoryProblem(null); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); addCategory(); } }}
+                        className={`${input(categoryProblem ?? undefined)} min-w-0 flex-1`} />
+                      <button type="button" onClick={() => addCategory()} className={`${uiSecondaryButton} shrink-0`}><Plus className="h-4 w-4" />{tr("เพิ่ม")}</button>
+                    </div>
+                    {categoryProblem ? errorText(categoryProblem) : <p className="mt-1 text-xs leading-[1.5] text-brand-muted">{tr("หมวดหมู่ใหม่จะอยู่ในรายการตลอด ใช้ได้ทั้งในแอป, LINE และเลขากระรอก")}</p>}
+                    {own.length > 0 && (
+                      <div className="mt-3">
+                        <p className="text-xs font-medium leading-[1.5] text-brand-muted">{tr("หมวดหมู่ของฉัน")}</p>
+                        <ul className="mt-1.5 flex flex-wrap gap-1.5">
+                          {own.map(c => (
+                            <li key={c} className="inline-flex max-w-full items-center gap-1 rounded-full border border-brand-border bg-brand-white py-1 pl-3 pr-1 text-[13px] leading-[1.5] text-brand-text">
+                              <span className="min-w-0 truncate">{c}</span>
+                              <button type="button" onClick={() => keepCategories(own.filter(item => item !== c))} aria-label={tr("ลบหมวดหมู่ {0}", c)} title={tr("ลบออกจากรายการ (รายจ่ายที่บันทึกไว้แล้วไม่เปลี่ยน)")}
+                                className="inline-grid h-6 w-6 shrink-0 place-items-center rounded-full text-brand-muted hover:bg-brand-faint hover:text-brand-text"><X className="h-3.5 w-3.5" /></button>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
                 {category === OTHER_CATEGORY && (
                   <div className="mt-2 rounded-[10px] bg-brand-faint/70 p-3">
                     <label htmlFor="expense-custom-category" className={label}>{tr("ระบุหมวดหมู่เอง")}</label>

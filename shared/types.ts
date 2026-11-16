@@ -173,6 +173,9 @@ export interface AppSettings {
   business?: BusinessProfile;
   /** Returns marked ยื่นแล้ว on the filing calendar (shared/filingCalendar.ts): key (form:period) → when it was marked. */
   filed?: Record<string, string>;
+  /** Expense categories the account added itself, after the app's own (owner, 2026-11-16: "รายจ่ายให้ทุกคนสามารถเพิ่ม
+   *  ประเภทได้"): offered in the expense form, its filter, LINE's questions and เลขา's cards (shared/expenseCategory.ts). */
+  expenseCategories?: string[];
   profileJobTypes?: string[]; // selected job type tags from the setup wizard (profile info only)
   profileJobTypeOther?: string; // free-text entry when 'other' job type is selected
   // Who the account is for -- drives which nav items default to the always-visible "core"

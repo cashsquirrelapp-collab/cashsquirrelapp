@@ -23,6 +23,8 @@ export interface QuestionContext {
   jobs?: ReadonlyArray<{ client?: string; whtRate?: number; postDate?: string; lastActivityAt?: string }>;
   /** The draft's form (กรอกในฟอร์ม), when LINE's form is set up. */
   editUrl?: string;
+  /** The account's own expense categories (Settings, shared/expenseCategory.ts), offered after the app's. */
+  ownCategories?: readonly string[];
 }
 
 /** The data of the date picker tap; the webhook turns it into the text "วันที่ YYYY-MM-DD". */
@@ -306,7 +308,7 @@ export function nextExpenseQuestion(draft: ExpenseDraft): ExpenseQuestion | null
   return null;
 }
 
-export function answerExpenseQuestion(question: ExpenseQuestion, input: string, draft: ExpenseDraft): Partial<ExpenseDraft> | null {
+export function answerExpenseQuestion(question: ExpenseQuestion, input: string, draft: ExpenseDraft, own: readonly string[] = []): Partial<ExpenseDraft> | null {
   const text = tidy(input);
   if (!text || text.length > 300) return null;
   if (question === 'name') return plainAnswer(text, 120) ? { name: text } : null;
@@ -317,13 +319,18 @@ export function answerExpenseQuestion(question: ExpenseQuestion, input: string, 
   }
   if (SKIP.test(text)) return { category: 'อื่นๆ', skipped: [...new Set([...(draft.skipped ?? []), 'category'])] };
   const name = text.replace(/^หมวด\s*/u, '').trim();
-  const category = EXPENSE_CATEGORIES.find(item => item === name || CATEGORY_LABELS[item] === name);
+  const category = EXPENSE_CATEGORIES.find(item => item === name || CATEGORY_LABELS[item] === name) ?? own.find(item => item === name);
   return category ? { category } : null;
 }
 
 export function expenseQuestionMessage(question: ExpenseQuestion, draft: ExpenseDraft, context: QuestionContext): LineMessage {
   if (question === 'name') return ask('จ่ายค่าอะไรครับ พิมพ์มาได้เลย เช่น ค่ากาแฟ', form(context));
   if (question === 'amount') return ask(`“${clip(draft.name || '', 60)}” จ่ายไปเท่าไรครับ`, form(context));
+  // The app's categories, then the account's own ("อื่นๆ" last); LINE shows at most 13 taps.
+  const own = (context.ownCategories ?? []).filter(item => !EXPENSE_CATEGORIES.includes(item));
+  const picks = [...EXPENSE_CATEGORIES.filter(item => item !== 'อื่นๆ'), ...own, 'อื่นๆ'];
+  const taps = picks.map(category => say(CATEGORY_LABELS[category] ?? category, `หมวด ${category}`));
+  const extra = form(context);
   return ask(`${clip(draft.name || '', 60)} ${baht(draft.amount || 0)} ครับ อยู่หมวดไหนครับ`,
-    [...EXPENSE_CATEGORIES.map(category => say(CATEGORY_LABELS[category] ?? category, `หมวด ${category}`)), ...form(context)]);
+    [...(taps.length + extra.length > 13 ? [...taps.slice(0, 12 - extra.length), taps.at(-1)!] : taps), ...extra]);
 }

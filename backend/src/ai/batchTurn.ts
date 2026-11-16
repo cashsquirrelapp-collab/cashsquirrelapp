@@ -1,4 +1,5 @@
 import type { AskQuestion } from '../../../shared/askQuestions.js';
+import { allExpenseCategories } from '../../../shared/expenseCategory.js';
 import type { UserRow } from '../services/lineAssistant.js';
 import {
   answerQuestions, entryCall, entrySummary, parseEntries, questionsFor, questionsLeft, STOP_WORD,
@@ -12,6 +13,8 @@ import type { AssistantCard, ToolCall, ToolOutcome } from './types.js';
 
 export const ENTRY_BATCH_KEY = 'entryBatch';
 const ACTIVE_MS = 2 * 3600_000;
+/** The app's own categories before the account's in allExpenseCategories ("อื่นๆ" is last). */
+const EXPENSE_CATEGORIES_COUNT = 7;
 const bangkokToday = (now: Date) => new Date(now.getTime() + 7 * 3600_000).toISOString().slice(0, 10);
 
 /** The batch still waiting for answers, or null. */
@@ -69,6 +72,8 @@ export async function entryTurn(input: {
   const { text, user, now, channel } = input;
   const today = bangkokToday(now);
   const jobs = openJobsOf(user);
+  // The account's own expense categories too (owner, 2026-11-16).
+  const categories = allExpenseCategories(user.settings);
   const stored = activeEntryBatch((user.notif_settings as Record<string, unknown> | undefined)?.[ENTRY_BATCH_KEY], now);
   let batch: EntryBatch | null = null;
   // Answers first: the app's card sends several answers on several lines, which must never be read as a new paste.
@@ -77,15 +82,25 @@ export async function entryTurn(input: {
       return { cleared: true, text: 'ยกเลิกรายการที่วางมาแล้วครับ ยังไม่ได้บันทึกอะไร' };
     }
     // The questions as they were asked, made again from the batch (the same lines and details).
-    const asked = questionsFor({ ...stored, asking: null }, jobs, stored.asking!.length)
+    const asked = questionsFor({ ...stored, asking: null }, jobs, stored.asking!.length, categories)
       .filter(question => stored.asking!.some(item => item.field === question.field && item.lines.join() === question.lines.join()));
-    const answered = answerQuestions(stored, asked, text, jobs);
+    const answered = answerQuestions(stored, asked, text, jobs, categories);
     if (answered) batch = { ...answered, asking: null };
   }
   const fresh = !batch && text.includes('\n');
-  if (fresh) batch = parseEntries(text, today, now);
+  if (fresh) {
+    batch = parseEntries(text, today, now);
+    // An expense named like one of the account's own categories goes there without asking ("ค่าฟิตเนส" → "ฟิตเนส").
+    const own = categories.slice(EXPENSE_CATEGORIES_COUNT, -1);
+    for (const entry of batch?.entries ?? []) {
+      if (entry.kind !== 'expense' || entry.category) continue;
+      const name = entry.name.replace(/^ค่า/, '');
+      const match = own.find(item => name.includes(item.replace(/^ค่า/, '')) || item.replace(/^ค่า/, '').includes(name));
+      if (match && name.length >= 2) entry.category = match;
+    }
+  }
   if (!batch) return null;
-  const questions = questionsFor(batch, jobs, channel === 'app' ? 5 : 1);
+  const questions = questionsFor(batch, jobs, channel === 'app' ? 5 : 1, categories);
   if (questions.length) {
     const left = questionsLeft(batch, jobs);
     const state = { ...batch, asking: questions.map(question => ({ field: question.field, lines: question.lines })) };

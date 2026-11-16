@@ -1,4 +1,5 @@
 import { test,expect } from '@playwright/test';
+import { textOverlapIssues } from './textOverlap';
 import { readFileSync } from 'node:fs';
 import { formatBaht, proPriceParts } from '../../shared/proPricing';
 test.beforeEach(async({page})=>{
@@ -244,6 +245,50 @@ test('expense category อื่นๆ accepts and saves a custom category name'
  await drawer.getByRole('button',{name:'บันทึกรายจ่าย'}).click();
  await expect.poll(()=>saved.find(c=>c.table==='cashflow_expenses')?.data?.category).toBe('ค่าดูแลสัตว์เลี้ยง');
  await expect(page.locator('#main-content')).toContainText('ค่าดูแลสัตว์เลี้ยง');
+ // A name typed under อื่นๆ is kept in the account's list too (owner, 2026-11-16).
+ await expect.poll(()=>saved.filter(c=>c.table==='cashflow_documents'&&c.id==='settings').at(-1)?.data?.expenseCategories).toEqual(['ค่าดูแลสัตว์เลี้ยง']);
+});
+
+// Expense categories of the account's own (owner, 2026-11-16: "รายจ่ายให้ทุกคนสามารถเพิ่มประเภทได้"): + เพิ่มหมวดหมู่ใหม่ adds one
+// to the list kept in Settings and picks it; it is offered under หมวดหมู่ของฉัน from then on, and × takes it off the list.
+for(const device of [{name:'computer',width:1280,height:900},{name:'phone',width:390,height:844}]) test(`expense categories: anyone adds their own, picks it and removes it (${device.name})`,async({page},info)=>{
+ const saved:any[]=[];
+ await page.setViewportSize({width:device.width,height:device.height});
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',route=>{
+  if(route.request().method()==='POST'){saved.push(...route.request().postDataJSON().changes);return route.fulfill({json:{ok:true}});}
+  return route.fulfill({json:{snapshot,versions,subscription:{status:'free',current_period_end:null}}});
+ });
+ await page.goto('/incomeExpense');
+ await page.locator('#main-content').getByRole('button',{name:'เพิ่มรายจ่าย',exact:true}).first().click();
+ const drawer=page.getByRole('dialog',{name:'เพิ่มรายจ่าย'});
+ await drawer.getByLabel('รายการ').fill('ค่าฟิตเนสเดือนพฤศจิกายน');
+ await drawer.getByLabel('จำนวนเงิน').fill('1200');
+ await drawer.locator('#expense-category').selectOption('__new__');
+ const panel=drawer.getByTestId('expense-new-category');
+ await expect(panel).toBeVisible();
+ await panel.getByRole('button',{name:'เพิ่ม',exact:true}).click();
+ await expect(panel).toContainText('กรุณาระบุชื่อหมวดหมู่');
+ await panel.getByLabel('ชื่อหมวดหมู่ใหม่').fill('ฟิตเนส');
+ await panel.getByRole('button',{name:'เพิ่ม',exact:true}).click();
+ await expect(drawer.locator('#expense-category')).toHaveValue('ฟิตเนส');
+ await expect.poll(()=>saved.filter(c=>c.table==='cashflow_documents'&&c.id==='settings').at(-1)?.data?.expenseCategories).toEqual(['ฟิตเนส']);
+ expect(await textOverlapIssues(page)).toEqual([]);
+ await page.screenshot({path:info.outputPath(`expense-category-added-${device.name}.png`)});
+ await drawer.getByRole('button',{name:'บันทึกรายจ่าย'}).click();
+ await expect.poll(()=>saved.find(c=>c.table==='cashflow_expenses')?.data?.category).toBe('ฟิตเนส');
+ await page.getByRole('dialog',{name:'บันทึกรายจ่ายสำเร็จ'}).getByRole('button',{name:'ตกลง'}).click();
+ // Offered from then on, under หมวดหมู่ของฉัน, and in the page's own filter.
+ await page.locator('#main-content').getByRole('button',{name:'เพิ่มรายจ่าย',exact:true}).first().click();
+ const again=page.getByRole('dialog',{name:'เพิ่มรายจ่าย'});
+ await expect(again.locator('#expense-category optgroup[label="หมวดหมู่ของฉัน"] option')).toHaveText(['ฟิตเนส']);
+ await again.locator('#expense-category').selectOption('__new__');
+ const chips=again.getByTestId('expense-new-category');
+ await expect(chips.getByRole('listitem')).toHaveText(['ฟิตเนส']);
+ await page.screenshot({path:info.outputPath(`expense-category-list-${device.name}.png`)});
+ await chips.getByRole('button',{name:'ลบหมวดหมู่ ฟิตเนส'}).click();
+ await expect.poll(()=>saved.filter(c=>c.table==='cashflow_documents'&&c.id==='settings').at(-1)?.data?.expenseCategories).toEqual([]);
+ await expect(again.locator('#expense-category optgroup')).toHaveCount(0);
 });
 
 test('tax Excel export downloads after loading the spreadsheet writer on demand',async({page})=>{

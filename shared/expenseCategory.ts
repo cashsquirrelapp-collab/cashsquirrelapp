@@ -32,3 +32,38 @@ export function guessExpenseCategory(name: unknown): string | null {
   if (!text || text.length > 200) return null;
   return RULES.find(([rule]) => rule.test(text))?.[1] ?? null;
 }
+
+/** The app's categories in the order the expense form lists them, "อื่นๆ" last. */
+export const APP_EXPENSE_CATEGORIES = [...Object.values(EXPENSE_CATEGORY), 'อื่นๆ'] as const;
+export const MAX_OWN_CATEGORIES = 100;
+const tidyName = (name: string) => name.normalize('NFC').replace(/\s+/g, ' ').trim().slice(0, 60);
+
+/** The account's own categories, cleaned: no blanks, no repeats, none that is already the app's. */
+export function ownCategories(settings?: unknown): string[] {
+  const kept = (settings as { expenseCategories?: unknown } | null | undefined)?.expenseCategories;
+  const list: unknown[] = Array.isArray(kept) ? kept : [];
+  const app = new Set<string>(APP_EXPENSE_CATEGORIES);
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of list) {
+    if (typeof raw !== 'string') continue;
+    const name = tidyName(raw);
+    if (!name || app.has(name) || seen.has(name.toLowerCase())) continue;
+    seen.add(name.toLowerCase());
+    out.push(name);
+  }
+  return out.slice(0, MAX_OWN_CATEGORIES);
+}
+
+/** Every category the account can pick: the app's, then its own, "อื่นๆ" last. */
+export function allExpenseCategories(settings?: unknown): string[] {
+  return [...APP_EXPENSE_CATEGORIES.slice(0, -1), ...ownCategories(settings), 'อื่นๆ'];
+}
+
+/** The list with one more category, or the same list when the name is empty, the app's own or already there. */
+export function withCategory(settings: unknown, name: string): string[] {
+  const own = ownCategories(settings);
+  const next = tidyName(name);
+  if (!next || (APP_EXPENSE_CATEGORIES as readonly string[]).includes(next) || own.some(item => item.toLowerCase() === next.toLowerCase())) return own;
+  return [...own, next].slice(0, MAX_OWN_CATEGORIES);
+}
