@@ -37,6 +37,21 @@ export function clampRect(rect: Rect, view: Size): Rect {
   return { x, y, w, h };
 }
 
+/**
+ * Docked at the right (owner, 2026-11-16): from the top (the squirrel's room kept) to the bottom, against the screen's
+ * right edge. `from`: the narrowest screen it docks on; the page card (the sidebar then shows its icons only) keeps at
+ * least `page` px beside it, as much as a computer's page is laid out for.
+ */
+export const DOCK = { from: 1200, width: 420, min: 340, max: 600, page: 860 };
+export const dockWidth = (width: number, view: Size) =>
+  Math.round(Math.max(DOCK.min, Math.min(width, DOCK.max, view.w - DOCK.page - 2 * EDGE)));
+/** Docked: from the very top to the very bottom against the right edge, like the app's side sheets (owner, 2026-11-16:
+ *  "ขึ้นมายาวๆแบบนี้เลย"). */
+export function dockRect(width: number, view: Size): Rect {
+  const w = dockWidth(width, view);
+  return { x: view.w - w, y: 0, w, h: view.h };
+}
+
 /** Bottom right, where the "ถามเลขากระรอก" pill is, sized for the screen. */
 export function defaultRect(view: Size): Rect {
   const w = Math.min(DEFAULT_SIZE.w, view.w - 2 * EDGE - 24);

@@ -680,4 +680,9 @@ export const assistant: Record<string, string> = {
   "ย่อเป็นรายการ": "Show as a list",
   "ดูและแก้ทีละใบ": "Check and edit one by one",
   "ไม่ระบุลูกค้า": "No client given",
+  // The chat docked at the right (2026-11-16).
+  "แยกเป็นหน้าต่างลอย": "Float as a window",
+  "ชิดขวา หน้าแอปหดให้": "Dock at the right, the page makes room",
+  "ชิดขวา หน้าแอปหดให้ (หรือลากไปชนขอบขวา)": "Dock at the right, the page makes room (or drag it to the right edge)",
+  "วางที่นี่ เพื่อชิดขวา": "Drop here to dock at the right",
 };

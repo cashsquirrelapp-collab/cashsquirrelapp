@@ -1658,3 +1658,26 @@ button.asx-party-tile:hover:not(:disabled) .asx-party-copy strong { color: var(-
 .asx-entry-rows li.is-failed .asx-entry-state, .asx-entry-rows li.is-expired .asx-entry-state { color: var(--asx-expense); }
 .asx-entry-rows li.is-cancelled { opacity: 0.6; }
 .asx-entry-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Docked at the right (FloatingChat.tsx, owner 2026-11-16): the same glass window from top to bottom beside the page,
+   which makes room for it (index.css, html.has-kfw-dock); only its left edge resizes. Dragging its head away floats it again. */
+.kfw.is-snapping { transition: left 0.32s cubic-bezier(0.22, 1, 0.36, 1), top 0.32s cubic-bezier(0.22, 1, 0.36, 1), width 0.32s cubic-bezier(0.22, 1, 0.36, 1), height 0.32s cubic-bezier(0.22, 1, 0.36, 1); }
+/* Docked: a sheet from the top of the screen to the bottom against its right edge (owner, 2026-11-16: "ขึ้นมายาวๆแบบนี้
+   เลย", with the app's own side sheet as the picture): square to the screen, a hairline and a soft shadow on its left. */
+.kfw.is-docked .kfw-shell { border: 0; border-left: 1px solid rgba(60, 40, 28, 0.1); border-radius: 0; background: #FFFCF8;
+  box-shadow: -12px 0 32px rgba(60, 40, 28, 0.08); -webkit-backdrop-filter: none; backdrop-filter: none; }
+.dark .kfw.is-docked .kfw-shell { border-left-color: rgba(255, 255, 255, 0.08); background: #1C1D21; box-shadow: -12px 0 32px rgba(0, 0, 0, 0.45); }
+.kfw.is-docked .kfw-head { height: 64px; padding: 0 12px 0 10px; gap: 6px; border-bottom: 1px solid color-mix(in srgb, var(--text) 7%, transparent); }
+.kfw-dock-face { display: grid; place-items: center; flex: none; width: 36px; height: 36px; overflow: hidden; border-radius: 50%; background: var(--asx-cream); line-height: 0; }
+.kfw.is-docked .kfw-name { position: static; order: 0; padding: 0; background: none; color: var(--text); font-size: 15.5px; box-shadow: none; transform: none; }
+.dark .kfw.is-docked .kfw-name { background: none; color: var(--text); box-shadow: none; }
+.kfw.is-docked .kfw-head .kfw-token { order: 1; margin-left: 4px; }
+.kfw.is-docked .kfw-controls { order: 2; }
+.kfw.is-docked .kfw-rz.is-w { top: 0; bottom: 0; left: -5px; width: 10px; }
+/* The outline that offers the dock while the window is dragged near the right edge. */
+/* Over the dragged window (it never takes the pointer), its words in the upper part so the window does not hide them. */
+.kfw-dock-offer { position: fixed; z-index: 91; display: grid; place-items: start center; padding-top: 18vh; border: 2px dashed #E65F2B; border-right: 0; border-radius: 20px 0 0 20px; background: rgba(230, 95, 43, 0.08); pointer-events: none; animation: kfw-offer-in 0.18s ease-out; }
+.kfw-dock-offer span { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; background: #E65F2B; color: #FFFFFF; font-size: 14px; font-weight: 600; line-height: 1.5; box-shadow: 0 6px 18px rgba(230, 95, 43, 0.28); }
+.dark .kfw-dock-offer { background: rgba(240, 116, 64, 0.12); border-color: #F07440; }
+@keyframes kfw-offer-in { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .kfw.is-snapping { transition: none; } .kfw-dock-offer { animation: none; } }

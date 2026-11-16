@@ -383,6 +383,24 @@ svg.lucide[stroke-width="2"] { stroke-width: 1.7; }
     padding-left: calc(15rem + 12px);
   }
 }
+/* The chat docked at the right (FloatingChat.tsx, owner 2026-11-16: "บีบ UI ของฝั่ง preview ... ย่นลงมาอีกนิดนึง"): the page
+   card ends 12px before it; the card's existing margin-right transition makes the page glide narrower and back. */
+@media (min-width: 1024px) {
+  html.has-kfw-dock .app-shell > .asx-panel-host:not(.is-chat-focus) { margin-right: calc(var(--kfw-dock, 420px) + 12px); }
+  /* The sidebar steps down to its icons (each keeps its name as a tooltip and for screen readers), so the page keeps its
+     width for its own content instead of losing it all to the chat. */
+  .app-sidebar { transition: width 0.34s cubic-bezier(0.22, 1, 0.36, 1), padding 0.34s cubic-bezier(0.22, 1, 0.36, 1), margin-left 0.34s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease; }
+  html.has-kfw-dock .app-sidebar:not(.is-folded) { width: 76px; padding-left: 10px; padding-right: 10px; }
+  html.has-kfw-dock .app-shell > .asx-panel-host:not(.is-chat-focus) { margin-left: calc(-76px - 8px); padding-left: calc(76px + 12px); }
+  html.has-kfw-dock .app-sidebar .app-nav-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  html.has-kfw-dock .app-sidebar nav button { justify-content: center; padding-left: 0; padding-right: 0; }
+  html.has-kfw-dock .app-sidebar nav button > .ml-auto { display: none; }
+  html.has-kfw-dock .app-sidebar nav .ml-\[21px\] { margin-left: 0; padding-left: 0; border-left: 0; }
+  html.has-kfw-dock .app-sidebar .krarok-brand-name, html.has-kfw-dock .app-sidebar .app-account-picker,
+  html.has-kfw-dock .app-sidebar .app-account-name, html.has-kfw-dock .app-sidebar .app-account-more { display: none; }
+  html.has-kfw-dock .app-sidebar > button:first-child { justify-content: center; padding-left: 0; padding-right: 0; }
+  html.has-kfw-dock .app-sidebar .app-account-card button { justify-content: center; }
+}
 @media (min-width: 1024px) and (prefers-reduced-motion: reduce) {
   .app-shell > .asx-panel-host { transition: none; }
 }

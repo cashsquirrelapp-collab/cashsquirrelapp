@@ -793,6 +793,8 @@ export default function App() {
       <button
         key={item.key}
         aria-current={isActive ? 'page' : undefined}
+        // Its name as a tooltip: the sidebar shows icons only while the chat is docked at the right (FloatingChat.tsx).
+        title={item.key === 'feedback' ? (language === 'th' ? 'แจ้งปัญหา' : 'Report a problem') : t(navLabelKey(item))}
         onPointerEnter={() => prefetchFeature(item.key)}
         onFocus={() => prefetchFeature(item.key)}
         onTouchStart={() => prefetchFeature(item.key)}
@@ -809,7 +811,7 @@ export default function App() {
         <span className="inline-flex shrink-0">
           <NavGlyph tab={item.key} active={isActive} outline={Icon} className={item.group === 'sub' ? 'w-4 h-4' : 'w-[19px] h-[19px]'} />
         </span>
-        <span>{item.key === 'feedback' ? (language === 'th' ? 'แจ้งปัญหา' : 'Report a problem') : t(navLabelKey(item))}</span>
+        <span className="app-nav-label">{item.key === 'feedback' ? (language === 'th' ? 'แจ้งปัญหา' : 'Report a problem') : t(navLabelKey(item))}</span>
         {subsOpen !== undefined && (
           <ChevronDown aria-hidden className={`ml-auto h-3.5 w-3.5 opacity-60 transition-transform duration-200 ${subsOpen ? 'rotate-180' : ''}`} />
         )}
@@ -3260,11 +3262,11 @@ export default function App() {
           </nav>
           {isDesktop && (
             // One account card: which finance account is open, then who is signed in.
-            <div className="mt-3 rounded-[18px] border border-white/90 bg-white/70 p-1 dark:border-white/10 dark:bg-white/[0.05]">
-              {fullFeatureAccess && !session.isGuest && (<>
+            <div className="app-account-card mt-3 rounded-[18px] border border-white/90 bg-white/70 p-1 dark:border-white/10 dark:bg-white/[0.05]">
+              {fullFeatureAccess && !session.isGuest && (<div className="app-account-picker">
                 <FinanceWorkspacePicker variant="row" account={session.user.id} groupId={financeGroupId} busy={switchingFinance} onChange={switchFinance}/>
                 <div className="mx-2 my-1 border-t border-brand-border" />
-              </>)}
+              </div>)}
               <div className="relative">
                 <button
                   type="button"
@@ -3276,12 +3278,12 @@ export default function App() {
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-faint text-brand-muted">
                     {userAvatar ? <img src={userAvatar} className="h-full w-full object-cover" alt="" /> : <User className="h-4 w-4" />}
                   </span>
-                  <span className="min-w-0 flex-1">
+                  <span className="app-account-name min-w-0 flex-1">
                     <span className="block truncate text-[13px] font-semibold leading-tight text-brand-text">
                       {routeContext?.profile.displayName || session.user.email?.split('@')[0] || tr("บัญชีของฉัน")}
                     </span>
                   </span>
-                  <MoreHorizontal className="h-4 w-4 shrink-0 text-brand-muted" />
+                  <MoreHorizontal className="app-account-more h-4 w-4 shrink-0 text-brand-muted" />
                 </button>
                 {renderProfileMenu('bottom-full inset-x-0 mb-2')}
               </div>

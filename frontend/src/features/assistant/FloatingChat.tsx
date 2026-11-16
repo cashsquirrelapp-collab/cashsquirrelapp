@@ -1,10 +1,11 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
-import { Maximize2, Minus, X } from 'lucide-react';
+import { Maximize2, Minus, PanelRight, PictureInPicture2, X } from 'lucide-react';
 import { Mascot, type MascotMood } from '../../components/mascot/Mascot';
 import { MascotPeek } from '../../components/mascot/MascotPeek';
 import { tr } from '../../i18n/tr';
-import { bubbleSide, clampRect, clearRect, clearSpot, defaultRect, EDGE, footprint, intersects, mascotSizeFor, MIN_SIZE, type Rect, type Size } from './floatGeometry';
+import { bubbleSide, clampRect, clearRect, clearSpot, defaultRect, DOCK, dockRect, dockWidth, EDGE, footprint, intersects, mascotSizeFor, MIN_SIZE, overhangFor, type Rect, type Size } from './floatGeometry';
 
 // The floating เลขากระรอก window on computers and iPads (owner's brief "FLOATING TOP MASCOT CHAT UI V2", 2026-10-26):
 // the official squirrel perches on the middle of the window's top edge, paws on the edge, with its name on a dark
@@ -17,6 +18,14 @@ import { bubbleSide, clampRect, clearRect, clearSpot, defaultRect, EDGE, footpri
 const view = (): Size => ({ w: window.innerWidth, h: window.innerHeight });
 const storeKey = (accountId?: string) => `krarok.buddy.window.${accountId || 'guest'}`;
 const miniKey = (accountId?: string) => `krarok.buddy.mini.${accountId || 'guest'}`;
+// Docked at the right (owner, 2026-11-16: "ลากเมาส์ไปไว้มุมขวาสุดแล้วมันก็จะมีช่องให้ใส่ ... บีบ UI ของฝั่ง preview ... ย่นลงมา
+// อีกนิดนึง เวลาพิมพ์อะไรกรอกอะไรมันจะได้แบบดูง่ายมากขึ้น"): whether it is, and how wide.
+const dockKey = (accountId?: string) => `krarok.buddy.dock.${accountId || 'guest'}`;
+type DockSaved = { on: boolean; w: number };
+/** The page makes room for the docked chat only where the page is a card beside the sidebar (computers, iPads lying down). */
+const canDock = () => window.innerWidth >= DOCK.from;
+/** How near the screen's right edge the pointer must be, while the window is dragged, for the dock to offer itself. */
+const DOCK_REACH = 56;
 // `max` and `restore` were written while the window could be maximised in place (until 2026-10-27).
 type Saved = { rect: Rect; max?: boolean; restore?: Rect };
 function load<T>(key: string): T | null {
@@ -118,6 +127,22 @@ export function FloatingWindow({ accountId, shown, mood, busy = false, label, no
   });
   const rectRef = React.useRef(rect); rectRef.current = rect;
   const [moving, setMoving] = React.useState<null | Edge | 'move'>(null);
+  const [dock, setDock] = React.useState<DockSaved>(() => {
+    const saved = load<DockSaved>(dockKey(accountId));
+    return saved && typeof saved.w === 'number' ? { on: saved.on === true, w: dockWidth(saved.w, view()) } : { on: false, w: DOCK.width };
+  });
+  const [wide, setWide] = React.useState(canDock);
+  const docked = dock.on && wide;
+  const dockRef = React.useRef(dock); dockRef.current = dock;
+  const dockedRef = React.useRef(docked); dockedRef.current = docked;
+  // The outline at the right while the window is dragged near the edge: let go and it docks there.
+  const [offer, setOffer] = React.useState(false);
+  const offerRef = React.useRef(false);
+  const showOffer = (next: boolean) => { if (offerRef.current !== next) { offerRef.current = next; setOffer(next); } };
+  // Docking and undocking glide; a drag never does.
+  const [snapping, setSnapping] = React.useState(false);
+  const snap = () => { setSnapping(true); window.setTimeout(() => setSnapping(false), 360); };
+  const keepDock = (next: DockSaved) => { setDock(next); save(dockKey(accountId), next); };
   // Set by the chat itself to keep clear of a preview; dropped the moment the user moves or resizes the window.
   const autoRef = React.useRef<{ before: Rect; key: string } | null>(null);
   // The previews (by their set) the user placed the window over themselves: the chat no longer moves for them.
@@ -133,10 +158,18 @@ export function FloatingWindow({ accountId, shown, mood, busy = false, label, no
 
   // Keep inside the screen when the browser window changes size.
   React.useEffect(() => {
-    const onResize = () => setRect(r => clampRect(r, view()));
+    const onResize = () => { setRect(r => clampRect(r, view())); setWide(canDock()); setDock(d => ({ ...d, w: dockWidth(d.w, view()) })); };
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
+
+  // The page makes room for the docked chat: the page card ends a gap before it (index.css, html.has-kfw-dock).
+  React.useEffect(() => {
+    const root = document.documentElement;
+    if (docked && shown) { root.classList.add('has-kfw-dock'); root.style.setProperty('--kfw-dock', `${dock.w}px`); }
+    else root.classList.remove('has-kfw-dock');
+    return () => root.classList.remove('has-kfw-dock');
+  }, [docked, shown, dock.w]);
 
   // Opening the folded squirrel again over a preview is the user's choice: the chat may move aside but stays open.
   const wasShown = React.useRef(shown);
@@ -148,7 +181,8 @@ export function FloatingWindow({ accountId, shown, mood, busy = false, label, no
   // Keep clear of document previews (brief §5): move, then shrink, then fold into the squirrel. When the previews close,
   // go back to where the user had it, unless they moved it meanwhile.
   React.useEffect(() => {
-    if (moving) return;
+    // Docked, the chat is beside the page, not over it: previews in the page never reach it.
+    if (moving || docked) return;
     const auto = autoRef.current;
     if (!zones.key) {
       if (auto) { autoRef.current = null; setRect(clampRect(auto.before, view())); }
@@ -164,23 +198,43 @@ export function FloatingWindow({ accountId, shown, mood, busy = false, label, no
     else autoRef.current.key = zones.key;
     if (spot) setRect(spot);
     else onMinimize(true);
-  }, [zones, shown, moving, onMinimize]);
+  }, [zones, shown, moving, docked, onMinimize]);
 
   const begin = (edge: Edge | 'move') => (event: React.PointerEvent) => {
     if (event.button !== 0) return;
     if (edge === 'move' && (event.target as HTMLElement).closest('button:not(.kfw-grip)')) return;
     event.preventDefault();
     const el = windowRef.current;
-    const start = rectRef.current;
-    const sx = event.clientX, sy = event.clientY;
+    const wasDocked = dockedRef.current;
+    let start = rectRef.current;
+    let sx = event.clientX, sy = event.clientY;
     let latest = start;
     let started = false;
+    let width = dockRef.current.w;
     const onMove = (e: PointerEvent) => {
       const dx = e.clientX - sx, dy = e.clientY - sy;
       if (!started && Math.hypot(dx, dy) < 4) return;
-      if (!started) { started = true; setMoving(edge); }
-      latest = resized(start, edge, dx, dy, view());
+      if (!started) {
+        started = true; setMoving(edge);
+        // Dragged away from the right edge, the docked chat floats again at its own size, under the pointer.
+        if (wasDocked && edge === 'move') {
+          start = clampRect({ ...start, x: e.clientX - start.w / 2, y: e.clientY - 26 }, view());
+          sx = e.clientX; sy = e.clientY;
+          keepDock({ ...dockRef.current, on: false });
+          setRect(start);
+        }
+      }
+      if (wasDocked && edge === 'w') {
+        // Docked, only its left edge moves: the chat wider or narrower, the page beside it the other way.
+        width = dockWidth(dockRef.current.w - (e.clientX - event.clientX), view());
+        const box = dockRect(width, view());
+        if (el) Object.assign(el.style, { left: `${box.x}px`, width: `${box.w}px` });
+        document.documentElement.style.setProperty('--kfw-dock', `${width}px`);
+        return;
+      }
+      latest = resized(start, edge, e.clientX - sx, e.clientY - sy, view());
       if (el) Object.assign(el.style, { left: `${latest.x}px`, top: `${latest.y}px`, width: `${latest.w}px`, height: `${latest.h}px` });
+      if (edge === 'move') showOffer(canDock() && e.clientX >= view().w - DOCK_REACH);
     };
     const onUp = () => {
       window.removeEventListener('pointermove', onMove);
@@ -188,6 +242,14 @@ export function FloatingWindow({ accountId, shown, mood, busy = false, label, no
       window.removeEventListener('pointercancel', onUp);
       if (!started) return;
       setMoving(null);
+      if (wasDocked && edge === 'w') { keepDock({ on: true, w: width }); return; }
+      if (offerRef.current) {
+        // Let go over the outline: docked at the right, the page makes room; where it floated is kept for later.
+        showOffer(false);
+        snap();
+        keepDock({ ...dockRef.current, on: true });
+        return;
+      }
       userPlaced(latest);
     };
     window.addEventListener('pointermove', onMove);
@@ -206,29 +268,41 @@ export function FloatingWindow({ accountId, shown, mood, busy = false, label, no
     userPlaced(event.altKey ? clampRect({ ...r, w: r.w + d[0], h: r.h + d[1] }, view()) : clampRect({ ...r, x: r.x + d[0], y: r.y + d[1] }, view()));
   };
 
-  const box = rect;
+  const box = docked ? dockRect(dock.w, view()) : rect;
   const size = mascotSizeFor(box.w);
+  const toggleDock = () => { snap(); keepDock({ ...dock, on: !dock.on }); };
+  const outline = dockRect(dock.w, view());
   return (
-    <motion.div ref={windowRef} className={`kfw${moving ? ' is-moving' : ''}${shown ? '' : ' is-folded'}`} role="dialog" aria-modal="false" aria-label={label}
+    <motion.div ref={windowRef} className={`kfw${moving ? ' is-moving' : ''}${shown ? '' : ' is-folded'}${docked ? ' is-docked' : ''}${snapping ? ' is-snapping' : ''}`} role="dialog" aria-modal="false" aria-label={label}
       aria-hidden={!shown || undefined} inert={!shown || undefined}
       style={{ left: box.x, top: box.y, width: box.w, height: box.h, ['--kfw-perch' as string]: `${size}px` }}
       initial={reduce ? false : { opacity: 0, scale: 0.96, y: 12 }} animate={shown ? { opacity: 1, scale: 1, y: 0 } : { opacity: 0, scale: 0.92, y: 6 }}
       exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: 10 }} transition={{ duration: reduce ? 0 : 0.22, ease: [0.22, 1, 0.36, 1] }}>
-      {/* The squirrel above the window: it moves with the window, always in the middle, and moves it when dragged. */}
-      <span className="kfw-perch" onPointerDown={begin('move')} onDoubleClick={reset} title={tr("ลากเพื่อย้าย · ดับเบิลคลิกเพื่อคืนตำแหน่งเดิม")}>
-        {/* In its headset (owner, 2026-10-29: "เวลาที่น้องเกาะแชทแบบนี้ก็ให้น้องใส่หูฟังเหมือนกัน"). */}
-        <MascotPeek size={size} gear="headset" mood={mood} motion={reduce ? 'still' : 'calm'} holo={busy} thoughtDots={false} className="kfw-perch-art" />
-      </span>
+      {/* The squirrel above the window: it moves with the window, always in the middle, and moves it when dragged. Docked
+          at the right the sheet reaches the top of the screen, so the squirrel sits in the header instead. */}
+      {!docked && (
+        <span className="kfw-perch" onPointerDown={begin('move')} onDoubleClick={reset} title={tr("ลากเพื่อย้าย · ดับเบิลคลิกเพื่อคืนตำแหน่งเดิม")}>
+          {/* In its headset (owner, 2026-10-29: "เวลาที่น้องเกาะแชทแบบนี้ก็ให้น้องใส่หูฟังเหมือนกัน"). */}
+          <MascotPeek size={size} gear="headset" mood={mood} motion={reduce ? 'still' : 'calm'} holo={busy} thoughtDots={false} className="kfw-perch-art" />
+        </span>
+      )}
       <div className="kfw-shell">
         <header className="kfw-head" onPointerDown={begin('move')} onDoubleClick={event => { if (!(event.target as HTMLElement).closest('button')) reset(); }}>
           <button type="button" className="kfw-grip" onKeyDown={onGripKey}
             aria-label={tr("ย้ายหน้าต่าง: ลากหรือใช้ปุ่มลูกศร · Alt + ลูกศรเพื่อปรับขนาด · Home เพื่อคืนตำแหน่งเดิม")} title={tr("ลากเพื่อย้าย · ดับเบิลคลิกเพื่อคืนตำแหน่งเดิม")}>
             <svg viewBox="0 0 10 16" width="8" height="13" aria-hidden="true">{[3, 8, 13].flatMap(y => [2.5, 7.5].map(x => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.3" fill="currentColor" />))}</svg>
           </button>
+          {docked && <span className="kfw-dock-face" aria-hidden="true"><Mascot gear="headset" mood={mood} animated={false} size={30} viewBox="12 8 76 76" /></span>}
           {corner}
           <span className="kfw-name">{tr("เลขากระรอก")}</span>
           <span className="asx-sr">{note}</span>
           <div className="kfw-controls">
+            {wide && (
+              <button type="button" className="kfw-ctrl" onClick={toggleDock} aria-pressed={docked} data-testid="kfw-dock"
+                aria-label={docked ? tr("แยกเป็นหน้าต่างลอย") : tr("ชิดขวา หน้าแอปหดให้")} title={docked ? tr("แยกเป็นหน้าต่างลอย") : tr("ชิดขวา หน้าแอปหดให้ (หรือลากไปชนขอบขวา)")}>
+                {docked ? <PictureInPicture2 size={15} /> : <PanelRight size={15} />}
+              </button>
+            )}
             <button type="button" className="kfw-ctrl" onClick={() => onMinimize(false)} aria-label={tr("ย่อหน้าต่าง")} title={tr("ย่อหน้าต่าง")}><Minus size={16} /></button>
             <button type="button" className="kfw-ctrl" onClick={() => { if (!expandWaits) onExpand(); }} aria-disabled={expandWaits || undefined}
               aria-label={tr("เปิดแชตเต็ม")} title={expandWaits ? tr("เปิดแชตเต็มได้เมื่อเลขากระรอกทำรายการนี้เสร็จ") : tr("เปิดแชตเต็ม")}>
@@ -239,7 +313,11 @@ export function FloatingWindow({ accountId, shown, mood, busy = false, label, no
         </header>
         {children}
       </div>
-      {EDGES.map(edge => <span key={edge} className={`kfw-rz is-${edge}`} onPointerDown={begin(edge)} aria-hidden="true" />)}
+      {(docked ? (['w'] as Edge[]) : EDGES).map(edge => <span key={edge} className={`kfw-rz is-${edge}`} onPointerDown={begin(edge)} aria-hidden="true" />)}
+      {offer && createPortal(
+        <div className="kfw-dock-offer" style={{ left: outline.x, top: outline.y, width: outline.w, height: outline.h }} aria-hidden="true" data-testid="kfw-dock-offer">
+          <span><PanelRight size={18} />{tr("วางที่นี่ เพื่อชิดขวา")}</span>
+        </div>, document.body)}
     </motion.div>
   );
 }

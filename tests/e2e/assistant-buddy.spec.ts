@@ -256,10 +256,10 @@ for (const dark of [false, true]) {
     await expect(page.locator('.kfw-name')).toHaveText('เลขากระรอก');
     expect(Math.abs(name.x + name.w / 2 - (w.x + w.w / 2))).toBeLessThanOrEqual(1);
     expect(name.y).toBeGreaterThanOrEqual(w.y);
-    // Only minimise, open the full chat and close, in the top right, clear of the squirrel and its name.
+    // Dock at the right (2026-11-16), minimise, open the full chat and close, in the top right, clear of the squirrel and its name.
     const controls = win(page).locator('.kfw-controls button');
-    await expect(controls).toHaveCount(3);
-    expect(await controls.evaluateAll(list => list.map(el => el.getAttribute('aria-label')))).toEqual(['ย่อหน้าต่าง', 'เปิดแชตเต็ม', 'ปิด']);
+    await expect(controls).toHaveCount(4);
+    expect(await controls.evaluateAll(list => list.map(el => el.getAttribute('aria-label')))).toEqual(['ชิดขวา หน้าแอปหดให้', 'ย่อหน้าต่าง', 'เปิดแชตเต็ม', 'ปิด']);
     const ctrl = await rectOf(page, '.kfw-controls');
     expect(overlaps(ctrl, perch) || overlaps(ctrl, name)).toBe(false);
     expect(ctrl.x + ctrl.w).toBeGreaterThan(w.x + w.w - 24);
@@ -349,6 +349,115 @@ test('computers: the window moves and resizes inside the screen, remembers its p
   await page.mouse.dblclick(head3.x + 60, head3.y + 26);
   const reset = await rectOf(page, '.kfw');
   expect([Math.round(reset.x), Math.round(reset.y), Math.round(reset.w), Math.round(reset.h)]).toEqual([Math.round(start.x), Math.round(start.y), Math.round(start.w), Math.round(start.h)]);
+});
+
+// Docked at the right (owner, 2026-11-16: "ลากเมาส์ไปไว้มุมขวาสุดแล้วมันก็จะมีช่องให้ใส่ พอใส่ปั๊บมันก็จะอยู่ฝั่งขวา แล้วก็จะบีบ
+// UI ของฝั่ง preview ... ย่นลงมาอีกนิดนึง"): dragged to the right edge, an outline offers the dock; let go and the chat runs
+// top to bottom at the right while the page card makes room; its left edge resizes it; dragging its head away, or the
+// button, floats it again; it is remembered; minimised, the page takes its width back.
+const pageCard = (page: Page) => rectOf(page, '.app-shell > .asx-panel-host');
+const settleDock = (page: Page) => page.waitForTimeout(450);
+for (const dark of [false, true]) {
+  test(`computers${dark ? ', dark' : ''}: dragged to the right edge the chat docks there and the page makes room; it floats again when dragged away`, async ({ page }) => {
+    await openWindow(page, '/jobs', 1440, 900, dark);
+    const full = await pageCard(page);
+    const head = await rectOf(page, '.kfw-head');
+    await page.mouse.move(head.x + 70, head.y + 26); await page.mouse.down();
+    await page.mouse.move(1440 - 120, head.y + 40, { steps: 6 });
+    await expect(page.getByTestId('kfw-dock-offer')).toHaveCount(0);
+    await page.mouse.move(1440 - 16, head.y + 40, { steps: 6 });
+    const offer = page.getByTestId('kfw-dock-offer');
+    await expect(offer).toBeVisible();
+    await expect(offer).toContainText('วางที่นี่ เพื่อชิดขวา');
+    await snap(page, `dock-offer${dark ? '-dark' : ''}.png`);
+    await page.mouse.up();
+    await expect(offer).toHaveCount(0);
+    await expect(win(page)).toHaveClass(/is-docked/);
+    await settleDock(page);
+    // A sheet from the very top to the very bottom against the right edge (owner: "ขึ้นมายาวๆแบบนี้เลย"), the squirrel in its head.
+    const docked = await rectOf(page, '.kfw');
+    expect([Math.round(docked.x + docked.w), Math.round(docked.y), Math.round(docked.h)]).toEqual([1440, 0, 900]);
+    expect(Math.round(docked.w)).toBe(420);
+    await expect(page.locator('.kfw-perch')).toHaveCount(0);
+    await expect(win(page).locator('.kfw-dock-face')).toBeVisible();
+    // The sidebar shows its icons, each still named for screen readers and as a tooltip.
+    expect(Math.round((await rectOf(page, '.app-sidebar')).w)).toBe(76);
+    await expect(page.locator('.app-sidebar').getByRole('button', { name: 'งาน', exact: true })).toHaveAttribute('title', 'งาน');
+    // The page card ends 12px before the chat: nothing of the page under it.
+    const card = await pageCard(page);
+    expect(Math.round(card.x + card.w)).toBe(Math.round(docked.x - 12));
+    expect(card.w).toBeLessThan(full.w - 400);
+    expect(await page.evaluate(() => document.documentElement.classList.contains('has-kfw-dock'))).toBe(true);
+    expect(await textOverlapIssues(page)).toEqual([]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+    await snap(page, `dock-jobs${dark ? '-dark' : ''}.png`);
+    // Only the left edge resizes it, and the page follows.
+    await expect(page.locator('.kfw-rz')).toHaveCount(1);
+    const west = await rectOf(page, '.kfw-rz.is-w');
+    await page.mouse.move(west.x + 6, west.y + 60); await page.mouse.down(); await page.mouse.move(west.x - 94, west.y + 60, { steps: 6 }); await page.mouse.up();
+    await settleDock(page);
+    const wider = await rectOf(page, '.kfw');
+    expect(Math.round(wider.w)).toBe(520);
+    expect(Math.round((await pageCard(page)).x + (await pageCard(page)).w)).toBe(Math.round(wider.x - 12));
+    // Remembered after a reload.
+    await page.reload();
+    await page.locator('.asx-buddy-btn').click();
+    await expect(win(page)).toHaveClass(/is-docked/);
+    await settleDock(page);
+    expect(Math.round((await rectOf(page, '.kfw')).w)).toBe(520);
+    // Minimised, the page takes its width back; opened again, it is docked again.
+    await win(page).getByRole('button', { name: 'ย่อหน้าต่าง' }).click();
+    await settleDock(page);
+    expect(Math.round((await pageCard(page)).w)).toBe(Math.round(full.w));
+    await page.locator('.kfm-btn, [aria-label="เปิดแชตเลขากระรอกอีกครั้ง"]').first().click();
+    await expect(win(page)).toHaveClass(/is-docked/);
+    // Opened again: its short animation done before it is taken by the head.
+    await settle(page);
+    await settleDock(page);
+    // Dragging its head away floats it again, under the pointer, at its own size (by the empty part between the name and
+    // the token ring and the buttons).
+    const dockedHead = await rectOf(page, '.kfw-head');
+    const grab = { x: dockedHead.x + dockedHead.w * 0.62, y: dockedHead.y + dockedHead.h / 2 };
+    await page.mouse.move(grab.x, grab.y); await page.mouse.down();
+    await page.mouse.move(grab.x - 40, grab.y + 20, { steps: 4 });
+    await page.mouse.move(600, 420, { steps: 8 }); await page.mouse.up();
+    await expect(win(page)).not.toHaveClass(/is-docked/);
+    await settleDock(page);
+    const floating = await rectOf(page, '.kfw');
+    expect(Math.round(floating.w)).toBe(Math.round(full.w > 0 ? 400 : 0));
+    expect(Math.abs(floating.x + floating.w / 2 - 600)).toBeLessThan(12);
+    expect(Math.round((await pageCard(page)).w)).toBe(Math.round(full.w));
+    // The button docks and floats it too.
+    await win(page).getByRole('button', { name: 'ชิดขวา หน้าแอปหดให้' }).click();
+    await expect(win(page)).toHaveClass(/is-docked/);
+    await win(page).getByRole('button', { name: 'แยกเป็นหน้าต่างลอย' }).click();
+    await expect(win(page)).not.toHaveClass(/is-docked/);
+  });
+}
+
+test('computers: docked, the pages keep their text apart at 1280px', async ({ page }) => {
+  await openWindow(page, '/dashboard', 1280, 820);
+  await win(page).getByRole('button', { name: 'ชิดขวา หน้าแอปหดให้' }).click();
+  await settleDock(page);
+  for (const path of ['/dashboard', '/jobs', '/incomeExpense', '/receivables', '/invoice', '/settings']) {
+    await page.evaluate(to => { window.history.pushState({}, '', to); window.dispatchEvent(new PopStateEvent('popstate')); }, path);
+    await page.waitForTimeout(700);
+    await expect(win(page)).toHaveClass(/is-docked/);
+    expect(await textOverlapIssues(page), path).toEqual([]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), path).toBe(true);
+    await snap(page, `dock-1280${path.replace('/', '-')}.png`);
+  }
+});
+
+test('narrower screens (iPads upright): no dock, the window floats as before', async ({ page }) => {
+  await openWindow(page, '/jobs', 900, 1100);
+  await expect(win(page).getByTestId('kfw-dock')).toHaveCount(0);
+  const head = await rectOf(page, '.kfw-head');
+  await page.mouse.move(head.x + 70, head.y + 26); await page.mouse.down();
+  await page.mouse.move(900 - 10, head.y + 40, { steps: 8 });
+  await expect(page.getByTestId('kfw-dock-offer')).toHaveCount(0);
+  await page.mouse.up();
+  await expect(win(page)).not.toHaveClass(/is-docked/);
 });
 
 test('computers: while เลขา works, a hologram screen rises in front of the squirrel and its paws tap on it', async ({ page }) => {
