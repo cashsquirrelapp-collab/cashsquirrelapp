@@ -1,6 +1,6 @@
 import React from 'react';
 import { ExternalLink } from 'lucide-react';
-import type { Expense, Job, StatusOption } from '../../../../shared/types';
+import type { Expense, Job, SheetSeen, StatusOption } from '../../../../shared/types';
 import { labOn } from '../../../../shared/labs';
 import { sheetRowUrl, type GoogleStatus, type LiveTab, type SheetLink, type SheetMap } from '../../../../shared/googleSheets';
 import { tr } from '../../i18n/tr';
@@ -105,21 +105,23 @@ function SheetSourceLine({ testId, tabOf, read, mobile }: {
 }
 
 /** The line over the jobs list, and the reading that keeps the page in step with the sheet. */
-export function SheetJobsLine({ jobs, statuses, jobTypes, onSync, mobile = false }: {
-  jobs: Job[]; statuses: StatusOption[]; jobTypes: string[]; onSync: (changes: SheetSyncChanges) => void; mobile?: boolean;
+export function SheetJobsLine({ jobs, statuses, jobTypes, seen, onSync, mobile = false }: {
+  jobs: Job[]; statuses: StatusOption[]; jobTypes: string[]; seen?: SheetSeen | null; onSync: (changes: SheetSyncChanges) => void; mobile?: boolean;
 }) {
   const read = (tabs: LiveTab[], map: SheetMap, fileId: string) => {
-    const changes = planSheetSync({ jobs, tabs, map, fileId, statuses, jobTypes, today: todayKey() });
-    if (changes.add.length || changes.update.length) onSync(changes);
+    const changes = planSheetSync({ jobs, tabs, map, fileId, statuses, jobTypes, today: todayKey(), seen });
+    if (changes.add.length || changes.update.length || changes.remove.length || changes.seen) onSync(changes);
   };
   return <SheetSourceLine testId="sheet-jobs-line" tabOf={jobTabOf} read={read} mobile={mobile} />;
 }
 
 /** รายจ่ายจากชีต (owner, 2026-11-14): the same line over the expenses list, reading the sheet's expense rows. */
-export function SheetExpensesLine({ expenses, onSync, mobile = false }: { expenses: Expense[]; onSync: (changes: SheetExpenseChanges) => void; mobile?: boolean }) {
+export function SheetExpensesLine({ expenses, seen, onSync, mobile = false }: {
+  expenses: Expense[]; seen?: SheetSeen | null; onSync: (changes: SheetExpenseChanges) => void; mobile?: boolean;
+}) {
   const read = (tabs: LiveTab[], map: SheetMap, fileId: string) => {
-    const changes = planSheetExpenseSync({ expenses, tabs, map, fileId, today: todayKey() });
-    if (changes.add.length || changes.update.length) onSync(changes);
+    const changes = planSheetExpenseSync({ expenses, tabs, map, fileId, today: todayKey(), seen });
+    if (changes.add.length || changes.update.length || changes.remove.length || changes.seen) onSync(changes);
   };
   return <SheetSourceLine testId="sheet-expenses-line" tabOf={expenseTabOf} read={read} mobile={mobile} />;
 }

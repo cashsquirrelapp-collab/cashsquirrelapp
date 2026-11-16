@@ -85,6 +85,55 @@ for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'p
   });
 }
 
+// Owner, 2026-11-17: "ทำไมยอดเงินกูมันขึ้นมาเหมือนเดิมอีกแล้ว ... กูไม่ได้กรอกแล้วมันดันขึ้นมาเอง": a job deleted in the app
+// came back from its sheet row at the next reading. What the app took from the sheet is now counted in the settings.
+test('a job deleted in the app stays deleted: reading the sheet again, or opening the app afresh, never brings it back', async ({ page }) => {
+  const { posts, reads } = await open(page, { width: 1440, height: 900 }, ['sheets', 'sheetMap', 'sheetJobs']);
+  const titles = page.locator('table tbody tr td:first-child p:first-child');
+  await expect(titles).toHaveCount(3);
+  await expect.poll(() => JSON.stringify(posts)).toContain('"sheetSeen":{"fileId":"file-12345678"');
+  const row = page.locator('table tbody tr').filter({ hasText: 'ออกแบบโลโก้ร้านกาแฟ' }).first();
+  await row.hover();
+  await row.getByRole('button', { name: /เมนู|ตัวเลือก|เพิ่มเติม/ }).first().click();
+  await page.getByRole('menuitem', { name: 'ลบ' }).click();
+  await page.getByRole('dialog', { name: 'ยืนยันการลบงาน' }).getByRole('button', { name: 'ยืนยัน' }).click();
+  await expect(titles).toHaveCount(2);
+  type Change = { table: string; id: string; op: 'set' | 'delete'; data?: Record<string, unknown> };
+  const changes = () => (posts as { changes?: Change[] }[]).flatMap(post => post.changes ?? []);
+  await expect.poll(() => changes().some(change => change.table === 'cashflow_jobs' && change.op === 'delete')).toBe(true);
+
+  // Back on the page a minute later: the sheet is read again, the row is still there, the job is not added back.
+  await page.clock.setFixedTime(new Date('2026-11-14T09:13:30+07:00'));
+  const before = reads();
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect.poll(reads).toBeGreaterThan(before);
+  await page.waitForTimeout(800);
+  await expect(titles).toHaveCount(2);
+  await expect(titles.filter({ hasText: 'ออกแบบโลโก้ร้านกาแฟ' })).toHaveCount(0);
+
+  // Opened afresh (another device): the server has what was saved, and the job still does not come back.
+  const jobs = new Map<string, Record<string, unknown>>([[chatJob.id, chatJob]]);
+  let saved: Record<string, unknown> = settings;
+  for (const change of changes()) {
+    if (change.table === 'cashflow_jobs') { if (change.op === 'delete') jobs.delete(change.id); else jobs.set(change.id, change.data!); }
+    if (change.table === 'cashflow_documents' && change.id === 'settings' && change.op === 'set') saved = change.data!;
+  }
+  expect(jobs.size).toBe(2);
+  expect(JSON.stringify(saved)).toContain('"sheetSeen"');
+  const fresh = { ...versions, cashflow_jobs: Object.fromEntries([...jobs.keys()].map(id => [id, 1])) };
+  const freshPosts: unknown[] = [];
+  await page.route('**/api/data*', route => {
+    if (route.request().method() === 'POST') { freshPosts.push(route.request().postDataJSON()); return route.fulfill({ json: { ok: true, versions: fresh } }); }
+    return route.fulfill({ json: { snapshot: { jobs: [...jobs.values()], expenses: [], goals: [], invoices: [], settings: saved, statuses: [], job_types: [], notif_settings: { enabled: false, pendingQueue: [] }, avatar_data_url: null, issuer_profile: null }, versions: fresh, subscription: { status: 'active', plan: 'pro_monthly', current_period_end: '2099-01-01T00:00:00Z' } } });
+  });
+  const readsBefore = reads();
+  await page.reload();
+  await expect.poll(reads).toBeGreaterThan(readsBefore);
+  await page.waitForTimeout(800);
+  await expect(titles).toHaveCount(2);
+  expect(JSON.stringify(freshPosts)).not.toContain('ออกแบบโลโก้ร้านกาแฟ');
+});
+
 test('without the feature the jobs page is as before and the sheet is never read', async ({ page }) => {
   const { reads } = await open(page, { width: 1440, height: 900 }, ['sheets', 'sheetMap']);
   await expect(page.locator('table tbody tr')).toHaveCount(1);

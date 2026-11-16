@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { LiveCell, LiveTab } from '../shared/googleSheets';
 import { sheetRowUrl } from '../shared/googleSheets';
-import type { Job, StatusOption } from '../shared/types';
+import type { Job, SheetSeen, StatusOption } from '../shared/types';
 
 // หน้างานจากชีต (ฟีเจอร์ทดลอง sheetJobs; owner, 2026-11-14: the sheet is the database, "ทำเลย ตามแผนทั้งหมด"): each job row
 // of the customer's sheet becomes a job in the app linked to its row; rows that move stay the same job; a job เลขา already
@@ -28,7 +28,7 @@ const STATUSES: StatusOption[] = [
   { id: 'pending', label: 'ยังไม่จ่าย', behavior: 'pending' },
 ];
 const map = mapOf(FILE, readTabs([tab(ROWS)]));
-const sync = (jobs: Job[], rows: LiveCell[][]) => planSheetSync({ jobs, tabs: [tab(rows)], map, fileId: FILE, statuses: STATUSES, jobTypes: [], today: '2026-11-14' });
+const sync = (jobs: Job[], rows: LiveCell[][], seen?: SheetSeen) => planSheetSync({ jobs, tabs: [tab(rows)], map, fileId: FILE, statuses: STATUSES, jobTypes: [], today: '2026-11-14', seen });
 let next = 0;
 const apply = (jobs: Job[], changes: ReturnType<typeof sync>): Job[] => {
   const updates = new Map(changes.update.map(update => [update.id, update.fields]));
@@ -103,6 +103,44 @@ test('sheet sync: a sheet without payment columns leaves payment as the app has 
   assert.equal(raised.value, 14000);
   assert.equal(raised.pending, 8000, 'still owed follows the new amount');
   assert.equal(raised.received, undefined);
+});
+
+// Owner, 2026-11-17: "ทำไมยอดเงินกูมันขึ้นมาเหมือนเดิมอีกแล้ว ... กูไม่ได้กรอกแล้วมันดันขึ้นมาเอง": a job deleted in the app
+// came back from its row at the next reading, so the totals came back.
+test('sheet sync: a job deleted in the app is never taken back from its row, on any device; a new row with the same words still is', () => {
+  const first = sync([], ROWS);
+  assert.ok(first.seen, 'the rows taken are counted');
+  const seen: SheetSeen = { fileId: FILE, jobs: first.seen! };
+  const jobs = apply([], first);
+  const deleted = jobs.filter(job => job.name !== 'ออกแบบโลโก้ร้านกาแฟ');
+  const again = sync(deleted, ROWS, seen);
+  assert.deepEqual([again.add.length, again.skipped, again.seen], [0, 1, null], 'the deleted job stays deleted, nothing to save');
+  // The same job twice in the sheet (a monthly retainer): the second row is new, and is taken.
+  const twice = sync(deleted, [...ROWS, ROWS[1]], seen);
+  assert.deepEqual([twice.add.length, twice.skipped], [1, 1]);
+  assert.equal(twice.add[0].sheetLink?.row, 5, 'the new row, not the deleted one');
+  // Changed in the sheet afterwards: the sheet says something new, so it is taken.
+  const edited = ROWS.map(row => (row[1].text === 'ออกแบบโลโก้ร้านกาแฟ' ? [row[0], row[1], row[2], cell('6,500'), ...row.slice(4)] : row));
+  assert.equal(sync(deleted, edited, seen).add.length, 1);
+  // Another sheet connected: its own counts.
+  assert.equal(sync(deleted, ROWS, { fileId: 'another-file', jobs: first.seen! }).add.length, 1);
+});
+
+test('sheet sync: the template\'s example rows are never taken; a job taken from one before is removed; a note mentioning a sample is not an example', () => {
+  const example = [day('5/2/2569', '2026-02-05'), cell('รีวิวสินค้า 2 คลิป'), cell('บริษัท ตัวอย่างมีเดีย จำกัด (ตัวอย่าง)'), cell('40,000'), cell('1,200'), cell('38,800'), cell(''), cell('')];
+  const withExample = [...ROWS, example];
+  const first = sync([], withExample);
+  assert.deepEqual([first.add.length, first.rows], [3, 3]);
+  assert.ok(!first.add.some(job => job.name === 'รีวิวสินค้า 2 คลิป'));
+  const jobs = apply([], first);
+  const takenBefore = { ...jobs[0], id: 'old-example', name: 'รีวิวสินค้า 2 คลิป', client: 'บริษัท ตัวอย่างมีเดีย จำกัด (ตัวอย่าง)', value: 40000, sheetLink: { fileId: FILE, tab: 'รายรับ', row: 5, gid: 812 } } as Job;
+  const cleaned = sync([...jobs, takenBefore], withExample);
+  assert.deepEqual(cleaned.remove, ['old-example']);
+  assert.equal(cleaned.missing, 0, 'removed, not marked missing');
+  // The example row deleted from the sheet already: the job taken from it still goes.
+  assert.deepEqual(sync([...jobs, takenBefore], ROWS).remove, ['old-example']);
+  const noted = [...ROWS, [day('12/11/2569', '2026-11-12'), cell('ถ่ายรูปเมนูใหม่'), cell('คาเฟ่ลูมิน'), cell('2,000'), cell('0'), cell('0'), cell(''), cell('ส่ง (ตัวอย่าง) ให้ลูกค้าดูก่อน')]];
+  assert.equal(sync(jobs, noted).add.length, 1);
 });
 
 test('ดูในชีต: the address opens the tab with the row selected', () => {

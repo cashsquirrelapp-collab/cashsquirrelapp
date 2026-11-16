@@ -146,6 +146,9 @@ export interface TaxYearInputs {
   otherTaxCredits?: number;
 }
 
+/** Rows already taken from one connected sheet: a short key (tab, what the row says) → how many such rows there were. */
+export interface SheetSeen { fileId: string; jobs?: Record<string, number>; expenses?: Record<string, number> }
+
 export interface AppSettings {
   /** Names the person gave their bank accounts, by "BANK:1234" (shared/slipAccounts.ts accountKey). */
   accountNames?: Record<string, string>;
@@ -176,6 +179,10 @@ export interface AppSettings {
   /** Expense categories the account added itself, after the app's own (owner, 2026-11-16: "รายจ่ายให้ทุกคนสามารถเพิ่ม
    *  ประเภทได้"): offered in the expense form, its filter, LINE's questions and เลขา's cards (shared/expenseCategory.ts). */
   expenseCategories?: string[];
+  /** What the app already took from the connected sheet (owner, 2026-11-17: "กูไม่ได้กรอกแล้วมันดันขึ้นมาเอง"): rows counted by
+   *  tab and what they say, so a job or an expense deleted in the app is not added back from its row
+   *  (frontend/src/features/labs/sheetSync.ts). */
+  sheetSeen?: SheetSeen;
   profileJobTypes?: string[]; // selected job type tags from the setup wizard (profile info only)
   profileJobTypeOther?: string; // free-text entry when 'other' job type is selected
   // Who the account is for -- drives which nav items default to the always-visible "core"

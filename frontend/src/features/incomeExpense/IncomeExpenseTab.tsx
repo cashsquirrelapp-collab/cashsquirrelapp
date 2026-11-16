@@ -329,7 +329,7 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
         }} />
         <DashboardPeriodPicker monthKey={monthKey} onChange={setMonthKey} compact />
         <button type="button" className="ksm-primary is-compact" onClick={() => openAdd()}><KsIcon name="plus" size={19} />{tr("เพิ่มรายจ่าย")}</button>
-        {props.onSheetSync && <SheetExpensesLine expenses={expenses} onSync={props.onSheetSync} mobile />}
+        {props.onSheetSync && <SheetExpensesLine expenses={expenses} seen={settings.sheetSeen} onSync={props.onSheetSync} mobile />}
         <div className="ksm-chips" role="tablist" aria-label={tr("ประเภทรายจ่าย")}>
           {([['all', tr("ทั้งหมด")], ['recurring', tr("ประจำ")], ['general', tr("ทั่วไป")]] as const).map(([key, label]) => (
             <button key={key} type="button" role="tab" aria-selected={typeFilter === key} onClick={() => setTypeFilter(key)}>{label}</button>
@@ -449,7 +449,7 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
       <IncomeExportDialog open={incomeExportOpen} jobs={jobs} initialMonth={monthKey} onClose={() => setIncomeExportOpen(false)} notify={triggerAlert} />
 
       <DashboardPeriodPicker monthKey={monthKey} onChange={setMonthKey} />
-      {props.onSheetSync && <SheetExpensesLine expenses={expenses} onSync={props.onSheetSync} />}
+      {props.onSheetSync && <SheetExpensesLine expenses={expenses} seen={settings.sheetSeen} onSync={props.onSheetSync} />}
 
       {/* Three calm numbers */}
       <section aria-label={tr("สรุปรายจ่าย {0}", monthLabel)} className={`${card} px-4 py-3`}>

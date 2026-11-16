@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { LiveCell, LiveTab } from '../shared/googleSheets';
-import type { Expense } from '../shared/types';
+import type { Expense, SheetSeen } from '../shared/types';
 
 // รายจ่ายจากชีต (owner, 2026-11-14: "ทำดึงรายจ่ายจากชีตต่อเลย"), the same way as the jobs: each expense row of the sheet's
 // expense tab becomes an expense in the app linked to its row; rows that move stay the same expense; an expense เลขา already
@@ -23,7 +23,7 @@ const TOTAL = [cell(''), cell('รวม'), cell(''), cell('5,120'), cell('')];
 const expenseTab = (rows: LiveCell[][]): LiveTab => ({ name: 'รายจ่าย', gid: 905, truncated: false, rows: [HEAD, ...rows] });
 const FILE = 'file-12345678';
 const map = mapOf(FILE, readTabs([expenseTab(ROWS)]));
-const sync = (expenses: Expense[], rows: LiveCell[][]) => planSheetExpenseSync({ expenses, tabs: [expenseTab(rows)], map, fileId: FILE, today: '2026-11-14' });
+const sync = (expenses: Expense[], rows: LiveCell[][], seen?: SheetSeen) => planSheetExpenseSync({ expenses, tabs: [expenseTab(rows)], map, fileId: FILE, today: '2026-11-14', seen });
 let next = 0;
 const apply = (expenses: Expense[], changes: ReturnType<typeof sync>): Expense[] => {
   const updates = new Map(changes.update.map(update => [update.id, update.fields]));
@@ -95,4 +95,19 @@ test('expense sync: rows the sheet marks personal and rows with no amount stay o
   const read = planSheetExpenseSync({ expenses: [], tabs: [tab], map: tabMap, fileId: FILE, today: '2026-11-14' });
   assert.deepEqual(read.add.map(expense => expense.name), ['ค่าเช่าสตูดิโอ']);
   assert.equal(read.add[0].note, '', 'the business / personal column is not written into the note');
+});
+
+// Owner, 2026-11-17: an expense deleted in the app came back from its row at the next reading.
+test('expense sync: an expense deleted in the app is never taken back from its row; the template\'s example rows are never taken', () => {
+  const first = sync([], ROWS);
+  const seen: SheetSeen = { fileId: FILE, expenses: first.seen! };
+  const expenses = apply([], first).filter(expense => expense.name !== 'ค่าโฆษณาเพจ');
+  const again = sync(expenses, ROWS, seen);
+  assert.deepEqual([again.add.length, again.skipped, again.seen], [0, 1, null]);
+  assert.equal(sync(expenses, [...ROWS, ROWS[2]], seen).add.length, 1, 'a second row of the same is new');
+  const example = [day('10/2/2569', '2026-02-10'), cell('ไมโครโฟนไร้สาย'), cell('อุปกรณ์'), cell('3,490'), cell('ร้านกล้องสมมติ (ตัวอย่าง)')];
+  const withExample = sync([], [...ROWS, example]);
+  assert.equal(withExample.add.length, 3);
+  const takenBefore = { id: 'old-example', name: 'ไมโครโฟนไร้สาย', amount: 3490, category: 'อุปกรณ์', date: '2026-02-10', note: '', sheetLink: { fileId: FILE, tab: 'รายจ่าย', row: 5, gid: 905 } } as unknown as Expense;
+  assert.deepEqual(sync([...expenses, takenBefore], [...ROWS, example]).remove, ['old-example']);
 });

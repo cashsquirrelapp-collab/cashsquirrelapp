@@ -3061,19 +3061,39 @@ export default function App() {
 
   // หน้างานจากชีต (ฟีเจอร์ทดลอง sheetJobs): the jobs page read the connected sheet; its new rows and changes land in one state
   // update, without the per-job toasts (the sheet is the master; this is the app keeping its copy in step).
+  // What the app took from the sheet is kept in the settings (owner, 2026-11-17), so a job or an expense deleted in the
+  // app is not taken again from its row, on any device (features/labs/sheetSync.ts).
+  const rememberSheetSeen = (fileId: string, kind: 'jobs' | 'expenses', seen: Record<string, number> | null) => {
+    if (!seen) return;
+    setSettings(prev => ({ ...prev, sheetSeen: { ...(prev.sheetSeen?.fileId === fileId ? prev.sheetSeen : { fileId }), [kind]: seen } }));
+  };
+
   const handleSheetSync = (changes: SheetSyncChanges) => {
     if (sessionRef.current?.user?.id) radarVisitRef.current = sessionRef.current.user.id;
     const at = new Date().toISOString();
     const added = changes.add.map(job => ({ ...job, id: crypto.randomUUID(), lastActivityAt: at }) as Job);
     const updates = new Map(changes.update.map(update => [update.id, update.fields]));
-    setJobs(prev => [...added, ...prev.map(job => { const fields = updates.get(job.id); return fields ? { ...job, ...fields } : job; })]);
+    // Jobs taken from the template's example rows before go, like a delete.
+    const removed = new Set(changes.remove);
+    const email = sessionRef.current?.user?.email;
+    for (const id of removed) { deletedJobIdsRef.current.add(id); if (email) markRecentlyDeleted(`cashflow_deleted_job_ids_${email}`, id); }
+    if (added.length || updates.size || removed.size) {
+      setJobs(prev => [...added, ...prev.filter(job => !removed.has(job.id)).map(job => { const fields = updates.get(job.id); return fields ? { ...job, ...fields } : job; })]);
+    }
+    rememberSheetSeen(changes.fileId, 'jobs', changes.seen);
   };
 
   // รายจ่ายจากชีต (ฟีเจอร์ทดลอง): the expenses page read the connected sheet; the same one state update, no toasts.
   const handleSheetExpenseSync = (changes: SheetExpenseChanges) => {
     const added = changes.add.map(expense => ({ ...expense, id: crypto.randomUUID() }) as Expense);
     const updates = new Map(changes.update.map(update => [update.id, update.fields]));
-    setExpenses(prev => [...added, ...prev.map(expense => { const fields = updates.get(expense.id); return fields ? { ...expense, ...fields } : expense; })]);
+    const removed = new Set(changes.remove);
+    const email = sessionRef.current?.user?.email;
+    for (const id of removed) { deletedExpenseIdsRef.current.add(id); if (email) markRecentlyDeleted(`cashflow_deleted_expense_ids_${email}`, id); }
+    if (added.length || updates.size || removed.size) {
+      setExpenses(prev => [...added, ...prev.filter(expense => !removed.has(expense.id)).map(expense => { const fields = updates.get(expense.id); return fields ? { ...expense, ...fields } : expense; })]);
+    }
+    rememberSheetSeen(changes.fileId, 'expenses', changes.seen);
   };
 
   // Tries the save again after it failed; the import window waits on it the same way.
@@ -3659,6 +3679,7 @@ export default function App() {
                       fullFeatureAccess={fullFeatureAccess}
                       jobs={jobs}
                       onSheetSync={handleSheetSync}
+                      sheetSeen={settings.sheetSeen}
                       onAddJob={handleAddJob}
                       onEditJob={handleEditJob}
                       onDeleteJob={handleDeleteJob}
