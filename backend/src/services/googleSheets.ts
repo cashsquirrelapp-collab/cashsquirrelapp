@@ -285,6 +285,8 @@ export interface SheetOps {
   tabId(tab: string): Promise<number>;
   /** The formulas of these columns in one row, as written ("=D6-E6"); columns without one are left out. */
   formulaTexts(tab: string, row: number, columns: number[]): Promise<Record<number, string>>;
+  /** Deletes these whole rows of the tab (a record deleted in the app); the rows below move up. */
+  deleteRows(tab: string, rows: number[]): Promise<void>;
 }
 
 const columnName = (index: number): string => { let s = '', n = index + 1; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
@@ -350,6 +352,14 @@ export function googleOps(token: string, fileId: string): SheetOps {
     },
     async clear(_tab, cells) {
       if (cells.length) await post(`${SHEETS}/${id}/values:batchClear`, { ranges: cells });
+    },
+    async deleteRows(tab, rows) {
+      const unique = [...new Set(rows)].filter(row => Number.isInteger(row) && row >= 1);
+      if (!unique.length) return;
+      const sheet = await sheetId(tab);
+      // Bottom first, so each row number still points at the same row while the others go.
+      await post(`${SHEETS}/${id}:batchUpdate`, { requests: unique.sort((a, b) => b - a)
+        .map(row => ({ deleteDimension: { range: { sheetId: sheet, dimension: 'ROWS', startIndex: row - 1, endIndex: row } } })) });
     },
     tabId: sheetId,
   };

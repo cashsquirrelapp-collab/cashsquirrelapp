@@ -1,4 +1,5 @@
-import type { SheetWriteResult } from '../services/sheetWrite.js';
+import type { DeleteRowsResult, SheetWriteResult } from '../services/sheetWrite.js';
+import { deletedRowFromCard, type DeletedRecordRow } from '../../../shared/sheetRow.js';
 import { randomUUID } from 'node:crypto';
 import type { AssistantProgress } from '../../../shared/assistantProgress.js';
 import { HttpError } from '../http/guard.js';
@@ -51,6 +52,9 @@ export interface AssistantDb {
   /** บันทึกลงชีตของคุณ: writes a confirmed job or expense into the account's connected sheet (null: no sheet ready or
    *  the feature is off). Never throws for a sheet problem; the app's save stands either way. */
   writeSheet?(userId: string, proposalId: string, kind: 'job' | 'expense', record: Record<string, unknown>): Promise<SheetWriteResult | null>;
+  /** หน้างานและรายจ่ายจากชีต: a job or an expense deleted by a confirmed card is deleted from the connected sheet too (null: no
+   *  sheet ready or the feature is off). Never throws for a sheet problem; the delete in the app stands either way. */
+  deleteSheetRows?(userId: string, rows: DeletedRecordRow[]): Promise<DeleteRowsResult | null>;
   reserve(input: { userId: string; cycle: string; requestId: string; tokens: number; tokenLimit: number | null; requestLimit: number | null; dailyCapUsd: number }): Promise<ReserveResult>;
   /**
    * Replace the reservation with what the request cost: tokens charged and the real spend (also when released, so the
@@ -594,6 +598,9 @@ export async function confirmProposal(db: AssistantDb, userId: string, proposalI
     await db.finishProposal(userId, proposalId, 'stale');
     throw new HttpError(409, 'ข้อมูลที่เตรียมไว้ไม่ผ่านการตรวจของแอป กรุณาขอให้เลขาเตรียมใหม่', 'ai_proposal_invalid');
   }
+  // Deleting a job or an expense taken from the connected sheet: its row goes too (owner, 2026-11-17). The card kept where
+  // the row was when it was prepared (tools.ts, recordActions.ts).
+  const sheetRow = proposal.kind === 'delete_job' || proposal.kind === 'delete_expense' ? deletedRowFromCard(proposal.record) : null;
   let applied: boolean;
   try { applied = await db.applyChanges(userId, changes); }
   catch (error) {
@@ -612,6 +619,7 @@ export async function confirmProposal(db: AssistantDb, userId: string, proposalI
   // The customer's sheet too (owner, 2026-11-12: "ลงชีต + ในแอปด้วย"): saved in the app already, so the sheet never costs it.
   const rowKind = proposal.kind === 'add_job' ? 'job' as const : proposal.kind === 'add_expense' ? 'expense' as const : null;
   const sheet = rowKind && proposal.record && db.writeSheet ? await db.writeSheet(userId, proposalId, rowKind, proposal.record).catch(() => null) : null;
+  if (sheetRow && db.deleteSheetRows) await db.deleteSheetRows(userId, [sheetRow]).catch(() => null);
   const named = {
     ...(typeof proposal.record?.name === 'string' && proposal.record.name.trim() ? { name: proposal.record.name.trim().slice(0, 120) } : {}),
     ...(typeof proposal.record?.client === 'string' && proposal.record.client.trim() ? { client: proposal.record.client.trim().slice(0, 120) } : {}),

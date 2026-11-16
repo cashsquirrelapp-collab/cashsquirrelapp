@@ -8,6 +8,7 @@ import type { Goal } from '../../../shared/types.js';
 import type { ToolContext } from './tools.js';
 import type { ToolOutcome, ToolSpec } from './types.js';
 import { prepareProposal, type ProposalKind } from './proposals.js';
+import { deletedRowOf } from '../../../shared/sheetRow.js';
 import { duplicateNote, slipArgSchema, slipCard, slipFacts } from './slipProposal.js';
 
 const text = z.string().trim().min(1).max(500);
@@ -88,8 +89,13 @@ export async function executeRecordAction(name: string, args: Record<string, unk
   if (name.includes('expense') && name !== 'propose_update_preferences') {
     const old = records(user.expenses).find(row => row.id === input.expense_id);
     if (name !== 'propose_add_expense' && !old) return fail('ไม่พบรายจ่ายนี้ในบัญชีของคุณ');
-    if (name === 'propose_delete_expense') return prepare('delete_expense', String(old!.id), null, 'ลบรายจ่าย', [
-      { label: 'รายการ', value: String(old!.name) }, { label: 'ยอดที่จะลบ', value: baht(old!.amount) }]);
+    if (name === 'propose_delete_expense') {
+      // Taken from the connected sheet: the card keeps its row, and confirming deletes that row too (owner, 2026-11-17).
+      const sheetRow = deletedRowOf('expense', old);
+      return prepare('delete_expense', String(old!.id), sheetRow ? { sheetRow } : null, 'ลบรายจ่าย', [
+        { label: 'รายการ', value: String(old!.name) }, { label: 'ยอดที่จะลบ', value: baht(old!.amount) },
+        ...(sheetRow ? [{ label: 'ในชีต', value: `แถว ${sheetRow.row} ในแท็บ ${sheetRow.tab} จะถูกลบด้วย` }] : [])]);
+    }
     const { expense_id: _ignored, slip: _slip, ...fields } = input;
     const value: Record<string, unknown> = { ...(old || {}), ...fields, id: old?.id || randomUUID(), note: input.note ?? old?.note ?? '' };
     value.amount = roundMoney(Number(value.amount));

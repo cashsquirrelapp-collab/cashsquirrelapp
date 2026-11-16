@@ -30,8 +30,9 @@ const chatJob = { id: 'chat-job-1', name: 'ตัดต่อคลิปรี�
 const settings = { monthlyExpense: 0, monthlyRevenueGoal: 40000, savingsPercentage: 40, profileSetupCompleted: true, userPersona: 'freelance', onboarding: { completedAt: '2026-11-05T03:00:00.000Z' } };
 const versions = { cashflow_jobs: { 'chat-job-1': 1 }, cashflow_expenses: {}, cashflow_goals: {}, cashflow_invoices: {}, cashflow_documents: { settings: 1 } };
 
-async function open(page: Page, size: { width: number; height: number }, labsOn: string[]) {
+async function open(page: Page, size: { width: number; height: number }, labsOn: string[], deleteReply: Record<string, unknown> = { deleted: 1, notFound: 0 }) {
   const posts: unknown[] = [];
+  const deletes: unknown[] = [];
   let reads = 0;
   await page.clock.setFixedTime(new Date('2026-11-14T09:12:00+07:00'));
   await page.addInitScript(() => { localStorage.setItem('cashflow_language', 'th'); localStorage.setItem('cashflow_theme_pref', JSON.stringify({ mode: 'light', asked: true })); });
@@ -50,12 +51,13 @@ async function open(page: Page, size: { width: number; height: number }, labsOn:
     if (route.request().method() === 'GET') return route.fulfill({ json: status });
     const body = route.request().postDataJSON() as { action?: string };
     if (body.action === 'read') { reads += 1; return route.fulfill({ json: { ...status, tabs: [{ name: 'รายรับ', gid: 812, truncated: false, rows: ROWS }], readAt: '2026-11-14T02:12:00.000Z' } }); }
+    if (body.action === 'deleteRows') { deletes.push(body); return route.fulfill({ json: { ...status, result: deleteReply } }); }
     return route.fulfill({ json: status });
   });
   await page.setViewportSize(size);
   await page.goto(noRadar('/jobs'));
   await loadLayoutFonts(page);
-  return { posts, reads: () => reads };
+  return { posts, deletes, reads: () => reads };
 }
 
 for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'phone', width: 390, height: 844 }]) {
@@ -87,8 +89,8 @@ for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'p
 
 // Owner, 2026-11-17: "ทำไมยอดเงินกูมันขึ้นมาเหมือนเดิมอีกแล้ว ... กูไม่ได้กรอกแล้วมันดันขึ้นมาเอง": a job deleted in the app
 // came back from its sheet row at the next reading. What the app took from the sheet is now counted in the settings.
-test('a job deleted in the app stays deleted: reading the sheet again, or opening the app afresh, never brings it back', async ({ page }) => {
-  const { posts, reads } = await open(page, { width: 1440, height: 900 }, ['sheets', 'sheetMap', 'sheetJobs']);
+test('a job deleted in the app stays deleted: its sheet row is deleted too, and reading the sheet again or opening the app afresh never brings it back', async ({ page }) => {
+  const { posts, deletes, reads } = await open(page, { width: 1440, height: 900 }, ['sheets', 'sheetMap', 'sheetJobs']);
   const titles = page.locator('table tbody tr td:first-child p:first-child');
   await expect(titles).toHaveCount(3);
   await expect.poll(() => JSON.stringify(posts)).toContain('"sheetSeen":{"fileId":"file-12345678"');
@@ -96,8 +98,15 @@ test('a job deleted in the app stays deleted: reading the sheet again, or openin
   await row.hover();
   await row.getByRole('button', { name: /เมนู|ตัวเลือก|เพิ่มเติม/ }).first().click();
   await page.getByRole('menuitem', { name: 'ลบ' }).click();
-  await page.getByRole('dialog', { name: 'ยืนยันการลบงาน' }).getByRole('button', { name: 'ยืนยัน' }).click();
+  const confirm = page.getByRole('dialog', { name: 'ยืนยันการลบงาน' });
+  // Owner, 2026-11-17: "ถ้ากูลบโปรเจกต์นั้นออกแล้วใน Google Sheet ก็ต้องลบออกด้วยดิ": the question says the row goes too.
+  await expect(confirm).toContainText('แถวของงานนี้ในชีต (แท็บ รายรับ แถว 3) จะถูกลบด้วย');
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await confirm.getByRole('button', { name: 'ยืนยัน' }).click();
   await expect(titles).toHaveCount(2);
+  await expect.poll(() => deletes.length).toBe(1);
+  expect(deletes[0]).toEqual({ action: 'deleteRows', rows: [{ kind: 'job', fileId: FILE.id, tab: 'รายรับ', row: 3, name: 'ออกแบบโลโก้ร้านกาแฟ', amount: 5000 }] });
+  await expect(page.getByText('ลบแถวในชีตไม่สำเร็จ')).toHaveCount(0);
   type Change = { table: string; id: string; op: 'set' | 'delete'; data?: Record<string, unknown> };
   const changes = () => (posts as { changes?: Change[] }[]).flatMap(post => post.changes ?? []);
   await expect.poll(() => changes().some(change => change.table === 'cashflow_jobs' && change.op === 'delete')).toBe(true);
@@ -132,6 +141,23 @@ test('a job deleted in the app stays deleted: reading the sheet again, or openin
   await page.waitForTimeout(800);
   await expect(titles).toHaveCount(2);
   expect(JSON.stringify(freshPosts)).not.toContain('ออกแบบโลโก้ร้านกาแฟ');
+});
+
+test('a sheet row that cannot be found is said, and the job is deleted from the app all the same', async ({ page }) => {
+  const { deletes } = await open(page, { width: 1440, height: 900 }, ['sheets', 'sheetMap', 'sheetJobs'], { deleted: 0, notFound: 1 });
+  const titles = page.locator('table tbody tr td:first-child p:first-child');
+  await expect(titles).toHaveCount(3);
+  const row = page.locator('table tbody tr').filter({ hasText: 'ออกแบบโลโก้ร้านกาแฟ' }).first();
+  await row.hover();
+  await row.getByRole('button', { name: /เมนู|ตัวเลือก|เพิ่มเติม/ }).first().click();
+  await page.getByRole('menuitem', { name: 'ลบ' }).click();
+  await page.getByRole('dialog', { name: 'ยืนยันการลบงาน' }).getByRole('button', { name: 'ยืนยัน' }).click();
+  await expect(titles).toHaveCount(2);
+  await expect.poll(() => deletes.length).toBe(1);
+  await expect(page.getByText('ลบแถวในชีตไม่สำเร็จ').first()).toBeVisible();
+  await expect(page.getByText('ไม่พบแถวที่ตรงกับรายการนี้ในชีต กรุณาตรวจและลบในชีตเอง').first()).toBeVisible();
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await page.screenshot({ path: 'test-results/labs-sheet-jobs-delete-not-found.png' });
 });
 
 test('without the feature the jobs page is as before and the sheet is never read', async ({ page }) => {

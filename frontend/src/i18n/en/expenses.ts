@@ -2,6 +2,7 @@
 export const expenses: Record<string, string> = {
   'กรุณาระบุชื่อรายการ': 'Please enter a name',
   'คุณต้องการลบรายการรายจ่าย "{0}" จำนวนเงิน {1} ใช่หรือไม่?': 'Delete the expense "{0}" ({1})?',
+  'คุณต้องการลบรายการรายจ่าย "{0}" จำนวนเงิน {1} ใช่หรือไม่? แถวของรายการนี้ในชีต (แท็บ {2} แถว {3}) จะถูกลบด้วย': 'Delete the expense "{0}" ({1})? Its row in the sheet (tab {2}, row {3}) will be deleted too.',
   'ค่าใช้จ่ายที่ตั้งไว้ทุกเดือน': 'Costs set for every month',
   'ค่าใช้จ่ายที่นับทุกเดือน เช่น ค่าห้อง อินเทอร์เน็ต ค่าสมาชิก': 'Costs counted every month, such as rent, internet and memberships',
   'ค้นหารายจ่าย': 'Search expenses',

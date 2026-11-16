@@ -156,8 +156,13 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
 
   const openAdd = (preset?: { name: string; amount: number; recurring: boolean }) => setDrawer({ expense: null, preset });
   const openEdit = (id: string) => { const expense = expenses.find(e => e.id === id); if (expense) setDrawer({ expense }); };
-  const confirmDelete = (row: ExpenseRow) =>
-    triggerConfirm(tr("ยืนยันการลบรายจ่าย"), tr("คุณต้องการลบรายการรายจ่าย \"{0}\" จำนวนเงิน {1} ใช่หรือไม่?", row.name, formatCurrency(row.amount)), () => props.onDeleteExpense(row.id));
+  const confirmDelete = (row: ExpenseRow) => {
+    // Taken from the connected sheet: its row there goes too (owner, 2026-11-17), and the question says so.
+    const link = expenses.find(expense => expense.id === row.id)?.sheetLink;
+    triggerConfirm(tr("ยืนยันการลบรายจ่าย"), link && !link.missing
+      ? tr("คุณต้องการลบรายการรายจ่าย \"{0}\" จำนวนเงิน {1} ใช่หรือไม่? แถวของรายการนี้ในชีต (แท็บ {2} แถว {3}) จะถูกลบด้วย", row.name, formatCurrency(row.amount), link.tab, link.row)
+      : tr("คุณต้องการลบรายการรายจ่าย \"{0}\" จำนวนเงิน {1} ใช่หรือไม่?", row.name, formatCurrency(row.amount)), () => props.onDeleteExpense(row.id));
+  };
   const rowMenu = (row: ExpenseRow): MenuItem[] => row.fromSettings
     ? [
         { label: tr("ดูรายละเอียด"), run: () => setDetail(row) },

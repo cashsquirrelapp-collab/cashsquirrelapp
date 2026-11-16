@@ -105,6 +105,7 @@ import { groupApi } from '../services/groups';
 import { usageAnalyticsApi } from '../services/usageAnalytics';
 import { authClient } from '../services/auth';
 import { apiFetch, apiJson, getCurrentAccount } from '../services/api';
+import { googleApi } from '../services/google';
 import { readCloud, refreshCloud, saveCloud, saveAppCloud, clearCloud, exportCloud, flushCloud, type CloudState } from '../services/cloud';
 import { useLanguage } from '../i18n/LanguageContext';
 // Aliased: this file already has its own local `currentMonthKey` (a memoized string further
@@ -2663,11 +2664,31 @@ export default function App() {
     }
   };
 
+  // Deleted in the app, deleted in the connected sheet too (owner, 2026-11-17: "ถ้ากูลบโปรเจกต์นั้นออกแล้วใน Google Sheet
+  // ก็ต้องลบออกด้วยดิ"): the server finds the record's row, checked by name and amount, and deletes it. When it cannot,
+  // the person is told to delete the row themselves; the delete in the app stands either way.
+  const deleteFromSheet = (record: { sheetLink?: Job['sheetLink']; name: string }, kind: 'job' | 'expense', amount: number) => {
+    const link = record.sheetLink;
+    const account = getCurrentAccount();
+    if (!link || link.missing || !account) return;
+    const failed = (message: string) => fireMascot({ mood: 'alert', tone: 'warning', title: tr("ลบแถวในชีตไม่สำเร็จ"), message, duration: 9000 });
+    void googleApi.deleteRows(account, [{ kind, fileId: link.fileId, tab: link.tab, row: link.row, name: record.name, amount }])
+      .then(result => {
+        if (!result || (!result.error && result.deleted > 0)) return;
+        failed(result.error ? tr("{0} รายการถูกลบจากแอปแล้ว กรุณาลบแถวนั้นในชีตเอง", result.error) : tr("ไม่พบแถวที่ตรงกับรายการนี้ในชีต กรุณาตรวจและลบในชีตเอง"));
+      })
+      .catch(error => failed(tr("{0} รายการถูกลบจากแอปแล้ว กรุณาลบแถวนั้นในชีตเอง", formatError(error))));
+  };
+
   const handleDeleteJob = (id: string) => {
+    const target = jobs.find(job => job.id === id);
+    const link = target?.sheetLink && !target.sheetLink.missing ? target.sheetLink : null;
     triggerConfirm(
       tr("ยืนยันการลบงาน"),
-      tr("ต้องการลบงานนี้ใช่หรือไม่ ข้อมูลรายรับที่เกี่ยวข้องจะถูกลบไปด้วย"),
+      link ? tr("ต้องการลบงานนี้ใช่หรือไม่ ข้อมูลรายรับที่เกี่ยวข้องจะถูกลบไปด้วย และแถวของงานนี้ในชีต (แท็บ {0} แถว {1}) จะถูกลบด้วย", link.tab, link.row)
+        : tr("ต้องการลบงานนี้ใช่หรือไม่ ข้อมูลรายรับที่เกี่ยวข้องจะถูกลบไปด้วย"),
       () => {
+        if (target) deleteFromSheet(target, 'job', Number(target.value) || 0);
         deletedJobIdsRef.current.add(id);
         if (session?.user?.email) {
           markRecentlyDeleted(`cashflow_deleted_job_ids_${session.user.email}`, id);
@@ -2938,6 +2959,8 @@ export default function App() {
   };
 
   const handleDeleteExpense = (id: string) => {
+    const target = expenses.find(expense => expense.id === id);
+    if (target) deleteFromSheet(target, 'expense', Number(target.amount) || 0);
     deletedExpenseIdsRef.current.add(id);
     if (session?.user?.email) {
       markRecentlyDeleted(`cashflow_deleted_expense_ids_${session.user.email}`, id);

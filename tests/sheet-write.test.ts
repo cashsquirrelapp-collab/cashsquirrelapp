@@ -14,7 +14,7 @@ process.env.GOOGLE_CLIENT_ID = 'client-id.apps.googleusercontent.com';
 process.env.GOOGLE_CLIENT_SECRET = 'test-secret-not-real';
 process.env.GOOGLE_TOKEN_KEY = randomBytes(32).toString('base64');
 
-const { planRow, writeRow, previewOf, writeFor } = await import('../backend/src/services/sheetWrite');
+const { planRow, writeRow, previewOf, writeFor, deleteRecordRows } = await import('../backend/src/services/sheetWrite');
 const { googleOps } = await import('../backend/src/services/googleSheets');
 const { confirmProposal } = await import('../backend/src/ai/service');
 type SheetOps = import('../backend/src/services/googleSheets').SheetOps;
@@ -70,6 +70,7 @@ function fakeOps(sheet: Record<string, string[][]>, formulas: Record<string, Set
     async write(tab, row, cells) { calls.push({ op: 'write', args: [tab, row, cells] }); return cells.map(cell => `${tab}!${cell.index}${row}`); },
     async copyFormulas(tab, from, to, columns) { calls.push({ op: 'copy', args: [tab, from, to, columns] }); return columns.map(column => `${tab}!${column}${to}`); },
     async clear(tab, cells) { calls.push({ op: 'clear', args: [tab, cells] }); },
+    async deleteRows(tab, rows) { calls.push({ op: 'deleteRows', args: [tab, rows] }); },
     async tabId(tab) { return tab === 'รายจ่าย' ? 7 : 0; },
     async formulaTexts(tab, row, columns) { return Object.fromEntries(columns.filter(column => formulas[tab]?.has(`${row}:${column}`)).map(column => [column, formulaText[tab]?.[`${row}:${column}`] ?? '=1'])); },
   };
@@ -211,4 +212,64 @@ test('confirm: a new expense goes into the app and the sheet; a sheet failure ke
   const off = confirmDb();
   off.add('p_00000000-0000-4000-8000-000000000004', 'add_expense', EXPENSE);
   assert.equal((await confirmProposal(off.db, USER, 'p_00000000-0000-4000-8000-000000000004')).sheet, undefined, 'no sheet ready: nothing said');
+});
+
+// Owner, 2026-11-17: "ถ้ากูลบโปรเจกต์นั้นออกแล้วใน Google Sheet ก็ต้องลบออกด้วยดิ".
+test('deleted in the app, deleted in the sheet: the linked row when it still is the record, else the moved row nearest it; never a header, never a guess', async () => {
+  const sheet = { รายรับ: [
+    ['รายรับปี 2569'], [], ['วันที่', 'ลูกค้า', 'รายการ', 'ยอดก่อนหัก', 'หัก %', 'ภาษีหัก', 'สถานะ'],
+    ['3/10/2569', 'บริษัท ข', 'ตัดต่อ', '5,000', '3%', '150', 'ได้รับเงินแล้ว'],
+    ['5/10/2569', 'บริษัท ค', 'ถ่ายรูปสินค้า', '฿12,000.00', '3%', '360', 'รอโอน'],
+    ['7/10/2569', 'บริษัท ง', 'ตัดต่อ', '8,000', '3%', '240', 'รอโอน'],
+  ], รายจ่าย: [['วันที่', 'รายการ', 'หมวด', 'ยอดเงิน'], ['1/11/2569', 'ค่าเช่ากล้อง', 'อุปกรณ์', '1,200']] };
+  const row = (over: Partial<{ kind: 'job' | 'expense'; tab: string; row: number; name: string; amount: number }>) =>
+    ({ kind: 'job' as const, fileId: MAP.fileId, tab: 'รายรับ', row: 5, name: 'ถ่ายรูปสินค้า', amount: 12000, ...over });
+  // Where it was linked.
+  let { ops, calls } = fakeOps(sheet);
+  assert.deepEqual(await deleteRecordRows(ops, MAP, [row({})]), { deleted: 1, notFound: 0 });
+  assert.deepEqual(calls.find(call => call.op === 'deleteRows')!.args, ['รายรับ', [5]]);
+  // A row was inserted above since: the same name and amount one row down.
+  ({ ops, calls } = fakeOps(sheet));
+  assert.deepEqual(await deleteRecordRows(ops, MAP, [row({ row: 4, name: 'ตัดต่อ', amount: 8000 })]), { deleted: 1, notFound: 0 });
+  assert.deepEqual(calls.find(call => call.op === 'deleteRows')!.args, ['รายรับ', [6]], 'row 4 is ตัดต่อ 5,000, not this one: the 8,000 one');
+  // Same name, other amount, nowhere else: nothing is deleted.
+  ({ ops, calls } = fakeOps(sheet));
+  assert.deepEqual(await deleteRecordRows(ops, MAP, [row({ row: 9, name: 'ตัดต่อ', amount: 999 })]), { deleted: 0, notFound: 1 });
+  assert.equal(calls.some(call => call.op === 'deleteRows'), false);
+  // The header row is never a record row, even when named like one.
+  ({ ops, calls } = fakeOps(sheet));
+  assert.deepEqual(await deleteRecordRows(ops, MAP, [row({ row: 3, name: 'รายการ', amount: 0 })]), { deleted: 0, notFound: 1 });
+  // Two at once, an expense too: each tab once, its own rows.
+  ({ ops, calls } = fakeOps(sheet));
+  const both = await deleteRecordRows(ops, MAP, [row({}), row({ row: 6, name: 'ตัดต่อ', amount: 8000 }), row({ kind: 'expense', tab: 'รายจ่าย', row: 2, name: 'ค่าเช่ากล้อง', amount: 1200 })]);
+  assert.deepEqual(both, { deleted: 3, notFound: 0 });
+  assert.deepEqual(calls.filter(call => call.op === 'deleteRows').map(call => call.args), [['รายรับ', [5, 6]], ['รายจ่าย', [2]]]);
+});
+
+test('confirm: a delete card of a record taken from the sheet deletes its row too; a sheet failure keeps the delete; other cards never delete rows', async () => {
+  const { deletedRowOf } = await import('../shared/sheetRow');
+  const job = { id: 'job-7', name: 'ถ่ายรูปสินค้า', value: 12000, sheetLink: { fileId: MAP.fileId, tab: 'รายรับ', row: 5, gid: 0 } };
+  const sheetRow = deletedRowOf('job', job)!;
+  assert.deepEqual(sheetRow, { kind: 'job', fileId: MAP.fileId, tab: 'รายรับ', row: 5, name: 'ถ่ายรูปสินค้า', amount: 12000 });
+  assert.equal(deletedRowOf('job', { ...job, sheetLink: { ...job.sheetLink, missing: true } }), null, 'a row already gone is not looked for');
+  assert.equal(deletedRowOf('expense', { id: 'e', name: 'x', amount: 1 }), null);
+  const run = async (kind: string, record: Record<string, unknown> | null, deleteSheetRows?: (...args: unknown[]) => Promise<unknown>) => {
+    const calls: unknown[][] = [];
+    const proposal = { id: 'p_00000000-0000-4000-8000-000000000009', userId: USER, kind, jobId: 'job-7', record, title: 'ลบงาน 1 งาน', changes: [], createdAt: Date.now(), baseVersion: 3, status: 'pending' };
+    const db = {
+      async claimProposal() { return proposal.status === 'pending' ? (proposal.status = 'applying', proposal) : null; },
+      async finishProposal(_: string, __: string, status: string) { proposal.status = status; },
+      async applyChanges() { return true; }, async memories() { return []; }, async remember() {},
+      ...(deleteSheetRows ? { deleteSheetRows: async (...args: unknown[]) => { calls.push(args); return deleteSheetRows(...args); } } : {}),
+    };
+    const result = await confirmProposal(db as never, USER, proposal.id);
+    return { result, calls };
+  };
+  const ok = await run('delete_job', { sheetRow }, async () => ({ deleted: 1, notFound: 0 }));
+  assert.equal(ok.result.status, 'applied');
+  assert.deepEqual(ok.calls, [[USER, [sheetRow]]]);
+  const broken = await run('delete_job', { sheetRow }, async () => { throw new Error('google down'); });
+  assert.equal(broken.result.status, 'applied', 'the delete in the app stands');
+  assert.equal((await run('delete_job', null, async () => ({ deleted: 1, notFound: 0 }))).calls.length, 0, 'not from the sheet: no row');
+  assert.equal((await run('delete_job', { sheetRow: { ...sheetRow, row: 'five' } }, async () => ({ deleted: 1, notFound: 0 }))).calls.length, 0, 'a malformed row is never used');
 });

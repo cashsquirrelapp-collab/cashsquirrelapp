@@ -1,5 +1,5 @@
 import { KEPT_WRITES, UNDO_MS, sheetRowUrl, type GoogleRecord, type SheetMap, type SheetWrite } from '../../../shared/googleSheets.js';
-import { chooseTab, dataColumns, displayValue, letter, rowCells, valueFor, type RowCell, type RowKind } from '../../../shared/sheetRow.js';
+import { chooseTab, dataColumns, displayValue, letter, rowCells, valueFor, type DeletedRecordRow, type RowCell, type RowKind } from '../../../shared/sheetRow.js';
 import { evaluateRow, shiftFormula } from '../../../shared/sheetFormula.js';
 import { isValidWhtRate, roundMoney, whtAmountFor } from '../../../shared/wht.js';
 import { loadGoogle, saveGoogle } from '../repositories/google.js';
@@ -305,6 +305,69 @@ export function writeFor(record: GoogleRecord | null, proposalId: string, now = 
     canUndo: !write.undone && now - Date.parse(write.at) < UNDO_MS && record?.file?.id === write.fileId,
     ...(write.sheetValues?.length ? { values: write.sheetValues } : {}),
   };
+}
+
+// Deleted in the app, deleted in the sheet (owner, 2026-11-17: "ถ้ากูลบโปรเจกต์นั้นออกแล้วใน Google Sheet ก็ต้องลบออกด้วยดิ"):
+// a job or an expense taken from the connected sheet (its sheetLink) is deleted there too, the whole row. Rows move (a row
+// inserted above, a sort), so the row is checked before it goes: the linked row when it still has the record's name and
+// amount; otherwise the row of the same tab with the same name and amount nearest to it; otherwise nothing is deleted. A header
+// row is never touched. Google keeps the sheet's version history, so a row deleted by mistake can be brought back there.
+export type { DeletedRecordRow };
+export interface DeleteRowsResult { deleted: number; notFound: number; error?: string }
+const MAX_DELETE_SCAN = 3000;
+const plainText = (text: unknown) => String(text ?? '').toLowerCase().replace(/\s+/g, '');
+const moneyIn = (text: string) => { const cleaned = String(text).replace(/[^0-9.-]/g, ''); const value = cleaned ? Number(cleaned) : NaN; return Number.isFinite(value) ? value : NaN; };
+
+/** Finds each deleted record's row in the sheet and deletes those rows; what could not be found is counted. */
+export async function deleteRecordRows(ops: SheetOps, map: SheetMap, rows: DeletedRecordRow[]): Promise<DeleteRowsResult> {
+  let notFound = 0;
+  const chosen = new Map<string, Set<number>>();
+  const reads = new Map<string, { first: number; rows: string[][] }>();
+  for (const item of rows) {
+    const tab = map.tabs.find(candidate => candidate.name === item.tab);
+    const nameColumns = tab?.columns.filter(column => column.target === 'name' || (item.kind === 'job' && column.target === 'project')).map(column => column.index) ?? [];
+    const moneyTargets = item.kind === 'job' ? ['value', 'amount', 'income'] : ['amount', 'expense'];
+    const moneyColumns = tab?.columns.filter(column => moneyTargets.includes(column.target)).map(column => column.index) ?? [];
+    if (!tab || !nameColumns.length || !plainText(item.name)) { notFound += 1; continue; }
+    const first = (tab.headerRow === null ? 0 : tab.headerRow + 1) + 1;
+    let read = reads.get(tab.name);
+    if (!read) {
+      const last = Math.min(await ops.lastRow(tab.name, dataColumns(tab)), first + MAX_DELETE_SCAN);
+      const lastColumn = Math.max(0, ...tab.columns.map(column => column.index));
+      read = { first, rows: last >= first ? await ops.readRows(tab.name, first, last, lastColumn) : [] };
+      reads.set(tab.name, read);
+    }
+    const sameName = (cells: string[]) => nameColumns.some(index => plainText(cells[index]) === plainText(item.name));
+    const sameMoney = (cells: string[]) => !moneyColumns.length || moneyColumns.some(index => Math.abs(moneyIn(cells[index] ?? '') - item.amount) < 0.005);
+    const taken = chosen.get(tab.name) ?? new Set<number>();
+    const cellsAt = (row: number) => read!.rows[row - read!.first] ?? [];
+    let found: number | null = item.row >= first && !taken.has(item.row) && sameName(cellsAt(item.row)) && sameMoney(cellsAt(item.row)) ? item.row : null;
+    if (found === null) {
+      let nearest = Infinity;
+      read.rows.forEach((cells, index) => {
+        const row = read!.first + index;
+        if (!taken.has(row) && sameName(cells) && sameMoney(cells) && Math.abs(row - item.row) < nearest) { nearest = Math.abs(row - item.row); found = row; }
+      });
+    }
+    if (found === null) { notFound += 1; continue; }
+    taken.add(found);
+    chosen.set(tab.name, taken);
+  }
+  let deleted = 0;
+  for (const [tab, picked] of chosen) { await ops.deleteRows(tab, [...picked]); deleted += picked.size; }
+  return { deleted, notFound };
+}
+
+/** The account's connected sheet: deletes the rows of records deleted in the app. Null when no sheet is ready; never throws. */
+export async function deleteSheetRows(userId: string, rows: DeletedRecordRow[]): Promise<DeleteRowsResult | null> {
+  let context: Awaited<ReturnType<typeof sheetContext>>;
+  try { context = await sheetContext(userId); }
+  catch (error) { return { deleted: 0, notFound: 0, error: error instanceof GoogleError ? ERRORS[error.code] : ERRORS.failed }; }
+  if (!context) return null;
+  const mine = rows.filter(row => row.fileId === context!.record.file!.id);
+  if (!mine.length) return { deleted: 0, notFound: rows.length };
+  try { return await deleteRecordRows(context.ops, context.record.map!, mine); }
+  catch (error) { return { deleted: 0, notFound: 0, error: error instanceof GoogleError ? ERRORS[error.code] : ERRORS.failed }; }
 }
 
 /** ย้อนกลับ: empties the cells of the last write, within 30 minutes, if it is still the connected file. */

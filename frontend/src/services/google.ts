@@ -41,6 +41,9 @@ export const googleApi = {
     method: 'POST', headers: { 'X-Account-ID': account }, body: JSON.stringify({ action: 'token' }),
   }),
   pick: (account: string, fileId: string) => post(account, { action: 'pick', fileId }).then(reply => reply.google),
+  /** Records deleted in the app: their rows go from the connected sheet too (null: no sheet ready). */
+  deleteRows: (account: string, rows: { kind: 'job' | 'expense'; fileId: string; tab: string; row: number; name: string; amount: number }[]) =>
+    post<{ result: { deleted: number; notFound: number; error?: string } | null }>(account, { action: 'deleteRows', rows }).then(reply => reply.result),
   read: (account: string) => post<{ tabs: LiveTab[]; readAt: string }>(account, { action: 'read' }),
   saveMap: (account: string, map: SheetMap) => post(account, { action: 'saveMap', map }).then(reply => reply.google),
   createTemplate: (account: string, name: string, xlsx: string) => post<{ created: boolean }>(account, { action: 'createTemplate', name, xlsx }).then(reply => reply.google),

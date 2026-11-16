@@ -8,6 +8,27 @@ import type { SheetMap, SheetMapColumn, SheetMapTab } from './googleSheets.js';
 
 export type RowKind = 'job' | 'expense';
 
+/** A job or an expense deleted in the app, and the sheet row it was taken from (owner, 2026-11-17: deleted in the app,
+ *  deleted in the sheet; backend/src/services/sheetWrite.ts deleteRecordRows). */
+export interface DeletedRecordRow { kind: RowKind; fileId: string; tab: string; row: number; name: string; amount: number }
+
+/** The row of a record taken from the connected sheet (its sheetLink), or null: never one marked missing. */
+export function deletedRowOf(kind: RowKind, item: unknown): DeletedRecordRow | null {
+  const record = item && typeof item === 'object' ? item as Record<string, unknown> : null;
+  const link = record?.sheetLink && typeof record.sheetLink === 'object' ? record.sheetLink as Record<string, unknown> : null;
+  if (!link || link.missing || typeof link.fileId !== 'string' || typeof link.tab !== 'string' || !Number.isInteger(link.row) || (link.row as number) < 1) return null;
+  return { kind, fileId: link.fileId.slice(0, 200), tab: link.tab.slice(0, 200), row: link.row as number, name: String(record!.name ?? '').slice(0, 500),
+    amount: Number(kind === 'job' ? record!.value : record!.amount) || 0 };
+}
+/** The same, read back from a delete card's record ({ sheetRow }): only a well-formed row. */
+export function deletedRowFromCard(record: unknown): DeletedRecordRow | null {
+  const row = record && typeof record === 'object' ? (record as { sheetRow?: unknown }).sheetRow : null;
+  if (!row || typeof row !== 'object') return null;
+  const value = row as Record<string, unknown>;
+  if ((value.kind !== 'job' && value.kind !== 'expense') || typeof value.name !== 'string') return null;
+  return deletedRowOf(value.kind, { sheetLink: { fileId: value.fileId, tab: value.tab, row: value.row }, name: value.name, value: value.amount, amount: value.amount });
+}
+
 export interface RowCell {
   index: number;
   header: string;

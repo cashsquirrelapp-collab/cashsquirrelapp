@@ -23,6 +23,7 @@ import { DOCUMENT_ACTION_TOOLS, executeDocumentAction, isDocumentActionTool } fr
 import { RECORD_ACTION_TOOLS, executeRecordAction, isRecordActionTool } from './recordActions.js';
 import { NAVIGATION_TOOLS, executeNavigationTool, isNavigationTool, featureNavigation } from './navigation.js';
 import { ALL_JOBS, prepareProposal, type Proposal, type ProposalKind } from './proposals.js';
+import { deletedRowOf } from '../../../shared/sheetRow.js';
 import { calculateJobFinancialEdit } from './jobFinancialEdit.js';
 import { SLIP_PARAMETER, duplicateNote, slipCard, slipFacts } from './slipProposal.js';
 import type { AskKind, AskQuestion } from '../../../shared/askQuestions.js';
@@ -827,10 +828,12 @@ export function createToolbox(context: ToolContext) {
       case 'propose_delete_job': {
         const job = findJob(args.job_id);
         if (!job) return fail('ไม่พบงานนี้ในบัญชี');
-        return propose('delete_job', job, null, 'ลบงาน 1 งาน', [
+        // Taken from the connected sheet: the card keeps its row, and confirming deletes that row too (owner, 2026-11-17).
+        const sheetRow = deletedRowOf('job', job);
+        return prepareProposal(context, { kind: 'delete_job', id: job.id, record: sheetRow ? { sheetRow } : null, title: 'ลบงาน 1 งาน', changes: [
           { label: 'งาน', value: job.name }, { label: 'ลูกค้า', value: job.client || '-' }, { label: 'มูลค่า', value: baht(job.value || 0) },
-          { label: 'ผลกระทบ', value: 'งานนี้จะหายจากรายการ รายงาน และเงินค้างรับ' },
-        ]);
+          { label: 'ผลกระทบ', value: sheetRow ? `งานนี้จะหายจากรายการ รายงาน และเงินค้างรับ และแถว ${sheetRow.row} ในแท็บ ${sheetRow.tab} ของชีตจะถูกลบด้วย` : 'งานนี้จะหายจากรายการ รายงาน และเงินค้างรับ' },
+        ] });
       }
       case 'propose_record_payments': {
         // Many payments in one go (owner, 2026-10-28): each job gets the same card propose_record_payment makes, with
