@@ -105,7 +105,7 @@ import { groupApi } from '../services/groups';
 import { usageAnalyticsApi } from '../services/usageAnalytics';
 import { authClient } from '../services/auth';
 import { apiFetch, apiJson, getCurrentAccount } from '../services/api';
-import { readCloud, saveCloud, saveAppCloud, clearCloud, exportCloud, flushCloud } from '../services/cloud';
+import { readCloud, refreshCloud, saveCloud, saveAppCloud, clearCloud, exportCloud, flushCloud, type CloudState } from '../services/cloud';
 import { useLanguage } from '../i18n/LanguageContext';
 // Aliased: this file already has its own local `currentMonthKey` (a memoized string further
 // down, computed from local machine time) -- importing the same name here would silently shadow
@@ -449,6 +449,12 @@ const cleanJobs = (arr: any[]): Job[] => {
 // localStorage survives a full page reload (unlike a React ref), so both loadCloudData and this
 // device's own next save-merge can filter the stale record out regardless of how fast the reload was.
 const RECENTLY_DELETED_TTL_MS = 10 * 60 * 1000; // far more than any realistic reload delay
+/** How often an open app fetches the records again, for changes made on another device (and at once when it comes back). */
+const LIVE_REFRESH_MS = 12_000;
+/** Always for people; an automated browser (the test suite, whose servers do not change by themselves) only when asked. */
+const liveRefreshOn = () => {
+  try { return !navigator.webdriver || localStorage.getItem('krarok.liveRefresh') === 'on'; } catch { return !navigator.webdriver; }
+};
 
 // Returns the raw {id, ts} entries, ts preserved from when each was actually deleted -- callers
 // that only need membership should use readRecentlyDeletedIds below instead of re-deriving this.
@@ -1925,6 +1931,18 @@ export default function App() {
   const cloudReadyRef = useRef<string | null>(null);
   const sessionRef = useRef(session);
   sessionRef.current = session;
+  // The account's records as the server has them, into the screens (the first load, and each live refresh).
+  const applyCloudRecords = (data: any, user: { email?: string | null; created_at?: string }) => {
+    setJobs(cleanJobs(data.jobs || [])); setGoals(data.goals || []); setExpenses(data.expenses || []);
+    const loadedSettings = data.settings || defaultSettings;
+    setSettings(financeGroupId
+      ? { ...loadedSettings, profileSetupCompleted: true }
+      : normalizeProfileSetupSettings(loadedSettings, user.created_at));
+    setStatuses(data.statuses ? cleanStatuses(data.statuses) : [{id:'done',label:'จ่ายเงินครบแล้ว',behavior:'done'},{id:'partial',label:'มัดจำแล้ว',behavior:'partial'},{id:'installment',label:'แบ่งชำระเป็นงวด',behavior:'partial'},{id:'pending',label:'ยังไม่จ่าย',behavior:'pending'}]);
+    setJobTypes(data.job_types ? cleanJobTypes(data.job_types) : DEFAULT_JOB_TYPES);
+    setNotifSettings({ enabled: true, alertEmail: user.email || '', serviceType: 'mailto', emailjsServiceId: '', emailjsTemplateId: '', emailjsPublicKey: '', pendingQueue: [], ...data.notif_settings });
+    if(!financeGroupId)setUserAvatar(data.avatar_data_url || '');
+  };
   const loadCloudData = async (_email: string) => {
     const user = sessionRef.current?.user;
     if (!user || sessionRef.current?.isGuest) return false;
@@ -1936,16 +1954,8 @@ export default function App() {
     try {
       const result = await readCloud(owner);
       if (sessionRef.current?.user?.id !== user.id || financeOwnerRef.current!==owner || request!==loadRequestRef.current) return false;
+      applyCloudRecords(result.snapshot, user);
       const data = result.snapshot;
-      setJobs(cleanJobs(data.jobs || [])); setGoals(data.goals || []); setExpenses(data.expenses || []);
-      const loadedSettings = data.settings || defaultSettings;
-      setSettings(financeGroupId
-        ? { ...loadedSettings, profileSetupCompleted: true }
-        : normalizeProfileSetupSettings(loadedSettings, user.created_at));
-      setStatuses(data.statuses ? cleanStatuses(data.statuses) : [{id:'done',label:'จ่ายเงินครบแล้ว',behavior:'done'},{id:'partial',label:'มัดจำแล้ว',behavior:'partial'},{id:'installment',label:'แบ่งชำระเป็นงวด',behavior:'partial'},{id:'pending',label:'ยังไม่จ่าย',behavior:'pending'}]);
-      setJobTypes(data.job_types ? cleanJobTypes(data.job_types) : DEFAULT_JOB_TYPES);
-      setNotifSettings({ enabled: true, alertEmail: user.email || '', serviceType: 'mailto', emailjsServiceId: '', emailjsTemplateId: '', emailjsPublicKey: '', pendingQueue: [], ...data.notif_settings });
-      if(!financeGroupId)setUserAvatar(data.avatar_data_url || '');
       if (billingUserRef.current === user.id && billingRequest === billingRequestRef.current) {
         setSubscription(billingSubscription(result.subscription, true));
       }
@@ -2323,6 +2333,46 @@ export default function App() {
 
 
 
+
+  // Live across devices (owner, 2026-11-16: "กูลบในคอมไปแล้วใน iPad ไม่หาย ในโทรศัพท์ไม่หาย ... ให้มันขึ้นแบบเรียลไทม์"):
+  // the records are fetched again every few seconds while the app is on screen, and at once when it comes back to the
+  // screen or back online. Never over this device's own edits: anything not yet saved, or on its way, goes first
+  // (services/cloud.ts refreshCloud), and the screens only change when another device changed something.
+  const appStateRef = useRef<CloudState>({ jobs, expenses, goals, settings, statuses, job_types: jobTypes });
+  appStateRef.current = { jobs, expenses, goals, settings, statuses, job_types: jobTypes };
+  const refreshingRef = useRef(false);
+  const retryRef = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    const user = session?.user;
+    if (!user?.email || session?.isGuest || isLoadedForUser !== user.email || !liveRefreshOn()) return;
+    const owner = financeOwner;
+    const tick = async () => {
+      if (document.visibilityState !== 'visible' || refreshingRef.current) return;
+      if (cloudReadyRef.current !== owner || financeOwnerRef.current !== owner || cloudSyncStatusRef.current !== 'synced' || importSaveRef.current) return;
+      refreshingRef.current = true;
+      let busy = false;
+      try {
+        const outcome = await refreshCloud(owner, () => appStateRef.current);
+        busy = outcome === 'busy';
+        if (typeof outcome === 'object' && sessionRef.current?.user?.id === user.id && financeOwnerRef.current === owner && cloudReadyRef.current === owner) applyCloudRecords(outcome.result.snapshot, user);
+      } catch { /* a missed refresh: the next one tries again */ }
+      finally { refreshingRef.current = false; }
+      // This device's own save went first: try again as soon as it has landed, not at the next round.
+      if (busy) { window.clearTimeout(retryRef.current); retryRef.current = window.setTimeout(() => { void tick(); }, 2_500); }
+    };
+    const timer = window.setInterval(() => { void tick(); }, LIVE_REFRESH_MS);
+    const onBack = () => { if (document.visibilityState === 'visible') void tick(); };
+    document.addEventListener('visibilitychange', onBack);
+    window.addEventListener('focus', onBack);
+    window.addEventListener('online', onBack);
+    return () => {
+      window.clearInterval(timer);
+      window.clearTimeout(retryRef.current);
+      document.removeEventListener('visibilitychange', onBack);
+      window.removeEventListener('focus', onBack);
+      window.removeEventListener('online', onBack);
+    };
+  }, [session, isLoadedForUser, financeOwner]);
 
   // Debounced save to Supabase Cloud DB on changes
   useEffect(() => {

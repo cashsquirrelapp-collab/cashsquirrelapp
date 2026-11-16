@@ -18,6 +18,9 @@ export interface DocumentQuota { used: number; limit: number; month: string }
 const baselines = new Map<string, Baseline>();
 const queues = new Map<string, Promise<unknown>>();
 const reads = new Map<string, number>();
+// Saves asked for, and saves still on their way, per account: a refresh never lands over either.
+const saveCalls = new Map<string, number>();
+const saving = new Map<string, number>();
 function activeAccount(userId: string) {
   assertFinanceWorkspace(userId);
 }
@@ -30,9 +33,14 @@ export async function readCloud(userId: string) {
     headers: financeHeaders(userId),
   });
   assertFinanceWorkspace(userId, epoch);
-  const baseline: Baseline = {};
   if (reads.get(userId) !== request)
     throw Object.assign(new Error(tr("ข้อมูลถูกโหลดใหม่แล้ว")), { status: 409 });
+  baselines.set(userId, baselineOf(result));
+  return result;
+}
+/** What the server holds, with each record's version, as the next save compares against it. */
+function baselineOf(result: any): Baseline {
+  const baseline: Baseline = {};
   for (const [field, table] of Object.entries(fieldTables))
     baseline[table] = Object.fromEntries(
       (result.snapshot[field] || []).map((row: any) => [
@@ -51,8 +59,41 @@ export async function readCloud(userId: string) {
           : result.snapshot[id],
       version: version as number,
     };
-  baselines.set(userId, baseline);
-  return result;
+  return baseline;
+}
+const sameVersions = (a: Baseline, b: Baseline) => {
+  const tables = new Set([...Object.keys(a), ...Object.keys(b)]);
+  for (const table of tables) {
+    const left = a[table as keyof Baseline] || {}, right = b[table as keyof Baseline] || {};
+    const ids = new Set([...Object.keys(left), ...Object.keys(right)]);
+    for (const id of ids) if (left[id]?.version !== right[id]?.version) return false;
+  }
+  return true;
+};
+/** The app's own records as a save sends them (the notification settings keep their own rules and are left out). */
+export type CloudState = { jobs: unknown[]; expenses: unknown[]; goals: unknown[]; settings: unknown; statuses: unknown; job_types: unknown };
+/**
+ * The account's data as it is now on the server, when another device changed it (owner, 2026-11-16: "กูลบในคอมไปแล้ว
+ * ใน iPad ไม่หาย ... ให้มันขึ้นแบบเรียลไทม์"). 'same' when nothing changed; 'busy' when this device has something of its own
+ * not yet saved or on its way: its own save goes first and the caller tries again shortly. `current` reads this device's
+ * records at the moment, so an edit made while the request was out is never overwritten.
+ */
+export async function refreshCloud(userId: string, current: () => CloudState): Promise<{ result: any } | 'busy' | 'same'> {
+  const epoch = workspaceEpoch();
+  const baseline = baselines.get(userId);
+  if (!baseline) return 'busy';
+  const calls = saveCalls.get(userId) || 0;
+  const quiet = () => baselines.get(userId) === baseline && (saveCalls.get(userId) || 0) === calls && !(saving.get(userId) || 0)
+    && !diffSnapshot(baseline, current() as unknown as Record<string, any>).length;
+  if (!quiet()) return 'busy';
+  const result = await apiJson<any>("/api/data?includeInvoices=0", { headers: financeHeaders(userId) });
+  assertFinanceWorkspace(userId, epoch);
+  if (!quiet()) return 'busy';
+  const next = baselineOf(result);
+  if (sameVersions(baseline, next)) return 'same';
+  baselines.set(userId, next);
+  reads.set(userId, (reads.get(userId) || 0) + 1);
+  return { result };
 }
 export function clearCloud(userId?: string) {
   if (userId) baselines.delete(userId);
@@ -67,6 +108,8 @@ export function saveCloud(
   const generation = baselines.get(userId);
   const immutable = structuredClone(payload);
   const previous = queues.get(userId) || Promise.resolve();
+  saveCalls.set(userId, (saveCalls.get(userId) || 0) + 1);
+  saving.set(userId, (saving.get(userId) || 0) + 1);
   const save = previous
     .catch(() => {})
     .then(async () => {
@@ -100,7 +143,8 @@ export function saveCloud(
       assertFinanceWorkspace(userId, epoch);
       if (baselines.get(userId) === baseline) commitChanges(baseline, changes);
       return reply;
-    });
+    })
+    .finally(() => { saving.set(userId, Math.max(0, (saving.get(userId) || 0) - 1)); });
   queues.set(userId, save);
   return save;
 }
