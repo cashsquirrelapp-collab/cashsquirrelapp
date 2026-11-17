@@ -13,7 +13,7 @@ import {
   encryptToken, exchangeCode, revokeToken, stateBack } from '../services/googleSheets.js';
 import { appOrigin } from '../config/env.js';
 import { supabaseAssistantDb } from '../ai/supabaseDb.js';
-import { deleteSheetRows, planRow, previewOf, saveAppRecord, sheetContext, undoWrite, writeFor, type TabRead } from '../services/sheetWrite.js';
+import { deleteSheetRows, planRow, previewOf, recentRowsOf, saveAppRecord, saveAppRecords, sheetContext, undoWrite, writeFor, type TabRead } from '../services/sheetWrite.js';
 import { chooseTab } from '../../../shared/sheetRow.js';
 
 // ฟีเจอร์ทดลอง, phase 2 (shared/googleSheets.ts, services/googleSheets.ts). GET: this account's connection (never the
@@ -47,6 +47,9 @@ const actionSchema = z.discriminatedUnion('action', [
   // A job or an expense added or changed in the app's own forms, written into the sheet too (before: where its row was).
   z.object({ action: z.literal('saveRow'), kind: z.enum(['job', 'expense']), record: z.record(z.string(), z.unknown())
     .refine(value => JSON.stringify(value).length <= 40_000, 'too large'), before: deletedRow.nullable().optional() }).strict(),
+  // Older records copied into the sheet, or an Excel import's, in one go (the app sends at most 100 at a time).
+  z.object({ action: z.literal('saveRows'), kind: z.enum(['job', 'expense']), records: z.array(z.record(z.string(), z.unknown())).min(1).max(100)
+    .refine(value => JSON.stringify(value).length <= 600_000, 'too large') }).strict(),
   z.object({ action: z.literal('forget') }).strict(),
   z.object({ action: z.literal('disconnect') }).strict(),
 ]);
@@ -157,6 +160,13 @@ export default withGuard(async (req, res) => {
     return;
   }
 
+  if (body.action === 'saveRows') {
+    need('sheetWrite');
+    await rateLimit('google-rows', user.id, 20, 60);
+    res.json({ result: await saveAppRecords(user.id, body.kind, body.records) });
+    return;
+  }
+
   if (body.action === 'deleteRows') {
     need('sheetJobs');
     await rateLimit('google-row', user.id, 60, 60);
@@ -224,7 +234,8 @@ export default withGuard(async (req, res) => {
       if (!record!.file) throw new HttpError(409, 'ยังไม่ได้เลือกไฟล์ชีต');
       const { token } = await accessToken(refresh);
       const tabs = await readSpreadsheet(token, record!.file.id);
-      reply(record, { tabs, readAt: new Date().toISOString() });
+      // Rows the app wrote lately: the app links them to the records they were written for, never adds them anew.
+      reply(record, { tabs, readAt: new Date().toISOString(), recentRows: recentRowsOf(record) });
       return;
     }
     if (body.action === 'saveMap') {

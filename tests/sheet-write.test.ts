@@ -14,7 +14,7 @@ process.env.GOOGLE_CLIENT_ID = 'client-id.apps.googleusercontent.com';
 process.env.GOOGLE_CLIENT_SECRET = 'test-secret-not-real';
 process.env.GOOGLE_TOKEN_KEY = randomBytes(32).toString('base64');
 
-const { planRow, writeRow, previewOf, writeFor, deleteRecordRows } = await import('../backend/src/services/sheetWrite');
+const { planRow, writeRow, previewOf, writeFor, deleteRecordRows, writeRowsBatch, writeOverRow, recentRowsOf } = await import('../backend/src/services/sheetWrite');
 const { googleOps } = await import('../backend/src/services/googleSheets');
 const { confirmProposal } = await import('../backend/src/ai/service');
 type SheetOps = import('../backend/src/services/googleSheets').SheetOps;
@@ -71,6 +71,8 @@ function fakeOps(sheet: Record<string, string[][]>, formulas: Record<string, Set
     async copyFormulas(tab, from, to, columns) { calls.push({ op: 'copy', args: [tab, from, to, columns] }); return columns.map(column => `${tab}!${column}${to}`); },
     async clear(tab, cells) { calls.push({ op: 'clear', args: [tab, cells] }); },
     async deleteRows(tab, rows) { calls.push({ op: 'deleteRows', args: [tab, rows] }); },
+    async writeMany(tab, cells) { calls.push({ op: 'writeMany', args: [tab, cells] }); return cells.map(cell => `${tab}!${cell.index}${cell.row}`); },
+    async copyFormulasDown(tab, from, first, last, columns) { calls.push({ op: 'copyDown', args: [tab, from, first, last, columns] }); },
     async tabId(tab) { return tab === 'รายจ่าย' ? 7 : 0; },
     async formulaTexts(tab, row, columns) { return Object.fromEntries(columns.filter(column => formulas[tab]?.has(`${row}:${column}`)).map(column => [column, formulaText[tab]?.[`${row}:${column}`] ?? '=1'])); },
   };
@@ -272,4 +274,46 @@ test('confirm: a delete card of a record taken from the sheet deletes its row to
   assert.equal(broken.result.status, 'applied', 'the delete in the app stands');
   assert.equal((await run('delete_job', null, async () => ({ deleted: 1, notFound: 0 }))).calls.length, 0, 'not from the sheet: no row');
   assert.equal((await run('delete_job', { sheetRow: { ...sheetRow, row: 'five' } }, async () => ({ deleted: 1, notFound: 0 }))).calls.length, 0, 'a malformed row is never used');
+});
+
+// Owner, 2026-11-18: older records copied into the sheet, an Excel import's too, in one go.
+test('many records in one go: under the last data row, every value in one write, the formula columns copied down once', async () => {
+  const sheet = { รายรับ: [
+    ['รายรับปี 2569'], [], ['วันที่', 'ลูกค้า', 'รายการ', 'ยอดก่อนหัก', 'หัก %', 'ภาษีหัก', 'สถานะ'],
+    ['3/10/2569', 'บริษัท ข', 'ตัดต่อ', '5,000', '3%', '150', 'ได้รับเงินแล้ว'],
+  ] };
+  const { ops, calls } = fakeOps(sheet, { รายรับ: new Set(['4:5']) });
+  const second = { ...JOB, name: 'ออกแบบโปสเตอร์', value: 3000 };
+  const written = await writeRowsBatch(ops, MAP, 'job', [JOB, second]);
+  assert.deepEqual(written, { tab: 'รายรับ', rows: [5, 6] });
+  assert.deepEqual(calls.find(call => call.op === 'copyDown')!.args, ['รายรับ', 4, 5, 6, [5]], 'the withholding formula from row 4 down over 5 and 6');
+  const many = calls.filter(call => call.op === 'writeMany');
+  assert.equal(many.length, 1, 'one write for every value');
+  const cells = many[0].args[1] as { row: number; index: number; value: unknown }[];
+  assert.deepEqual([...new Set(cells.map(cell => cell.row))], [5, 6]);
+  assert.ok(!cells.some(cell => cell.index === 5 || cell.index === 7), 'never the formula column, never the kept one');
+  assert.equal(cells.find(cell => cell.row === 6 && cell.index === 2)!.value, 'ออกแบบโปสเตอร์');
+  assert.equal(calls.filter(call => call.op === 'write' || call.op === 'copy').length, 0, 'no row-by-row requests');
+  assert.equal(await writeRowsBatch(ops, { ...MAP, tabs: [INCOME] }, 'expense', [EXPENSE]), null, 'no tab for expenses: nothing written');
+});
+
+test('a changed record over its own row: the values the sheet keeps, never its formulas; recent rows of this file only', async () => {
+  const sheet = { รายรับ: [
+    ['รายรับปี 2569'], [], ['วันที่', 'ลูกค้า', 'รายการ', 'ยอดก่อนหัก', 'หัก %', 'ภาษีหัก', 'สถานะ'],
+    ['3/10/2569', 'บริษัท ข', 'ตัดต่อ', '5,000', '3%', '150', 'ได้รับเงินแล้ว'],
+  ] };
+  const { ops, calls } = fakeOps(sheet);
+  await writeOverRow(ops, MAP, 'job', { ...JOB, name: 'ตัดต่อ', value: 5500 }, { tab: 'รายรับ', row: 4 }, { first: 4, rows: sheet.รายรับ.slice(3) });
+  const write = calls.find(call => call.op === 'write')!;
+  assert.equal(write.args[1], 4);
+  const cells = write.args[2] as { index: number; value: unknown }[];
+  assert.ok(cells.some(cell => cell.index === 3 && cell.value === 5500));
+  assert.ok(!cells.some(cell => cell.index === 5), 'the formula column is left to the sheet');
+  const now = Date.parse('2026-11-18T03:00:00Z');
+  const record = { email: 'x', enc: 'y'.repeat(20), at: '', file: { id: 'file-1', name: 'n', url: 'https://docs.google.com/x' }, recentRows: [
+    { fileId: 'file-1', tab: 'รายรับ', row: 9, at: '2026-11-18T02:59:00Z' },
+    { fileId: 'file-1', tab: 'รายรับ', row: 3, at: '2026-11-18T02:50:00Z' },
+    { fileId: 'file-2', tab: 'รายรับ', row: 4, at: '2026-11-18T02:59:30Z' },
+  ] };
+  assert.deepEqual(recentRowsOf(record as never, now), [{ tab: 'รายรับ', row: 9 }], 'the last three minutes, this file');
 });

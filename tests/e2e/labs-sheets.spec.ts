@@ -156,7 +156,7 @@ for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'p
     await page.waitForURL(/\/settings/);
     panel = page.getByTestId('sheets-panel');
     await expect(panel).toBeVisible();
-    await expect(panel.getByRole('status')).toContainText('เชื่อม Google แล้ว');
+    await expect(panel.getByRole('status').filter({ hasText: 'เชื่อม Google แล้ว' }).first()).toBeVisible(); // the loading line is a status too, for a moment
     await expect(panel).toContainText('เชื่อมกับ shop@example.com');
     await expect.poll(() => page.url()).not.toContain('google=');
 

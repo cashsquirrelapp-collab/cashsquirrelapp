@@ -119,9 +119,12 @@ export function planSheetSync(input: {
   jobs: Job[]; tabs: LiveTab[]; map: SheetMap; fileId: string; statuses: StatusOption[]; jobTypes: string[]; today: string;
   /** settings.sheetSeen: what the app already took from the sheet. */
   seen?: SheetSeen | null;
+  /** Rows the app itself wrote in the last minutes (the reading says which): linked when their record is here, never added. */
+  recentRows?: { tab: string; row: number }[];
 }): SheetSyncChanges {
   const { jobs, map, fileId } = input;
   const before = input.seen?.fileId === fileId ? input.seen.jobs : undefined;
+  const recent = new Set((input.recentRows ?? []).map(item => `${item.tab}\u0001${item.row}`));
   const readings = readTabs(input.tabs, map).filter(reading => reading.use && reading.analysis.role === 'data' && reading.analysis.kind !== 'expenses');
   const plan = buildImportPlan(readings.map(({ grid, analysis }) => ({ grid, analysis })), { amountsAreNet: false, today: input.today },
     { statuses: input.statuses, jobTypes: input.jobTypes, existingJobs: [], existingExpenses: [] }, readings.map(reading => reading.grid));
@@ -160,7 +163,11 @@ export function planSheetSync(input: {
       ?? jobs.find(job => open(job) && inTab(job) && norm(job.name) === norm(sheetJob.name))
       ?? jobs.find(job => open(job) && !linked(job) && norm(job.name) === norm(sheetJob.name) && sameMoney(job.value, sheetJob.value)
         && (!norm(job.client) || !norm(sheetJob.client) || norm(job.client) === norm(sheetJob.client)));
-    if (!match) { pending.push({ key, item: { ...sheetJob, sheetLink: link } }); continue; }
+    if (!match) {
+      // Written by the app a moment ago for a record that has not reached this screen yet: left for it, not added.
+      if (recent.has(`${row.sheet}\u0001${row.rowNumber}`)) { total.set(key, total.get(key)! - 1); continue; }
+      pending.push({ key, item: { ...sheetJob, sheetLink: link } }); continue;
+    }
     claimed.add(match.id);
     matchedCount.set(key, (matchedCount.get(key) ?? 0) + 1);
     const fields: Partial<Job> = {};
@@ -248,9 +255,10 @@ function ownedExpenseFields(targets: Set<string>): (keyof Expense)[] {
 }
 
 /** The expense a sheet row is, and what the sheet changes in it. */
-export function planSheetExpenseSync(input: { expenses: Expense[]; tabs: LiveTab[]; map: SheetMap; fileId: string; today: string; seen?: SheetSeen | null }): SheetExpenseChanges {
+export function planSheetExpenseSync(input: { expenses: Expense[]; tabs: LiveTab[]; map: SheetMap; fileId: string; today: string; seen?: SheetSeen | null; recentRows?: { tab: string; row: number }[] }): SheetExpenseChanges {
   const { expenses, map, fileId } = input;
   const before = input.seen?.fileId === fileId ? input.seen.expenses : undefined;
+  const recent = new Set((input.recentRows ?? []).map(item => `${item.tab}\u0001${item.row}`));
   const readings = readTabs(input.tabs, map).filter(reading => reading.use && reading.analysis.role === 'data' && reading.analysis.kind !== 'jobs');
   const plan = buildImportPlan(readings.map(({ grid, analysis }) => ({ grid, analysis })), { amountsAreNet: false, today: input.today },
     { statuses: [], jobTypes: [], existingJobs: [], existingExpenses: [] }, readings.map(reading => reading.grid));
@@ -296,7 +304,10 @@ export function planSheetExpenseSync(input: { expenses: Expense[]; tabs: LiveTab
       ?? expenses.find(expense => open(expense) && inTab(expense) && sameName(expense) && sameAmount(expense))
       ?? expenses.find(expense => open(expense) && !expense.sheetLink && sameName(expense) && sameAmount(expense)
         && (!expense.date || !sheetExpense.date || expense.date === sheetExpense.date));
-    if (!match) { pending.push({ key, item: { ...sheetExpense, sheetLink: link } }); continue; }
+    if (!match) {
+      if (recent.has(`${row.sheet}\u0001${row.rowNumber}`)) { total.set(key, total.get(key)! - 1); continue; }
+      pending.push({ key, item: { ...sheetExpense, sheetLink: link } }); continue;
+    }
     claimed.add(match.id);
     matchedCount.set(key, (matchedCount.get(key) ?? 0) + 1);
     const fields: Partial<Expense> = {};

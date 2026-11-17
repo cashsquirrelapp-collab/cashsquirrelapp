@@ -50,7 +50,7 @@ function lifecycle(overrides: {
   };
 }
 
-async function submit(kind: Kind, lifecycleDependencies: LinkedAccountAccessDependencies) {
+async function submit(kind: Kind, lifecycleDependencies: LinkedAccountAccessDependencies, sheet?: unknown[][]) {
   const calls = { rateLimit: 0, pro: 0, jobs: 0, expenses: 0, sends: 0 };
   const handler = createLiffSubmitHandler({
     verifyLiffIdToken: async () => 'U-line-user',
@@ -62,6 +62,7 @@ async function submit(kind: Kind, lifecycleDependencies: LinkedAccountAccessDepe
     persistExpense: async () => { calls.expenses += 1; return true; },
     computeMonthNetForUser: () => 0,
     sendLineMessagePayload: async () => { calls.sends += 1; return true; },
+    writeSheet: async (...args: unknown[]) => { sheet?.push(args); return null; },
   });
   const { res, state } = response();
   await handler(request(kind), res);
@@ -147,5 +148,21 @@ for (const kind of ['job', 'expense'] as const) {
     assert.equal(calls.jobs, kind === 'job' ? 1 : 0);
     assert.equal(calls.expenses, kind === 'expense' ? 1 : 0);
     assert.equal(calls.sends, 1);
+  });
+}
+
+// Owner, 2026-11-18 ("ลิงก์กันทั้งสองด้าน"): a record saved from a LINE form goes into the connected sheet too.
+for (const kind of ['job', 'expense'] as const) {
+  test(`LIFF writes a saved ${kind} into the account's sheet; a blocked request writes nothing`, async () => {
+    const sheet: unknown[][] = [];
+    const { state } = await submit(kind, lifecycle(), sheet);
+    assert.equal(state.status, 200);
+    assert.equal(sheet.length, 1);
+    assert.equal(sheet[0][0], userId);
+    assert.equal(sheet[0][1], kind);
+    assert.equal((sheet[0][2] as { name: string }).name, kind === 'job' ? 'Campaign' : 'Software');
+    const blocked: unknown[][] = [];
+    await submit(kind, lifecycle({ closure: { closure_kind: 'pause', state: 'paused' } }), blocked);
+    assert.equal(blocked.length, 0);
   });
 }

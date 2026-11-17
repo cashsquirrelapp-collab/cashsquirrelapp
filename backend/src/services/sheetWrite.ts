@@ -1,4 +1,4 @@
-import { KEPT_WRITES, UNDO_MS, sheetRowUrl, type GoogleRecord, type SheetMap, type SheetWrite } from '../../../shared/googleSheets.js';
+import { KEPT_WRITES, RECENT_ROWS_MS, UNDO_MS, sheetRowUrl, type GoogleRecord, type SheetMap, type SheetWrite } from '../../../shared/googleSheets.js';
 import { chooseTab, dataColumns, displayValue, letter, rowCells, valueFor, type DeletedRecordRow, type RowCell, type RowKind } from '../../../shared/sheetRow.js';
 import { evaluateRow, shiftFormula } from '../../../shared/sheetFormula.js';
 import { isValidWhtRate, roundMoney, whtAmountFor } from '../../../shared/wht.js';
@@ -271,7 +271,9 @@ export async function writeRecordToSheet(userId: string, proposalId: string, kin
     const back = plan.cells.some(cell => cell.formula) ? (await ops.readRows(plan.tab, plan.row, plan.row, span).catch(() => [] as string[][]))[0] ?? [] : [];
     const sheetValues = plan.cells.filter(cell => cell.formula && (back[cell.index] ?? '').trim()).slice(0, 10)
       .map(cell => ({ header: cell.header.slice(0, 200), text: String(back[cell.index]).trim().slice(0, 100) }));
-    await saveGoogle(userId, withWrite(google, { proposalId, at: now.toISOString(), ok: true, fileId: google.file!.id, tab: plan.tab, row: plan.row, cells, ...(gid === undefined ? {} : { gid }), span, ...(sheetValues.length ? { sheetValues } : {}) }));
+    // Noted as written by the app, so a reading of the sheet does not add it before the saved record reaches the app.
+    const recentRows = [...(google.recentRows ?? []).filter(item => now.getTime() - Date.parse(item.at) < RECENT_ROWS_MS), { fileId: google.file!.id, tab: plan.tab, row: plan.row, at: now.toISOString() }].slice(-600);
+    await saveGoogle(userId, withWrite({ ...google, recentRows }, { proposalId, at: now.toISOString(), ok: true, fileId: google.file!.id, tab: plan.tab, row: plan.row, cells, ...(gid === undefined ? {} : { gid }), span, ...(sheetValues.length ? { sheetValues } : {}) }));
     return { status: 'written', file: google.file!.name, url: gid === undefined ? google.file!.url : sheetRowUrl(google.file!.id, gid, plan.row, span), tab: plan.tab, row: plan.row };
   } catch (error) {
     const message = error instanceof GoogleError ? ERRORS[error.code] : ERRORS.failed;
@@ -387,6 +389,68 @@ export async function writeOverRow(ops: SheetOps, map: SheetMap, kind: RowKind, 
   return ops.write(tab.name, spot.row, values);
 }
 
+/** Notes the rows the app just wrote, so a reading of the sheet does not take them for new records (shared RecentRow). */
+export async function rememberRows(userId: string, fileId: string, tab: string, rows: number[], now = Date.now()) {
+  if (!rows.length) return;
+  const record = await loadGoogle(userId);
+  if (!record) return;
+  const at = new Date(now).toISOString();
+  const kept = (record.recentRows ?? []).filter(item => now - Date.parse(item.at) < RECENT_ROWS_MS);
+  await saveGoogle(userId, { ...record, recentRows: [...kept, ...rows.map(row => ({ fileId, tab, row, at }))].slice(-600) });
+}
+
+/** The rows written lately into this file (the reading hands them to the app). */
+export const recentRowsOf = (record: GoogleRecord | null, now = Date.now()) => (record?.recentRows ?? [])
+  .filter(item => item.fileId === record?.file?.id && now - Date.parse(item.at) < RECENT_ROWS_MS).map(({ tab, row }) => ({ tab, row }));
+
+/**
+ * Several records of one kind as new rows under the last, in one go (copying older records, an Excel import): one read of
+ * the tab, one write of every value and one copy of the formula columns from the last row down, so a hundred rows stay
+ * well inside the Worker's request budget. Null when the map has no tab for the kind.
+ */
+export async function writeRowsBatch(ops: SheetOps, map: SheetMap, kind: RowKind, records: Record<string, unknown>[]): Promise<{ tab: string; rows: number[] } | null> {
+  const tab = chooseTab(map, kind);
+  if (!tab || !records.length) return tab ? { tab: tab.name, rows: [] } : null;
+  const headerRow = tab.headerRow === null ? null : tab.headerRow + 1;
+  const lastColumn = Math.max(0, ...tab.columns.map(column => column.index));
+  const last = Math.max(headerRow ?? 0, await ops.lastRow(tab.name, dataColumns(tab)));
+  const start = Math.max((headerRow ?? 0) + 1, last - 29);
+  const recent = last >= start ? await ops.readRows(tab.name, start, last, lastColumn) : [];
+  const samples: Record<number, string[]> = {};
+  for (const column of tab.columns) samples[column.index] = recent.map(row => row[column.index] ?? '').filter(Boolean);
+  const rows = records.map((_, index) => last + 1 + index);
+  const cells = records.flatMap((record, index) => rowCells(tab, kind, record, samples)
+    .filter((cell): cell is RowCell & { value: string | number } => !cell.formula && cell.value !== null)
+    .map(cell => ({ row: rows[index], index: cell.index, value: cell.value })));
+  const formulaColumns = tab.columns.filter(column => column.formula).map(column => column.index);
+  if (formulaColumns.length && last > (headerRow ?? 0)) {
+    const present = await ops.formulaColumns(tab.name, last, formulaColumns);
+    if (present.size) await ops.copyFormulasDown(tab.name, last, rows[0], rows[rows.length - 1], [...present]);
+  }
+  await ops.writeMany(tab.name, cells);
+  return { tab: tab.name, rows };
+}
+
+export type AppRowsResult = { status: 'written'; fileId: string; tab: string; rows: number[]; gid?: number } | { status: 'failed'; error: string };
+
+/** Older records copied into the sheet, or an Excel import's: written in one go and linked by the app to their rows. */
+export async function saveAppRecords(userId: string, kind: RowKind, records: Record<string, unknown>[]): Promise<AppRowsResult | null> {
+  let context: Awaited<ReturnType<typeof sheetContext>>;
+  try { context = await sheetContext(userId); }
+  catch (error) { return { status: 'failed', error: error instanceof GoogleError ? ERRORS[error.code] : ERRORS.failed }; }
+  if (!context) return null;
+  const { record: google, ops } = context;
+  try {
+    const written = await writeRowsBatch(ops, google.map!, kind, records);
+    if (!written) return { status: 'failed', error: kind === 'expense' ? 'แผนที่ชีตยังไม่มีแท็บรายจ่าย' : 'แผนที่ชีตยังไม่มีแท็บรายรับหรืองาน' };
+    await rememberRows(userId, google.file!.id, written.tab, written.rows).catch(() => undefined);
+    const gid = await ops.tabId(written.tab).catch(() => undefined);
+    return { status: 'written', fileId: google.file!.id, tab: written.tab, rows: written.rows, ...(gid === undefined ? {} : { gid }) };
+  } catch (error) {
+    return { status: 'failed', error: error instanceof GoogleError ? ERRORS[error.code] : ERRORS.failed };
+  }
+}
+
 export async function saveAppRecord(userId: string, input: { kind: RowKind; record: Record<string, unknown>; before?: DeletedRecordRow | null }): Promise<AppRowResult | null> {
   let context: Awaited<ReturnType<typeof sheetContext>>;
   try { context = await sheetContext(userId); }
@@ -406,6 +470,7 @@ export async function saveAppRecord(userId: string, input: { kind: RowKind; reco
     const plan = await planRow(ops, google.map!, input.kind, input.record);
     if (!plan) return { status: 'failed', error: input.kind === 'expense' ? 'แผนที่ชีตยังไม่มีแท็บรายจ่าย' : 'แผนที่ชีตยังไม่มีแท็บรายรับหรืองาน' };
     await writeRow(ops, plan);
+    await rememberRows(userId, fileId, plan.tab, [plan.row]).catch(() => undefined);
     const gid = await ops.tabId(plan.tab).catch(() => undefined);
     return { status: 'written', fileId, tab: plan.tab, row: plan.row, ...(gid === undefined ? {} : { gid }) };
   } catch (error) {

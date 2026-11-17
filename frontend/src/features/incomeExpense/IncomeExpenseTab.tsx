@@ -75,6 +75,10 @@ interface IncomeExpenseTabProps {
   onDeleteExpense: (id: string) => void;
   /** รายจ่ายจากชีต (ฟีเจอร์ทดลอง): what reading the connected sheet changes in the expenses, saved in one go. */
   onSheetSync?: (changes: SheetExpenseChanges) => void;
+  /** Expenses not in the connected sheet yet, copied under its last row (App asks first). */
+  onSheetSend?: (expenses: Expense[]) => void;
+  /** An expense being written into the sheet right now (not offered as missing from it). */
+  sheetBusy?: (id: string) => boolean;
   onSwitchTab: (tab: string) => void;
   onExportData: () => void;
   triggerAlert: (title: string, message: string) => void;
@@ -334,7 +338,7 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
         }} />
         <DashboardPeriodPicker monthKey={monthKey} onChange={setMonthKey} compact />
         <button type="button" className="ksm-primary is-compact" onClick={() => openAdd()}><KsIcon name="plus" size={19} />{tr("เพิ่มรายจ่าย")}</button>
-        {props.onSheetSync && <SheetExpensesLine expenses={expenses} seen={settings.sheetSeen} onSync={props.onSheetSync} mobile />}
+        {props.onSheetSync && <SheetExpensesLine expenses={expenses} seen={settings.sheetSeen} onSync={props.onSheetSync} onSendUnsynced={props.onSheetSend} busy={props.sheetBusy} mobile />}
         <div className="ksm-chips" role="tablist" aria-label={tr("ประเภทรายจ่าย")}>
           {([['all', tr("ทั้งหมด")], ['recurring', tr("ประจำ")], ['general', tr("ทั่วไป")]] as const).map(([key, label]) => (
             <button key={key} type="button" role="tab" aria-selected={typeFilter === key} onClick={() => setTypeFilter(key)}>{label}</button>
@@ -454,7 +458,7 @@ export default function IncomeExpenseTab(props: IncomeExpenseTabProps) {
       <IncomeExportDialog open={incomeExportOpen} jobs={jobs} initialMonth={monthKey} onClose={() => setIncomeExportOpen(false)} notify={triggerAlert} />
 
       <DashboardPeriodPicker monthKey={monthKey} onChange={setMonthKey} />
-      {props.onSheetSync && <SheetExpensesLine expenses={expenses} seen={settings.sheetSeen} onSync={props.onSheetSync} />}
+      {props.onSheetSync && <SheetExpensesLine expenses={expenses} seen={settings.sheetSeen} onSync={props.onSheetSync} onSendUnsynced={props.onSheetSend} busy={props.sheetBusy} />}
 
       {/* Three calm numbers */}
       <section aria-label={tr("สรุปรายจ่าย {0}", monthLabel)} className={`${card} px-4 py-3`}>

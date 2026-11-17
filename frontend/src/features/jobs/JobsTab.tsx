@@ -67,6 +67,10 @@ interface JobsTabProps {
   onSheetSync?: (changes: SheetSyncChanges) => void;
   /** settings.sheetSeen: what the app already took from the sheet, so a job deleted here is not taken again. */
   sheetSeen?: SheetSeen;
+  /** Jobs not in the connected sheet yet, copied under its last row (App asks first). */
+  onSheetSend?: (jobs: Job[]) => void;
+  /** A job being written into the sheet right now (not offered as missing from it). */
+  sheetBusy?: (id: string) => boolean;
   fullFeatureAccess?: boolean;
   /** May return the new job's id, so the row can be lit up once it is saved. */
   onAddJob: (job: Omit<Job, 'id'>) => string | void;
@@ -107,6 +111,8 @@ export default function JobsTab({
   jobs,
   onSheetSync,
   sheetSeen,
+  onSheetSend,
+  sheetBusy,
   fullFeatureAccess = false,
   onAddJob,
   onEditJob,
@@ -851,7 +857,7 @@ export default function JobsTab({
 
       {mobile ? (
         <>
-          {onSheetSync && <SheetJobsLine jobs={jobs} statuses={statuses} jobTypes={jobTypes} seen={sheetSeen} onSync={onSheetSync} mobile />}
+          {onSheetSync && <SheetJobsLine jobs={jobs} statuses={statuses} jobTypes={jobTypes} seen={sheetSeen} onSync={onSheetSync} onSendUnsynced={onSheetSend} busy={sheetBusy} mobile />}
           <div className="ksm-search">
             <KsIcon name="search" />
             <input type="text" inputMode="search" placeholder={tr("ค้นหางาน ลูกค้า หรือบันทึก")} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} aria-label={tr("ค้นหางาน")} enterKeyHint="search" />
@@ -873,7 +879,7 @@ export default function JobsTab({
           )}
         </>
       ) : (<>
-      {onSheetSync && <SheetJobsLine jobs={jobs} statuses={statuses} jobTypes={jobTypes} seen={sheetSeen} onSync={onSheetSync} />}
+      {onSheetSync && <SheetJobsLine jobs={jobs} statuses={statuses} jobTypes={jobTypes} seen={sheetSeen} onSync={onSheetSync} onSendUnsynced={onSheetSend} busy={sheetBusy} />}
       {/* Stage tabs */}
       <div className="ios-seg no-scrollbar mb-4 flex w-fit max-w-full overflow-x-auto" role="tablist" aria-label={tr("สถานะงาน")}>
         {tabs.map(tab => {

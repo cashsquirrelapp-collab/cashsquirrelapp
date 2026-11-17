@@ -3087,6 +3087,12 @@ export default function App() {
     if (jobRows.length || jobUpdates.size) setJobs(prev => [...jobRows, ...prev.map(job => applyUpdate(job, jobUpdates))]);
     if (expenseRows.length || expenseUpdates.size) setExpenses(prev => [...expenseRows, ...prev.map(expense => applyUpdate(expense, expenseUpdates))]);
     if (commit.newJobTypes.length) setJobTypes(prev => [...prev, ...commit.newJobTypes.filter(type => !prev.includes(type))]);
+    // The file's records go into the connected sheet too, once they are saved in the app (owner, 2026-11-18).
+    void saved.then(outcome => {
+      if (outcome.state !== 'saved') return;
+      sendRecordsToSheet('job', jobRows, false);
+      sendRecordsToSheet('expense', expenseRows, false);
+    });
     return { batchId, jobs: jobRows.length, expenses: expenseRows.length, updates: jobUpdates.size + expenseUpdates.size, saved };
   };
 
@@ -3109,15 +3115,17 @@ export default function App() {
   // sheet are not applied: one that started before the write landed would bring the old row back as a new record.
   const sheetWritingRef = useRef(new Map<string, number>());
   const sheetWriting = () => [...sheetWritingRef.current.values()].some(until => until > Date.now());
+  const sheetBusy = (id: string) => sheetWritingRef.current.get(id) === Infinity;
   const writeToSheet = (kind: 'job' | 'expense', record: Job | Expense, before: Job | Expense | null) => {
     const account = getCurrentAccount();
     if (!account || session?.isGuest || financeGroupId || account !== session?.user?.id) return;
     const beforeRow = before ? deletedRowOf(kind, before) : null;
     if (before && !beforeRow) return;
+    // Marked at once, so the "not in the sheet yet" offer does not flash for a record on its way there.
+    sheetWritingRef.current.set(record.id, Infinity);
     void sheetReadyFor(account).then(fileId => {
-      if (!fileId || (beforeRow && beforeRow.fileId !== fileId)) return;
+      if (!fileId || (beforeRow && beforeRow.fileId !== fileId)) { sheetWritingRef.current.delete(record.id); return; }
       const failed = (message: string) => fireMascot({ mood: 'alert', tone: 'warning', title: tr("บันทึกลงชีตไม่สำเร็จ"), message, duration: 9000 });
-      sheetWritingRef.current.set(record.id, Infinity);
       return googleApi.saveRow(account, kind, record, beforeRow).then(result => {
         if (!result) return;
         if (result.status === 'written') {
@@ -3130,6 +3138,37 @@ export default function App() {
       }).catch(error => failed(tr("{0} รายการถูกบันทึกในแอปแล้ว", formatError(error))))
         .finally(() => sheetWritingRef.current.set(record.id, Date.now() + 30_000));
     });
+  };
+  // Many at once (older records made before the sheet was connected, an Excel import): in chunks of 100, each chunk one
+  // request, linked to their rows as they land; the oldest first, so the sheet stays in date order.
+  const sendRecordsToSheet = (kind: 'job' | 'expense', records: (Job | Expense)[], ask: boolean) => {
+    const account = getCurrentAccount();
+    if (!account || session?.isGuest || financeGroupId || account !== session?.user?.id || !records.length) return;
+    const dateOf = (record: Job | Expense) => kind === 'job' ? String((record as Job).postDate || (record as Job).startDate || (record as Job).payDate || '') : String((record as Expense).date || '');
+    const ordered = [...records].sort((a, b) => dateOf(a).localeCompare(dateOf(b)));
+    const go = () => void sheetReadyFor(account).then(async fileId => {
+      if (!fileId) return;
+      for (const record of ordered) sheetWritingRef.current.set(record.id, Infinity);
+      let done = 0, tabName = '', problem = '';
+      try {
+        for (let start = 0; start < ordered.length; start += 100) {
+          const chunk = ordered.slice(start, start + 100);
+          const result = await googleApi.saveRows(account, kind, chunk);
+          if (!result) break;
+          if (result.status !== 'written') { problem = result.error; break; }
+          tabName = result.tab;
+          const links = new Map(chunk.map((record, index) => [record.id, { fileId: result.fileId, tab: result.tab, row: result.rows[index], ...(result.gid === undefined ? {} : { gid: result.gid }) }]));
+          if (kind === 'job') setJobs(prev => prev.map(job => (links.has(job.id) ? { ...job, sheetLink: links.get(job.id)! } : job)));
+          else setExpenses(prev => prev.map(expense => (links.has(expense.id) ? { ...expense, sheetLink: links.get(expense.id)! } : expense)));
+          done += chunk.length;
+        }
+      } catch (error) { problem = formatError(error); }
+      finally { const until = Date.now() + 30_000; for (const record of ordered) sheetWritingRef.current.set(record.id, until); }
+      if (done) fireMascot({ mood: 'happy', tone: 'info', title: tr("ส่งลงชีตแล้ว"), message: tr("เพิ่ม {0} รายการต่อท้ายแท็บ {1}", done, tabName) });
+      if (problem) fireMascot({ mood: 'alert', tone: 'warning', title: tr("บันทึกลงชีตไม่สำเร็จ"), message: tr("ส่งได้ {0} จาก {1} รายการ {2}", done, ordered.length, problem), duration: 9000 });
+    });
+    if (ask) triggerConfirm(tr("ส่งรายการลงชีต"), tr("รายการในแอปที่ยังไม่อยู่ในชีต {0} รายการ จะถูกเพิ่มต่อท้ายชีต เรียงจากเก่าไปใหม่ ต้องการดำเนินการต่อหรือไม่", ordered.length), go);
+    else go();
   };
   const JOB_SHEET_FIELDS: (keyof Job)[] = ['name', 'client', 'type', 'value', 'whtRate', 'whtAmount', 'received', 'pending', 'status', 'paymentStatus', 'postDate', 'payDate', 'dueDate', 'creditTerm', 'note', 'installments', 'depositAmount', 'depositDate'];
   const EXPENSE_SHEET_FIELDS: (keyof Expense)[] = ['name', 'amount', 'category', 'date', 'note'];
@@ -3752,6 +3791,8 @@ export default function App() {
                       jobs={jobs}
                       onSheetSync={handleSheetSync}
                       sheetSeen={settings.sheetSeen}
+                      onSheetSend={financeGroupId ? undefined : records => sendRecordsToSheet('job', records, true)}
+                      sheetBusy={sheetBusy}
                       onAddJob={handleAddJob}
                       onEditJob={handleEditJob}
                       onDeleteJob={handleDeleteJob}
@@ -3925,6 +3966,8 @@ export default function App() {
                   onEditExpense={handleEditExpense}
                   onDeleteExpense={handleDeleteExpense}
                   onSheetSync={handleSheetExpenseSync}
+                  onSheetSend={financeGroupId ? undefined : records => sendRecordsToSheet('expense', records, true)}
+                  sheetBusy={sheetBusy}
                   onSwitchTab={(id: string) => { if (NAV_ITEMS.some(item => item.key === id)) navigateTab(id as TabKey); }}
                   onExportData={handleExportData}
                   triggerAlert={triggerAlert}

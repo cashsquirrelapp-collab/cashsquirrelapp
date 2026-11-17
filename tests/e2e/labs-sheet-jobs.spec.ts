@@ -30,8 +30,9 @@ const chatJob = { id: 'chat-job-1', name: 'ตัดต่อคลิปรี�
 const settings = { monthlyExpense: 0, monthlyRevenueGoal: 40000, savingsPercentage: 40, profileSetupCompleted: true, userPersona: 'freelance', onboarding: { completedAt: '2026-11-05T03:00:00.000Z' } };
 const versions = { cashflow_jobs: { 'chat-job-1': 1 }, cashflow_expenses: {}, cashflow_goals: {}, cashflow_invoices: {}, cashflow_documents: { settings: 1 } };
 
-async function open(page: Page, size: { width: number; height: number }, labsOn: string[], deleteReply: Record<string, unknown> = { deleted: 1, notFound: 0 }, firstRows = ROWS) {
+async function open(page: Page, size: { width: number; height: number }, labsOn: string[], deleteReply: Record<string, unknown> = { deleted: 1, notFound: 0 }, firstRows = ROWS, appOnly: Record<string, unknown>[] = []) {
   let sheetRows = firstRows;
+  const batches: { kind: string; records: Record<string, unknown>[] }[] = [];
   const posts: unknown[] = [];
   const deletes: unknown[] = [];
   const saves: { kind: string; record: Record<string, unknown>; before: Record<string, unknown> | null }[] = [];
@@ -45,7 +46,8 @@ async function open(page: Page, size: { width: number; height: number }, labsOn:
   await page.route('**/api/groups?*', route => route.fulfill({ json: { systemRole: 'user', groups: [], invitations: [], total: 0, page: 0 } }));
   await page.route('**/api/data*', route => {
     if (route.request().method() === 'POST') { posts.push(route.request().postDataJSON()); return route.fulfill({ json: { ok: true, versions } }); }
-    return route.fulfill({ json: { snapshot: { jobs: [chatJob], expenses: [], goals: [], invoices: [], settings, statuses: [], job_types: [], notif_settings: { enabled: false, pendingQueue: [] }, avatar_data_url: null, issuer_profile: null }, versions, subscription: { status: 'active', plan: 'pro_monthly', current_period_end: '2099-01-01T00:00:00Z' } } });
+    return route.fulfill({ json: { snapshot: { jobs: [chatJob, ...appOnly], expenses: [], goals: [], invoices: [], settings, statuses: [], job_types: [], notif_settings: { enabled: false, pendingQueue: [] }, avatar_data_url: null, issuer_profile: null },
+      versions: { ...versions, cashflow_jobs: { ...versions.cashflow_jobs, ...Object.fromEntries(appOnly.map(job => [String(job.id), 1])) } }, subscription: { status: 'active', plan: 'pro_monthly', current_period_end: '2099-01-01T00:00:00Z' } } });
   });
   await page.route('**/api/labs', route => route.fulfill({ json: { labs: { tester: true, on: labsOn } } }));
   await page.route('**/api/google', route => {
@@ -54,6 +56,11 @@ async function open(page: Page, size: { width: number; height: number }, labsOn:
     const body = route.request().postDataJSON() as { action?: string };
     if (body.action === 'read') { reads += 1; return route.fulfill({ json: { ...status, tabs: [{ name: 'รายรับ', gid: 812, truncated: false, rows: sheetRows }], readAt: '2026-11-14T02:12:00.000Z' } }); }
     if (body.action === 'deleteRows') { deletes.push(body); return route.fulfill({ json: { ...status, result: deleteReply } }); }
+    if (body.action === 'saveRows') {
+      const batch = body as unknown as { kind: string; records: Record<string, unknown>[] };
+      batches.push(batch);
+      return route.fulfill({ json: { ...status, result: { status: 'written', fileId: FILE.id, tab: 'รายรับ', rows: batch.records.map((_, i) => 6 + i), gid: 812 } } });
+    }
     if (body.action === 'saveRow') {
       const save = body as unknown as { kind: string; record: Record<string, unknown>; before: Record<string, unknown> | null };
       saves.push(save);
@@ -64,7 +71,7 @@ async function open(page: Page, size: { width: number; height: number }, labsOn:
   await page.setViewportSize(size);
   await page.goto(noRadar('/jobs'));
   await loadLayoutFonts(page);
-  return { posts, deletes, saves, reads: () => reads, setRows: (rows: typeof ROWS) => { sheetRows = rows; } };
+  return { posts, deletes, saves, batches, reads: () => reads, setRows: (rows: typeof ROWS) => { sheetRows = rows; } };
 }
 
 for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'phone', width: 390, height: 844 }]) {
@@ -229,6 +236,43 @@ test('many rows gone from the sheet at one reading: the jobs stay until ลบ�
     await expect(held).toHaveCount(0);
     await page.unrouteAll({ behavior: 'ignoreErrors' });
   }
+});
+
+// Owner, 2026-11-18 ("เอาตามที่แนะนำ"): jobs made in the app before the sheet was connected, copied there with one tap.
+test('jobs not in the sheet yet: the line offers to send them, asks first, sends the oldest first and links them', async ({ page }) => {
+  const older = { ...chatJob, id: 'app-old-1', name: 'ออกแบบเมนูร้านก๋วยเตี๋ยว', client: 'ร้านเจ๊หมวย', value: 1800, postDate: '2026-09-02', payDate: '2026-09-12' };
+  const newer = { ...chatJob, id: 'app-old-2', name: 'ถ่ายรูปงานบวช', client: 'คุณแป้ง', value: 4200, postDate: '2026-10-05', payDate: '2026-10-15' };
+  for (const device of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+    const { batches, posts } = await open(page, device, ['sheets', 'sheetMap', 'sheetJobs', 'sheetWrite'], undefined, ROWS, [newer, older]);
+    const offer = page.getByTestId('sheet-jobs-line-copy');
+    await expect(offer).toContainText('ในแอปมี 2 รายการที่ยังไม่อยู่ในชีต');
+    // The opening logo times itself by the clock this test holds still: a few seconds on, it hands over.
+    await page.clock.setFixedTime(new Date('2026-11-14T09:12:20+07:00'));
+    await expect(page.locator('#app-splash')).toHaveCount(0, { timeout: 10_000 });
+    expect(await textOverlapIssues(page)).toEqual([]);
+    await offer.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `test-results/labs-sheet-jobs-copy-${device.width}.png` });
+    await offer.getByRole('button', { name: 'ส่งลงชีต' }).click();
+    const confirm = page.getByRole('dialog', { name: 'ส่งรายการลงชีต' });
+    await expect(confirm).toContainText('2 รายการ');
+    await confirm.getByRole('button', { name: 'ยืนยัน' }).click();
+    await expect.poll(() => batches.length).toBe(1);
+    expect(batches[0].kind).toBe('job');
+    expect(batches[0].records.map(record => record.name)).toEqual(['ออกแบบเมนูร้านก๋วยเตี๋ยว', 'ถ่ายรูปงานบวช']);
+    await expect(offer).toHaveCount(0);
+    await expect(page.getByText('เพิ่ม 2 รายการต่อท้ายแท็บ รายรับ').first()).toBeVisible();
+    await expect.poll(() => JSON.stringify(posts)).toContain('"sheetLink":{"fileId":"file-12345678","tab":"รายรับ","row":7,"gid":812}');
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+  }
+  // ไม่ต้อง hides it on this device.
+  const { batches } = await open(page, { width: 1440, height: 900 }, ['sheets', 'sheetMap', 'sheetJobs', 'sheetWrite'], undefined, ROWS, [older]);
+  const offer = page.getByTestId('sheet-jobs-line-copy');
+  await offer.getByRole('button', { name: 'ไม่ต้อง' }).click();
+  await expect(offer).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByTestId('sheet-jobs-line')).toContainText('อัปเดต');
+  await expect(offer).toHaveCount(0);
+  expect(batches.length).toBe(0);
 });
 
 test('without the feature the jobs page is as before and the sheet is never read', async ({ page }) => {

@@ -51,6 +51,26 @@ export interface LiffSubmitDependencies {
   clearDocumentDraft?: typeof clearDocumentDraft;
   ownDocumentSummary?: typeof ownDocumentSummary;
   storeDocumentImage?: typeof storeDocumentImage;
+  /** A job or an expense saved from a LINE form, written into the account's connected sheet too (owner, 2026-11-18). */
+  writeSheet?: (userId: string, kind: 'job' | 'expense', record: Record<string, unknown>) => Promise<unknown>;
+}
+
+// Saved from a LINE form, the same in the connected sheet (owner, 2026-11-18: "ลิงก์กันทั้งสองด้าน"): only for an account whose
+// sheet is ready and whose บันทึกลงชีตของคุณ is on; a sheet problem never fails the save, and the form waits at most 4 seconds.
+async function writeSavedToSheet(userId: string, kind: 'job' | 'expense', record: Record<string, unknown>) {
+  const [{ loadLabs }, { labState }, { isOwnerUserId }, { saveAppRecord }] = await Promise.all([
+    import('../repositories/labs.js'), import('../../../shared/labs.js'), import('../repositories/roles.js'), import('../services/sheetWrite.js')]);
+  const [labs, owner] = await Promise.all([loadLabs(userId), isOwnerUserId(userId)]);
+  if (!labState(labs, owner).on.includes('sheetWrite')) return null;
+  return saveAppRecord(userId, { kind, record });
+}
+async function toSheet(dependencies: LiffSubmitDependencies, userId: string, kind: 'job' | 'expense', record: object) {
+  const write = dependencies.writeSheet ?? writeSavedToSheet;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise(resolve => { timer = setTimeout(resolve, 4000); });
+  try { await Promise.race([write(userId, kind, record as Record<string, unknown>), late]); }
+  catch { console.error('liff-submit: the saved record was not written to the sheet'); }
+  finally { clearTimeout(timer); }
 }
 
 const defaultDependencies: LiffSubmitDependencies = {
@@ -267,6 +287,7 @@ async function handleDraftEditor(
     else await (dependencies.clearExpenseDraft ?? clearExpenseDraft)(user);
   } catch { console.error('liff-submit: saved draft resolution failed'); }
   const duplicate = Boolean(user.lastWriteWasDuplicate);
+  if (!duplicate) await toSheet(dependencies, user.user_id, kind, record);
   let notificationSent = false;
   if (!duplicate) {
     try {
@@ -368,6 +389,7 @@ export async function handleLiffSubmit(
         res.status(500).json({ error: 'บันทึกไม่สำเร็จ ลองใหม่อีกครั้งครับ' });
         return;
       }
+      await toSheet(dependencies, user.user_id, 'expense', expense);
       await dependencies.sendLineMessagePayload(lineUserId, dependencies.buildExpenseSavedMessage(expense, dependencies.computeMonthNetForUser(user, undefined, expense)));
       res.status(200).json({ ok: true });
       return;
@@ -395,6 +417,7 @@ export async function handleLiffSubmit(
       res.status(500).json({ error: 'บันทึกไม่สำเร็จ ลองใหม่อีกครั้งครับ' });
       return;
     }
+    await toSheet(dependencies, user.user_id, 'job', job);
     await dependencies.sendLineMessagePayload(lineUserId, dependencies.buildJobSavedMessage(job, dependencies.computeMonthNetForUser(user, job)));
     res.status(200).json({ ok: true });
   } catch (err) {

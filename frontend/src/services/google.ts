@@ -45,10 +45,14 @@ export const googleApi = {
   saveRow: (account: string, kind: 'job' | 'expense', record: object, before: { kind: 'job' | 'expense'; fileId: string; tab: string; row: number; name: string; amount: number } | null) =>
     post<{ result: { status: 'written'; fileId: string; tab: string; row: number; gid?: number } | { status: 'notFound' } | { status: 'failed'; error: string } | null }>(
       account, { action: 'saveRow', kind, record, before }).then(reply => reply.result),
+  /** Several records in one go (older records copied, an Excel import): rows under the last, in the order sent. */
+  saveRows: (account: string, kind: 'job' | 'expense', records: object[]) =>
+    post<{ result: { status: 'written'; fileId: string; tab: string; rows: number[]; gid?: number } | { status: 'failed'; error: string } | null }>(
+      account, { action: 'saveRows', kind, records }).then(reply => reply.result),
   /** Records deleted in the app: their rows go from the connected sheet too (null: no sheet ready). */
   deleteRows: (account: string, rows: { kind: 'job' | 'expense'; fileId: string; tab: string; row: number; name: string; amount: number }[]) =>
     post<{ result: { deleted: number; notFound: number; error?: string } | null }>(account, { action: 'deleteRows', rows }).then(reply => reply.result),
-  read: (account: string) => post<{ tabs: LiveTab[]; readAt: string }>(account, { action: 'read' }),
+  read: (account: string) => post<{ tabs: LiveTab[]; readAt: string; recentRows?: { tab: string; row: number }[] }>(account, { action: 'read' }),
   saveMap: (account: string, map: SheetMap) => post(account, { action: 'saveMap', map }).then(reply => reply.google),
   createTemplate: (account: string, name: string, xlsx: string) => post<{ created: boolean }>(account, { action: 'createTemplate', name, xlsx }).then(reply => reply.google),
   preview: (account: string, proposalId: string) => apiJson<{ preview: SheetRowPreview | null; reason?: string }>('/api/google', {

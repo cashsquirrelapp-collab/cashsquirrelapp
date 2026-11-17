@@ -109,7 +109,12 @@ const sheetWriteSchema = z.object({
 
 /** The kept record (server only). */
 /** `writes`: the recent writes, one per card (owner, 2026-11-16: ten cards confirmed together each keep their own row). */
-export interface GoogleRecord { email: string; enc: string; at: string; file?: GoogleFile | null; map?: SheetMap | null; lastWrite?: SheetWrite | null; writes?: SheetWrite[] }
+/** Rows the app itself wrote lately (เลขา's cards, the app's forms, LINE's forms, copies of older records): a reading of the
+ *  sheet never adds one of them as a new record while the record it was written for may still be on its way to the app
+ *  (frontend/src/features/labs/sheetSync.ts). Kept for RECENT_ROWS_MS. */
+export interface RecentRow { fileId: string; tab: string; row: number; at: string }
+export const RECENT_ROWS_MS = 3 * 60_000;
+export interface GoogleRecord { email: string; enc: string; at: string; file?: GoogleFile | null; map?: SheetMap | null; lastWrite?: SheetWrite | null; writes?: SheetWrite[]; recentRows?: RecentRow[] }
 const recordSchema = z.object({
   email: z.string().max(320),
   enc: z.string().min(20).max(4000),
@@ -118,6 +123,7 @@ const recordSchema = z.object({
   map: sheetMapSchema.nullable().optional(),
   lastWrite: sheetWriteSchema.nullable().optional(),
   writes: z.array(sheetWriteSchema).max(KEPT_WRITES).optional(),
+  recentRows: z.array(z.object({ fileId: z.string().max(200), tab: z.string().max(120), row: z.number().int().min(1).max(10_000_000), at: z.string().max(40) })).max(600).optional(),
 });
 
 /** A stored record; anything unreadable counts as not connected. */

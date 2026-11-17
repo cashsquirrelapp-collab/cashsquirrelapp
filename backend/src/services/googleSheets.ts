@@ -287,6 +287,10 @@ export interface SheetOps {
   formulaTexts(tab: string, row: number, columns: number[]): Promise<Record<number, string>>;
   /** Deletes these whole rows of the tab (a record deleted in the app); the rows below move up. */
   deleteRows(tab: string, rows: number[]): Promise<void>;
+  /** Types many cells of many rows in one request (copying older records, an Excel import). Returns the cells written. */
+  writeMany(tab: string, cells: { row: number; index: number; value: string | number }[]): Promise<string[]>;
+  /** Copies the formulas of these columns from one row down over rows first..last, in one request. */
+  copyFormulasDown(tab: string, fromRow: number, firstRow: number, lastRow: number, columns: number[]): Promise<void>;
 }
 
 const columnName = (index: number): string => { let s = '', n = index + 1; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
@@ -352,6 +356,21 @@ export function googleOps(token: string, fileId: string): SheetOps {
     },
     async clear(_tab, cells) {
       if (cells.length) await post(`${SHEETS}/${id}/values:batchClear`, { ranges: cells });
+    },
+    async writeMany(tab, cells) {
+      if (!cells.length) return [];
+      const data = cells.map(cell => ({ range: range(tab, `${columnName(cell.index)}${cell.row}`), values: [[cell.value]] }));
+      await post(`${SHEETS}/${id}/values:batchUpdate`, { valueInputOption: 'USER_ENTERED', data });
+      return data.map(item => item.range);
+    },
+    async copyFormulasDown(tab, fromRow, firstRow, lastRow, columns) {
+      if (!columns.length || fromRow < 1 || lastRow < firstRow) return;
+      const sheet = await sheetId(tab);
+      // A one-cell source pasted over a taller range repeats down it, each row's references moved to its own row.
+      await post(`${SHEETS}/${id}:batchUpdate`, { requests: columns.map(column => ({ copyPaste: {
+        source: { sheetId: sheet, startRowIndex: fromRow - 1, endRowIndex: fromRow, startColumnIndex: column, endColumnIndex: column + 1 },
+        destination: { sheetId: sheet, startRowIndex: firstRow - 1, endRowIndex: lastRow, startColumnIndex: column, endColumnIndex: column + 1 },
+        pasteType: 'PASTE_FORMULA' } })) });
     },
     async deleteRows(tab, rows) {
       const unique = [...new Set(rows)].filter(row => Number.isInteger(row) && row >= 1);

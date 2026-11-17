@@ -148,6 +148,22 @@ test('sheet sync: the template\'s example rows are never taken; a job taken from
   assert.equal(sync(jobs, noted).add.length, 1);
 });
 
+test('sheet sync: a row the app wrote a moment ago is never added; it is linked once its record arrives, and counted only then', () => {
+  const jobs = apply([], sync([], ROWS.slice(0, 2)));
+  // Row 4 was just written for a job saved in LINE that has not reached this screen yet.
+  const early = planSheetSync({ jobs, tabs: [tab(ROWS)], map, fileId: FILE, statuses: STATUSES, jobTypes: [], today: '2026-11-14', recentRows: [{ tab: 'รายรับ', row: 4 }] });
+  assert.deepEqual([early.add.length, early.skipped], [0, 0], 'not added, not counted as deleted in the app');
+  // The record arrives (not linked yet): the row is linked to it, not added beside it.
+  const arrived = { ...jobs[0], id: 'from-line', name: 'ตัดต่อคลิปรีวิวคาเฟ่ EP.3', client: 'คุณยอร์ช', value: 3000, sheetLink: undefined } as Job;
+  const later = planSheetSync({ jobs: [...jobs, arrived], tabs: [tab(ROWS)], map, fileId: FILE, statuses: STATUSES, jobTypes: [], today: '2026-11-14',
+    seen: early.seen ? { fileId: FILE, jobs: early.seen } : undefined, recentRows: [{ tab: 'รายรับ', row: 4 }] });
+  assert.equal(later.add.length, 0);
+  assert.equal(later.update.find(update => update.id === 'from-line')?.fields.sheetLink?.row, 4);
+  // Never arrived and three minutes passed: the row is taken like any new row.
+  const orphan = planSheetSync({ jobs, tabs: [tab(ROWS)], map, fileId: FILE, statuses: STATUSES, jobTypes: [], today: '2026-11-14', seen: early.seen ? { fileId: FILE, jobs: early.seen } : undefined });
+  assert.equal(orphan.add.length, 1);
+});
+
 test('ดูในชีต: the address opens the tab with the row selected', () => {
   assert.equal(sheetRowUrl(FILE, 812, 4, 7), 'https://docs.google.com/spreadsheets/d/file-12345678/edit#gid=812&range=A4:H4');
   assert.equal(sheetRowUrl(FILE, 0), 'https://docs.google.com/spreadsheets/d/file-12345678/edit#gid=0');
