@@ -29,19 +29,30 @@ const commands: Record<string, 'vault' | 'wht50' | 'extras' | 'help' | 'invoice'
   สมัครpro: 'plans', สมัครplus: 'plans', เติมpro: 'plans', ราคาpro: 'plans', ราคาแพ็กเกจ: 'plans',
 };
 
+// Asking for the plans the way people type it (owner, 2026-11-18: "กูยังพิมพ์ไม่เจอเลย"): only แพ็กเกจ with ก brought the cards,
+// while most people write แพ็คเกจ, แพคเกจ or package, or "สมัครโปร", "แพ็คเกจโปร". The whole message must be such a request
+// (a word for the plans, or a verb with a plan name), so a sentence about something else still goes to เลขา.
+const PLAN_VERB = '(?:ขอ|อยาก)?(?:ดู|สมัคร|ราคา|ซื้อ|เติม|อัปเกรด|อัพเกรด)';
+const PLAN_ASK = new RegExp(`^(${PLAN_VERB})?(?:เป็น)?(แพ็?[คก]เ[กค]็?[จตด]|package|packages|แพลน|plans?)?(pro|plus|โปร|พลัส)?(?:หน่อย|ครับ|คับ|ค่ะ|คะ|นะ|จ้า|ค่า)*$`);
+function isPlansAsk(text: string): boolean {
+  const match = normalize(text).match(PLAN_ASK);
+  return Boolean(match && (match[2] || (match[1] && match[3])));
+}
+const commandOf = (text: string) => (Object.prototype.hasOwnProperty.call(commands, normalize(text)) ? commands[normalize(text)] : isPlansAsk(text) ? 'plans' as const : undefined);
+
 const message = (label: string, text: string) => ({ type: 'action' as const, action: { type: 'message' as const, label, text } });
 
 export function isLineFeatureShortcut(text: string): boolean {
-  return Object.prototype.hasOwnProperty.call(commands, normalize(text));
+  return commandOf(text) !== undefined;
 }
 
 export function isLineWhtShortcut(text: string): boolean {
-  return commands[normalize(text)] === 'wht50';
+  return commandOf(text) === 'wht50';
 }
 
 /** The area a shortcut belongs to when that area may not be open yet; 'extras' only links to the vault. */
 export function lineShortcutArea(text: string): 'vault' | 'wht50' | 'extras' | null {
-  const command = commands[normalize(text)];
+  const command = commandOf(text);
   if (command === 'wht50') return 'wht50';
   if (command === 'vault' || command === 'upload') return 'vault';
   return command === 'extras' ? 'extras' : null;
@@ -67,8 +78,8 @@ export function buildLineFeatureShortcut(
   now = new Date(),
   context: LineFeatureContext = {},
 ): LineMessage | LineMessage[] | null {
-  if (!isLineFeatureShortcut(text)) return null;
-  const command = commands[normalize(text)];
+  const command = commandOf(text);
+  if (!command) return null;
   // The Pro poster, then the plans side by side (owner, 2026-11-16).
   if (command === 'plans') return buildLineUpgradeMessages('menu', now);
   if (command === 'extras') {

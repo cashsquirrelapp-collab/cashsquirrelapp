@@ -115,3 +115,14 @@ test('the Pro poster: the app\'s own invitation as one picture, tapped (or its b
   // The picture is in the app's public files, under LINE's 10 MB.
   assert.ok(statSync(new URL('../frontend/public/line/pro-kv-v1.jpg', import.meta.url)).size < 1_000_000);
 });
+
+// Owner, 2026-11-18: "กูยังพิมพ์ไม่เจอเลย": only แพ็กเกจ spelt with ก brought the plans; most people type it otherwise.
+test('the plans come however the request is spelt; a sentence about something else still goes to เลขา', () => {
+  for (const text of ['แพ็คเกจ', 'แพคเกจ', 'แพ็คเก็จ', 'แพกเกจ', 'Package', 'ดูแพ็คเกจ', 'ขอดูแพ็คเกจหน่อยครับ', 'สมัครโปร', 'สมัคร Plus', 'แพ็กเกจ Pro', 'แพ็คเกจโปร', 'อัปเกรดเป็นโปร', 'ราคาแพ็คเกจ']) {
+    assert.equal(isLineFeatureShortcut(text), true, text);
+    assert.ok(buildLineFeatureShortcut(text, [], new Date('2026-11-18T03:00:00Z')), text);
+  }
+  for (const text of ['ราคา', 'Pro', 'โปร', 'โปรเจกต์', 'แพ็คเกจนี้ดีไหม', 'บันทึกค่าแพ็คเกจเน็ต 500', 'ค่าแพ็คเกจมือถือ 399']) {
+    assert.equal(isLineFeatureShortcut(text), false, text);
+  }
+});
