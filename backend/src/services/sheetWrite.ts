@@ -1,5 +1,5 @@
 import { KEPT_WRITES, RECENT_ROWS_MS, UNDO_MS, sheetRowUrl, type GoogleRecord, type SheetMap, type SheetWrite } from '../../../shared/googleSheets.js';
-import { chooseTab, dataColumns, displayValue, exampleRowsOf, letter, rowCells, valueFor, type DeletedRecordRow, type RowCell, type RowKind } from '../../../shared/sheetRow.js';
+import { chooseTab, dataColumns, deletedRowOf, displayValue, exampleRowsOf, letter, rowCells, valueFor, type DeletedRecordRow, type RowCell, type RowKind } from '../../../shared/sheetRow.js';
 import { evaluateRow, shiftFormula } from '../../../shared/sheetFormula.js';
 import { isValidWhtRate, roundMoney, whtAmountFor } from '../../../shared/wht.js';
 import { loadGoogle, saveGoogle } from '../repositories/google.js';
@@ -323,7 +323,7 @@ const moneyIn = (text: string) => { const cleaned = String(text).replace(/[^0-9.
 type TabRows = { first: number; rows: string[][] };
 
 /** Where each record's row is now: { tab, row } or null. The tabs read on the way are kept in `reads` (from the first data row). */
-async function locateRecordRows(ops: SheetOps, map: SheetMap, rows: DeletedRecordRow[], reads = new Map<string, TabRows>()) {
+export async function locateRecordRows(ops: SheetOps, map: SheetMap, rows: DeletedRecordRow[], reads = new Map<string, TabRows>(), loose = false) {
   const chosen = new Map<string, Set<number>>();
   const found: ({ tab: string; row: number } | null)[] = [];
   for (const item of rows) {
@@ -344,7 +344,11 @@ async function locateRecordRows(ops: SheetOps, map: SheetMap, rows: DeletedRecor
     const sameMoney = (cells: string[]) => !moneyColumns.length || moneyColumns.some(index => Math.abs(moneyIn(cells[index] ?? '') - item.amount) < 0.005);
     const taken = chosen.get(tab.name) ?? new Set<number>();
     const cellsAt = (row: number) => read!.rows[row - read!.first] ?? [];
-    let row: number | null = item.row >= first && !taken.has(item.row) && sameName(cellsAt(item.row)) && sameMoney(cellsAt(item.row)) ? item.row : null;
+    // loose (an edit made outside the app's forms, whose old values are not known): the linked row still counts when its name
+    // or its amount is the record's; one of the two changed in the edit.
+    const atLinked = cellsAt(item.row);
+    const linkedHolds = loose ? sameName(atLinked) || (moneyColumns.length > 0 && sameMoney(atLinked)) : sameName(atLinked) && sameMoney(atLinked);
+    let row: number | null = item.row >= first && !taken.has(item.row) && linkedHolds ? item.row : null;
     if (row === null) {
       let nearest = Infinity;
       read.rows.forEach((cells, index) => {
@@ -451,7 +455,7 @@ export async function saveAppRecords(userId: string, kind: RowKind, records: Rec
   }
 }
 
-export async function saveAppRecord(userId: string, input: { kind: RowKind; record: Record<string, unknown>; before?: DeletedRecordRow | null }): Promise<AppRowResult | null> {
+export async function saveAppRecord(userId: string, input: { kind: RowKind; record: Record<string, unknown>; before?: DeletedRecordRow | null; loose?: boolean }): Promise<AppRowResult | null> {
   let context: Awaited<ReturnType<typeof sheetContext>>;
   try { context = await sheetContext(userId); }
   catch (error) { return { status: 'failed', error: error instanceof GoogleError ? ERRORS[error.code] : ERRORS.failed }; }
@@ -461,7 +465,7 @@ export async function saveAppRecord(userId: string, input: { kind: RowKind; reco
   try {
     if (input.before) {
       if (input.before.fileId !== fileId) return { status: 'notFound' };
-      const { found: [spot], reads } = await locateRecordRows(ops, google.map!, [input.before]);
+      const { found: [spot], reads } = await locateRecordRows(ops, google.map!, [input.before], new Map(), input.loose);
       if (!spot) return { status: 'notFound' };
       await writeOverRow(ops, google.map!, input.kind, input.record, spot, reads.get(spot.tab));
       const gid = await ops.tabId(spot.tab).catch(() => undefined);
@@ -512,6 +516,21 @@ export async function deleteExampleRows(userId: string): Promise<{ deleted: numb
   } catch (error) {
     return { deleted: 0, error: error instanceof GoogleError ? ERRORS[error.code] : ERRORS.failed };
   }
+}
+
+// Changed outside the app's forms (owner, 2026-11-18: "อัปเดตให้หมดด้วยให้มันทุกตรงทุกละเอียดทุกนิ้วให้มันตรง"): a job paid with
+// a LINE button, an edit confirmed with เลขา, a 50 ทวิ ticked off: the record's row in the connected sheet gets the new
+// values at once, found by its link (its name or its amount still the record's). Only for an account whose sheet is ready and
+// whose บันทึกลงชีตของคุณ is on; never throws, and the change in the app stands either way.
+export async function writeEditedRecordToSheet(userId: string, kind: RowKind, record: Record<string, unknown>): Promise<AppRowResult | null> {
+  const row = deletedRowOf(kind, record);
+  if (!row) return null;
+  try {
+    const [{ loadLabs }, { labState }, { isOwnerUserId }] = await Promise.all([import('../repositories/labs.js'), import('../../../shared/labs.js'), import('../repositories/roles.js')]);
+    const [labs, owner] = await Promise.all([loadLabs(userId), isOwnerUserId(userId)]);
+    if (!labState(labs, owner).on.includes('sheetWrite')) return null;
+    return await saveAppRecord(userId, { kind, record, before: row, loose: true });
+  } catch { return null; }
 }
 
 /** ย้อนกลับ: empties the cells of the last write, within 30 minutes, if it is still the connected file. */

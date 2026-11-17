@@ -52,6 +52,8 @@ export interface AssistantDb {
   /** บันทึกลงชีตของคุณ: writes a confirmed job or expense into the account's connected sheet (null: no sheet ready or
    *  the feature is off). Never throws for a sheet problem; the app's save stands either way. */
   writeSheet?(userId: string, proposalId: string, kind: 'job' | 'expense', record: Record<string, unknown>): Promise<SheetWriteResult | null>;
+  /** A confirmed change to a job or an expense taken from the sheet: written over its row (null: no sheet or not from it). */
+  writeSheetEdit?(userId: string, kind: 'job' | 'expense', record: Record<string, unknown>): Promise<unknown>;
   /** หน้างานและรายจ่ายจากชีต: a job or an expense deleted by a confirmed card is deleted from the connected sheet too (null: no
    *  sheet ready or the feature is off). Never throws for a sheet problem; the delete in the app stands either way. */
   deleteSheetRows?(userId: string, rows: DeletedRecordRow[]): Promise<DeleteRowsResult | null>;
@@ -620,6 +622,9 @@ export async function confirmProposal(db: AssistantDb, userId: string, proposalI
   const rowKind = proposal.kind === 'add_job' ? 'job' as const : proposal.kind === 'add_expense' ? 'expense' as const : null;
   const sheet = rowKind && proposal.record && db.writeSheet ? await db.writeSheet(userId, proposalId, rowKind, proposal.record).catch(() => null) : null;
   if (sheetRow && db.deleteSheetRows) await db.deleteSheetRows(userId, [sheetRow]).catch(() => null);
+  // A change to a record taken from the sheet (a payment, an edit): its row gets the new values (owner, 2026-11-18).
+  const editKind = target.op === 'set' && !target.insert && proposal.record ? (target.table === 'cashflow_jobs' ? 'job' as const : target.table === 'cashflow_expenses' ? 'expense' as const : null) : null;
+  if (editKind && db.writeSheetEdit) await db.writeSheetEdit(userId, editKind, proposal.record!).catch(() => null);
   const named = {
     ...(typeof proposal.record?.name === 'string' && proposal.record.name.trim() ? { name: proposal.record.name.trim().slice(0, 120) } : {}),
     ...(typeof proposal.record?.client === 'string' && proposal.record.client.trim() ? { client: proposal.record.client.trim().slice(0, 120) } : {}),

@@ -76,7 +76,7 @@ for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'p
     const rows = device.name === 'computer' ? page.locator('table tbody tr[data-expense-id]') : page.locator('.ksm-moneylist [data-expense-id]');
     await expect(rows).toHaveCount(3);
     await expect(rows.filter({ hasText: 'ค่าข้าวครอบครัว' })).toHaveCount(0);
-    await expect.poll(() => JSON.stringify(posts)).toContain('"sheetLink":{"fileId":"file-12345678","tab":"รายจ่าย","row":5,"gid":905}');
+    await expect.poll(() => JSON.stringify(posts)).toContain('"sheetLink":{"fileId":"file-12345678","tab":"รายจ่าย","row":5,"gid":905,"sig":');
     expect(reads()).toBe(1);
     await page.waitForTimeout(400);
     expect(await textOverlapIssues(page)).toEqual([]);

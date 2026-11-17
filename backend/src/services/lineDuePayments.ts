@@ -126,7 +126,16 @@ export const duePaymentDependencies: DuePaymentDependencies = {
     const changes = validateChanges([{ table: 'cashflow_jobs', id: jobId, op: 'set', version, data }]);
     const result = await getSupabaseAdmin().rpc('cashflow_apply_changes', { p_user_id: userId, p_changes: changes });
     if (result.error) throw result.error;
-    return result.data !== false;
+    const saved = result.data !== false;
+    // Paid, delivered or 50 ทวิ ticked off with a LINE button: the job's row in the connected sheet follows (owner, 2026-11-18),
+    // waiting at most 4 seconds; the save stands either way.
+    if (saved && (data as { sheetLink?: unknown }).sheetLink) {
+      const { writeEditedRecordToSheet } = await import('./sheetWrite.js');
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      await Promise.race([writeEditedRecordToSheet(userId, 'job', data as unknown as Record<string, unknown>), new Promise(resolve => { timer = setTimeout(resolve, 4000); })])
+        .catch(() => undefined).finally(() => clearTimeout(timer));
+    }
+    return saved;
   },
   today: () => bangkokToday(new Date()),
   now: () => new Date(),

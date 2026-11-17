@@ -52,7 +52,7 @@ export interface Job {
   installments?: JobInstallment[]; // ตารางรับเงินแต่ละงวด (มีเฉพาะงานที่แบ่งชำระ)
   lastActivityAt?: string; // ISO time of the last add/edit (e.g. recording a payment); orders same-day jobs
   /** Where the job sits in the account's connected sheet (หน้างานจากชีต, ฟีเจอร์ทดลอง; shared/googleSheets.ts SheetLink). */
-  sheetLink?: { fileId: string; tab: string; row: number; gid?: number; missing?: true };
+  sheetLink?: { fileId: string; tab: string; row: number; gid?: number; missing?: true; sig?: string };
 }
 
 export interface TaxEvidence {
@@ -254,7 +254,7 @@ export interface Expense {
   /** The slip's reference number (เลขที่รายการ), so the same slip is not recorded twice. */
   slipRef?: string;
   /** Where it sits in the connected sheet (รายจ่ายจากชีต, ฟีเจอร์ทดลอง; shared/googleSheets.ts SheetLink). */
-  sheetLink?: { fileId: string; tab: string; row: number; gid?: number; missing?: true };
+  sheetLink?: { fileId: string; tab: string; row: number; gid?: number; missing?: true; sig?: string };
 }
 
 export interface InvoiceItem {

@@ -1,6 +1,6 @@
 import type { Expense, Job, SheetSeen, StatusOption } from '../../../../shared/types';
 import type { LiveCell, LiveTab, SheetLink, SheetMap } from '../../../../shared/googleSheets';
-import { isExampleText } from '../../../../shared/sheetRow';
+import { isExampleText, type DeletedRecordRow } from '../../../../shared/sheetRow';
 import { roundMoney } from '../../../../shared/wht';
 import { buildImportPlan, type ImportedExpense, type ImportedJob } from '../import/sheetImport';
 import { readTabs } from './sheetMap';
@@ -34,6 +34,8 @@ export interface SheetSyncChanges {
   held: string[];
   /** The person pressed ลบออกจากแอป for held records (not a reading of the sheet). */
   asked?: true;
+  /** Jobs changed in the app since the sheet and the app last agreed, the sheet not: written over their rows (where). */
+  push: { id: string; before: DeletedRecordRow }[];
   /** Rows left out because their job was deleted in the app. */
   skipped: number;
   /** The new counts of rows taken (settings.sheetSeen.jobs), or null when they did not change. */
@@ -111,7 +113,25 @@ function ownedFields(targets: Set<string>): (keyof Job)[] {
 }
 
 const sameValue = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
-const sameLink = (a: SheetLink | undefined, b: SheetLink) => Boolean(a) && a!.fileId === b.fileId && a!.tab === b.tab && a!.row === b.row && a!.gid === b.gid && !a!.missing;
+const sameLink = (a: SheetLink | undefined, b: SheetLink) => Boolean(a) && a!.fileId === b.fileId && a!.tab === b.tab && a!.row === b.row && a!.gid === b.gid && !a!.missing && a!.sig === b.sig;
+
+// Which side changed (owner, 2026-11-18: "อัปเดตให้หมดด้วยให้มันทุกตรงทุกละเอียดทุกนิ้วให้มันตรง"). Before, the sheet won every
+// reading: a job paid through LINE, or edited anywhere the sheet was not told, went back to the sheet's old values. Now each
+// linked record keeps `sheetLink.sig`, a short fingerprint of what the sheet's columns held when the two last agreed. At a
+// reading: both the same → nothing; only the sheet differs from that fingerprint → the app takes the sheet's values; only the
+// app differs → the app's values are written over the row (`push`); both changed → the sheet, the master, wins. A record
+// linked before fingerprints existed takes the sheet's values once, as it always did, and is fingerprinted from then on.
+const fingerprint = (record: object, fields: string[]) => hashOf(JSON.stringify(fields.map(field => {
+  const value = (record as Record<string, unknown>)[field];
+  return typeof value === 'number' ? roundMoney(value) : typeof value === 'string' ? value.trim() : value ?? '';
+})));
+type Direction = 'same' | 'pull' | 'push';
+function directionOf(app: object, sheet: object, fields: string[], last: string | undefined): { direction: Direction; sig: string } {
+  const sheetSig = fingerprint(sheet, fields), appSig = fingerprint(app, fields);
+  if (sheetSig === appSig) return { direction: 'same', sig: sheetSig };
+  if (last !== undefined && last === sheetSig && last !== appSig) return { direction: 'push', sig: last };
+  return { direction: 'pull', sig: sheetSig };
+}
 
 /** The job a sheet row is, and what the sheet changes in it. */
 export function planSheetSync(input: {
@@ -134,6 +154,7 @@ export function planSheetSync(input: {
 
   const linked = (job: Job): SheetLink | undefined => job.sheetLink;
   const claimed = new Set<string>();
+  const push: SheetSyncChanges['push'] = [];
   const pending: { key: string; item: Omit<Job, 'id'> }[] = [];
   const update: { id: string; fields: Partial<Job> }[] = [];
   const remove: string[] = [];
@@ -162,31 +183,37 @@ export function planSheetSync(input: {
       ?? jobs.find(job => open(job) && inTab(job) && norm(job.name) === norm(sheetJob.name))
       ?? jobs.find(job => open(job) && !linked(job) && norm(job.name) === norm(sheetJob.name) && sameMoney(job.value, sheetJob.value)
         && (!norm(job.client) || !norm(sheetJob.client) || norm(job.client) === norm(sheetJob.client)));
-    if (!match) {
-      // Written by the app a moment ago for a record that has not reached this screen yet: left for it, not added.
-      if (recent.has(`${row.sheet}\u0001${row.rowNumber}`)) { total.set(key, total.get(key)! - 1); continue; }
-      pending.push({ key, item: { ...sheetJob, sheetLink: link } }); continue;
-    }
-    claimed.add(match.id);
-    matchedCount.set(key, (matchedCount.get(key) ?? 0) + 1);
-    const fields: Partial<Job> = {};
     const targets = targetsOf.get(row.sheet) ?? new Set<string>();
     const owned = ownedFields(targets);
     // A paid-date column decides the date only once the row is paid; until then the app's own due date stands (the
     // importer would otherwise put a guess there).
     if (!owned.includes('payDate') && targets.has('paidDate') && (sheetJob.paymentStatus === 'paid' || sheetJob.status === 'done')) owned.push('payDate', 'dueDate');
-    for (const field of owned) {
-      const value = (sheetJob as Partial<Job>)[field];
-      if (value === undefined) continue;
-      if (!sameValue(match[field], value)) (fields as Record<string, unknown>)[field] = value;
+    const sigFields = owned.filter(field => (sheetJob as Partial<Job>)[field] !== undefined);
+    if (!match) {
+      // Written by the app a moment ago for a record that has not reached this screen yet: left for it, not added.
+      if (recent.has(`${row.sheet}\u0001${row.rowNumber}`)) { total.set(key, total.get(key)! - 1); continue; }
+      pending.push({ key, item: { ...sheetJob, sheetLink: { ...link, sig: fingerprint(sheetJob, sigFields) } } }); continue;
     }
-    // The amount or the withholding changed but the sheet says nothing of payment: what is still owed follows.
-    if (!owned.includes('pending') && ('value' in fields || 'whtAmount' in fields)) {
-      const value = Number(fields.value ?? match.value) || 0, wht = Number(fields.whtAmount ?? match.whtAmount) || 0;
-      const pending = Math.max(0, roundMoney(value - wht - (Number(match.received) || 0)));
-      if (!sameMoney(pending, match.pending)) fields.pending = pending;
+    claimed.add(match.id);
+    matchedCount.set(key, (matchedCount.get(key) ?? 0) + 1);
+    const fields: Partial<Job> = {};
+    const { direction, sig } = directionOf(match, sheetJob, sigFields, linked(match)?.sig);
+    if (direction === 'push') push.push({ id: match.id, before: { kind: 'job', fileId, tab: row.sheet, row: row.rowNumber, name: sheetJob.name, amount: Number(sheetJob.value) || 0 } });
+    if (direction === 'pull') {
+      for (const field of owned) {
+        const value = (sheetJob as Partial<Job>)[field];
+        if (value === undefined) continue;
+        if (!sameValue(match[field], value)) (fields as Record<string, unknown>)[field] = value;
+      }
+      // The amount or the withholding changed but the sheet says nothing of payment: what is still owed follows.
+      if (!owned.includes('pending') && ('value' in fields || 'whtAmount' in fields)) {
+        const value = Number(fields.value ?? match.value) || 0, wht = Number(fields.whtAmount ?? match.whtAmount) || 0;
+        const pending = Math.max(0, roundMoney(value - wht - (Number(match.received) || 0)));
+        if (!sameMoney(pending, match.pending)) fields.pending = pending;
+      }
     }
-    if (!sameLink(linked(match), link)) fields.sheetLink = link;
+    const signed: SheetLink = { ...link, sig };
+    if (!sameLink(linked(match), signed)) fields.sheetLink = signed;
     if (Object.keys(fields).length) update.push({ id: match.id, fields });
   }
 
@@ -210,7 +237,7 @@ export function planSheetSync(input: {
     if (!job.sheetLink!.missing) update.push({ id: job.id, fields: { sheetLink: { ...job.sheetLink!, missing: true } } });
   }
   const kept = leaveDeletedOut(pending, total, matchedCount, before, readTabNames);
-  return { fileId, add: kept.add, update, remove, rows, missing, gone: gone.length, held, skipped: kept.skipped, seen: kept.seen };
+  return { fileId, add: kept.add, update, remove, rows, missing, gone: gone.length, held, skipped: kept.skipped, seen: kept.seen, push };
 }
 
 // รายจ่ายจากชีต (owner, 2026-11-14: "ทำดึงรายจ่ายจากชีตต่อเลย"), the same way as the jobs: each expense row of the sheet's
@@ -237,6 +264,8 @@ export interface SheetExpenseChanges {
   held: string[];
   /** The person pressed ลบออกจากแอป for held records (not a reading of the sheet). */
   asked?: true;
+  /** Expenses changed in the app since the sheet and the app last agreed, the sheet not: written over their rows. */
+  push: { id: string; before: DeletedRecordRow }[];
   /** Rows left out because their expense was deleted in the app. */
   skipped: number;
   /** The new counts of rows taken (settings.sheetSeen.expenses), or null when they did not change. */
@@ -274,6 +303,7 @@ export function planSheetExpenseSync(input: { expenses: Expense[]; tabs: LiveTab
 
   const cellsOf = new Map(readings.map(reading => [reading.analysis.name, reading.grid.rows as unknown as LiveCell[][]]));
   const claimed = new Set<string>();
+  const push: SheetExpenseChanges['push'] = [];
   const pending: { key: string; item: Omit<Expense, 'id'> }[] = [];
   const update: { id: string; fields: Partial<Expense> }[] = [];
   const remove: string[] = [];
@@ -303,19 +333,25 @@ export function planSheetExpenseSync(input: { expenses: Expense[]; tabs: LiveTab
       ?? expenses.find(expense => open(expense) && inTab(expense) && sameName(expense) && sameAmount(expense))
       ?? expenses.find(expense => open(expense) && !expense.sheetLink && sameName(expense) && sameAmount(expense)
         && (!expense.date || !sheetExpense.date || expense.date === sheetExpense.date));
+    const owned = ownedExpenseFields(targetsOf.get(row.sheet) ?? new Set<string>())
+      .filter(field => (sheetExpense as Partial<Expense>)[field] !== undefined && !(field === 'date' && !sheetExpense.date));
     if (!match) {
       if (recent.has(`${row.sheet}\u0001${row.rowNumber}`)) { total.set(key, total.get(key)! - 1); continue; }
-      pending.push({ key, item: { ...sheetExpense, sheetLink: link } }); continue;
+      pending.push({ key, item: { ...sheetExpense, sheetLink: { ...link, sig: fingerprint(sheetExpense, owned) } } }); continue;
     }
     claimed.add(match.id);
     matchedCount.set(key, (matchedCount.get(key) ?? 0) + 1);
     const fields: Partial<Expense> = {};
-    for (const field of ownedExpenseFields(targetsOf.get(row.sheet) ?? new Set<string>())) {
-      const value = (sheetExpense as Partial<Expense>)[field];
-      if (value === undefined || (field === 'date' && !value)) continue;
-      if (!sameValue(match[field], value)) (fields as Record<string, unknown>)[field] = value;
+    const { direction, sig } = directionOf(match, sheetExpense, owned, match.sheetLink?.sig);
+    if (direction === 'push') push.push({ id: match.id, before: { kind: 'expense', fileId, tab: row.sheet, row: row.rowNumber, name: sheetExpense.name, amount: Number(sheetExpense.amount) || 0 } });
+    if (direction === 'pull') {
+      for (const field of owned) {
+        const value = (sheetExpense as Partial<Expense>)[field];
+        if (!sameValue(match[field], value)) (fields as Record<string, unknown>)[field] = value;
+      }
     }
-    if (!sameLink(match.sheetLink, link)) fields.sheetLink = link;
+    const signed: SheetLink = { ...link, sig };
+    if (!sameLink(match.sheetLink, signed)) fields.sheetLink = signed;
     if (Object.keys(fields).length) update.push({ id: match.id, fields });
   }
 
@@ -339,5 +375,5 @@ export function planSheetExpenseSync(input: { expenses: Expense[]; tabs: LiveTab
     if (!expense.sheetLink!.missing) update.push({ id: expense.id, fields: { sheetLink: { ...expense.sheetLink!, missing: true } } });
   }
   const kept = leaveDeletedOut(pending, total, matchedCount, before, readTabNames);
-  return { fileId, add: kept.add, update, remove, rows, missing, gone: gone.length, held, skipped: kept.skipped, seen: kept.seen };
+  return { fileId, add: kept.add, update, remove, rows, missing, gone: gone.length, held, skipped: kept.skipped, seen: kept.seen, push };
 }

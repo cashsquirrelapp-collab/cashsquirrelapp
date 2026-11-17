@@ -80,8 +80,8 @@ import { useFeedbackWaiting } from '../features/feedback/useFeedbackWaiting';
 import { applyFields, carriesBatch, recentImports, undoUpdate } from '../features/import/importBatches';
 import type { ImportCommit, ImportResult, SaveOutcome } from '../features/import/importShared';
 import type { SheetExpenseChanges, SheetSyncChanges } from '../features/labs/sheetSync';
-import { sheetReadyFor } from '../features/labs/SheetSource';
-import { deletedRowOf } from '../../../shared/sheetRow';
+import { sheetReadyFor, useSheetEngine } from '../features/labs/SheetSource';
+import { deletedRowOf, type DeletedRecordRow } from '../../../shared/sheetRow';
 import { IMPORT_FILE_EVENT } from '../features/assistant/importFileEvent';
 import { importActionsChanged, registerImportActions, type ImportActions } from '../features/import/importActions';
 import type { SettingsView } from '../features/settings/SettingsTab';
@@ -3116,16 +3116,19 @@ export default function App() {
   const sheetWritingRef = useRef(new Map<string, number>());
   const sheetWriting = () => [...sheetWritingRef.current.values()].some(until => until > Date.now());
   const sheetBusy = (id: string) => sheetWritingRef.current.get(id) === Infinity;
-  const writeToSheet = (kind: 'job' | 'expense', record: Job | Expense, before: Job | Expense | null) => {
+  // `row`: where the record's row is now, as the sheet's reading found it (a change the reading saw in the app only, see
+  // sheetSync.ts directionOf); written quietly, since the person did not just press anything.
+  const writeToSheet = (kind: 'job' | 'expense', record: Job | Expense, before: Job | Expense | null, row?: DeletedRecordRow) => {
     const account = getCurrentAccount();
     if (!account || session?.isGuest || financeGroupId || account !== session?.user?.id) return;
-    const beforeRow = before ? deletedRowOf(kind, before) : null;
+    const beforeRow = row ?? (before ? deletedRowOf(kind, before) : null);
     if (before && !beforeRow) return;
+    const quiet = Boolean(row);
     // Marked at once, so the "not in the sheet yet" offer does not flash for a record on its way there.
     sheetWritingRef.current.set(record.id, Infinity);
     void sheetReadyFor(account).then(fileId => {
       if (!fileId || (beforeRow && beforeRow.fileId !== fileId)) { sheetWritingRef.current.delete(record.id); return; }
-      const failed = (message: string) => fireMascot({ mood: 'alert', tone: 'warning', title: tr("บันทึกลงชีตไม่สำเร็จ"), message, duration: 9000 });
+      const failed = (message: string) => { if (!quiet) fireMascot({ mood: 'alert', tone: 'warning', title: tr("บันทึกลงชีตไม่สำเร็จ"), message, duration: 9000 }); };
       return googleApi.saveRow(account, kind, record, beforeRow).then(result => {
         if (!result) return;
         if (result.status === 'written') {
@@ -3190,6 +3193,8 @@ export default function App() {
     }
     rememberSheetSeen(changes.fileId, 'jobs', changes.seen);
     if (changes.gone > 0) toldSheetGone(changes.gone);
+    // Changed in the app (in LINE, by เลขา, on another device) since the sheet last agreed: written over their rows.
+    for (const { id, before } of changes.push ?? []) { const job = jobs.find(item => item.id === id); if (job) writeToSheet('job', job, job, before); }
   };
 
   // รายจ่ายจากชีต (ฟีเจอร์ทดลอง): the expenses page read the connected sheet; the same one state update, no toasts.
@@ -3205,7 +3210,15 @@ export default function App() {
     }
     rememberSheetSeen(changes.fileId, 'expenses', changes.seen);
     if (changes.gone > 0) toldSheetGone(changes.gone);
+    for (const { id, before } of changes.push ?? []) { const expense = expenses.find(item => item.id === id); if (expense) writeToSheet('expense', expense, expense, before); }
   };
+
+  // The connected sheet, read for the whole app (features/labs/SheetSource.tsx useSheetEngine), not only on the two pages.
+  useSheetEngine({
+    enabled: Boolean(session?.user?.id) && !session?.isGuest && !financeGroupId,
+    jobs, expenses, statuses, jobTypes, seen: settings.sheetSeen,
+    onJobs: handleSheetSync, onExpenses: handleSheetExpenseSync,
+  });
 
   // Tries the save again after it failed; the import window waits on it the same way.
   const retryImportSave = (batchId: string) => new Promise<SaveOutcome>(resolve => {

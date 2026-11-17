@@ -58,14 +58,15 @@ test('expense sync: a change in the sheet changes the expense; one เลขา 
   const edited = ROWS.map((row, at) => (at === 1 ? [row[0], row[1], row[2], cell('480'), row[4]] : row));
   const change = sync(expenses, edited);
   assert.equal(change.add.length, 0);
-  assert.deepEqual(change.update.map(update => update.fields), [{ amount: 480 }]);
+  assert.deepEqual(change.update.map(update => update.fields.amount), [480]);
+  assert.ok(change.update[0].fields.sheetLink?.sig, 'the new agreement is fingerprinted');
 
   // Saved in เลขา's chat (and written to the sheet): the same name and amount, no link yet.
   const saved: Expense = { id: 'from-chat', name: 'ค่าโฆษณาเพจ', category: 'Marketing', amount: 1200, date: '2026-11-09' };
   const linked = sync([saved], ROWS.slice(2));
   assert.equal(linked.add.length, 0, 'never added twice');
   assert.equal(linked.update[0].id, 'from-chat');
-  assert.deepEqual(linked.update[0].fields.sheetLink, { fileId: FILE, tab: 'รายจ่าย', row: 2, gid: 905 });
+  assert.deepEqual({ ...linked.update[0].fields.sheetLink, sig: undefined }, { fileId: FILE, tab: 'รายจ่าย', row: 2, gid: 905, sig: undefined });
 });
 
 test('expense sync: without a category or date column the app keeps its own; a row deleted from the sheet deletes the expense', () => {
@@ -74,7 +75,7 @@ test('expense sync: without a category or date column the app keeps its own; a r
   const plainMap = mapOf(FILE, readTabs([plain]));
   const mine: Expense = { id: 'mine', name: 'ค่ากาแฟลูกค้า', category: 'Other', amount: 180, date: '2026-11-03', sheetLink: { fileId: FILE, tab: 'ค่าใช้จ่าย', row: 2, gid: 7 } };
   const read = planSheetExpenseSync({ expenses: [mine], tabs: [plain], map: plainMap, fileId: FILE, today: '2026-11-14' });
-  assert.equal(read.update.length, 0, 'the app\'s category and date stay');
+  assert.deepEqual(read.update.map(update => Object.keys(update.fields)), [['sheetLink']], 'the app\'s category and date stay; only the agreement is fingerprinted');
   assert.equal(read.add.length, 1);
 
   // Owner, 2026-11-18: "ถ้ากูลบใน Google Sheet ออก ยอดในโปรแกรมก็ต้องออก".

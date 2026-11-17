@@ -317,3 +317,30 @@ test('a changed record over its own row: the values the sheet keeps, never its f
   ] };
   assert.deepEqual(recentRowsOf(record as never, now), [{ tab: 'รายรับ', row: 9 }], 'the last three minutes, this file');
 });
+
+test('an edit made outside the app\'s forms finds its row by name or amount, one of which changed; confirming it writes the row', async () => {
+  const sheet = { รายรับ: [
+    ['รายรับปี 2569'], [], ['วันที่', 'ลูกค้า', 'รายการ', 'ยอดก่อนหัก', 'หัก %', 'ภาษีหัก', 'สถานะ'],
+    ['3/10/2569', 'บริษัท ข', 'ตัดต่อ', '5,000', '3%', '150', 'รอโอน'],
+  ] };
+  const { locateRecordRows } = await import('../backend/src/services/sheetWrite');
+  const at = (name: string, amount: number, loose: boolean) => locateRecordRows(fakeOps(sheet).ops, MAP, [{ kind: 'job', fileId: MAP.fileId, tab: 'รายรับ', row: 4, name, amount }], new Map(), loose).then(result => result.found[0]?.row ?? null);
+  assert.equal(await at('ตัดต่อ', 5500, true), 4, 'the amount changed: the name still holds the row');
+  assert.equal(await at('ตัดต่อวิดีโอ', 5000, true), 4, 'the name changed: the amount still holds it');
+  assert.equal(await at('ตัดต่อวิดีโอ', 5500, true), null, 'both changed: nothing is written');
+  assert.equal(await at('ตัดต่อ', 5500, false), null, 'from the app\'s forms the old values are known: both must hold');
+  // confirmProposal: an edit of a job from the sheet is written over its row; a new job goes through writeSheet as before.
+  const edits: unknown[][] = [];
+  const proposal = { id: 'p_00000000-0000-4000-8000-00000000000a', userId: USER, kind: 'record_payment', jobId: 'job-9', record: { ...JOB, id: 'job-9', received: 10000, pending: 0, sheetLink: { fileId: MAP.fileId, tab: 'รายรับ', row: 4 } }, title: 'รับเงิน', changes: [], createdAt: Date.now(), baseVersion: 2, status: 'pending' };
+  const db = {
+    async claimProposal() { return proposal.status === 'pending' ? (proposal.status = 'applying', proposal) : null; },
+    async finishProposal(_: string, __: string, status: string) { proposal.status = status; },
+    async applyChanges() { return true; }, async memories() { return []; }, async remember() {},
+    async writeSheetEdit(...args: unknown[]) { edits.push(args); return null; },
+  };
+  const done = await confirmProposal(db as never, USER, proposal.id);
+  assert.equal(done.status, 'applied');
+  assert.equal(edits.length, 1);
+  assert.equal(edits[0][1], 'job');
+  assert.equal((edits[0][2] as { received: number }).received, 10000);
+});

@@ -30,7 +30,7 @@ const chatJob = { id: 'chat-job-1', name: 'ตัดต่อคลิปรี�
 const settings = { monthlyExpense: 0, monthlyRevenueGoal: 40000, savingsPercentage: 40, profileSetupCompleted: true, userPersona: 'freelance', onboarding: { completedAt: '2026-11-05T03:00:00.000Z' } };
 const versions = { cashflow_jobs: { 'chat-job-1': 1 }, cashflow_expenses: {}, cashflow_goals: {}, cashflow_invoices: {}, cashflow_documents: { settings: 1 } };
 
-async function open(page: Page, size: { width: number; height: number }, labsOn: string[], deleteReply: Record<string, unknown> = { deleted: 1, notFound: 0 }, firstRows = ROWS, appOnly: Record<string, unknown>[] = []) {
+async function open(page: Page, size: { width: number; height: number }, labsOn: string[], deleteReply: Record<string, unknown> = { deleted: 1, notFound: 0 }, firstRows = ROWS, appOnly: Record<string, unknown>[] = [], path = '/jobs') {
   let sheetRows = firstRows;
   const batches: { kind: string; records: Record<string, unknown>[] }[] = [];
   const posts: unknown[] = [];
@@ -74,7 +74,7 @@ async function open(page: Page, size: { width: number; height: number }, labsOn:
     return route.fulfill({ json: status });
   });
   await page.setViewportSize(size);
-  await page.goto(noRadar('/jobs'));
+  await page.goto(noRadar(path));
   await loadLayoutFonts(page);
   return { posts, deletes, saves, batches, reads: () => reads, setRows: (rows: typeof ROWS) => { sheetRows = rows; } };
 }
@@ -90,7 +90,7 @@ for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'p
     const titles = device.name === 'computer' ? page.locator('table tbody tr td:first-child p:first-child') : page.locator('.ksm-jobtitle');
     await expect(titles).toHaveCount(3);
     await expect(titles).toContainText(['ตัดต่อคลิปรีวิวคาเฟ่ EP.3']);
-    await expect.poll(() => JSON.stringify(posts)).toContain('"sheetLink":{"fileId":"file-12345678","tab":"รายรับ","row":4,"gid":812}');
+    await expect.poll(() => JSON.stringify(posts)).toContain('"sheetLink":{"fileId":"file-12345678","tab":"รายรับ","row":4,"gid":812,"sig":');
     expect(reads()).toBe(1);
     expect(await textOverlapIssues(page)).toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
@@ -302,6 +302,15 @@ test('a sheet made with example rows: they never become jobs, and one tap delete
   await expect.poll(reads).toBeGreaterThan(before);
   await expect(line).toHaveCount(0);
   await expect(titles).toHaveCount(3);
+});
+
+// Owner, 2026-11-18: "ในส่วนรายจ่ายของชีตอ่ะกูยังไม่เห็นมันอัปเดตเลย": the sheet was kept in step only on its own page.
+test('the sheet is read for the whole app: from the overview, its rows become jobs without opening the jobs page', async ({ page }) => {
+  const { posts, reads } = await open(page, { width: 1440, height: 900 }, ['sheets', 'sheetMap', 'sheetJobs'], undefined, ROWS, [], '/dashboard');
+  await expect.poll(reads).toBeGreaterThan(0);
+  await expect.poll(() => JSON.stringify(posts)).toContain('"name":"ออกแบบโลโก้ร้านกาแฟ"');
+  await expect(page.getByTestId('sheet-jobs-line')).toHaveCount(0);
+  expect(reads()).toBe(1);
 });
 
 test('without the feature the jobs page is as before and the sheet is never read', async ({ page }) => {

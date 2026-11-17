@@ -1,4 +1,4 @@
-import { deleteSheetRows, writeRecordToSheet } from '../services/sheetWrite.js';
+import { deleteSheetRows, writeEditedRecordToSheet, writeRecordToSheet } from '../services/sheetWrite.js';
 import { inFreeTrial } from '../../../shared/trial.js';
 import { isTesterPublicId, TESTER_BUCKET, TESTER_TOKENS } from './testers.js';
 import { signupTokens } from './signupTokens.js';
@@ -165,6 +165,7 @@ export const supabaseAssistantDb: AssistantDb = {
     if (!labState(labs, owner).on.includes('sheetWrite')) return null;
     return writeRecordToSheet(userId, proposalId, kind, record);
   },
+  writeSheetEdit: (userId, kind, record) => writeEditedRecordToSheet(userId, kind, record),
   async deleteSheetRows(userId, rows) {
     const [labs, owner] = await Promise.all([loadLabs(userId), isOwnerUserId(userId)]);
     if (!labState(labs, owner).on.includes('sheetJobs')) return null;

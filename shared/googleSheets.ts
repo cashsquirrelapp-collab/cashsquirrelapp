@@ -149,7 +149,7 @@ export function serialToDate(serial: number): string | null {
 /** Where a job in the app sits in the connected sheet (หน้างานจากชีต, ฟีเจอร์ทดลอง sheetJobs): kept on the job as `sheetLink`,
  *  so its details say "อยู่ในชีต … แถว 6" and ดูในชีต opens that row. `missing`: the row was not found at the last reading
  *  (the job stays in the app; nothing is deleted on the app's side). */
-export interface SheetLink { fileId: string; tab: string; row: number; gid?: number; missing?: true }
+export interface SheetLink { fileId: string; tab: string; row: number; gid?: number; missing?: true; /** What the sheet's columns held when app and sheet last agreed (sheetSync.ts). */ sig?: string }
 
 const columnLetters = (index: number): string => { let s = '', n = index + 1; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
 

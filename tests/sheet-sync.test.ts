@@ -75,7 +75,7 @@ test('sheet sync: an amount edited in the sheet updates the job; a job saved by 
   const linked = sync([saved], ROWS);
   assert.equal(linked.add.length, 2, 'the other two rows are new');
   const link = linked.update.find(update => update.id === 'chat-1')!;
-  assert.deepEqual(link.fields.sheetLink, { fileId: FILE, tab: 'รายรับ', row: 4, gid: 812 });
+  assert.deepEqual({ ...link.fields.sheetLink, sig: undefined }, { fileId: FILE, tab: 'รายรับ', row: 4, gid: 812, sig: undefined });
   assert.equal(link.fields.payDate, undefined, 'the sheet has no due date column: the app keeps its own');
 });
 
@@ -162,6 +162,31 @@ test('sheet sync: a row the app wrote a moment ago is never added; it is linked 
   // Never arrived and three minutes passed: the row is taken like any new row.
   const orphan = planSheetSync({ jobs, tabs: [tab(ROWS)], map, fileId: FILE, statuses: STATUSES, jobTypes: [], today: '2026-11-14', seen: early.seen ? { fileId: FILE, jobs: early.seen } : undefined });
   assert.equal(orphan.add.length, 1);
+});
+
+// Owner, 2026-11-18: "อัปเดตให้หมดด้วยให้มันทุกตรงทุกละเอียดทุกนิ้วให้มันตรง": the sheet won every reading, so a job paid
+// through LINE went back to unpaid. Each linked job keeps a fingerprint of what the two last agreed on.
+test('sheet sync: whichever side changed since they last agreed wins; the app\'s change is written over the row, never undone', () => {
+  const first = apply([], sync([], ROWS));
+  const signed = apply(first, sync(first, ROWS));
+  const logo = signed.find(job => job.name === 'ออกแบบโลโก้ร้านกาแฟ')!;
+  assert.ok(logo.sheetLink?.sig, 'agreed: fingerprinted');
+  assert.deepEqual(sync(signed, ROWS).update, [], 'nothing changed anywhere: nothing to do');
+  // Changed in the app only (the amount, from LINE): pushed to its row, not taken back from the sheet.
+  const edited = signed.map(job => (job.id === logo.id ? { ...job, value: 6500, pending: 6500 } : job));
+  const pushed = sync(edited, ROWS);
+  assert.deepEqual(pushed.push, [{ id: logo.id, before: { kind: 'job', fileId: FILE, tab: 'รายรับ', row: 3, name: 'ออกแบบโลโก้ร้านกาแฟ', amount: 5000 } }]);
+  assert.equal(pushed.update.find(update => update.id === logo.id)?.fields.value, undefined, 'the app keeps 6,500');
+  // Changed in the sheet only: the app takes it.
+  const sheetEdited = ROWS.map(row => (row[1].text === 'ออกแบบโลโก้ร้านกาแฟ' ? [row[0], row[1], row[2], cell('7,000'), ...row.slice(4)] : row));
+  const pulled = sync(signed, sheetEdited);
+  assert.equal(pulled.update.find(update => update.id === logo.id)?.fields.value, 7000);
+  assert.deepEqual(pulled.push, []);
+  // Both changed: the sheet, the master, wins.
+  assert.equal(sync(edited, sheetEdited).update.find(update => update.id === logo.id)?.fields.value, 7000);
+  // Linked before fingerprints: the sheet's values once, as before.
+  const legacy = edited.map(job => (job.id === logo.id ? { ...job, sheetLink: { ...job.sheetLink!, sig: undefined } } : job));
+  assert.equal(sync(legacy, ROWS).update.find(update => update.id === logo.id)?.fields.value, 5000);
 });
 
 test('ดูในชีต: the address opens the tab with the row selected', () => {
