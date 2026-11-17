@@ -117,7 +117,7 @@ export function TemplateDialog({ open, onClose, settings, onSaveProfile, jobs, e
           {canFill && (
             <label className="lab-check">
               <input type="checkbox" checked={withData} onChange={event => setWithData(event.target.checked)} />
-              <span>{tr("ใส่รายการเดิมในแอปลงไฟล์แทนแถวตัวอย่าง")}<br />
+              <span>{tr("ใส่รายการเดิมในแอปลงไฟล์ด้วย")}<br />
                 <small className="lab-muted">{tr("รับเงิน {0} รายการ · รายจ่าย {1} รายการ ของปี {2}", data!.income.length, data!.expenses.length, year + 543)}</small></span>
             </label>
           )}

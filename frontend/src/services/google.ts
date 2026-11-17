@@ -49,6 +49,8 @@ export const googleApi = {
   saveRows: (account: string, kind: 'job' | 'expense', records: object[]) =>
     post<{ result: { status: 'written'; fileId: string; tab: string; rows: number[]; gid?: number } | { status: 'failed'; error: string } | null }>(
       account, { action: 'saveRows', kind, records }).then(reply => reply.result),
+  /** The template's example rows deleted from the connected sheet (null: no sheet). */
+  deleteExamples: (account: string) => post<{ result: { deleted: number; error?: string } | null }>(account, { action: 'deleteExamples' }).then(reply => reply.result),
   /** Records deleted in the app: their rows go from the connected sheet too (null: no sheet ready). */
   deleteRows: (account: string, rows: { kind: 'job' | 'expense'; fileId: string; tab: string; row: number; name: string; amount: number }[]) =>
     post<{ result: { deleted: number; notFound: number; error?: string } | null }>(account, { action: 'deleteRows', rows }).then(reply => reply.result),

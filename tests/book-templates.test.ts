@@ -221,7 +221,11 @@ test('a sheet connected before (an older map) is written the way today\'s templa
     return { tab: tab.name, cells: Object.fromEntries(rowCells(tab, kind, record).filter(cell => cell.value !== null).map(cell => [cell.header, cell.value])) };
   };
   // Production: the old map sent expenses into the budget tab; upgraded, they go to the expense tab with a date and a category.
-  const production = oldMap(live(buildBookTemplate(PROFILES.production, { year: 2026 }).sheets));
+  // (Workbooks made before 2026-11-18 came with example rows, and the reader guessed the budget tab from them; the workbook
+  // starts empty now, so the old guess is set here as it was saved.)
+  const guessed = oldMap(live(buildBookTemplate(PROFILES.production, { year: 2026 }).sheets));
+  const budgetTab = guessed.tabs.find(tab => tab.name === 'งบโปรดักชัน')!;
+  const production = { ...guessed, tabs: [{ ...budgetTab, use: true, kind: 'expenses' as const }, ...guessed.tabs.filter(tab => tab !== budgetTab)] };
   assert.equal(chooseTab(production, 'expense')?.name, 'งบโปรดักชัน', 'what the old map did');
   const fixed = upgradeTemplateMap(production);
   assert.deepEqual(write(fixed, 'expense', coffee), { tab: 'ค่าใช้จ่ายและเช่าอุปกรณ์', cells: { 'วันที่จ่าย': '2026-11-13', 'หมวด': 'อาหาร', 'รายการ': 'ข้าวกล่องกอง', 'ก่อน VAT': 900 } });
@@ -288,4 +292,29 @@ test('what is typed is checked: tax IDs by their check digit, branch codes, and 
   const xml = strFromU8(unzipSync(buildXlsx(sheets))['xl/worksheets/sheet3.xml']);
   assert.match(xml, /<dataValidation type="date" operator="between" allowBlank="1" showErrorMessage="1" errorStyle="stop" errorTitle="วันที่" error="[^"]+" sqref="A2:A5000"><formula1>36526<\/formula1><formula2>73415<\/formula2><\/dataValidation>/);
   assert.match(xml, /<dataValidation type="custom" allowBlank="1" showErrorMessage="1" errorStyle="warning"/);
+});
+
+// Owner, 2026-11-18: "เอาตัวอย่างออกด้วยดิ ... ใน Google Sheet อ่ะเอามาทำไม".
+test('a new workbook has no example rows: nothing invented in any tab, only headers, formulas and the how-to text', async () => {
+  const { exampleRowsOf } = await import('../shared/sheetRow');
+  for (const [id, profile] of Object.entries(PROFILES)) {
+    const tabs = live(buildBookTemplate(profile, { year: 2026 }).sheets);
+    for (const tab of tabs) {
+      assert.deepEqual(exampleRowsOf(tab.rows), [], `${id} › ${tab.name}`);
+      assert.ok(!tab.rows.flat().some(cell => /สมมติ|INV-2569-001|PRJ-2569-001|ADV-2569-001|MV-2569-001/.test(String(cell.text))), `${id} › ${tab.name}: no invented names or codes`);
+    }
+  }
+});
+
+test('example rows of older workbooks: a typed cell ending in (ตัวอย่าง), never a formula\'s result or a note that mentions one', async () => {
+  const { exampleRowsOf } = await import('../shared/sheetRow');
+  const cell = (text: string, formula = false) => ({ raw: text, text, ...(formula ? { formula: true as const } : {}) });
+  assert.deepEqual(exampleRowsOf([
+    [cell('วันที่รับเงิน'), cell('ผู้จ่ายเงิน')],
+    [cell('05/02/2026'), cell('บริษัท ตัวอย่างมีเดีย จำกัด (ตัวอย่าง)')],
+    [cell('16/11/2026'), cell('ร้านลูกค้าจริง')],
+    [cell('17/11/2026'), cell('ร้านลูกค้า'), cell('ส่ง (ตัวอย่าง) ให้ลูกค้าดูก่อน')],
+    [cell('บริษัท ตัวอย่างมีเดีย จำกัด (ตัวอย่าง)', true)],
+    [cell('20/03/2026'), cell('สถาบันสมมติการเรียนรู้ (ตัวอย่าง) ')],
+  ]), [2, 6]);
 });

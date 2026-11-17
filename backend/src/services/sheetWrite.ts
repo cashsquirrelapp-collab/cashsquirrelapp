@@ -1,9 +1,9 @@
 import { KEPT_WRITES, RECENT_ROWS_MS, UNDO_MS, sheetRowUrl, type GoogleRecord, type SheetMap, type SheetWrite } from '../../../shared/googleSheets.js';
-import { chooseTab, dataColumns, displayValue, letter, rowCells, valueFor, type DeletedRecordRow, type RowCell, type RowKind } from '../../../shared/sheetRow.js';
+import { chooseTab, dataColumns, displayValue, exampleRowsOf, letter, rowCells, valueFor, type DeletedRecordRow, type RowCell, type RowKind } from '../../../shared/sheetRow.js';
 import { evaluateRow, shiftFormula } from '../../../shared/sheetFormula.js';
 import { isValidWhtRate, roundMoney, whtAmountFor } from '../../../shared/wht.js';
 import { loadGoogle, saveGoogle } from '../repositories/google.js';
-import { GoogleError, accessToken, decryptToken, googleConfigured, googleOps, type SheetOps } from './googleSheets.js';
+import { GoogleError, accessToken, decryptToken, googleConfigured, googleOps, readSpreadsheet, type SheetOps } from './googleSheets.js';
 
 // บันทึกลงชีตของคุณ (ฟีเจอร์ทดลอง sheetWrite, plan phase 3). A job or expense confirmed in เลขา's chat (web or LINE) is also
 // written as one new row of the customer's connected sheet, laid out by their confirmed sheet map (shared/sheetRow.ts).
@@ -488,6 +488,30 @@ export async function deleteSheetRows(userId: string, rows: DeletedRecordRow[]):
   if (!mine.length) return { deleted: 0, notFound: rows.length };
   try { return await deleteRecordRows(context.ops, context.record.map!, mine); }
   catch (error) { return { deleted: 0, notFound: 0, error: error instanceof GoogleError ? ERRORS[error.code] : ERRORS.failed }; }
+}
+
+// The template's example rows out of the sheet (owner, 2026-11-18: "เอาตัวอย่างออกด้วยดิ ... ใน Google Sheet อ่ะเอามาทำไม"):
+// workbooks made before then came with invented rows ending in "(ตัวอย่าง)". The server reads the sheet itself and deletes
+// only rows where a typed cell (never a formula's result) ends that way, in every tab, bottom first.
+export async function deleteExampleRows(userId: string): Promise<{ deleted: number; error?: string } | null> {
+  try {
+    const record = await loadGoogle(userId);
+    if (!googleConfigured() || !record?.file) return null;
+    const refresh = decryptToken(record.enc);
+    if (!refresh) return null;
+    const { token } = await accessToken(refresh);
+    const ops = googleOps(token, record.file.id);
+    let deleted = 0;
+    for (const tab of await readSpreadsheet(token, record.file.id)) {
+      const rows = exampleRowsOf(tab.rows);
+      if (!rows.length) continue;
+      await ops.deleteRows(tab.name, rows);
+      deleted += rows.length;
+    }
+    return { deleted };
+  } catch (error) {
+    return { deleted: 0, error: error instanceof GoogleError ? ERRORS[error.code] : ERRORS.failed };
+  }
 }
 
 /** ย้อนกลับ: empties the cells of the last write, within 30 minutes, if it is still the connected file. */

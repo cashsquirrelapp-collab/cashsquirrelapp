@@ -1,5 +1,6 @@
 import type { Expense, Job, SheetSeen, StatusOption } from '../../../../shared/types';
 import type { LiveCell, LiveTab, SheetLink, SheetMap } from '../../../../shared/googleSheets';
+import { isExampleText } from '../../../../shared/sheetRow';
 import { roundMoney } from '../../../../shared/wht';
 import { buildImportPlan, type ImportedExpense, type ImportedJob } from '../import/sheetImport';
 import { readTabs } from './sheetMap';
@@ -49,16 +50,14 @@ const sameMoney = (a: unknown, b: unknown) => Math.abs((Number(a) || 0) - (Numbe
 // are more such rows than the app took before: one it took and no longer has was deleted in the app, and stays out. A row
 // that changes in the sheet, or a new row, is still taken. The template's example rows (marked "(ตัวอย่าง)",
 // shared/bookTemplates.ts) are never taken, and a job or an expense taken from one before is removed.
-// The template ends every invented name with it ("บริษัท ตัวอย่างมีเดีย จำกัด (ตัวอย่าง)"); a note that merely mentions a
-// sample ("ส่ง (ตัวอย่าง) ให้ลูกค้า") is not an example row.
-const EXAMPLE = /\(ตัวอย่าง\)\s*$/;
+// The template's example rows: shared/sheetRow.ts (isExampleText).
 const hashOf = (text: string) => {
   let hash = 0x811c9dc5;
   for (let i = 0; i < text.length; i += 1) { hash ^= text.charCodeAt(i); hash = Math.imul(hash, 0x01000193); }
   return (hash >>> 0).toString(36);
 };
 const seenKey = (tab: string, ...parts: unknown[]) => `${hashOf(tab)}:${hashOf(parts.map(part => (typeof part === 'number' ? String(roundMoney(part)) : norm(part))).join('|'))}`;
-const exampleText = (...texts: unknown[]) => texts.some(text => EXAMPLE.test(String(text ?? '')));
+const exampleText = isExampleText;
 const exampleRow = (rows: LiveCell[][] | undefined, rowNumber: number) => (rows?.[rowNumber - 1] ?? []).some(cell => exampleText(cell?.text, cell?.raw));
 
 /**

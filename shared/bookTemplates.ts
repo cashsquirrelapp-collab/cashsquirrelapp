@@ -12,7 +12,8 @@ import type { SheetMap } from './googleSheets.js';
 //   office          สำนักงานบัญชี          ลูกค้า · เช็กลิสต์เอกสาร · ยื่นแบบรายเดือน · ติดตามเอกสาร · ปิดงบประจำปี · ตั้งค่า
 // The tabs the law requires come first. Each amount is typed once; withheld tax, net received, budgets against actuals and
 // monthly totals are formulas (SUMIFS, INDEX/MATCH, WORKDAY: Excel and Google Sheets both have them), ready for 200 rows.
-// Example rows are invented and say so. With the app's own records the examples give way to them.
+// No example rows (owner, 2026-11-18: "เอาตัวอย่างออกด้วยดิ ... ใน Google Sheet อ่ะเอามาทำไม"): a new workbook starts empty,
+// or with the app's own records when there are some. The วิธีใช้ tab says how to fill each tab.
 
 export interface TemplateIncome { date: string; payer: string; item: string; gross: number; whtRate: number; received: boolean }
 export interface TemplateExpense { date: string; vendor: string; item: string; category: string; amount: number }
@@ -317,14 +318,7 @@ function freelance(profile: BusinessProfile, year: number, vat: boolean, data: T
     ? data.income.map(row => vat
       ? [{ date: row.date }, '', row.payer, '', '', row.item, '', row.gross, null, `${Math.round(row.whtRate * 100)}%`, null, null, row.whtRate > 0 ? 'ยังไม่ได้' : 'ไม่ต้องใช้', row.received ? '' : 'ยังไม่ได้รับเงิน', null]
       : [{ date: row.date }, row.payer, '', row.item, '', row.gross, `${Math.round(row.whtRate * 100)}%`, null, null, row.whtRate > 0 ? '50 ทวิ' : 'ไม่ถูกหัก', row.whtRate > 0 ? 'ยังไม่ได้' : 'ไม่ต้องใช้', row.received ? '' : 'ยังไม่ได้รับเงิน'])
-    : vat ? [
-      [{ date: `${year}-02-05` }, 'INV-001', 'บริษัท ตัวอย่างมีเดีย จำกัด (ตัวอย่าง)', '0000000000101', '00000', 'รีวิวสินค้า 2 คลิป', '40(2)', 40000, null, '3%', null, null, 'ได้แล้ว', '', null],
-      [{ date: `${year}-03-20` }, 'INV-002', 'ร้านสมมติการค้า (ตัวอย่าง)', '0000000000102', '00000', 'ออกแบบโลโก้', '40(8)', 15000, null, '0%', null, null, 'ไม่ต้องใช้', 'ผู้จ่ายเป็นบุคคล ไม่ได้หัก', null],
-    ] : [
-      [{ date: `${year}-02-05` }, 'บริษัท ตัวอย่างมีเดีย จำกัด (ตัวอย่าง)', '0000000000101', 'รีวิวสินค้า 2 คลิป', '40(2)', 12000, '3%', null, null, '50 ทวิ', 'ได้แล้ว', ''],
-      [{ date: `${year}-03-20` }, 'สถาบันสมมติการเรียนรู้ (ตัวอย่าง)', '0000000000102', 'สอนเวิร์กช็อป 1 วัน', '40(2)', 8500, '0%', null, null, 'ไม่ถูกหัก', 'ไม่ต้องใช้', 'ไม่ถูกหัก แต่ยังนับเป็นเงินได้'],
-      [{ date: `${year}-01-14` }, 'บริษัท ทดลองดีไซน์ จำกัด (ตัวอย่าง)', '0000000000103', 'ออกแบบโลโก้', '40(8)', 20000, '1%', null, null, 'e-WHT', 'ไม่ต้องใช้', ''],
-    ];
+    : [];
   // Column letters in รายรับ that the other tabs read.
   const I = vat ? { date: 'A', type: 'G', gross: 'H', wht: 'K', got: 'M' } : { date: 'A', type: 'E', gross: 'F', wht: 'H', got: 'K' };
 
@@ -344,12 +338,7 @@ function freelance(profile: BusinessProfile, year: number, vat: boolean, data: T
     ? data.expenses.map(row => vat
       ? [{ date: row.date }, '', row.vendor, '', '', row.item, mapCategory(row.category), row.amount, 0, 'ไม่ใช่', '', '', null]
       : [{ date: row.date }, row.vendor, row.item, mapCategory(row.category), 'ใช่', 1, row.amount, '', null, ''])
-    : vat ? [
-      [{ date: `${year}-02-10` }, 'IV6902-0425', 'ร้านกล้องสมมติ (ตัวอย่าง)', '0000000000201', '00000', 'ไมโครโฟนไร้สาย', 'อุปกรณ์', 3261.68, 228.32, 'ใช่', 'ใบกำกับภาษีเต็มรูป', '', null],
-    ] : [
-      [{ date: `${year}-02-10` }, 'ร้านกล้องสมมติ (ตัวอย่าง)', 'ไมโครโฟนไร้สาย', 'อุปกรณ์', 'ใช่', 1, 3490, 'ใบกำกับภาษีเต็มรูป', null, ''],
-      [{ date: `${year}-03-15` }, 'ปั๊มน้ำมันสมมติ (ตัวอย่าง)', 'น้ำมันรถไปถ่ายงาน', 'เดินทาง', 'ใช้ร่วม', 0.5, 1200, 'ใบกำกับภาษีอย่างย่อ', null, ''],
-    ];
+    : [];
 
   // ภาษีถูกหัก ณ ที่จ่าย: by month, from รายรับ.
   const whtBody: Cell[][] = MONTHS.map((name, i) => {
@@ -465,7 +454,7 @@ function billing(projectHeader: string, data: TemplateData | null, year: number,
   ];
   const rows: Cell[][] = data?.income.length
     ? data.income.map(row => ['', '', { date: row.date }, row.gross, null, `${Math.round(row.whtRate * 100)}%`, null, null, '', row.received ? { date: row.date } : '', row.whtRate > 0 ? 'ยังไม่ได้' : 'ไม่ต้องใช้', null])
-    : [['INV-2569-001', sample, { date: `${year}-03-01` }, 85000, null, '3%', null, null, { date: `${year}-03-31` }, '', 'ยังไม่ได้', null]];
+    : [];
   return table('วางบิลและรับเงิน', cols, rows);
 }
 
@@ -481,10 +470,7 @@ function payments(name: string, projectHeader: string, categories: string[], dat
   ];
   const rows: Cell[][] = data?.expenses.length
     ? data.expenses.map(row => [{ date: row.date }, '', categories[categories.length - 1], row.vendor, 'นิติบุคคล', row.item, row.amount, 0, '0%', null, null, null, ''])
-    : [
-      [{ date: `${year}-03-05` }, sample, categories[0], 'บริษัท สมมติเช่ากล้อง จำกัด (ตัวอย่าง)', 'นิติบุคคล', 'เช่ากล้อง 2 วัน', 18000, 1260, '5%', null, null, null, '', ...(deposit ? [10000, { date: `${year}-03-08` }] : [])],
-      [{ date: `${year}-03-06` }, sample, categories[1], 'นาย ตัวอย่าง ช่างไฟ (ตัวอย่าง)', 'บุคคล', 'ค่าตัวช่างไฟ', 4500, '', '3%', null, null, null, '', ...(deposit ? ['', ''] : [])],
-    ];
+    : [];
   return table(name, cols, rows);
 }
 
@@ -517,12 +503,12 @@ function agency(year: number, data: TemplateData | null): SheetSpec[] {
     { h: 'สถานะ', w: 12, list: ['เสนอราคา', 'กำลังทำ', 'ส่งงานแล้ว', 'ปิดงาน'] }, { h: 'วันเริ่ม', w: 12, s: 'date', t: 'date' }, { h: 'วันส่งงาน', w: 12, s: 'date' },
     { h: 'ต้นทุนจริง (ไม่รวมค่าสื่อ)', w: 20, f: r => `IF(A${r}="","",SUMIFS(${col('ค่าใช้จ่ายโปรเจกต์', 'G')},${col('ค่าใช้จ่ายโปรเจกต์', 'B')},A${r})-SUMIFS(${col('ค่าใช้จ่ายโปรเจกต์', 'G')},${col('ค่าใช้จ่ายโปรเจกต์', 'B')},A${r},${col('ค่าใช้จ่ายโปรเจกต์', 'C')},"ค่าสื่อแทนจ่าย"))` },
     { h: 'กำไรขั้นต้น', w: 14, f: r => `IF(A${r}="","",E${r}-J${r})` },
-  ], [['PRJ-2569-001', 'เปิดตัวสินค้าใหม่ (ตัวอย่าง)', 'บริษัท สมมติเครื่องดื่ม จำกัด (ตัวอย่าง)', '0000000000301', 85000, 120000, 'กำลังทำ', { date: `${year}-03-01` }, { date: `${year}-04-15` }, null, null]]);
+  ], []);
   const budget = table('งบเทียบจริง', [
     { h: 'รหัสโปรเจกต์', w: 13 }, { h: 'หมวด', w: 18, list: CATS }, { h: 'รายการ', w: 28 }, { h: 'งบ', w: 14, s: 'money' },
     { h: 'ใช้จริง', w: 14, f: r => `IF(A${r}="","",SUMIFS(${col('ค่าใช้จ่ายโปรเจกต์', 'G')},${col('ค่าใช้จ่ายโปรเจกต์', 'B')},A${r},${col('ค่าใช้จ่ายโปรเจกต์', 'C')},B${r}))` },
     { h: 'ส่วนต่าง', w: 14, f: r => `IF(A${r}="","",D${r}-E${r})` },
-  ], [['PRJ-2569-001', 'โปรดักชัน', 'ถ่ายวิดีโอ 1 วัน', 45000, null, null], ['PRJ-2569-001', 'KOL', 'อินฟลูเอนเซอร์ 3 คน', 30000, null, null]]);
+  ], []);
   return [
     howTo(TEMPLATE_INFO.agency, TEMPLATE_INFO.agency.tabs, [
       '1. กรอกแท็บ ตั้งค่า (ชื่อกิจการ เลขผู้เสียภาษี ปีบัญชี)',
@@ -553,13 +539,13 @@ function production(year: number, data: TemplateData | null): SheetSpec[] {
     { h: 'ใช้จริง', w: 14, f: r => `IF(A${r}="","",${crewCost(`A${r}`)}+${clearCost(`A${r}`)}+${directCost(`A${r}`)})` },
     { h: 'กำไร', w: 14, f: r => `IF(A${r}="","",G${r}-I${r})` },
     { h: 'สถานะ', w: 12, list: ['เสนอราคา', 'เตรียมถ่าย', 'ถ่ายแล้ว', 'ส่งงานแล้ว', 'ปิดงาน'] },
-  ], [[job, 'MV วงตัวอย่าง (ตัวอย่าง)', 'ค่ายเพลงสมมติ จำกัด (ตัวอย่าง)', 'MV', { date: `${year}-03-06` }, '2', 250000, null, null, null, 'เตรียมถ่าย']]);
+  ], []);
   const budget = table('งบโปรดักชัน', [
     { h: 'รหัสงาน', w: 13 }, { h: 'หมวด', w: 12, list: CATS }, { h: 'รายการ', w: 24 }, { h: 'คน / ชิ้น', w: 9, s: 'text' }, { h: 'วัน', w: 7, s: 'text' }, { h: 'ราคาต่อหน่วย', w: 13, s: 'money' },
     { h: 'งบ', w: 13, f: r => `IF(F${r}="","",IF(D${r}="",1,D${r})*IF(E${r}="",1,E${r})*F${r})` },
     { h: 'ใช้จริง', w: 13, f: r => `IF(A${r}="","",${crewCost(`A${r}`, `B${r}`)}+${clearCost(`A${r}`, `B${r}`)}+${directCost(`A${r}`, `B${r}`)})` },
     { h: 'ส่วนต่าง', w: 13, f: r => `IF(G${r}="","",G${r}-H${r})` },
-  ], [[job, 'ทีมงาน', 'ช่างภาพ + ผู้ช่วย', '2', '2', 6000, null, null, null], [job, 'อุปกรณ์', 'เช่ากล้องและไฟ', '1', '2', 9000, null, null, null], [job, 'อาหาร', 'อาหารกอง', '20', '2', 150, null, null, null]]);
+  ], []);
   const crew = table('ทีมงานและนักแสดง', [
     { h: 'รหัสงาน', w: 13 }, { h: 'ชื่อ-สกุล', w: 22 }, { h: 'ตำแหน่ง', w: 14 }, { h: 'เรทต่อวัน', w: 12, s: 'money' }, { h: 'วัน', w: 7, s: 'text' }, { h: 'OT', w: 10, s: 'money' },
     { h: 'รวมก่อนหัก', w: 13, f: r => `IF(D${r}="","",D${r}*IF(E${r}="",1,E${r})+IF(F${r}="",0,F${r}))` },
@@ -567,22 +553,19 @@ function production(year: number, data: TemplateData | null): SheetSpec[] {
     { h: 'ภาษีหัก', w: 12, f: r => `IF(G${r}="","",ROUND(G${r}*${rate(`I${r}`)},2))` },
     { h: 'จ่ายสุทธิ', w: 13, f: r => `IF(G${r}="","",G${r}-J${r})` }, { h: 'วันที่จ่าย', w: 12, s: 'date' }, { h: 'เลขที่ 50 ทวิ', w: 13 },
     { h: 'หมวด', w: 10, list: ['ทีมงาน', 'นักแสดง'] },
-  ], [[job, 'นาย ตัวอย่าง ช่างภาพ (ตัวอย่าง)', 'ช่างภาพ', 6000, '2', 0, null, '40(2)', '3%', null, null, { date: `${year}-03-10` }, '', 'ทีมงาน']]);
+  ], []);
   const advances = table('เงินทดรอง', [
     { h: 'เลขที่ใบเบิก', w: 14 }, { h: 'วันที่เบิก', w: 12, s: 'date' }, { h: 'รหัสงาน', w: 13 }, { h: 'ผู้เบิก', w: 18 }, { h: 'วัตถุประสงค์', w: 24 }, { h: 'ยอดเบิก', w: 13, s: 'money' },
     { h: 'ต้องเคลียร์ภายใน', w: 14, s: 'date' },
     { h: 'ใช้จริง', w: 13, f: r => `IF(A${r}="","",SUMIFS(${col('เคลียร์เงิน', 'F')},${col('เคลียร์เงิน', 'A')},A${r}))` },
     { h: 'คืน (+) / จ่ายเพิ่ม (−)', w: 18, f: r => `IF(A${r}="","",F${r}-H${r})` },
     { h: 'สถานะ', w: 20, s: 'text', f: r => `IF(A${r}="","",IF(H${r}=0,IF(AND(G${r}<>"",TODAY()>G${r}),"เลยกำหนดเคลียร์","ยังไม่เคลียร์"),IF(I${r}>0,"ต้องคืนบริษัท",IF(I${r}<0,"บริษัทจ่ายเพิ่ม","เคลียร์ครบ"))))` },
-  ], [['ADV-2569-001', { date: `${year}-03-04` }, job, 'นางสาว ตัวอย่าง โปรดิวเซอร์ (ตัวอย่าง)', 'ค่าอาหารและเดินทางกอง', 15000, { date: `${year}-03-13` }, null, null, null]]);
+  ], []);
   const clearing = table('เคลียร์เงิน', [
     { h: 'เลขที่ใบเบิก', w: 14 }, { h: 'วันที่ในหลักฐาน', w: 14, s: 'date' }, { h: 'ร้าน / ผู้รับเงิน', w: 22 }, { h: 'รายการ', w: 22 }, { h: 'หมวด', w: 12, list: CATS },
     { h: 'ยอดรวม', w: 12, s: 'money' }, { h: 'VAT', w: 10, s: 'money' }, { h: 'ประเภทหลักฐาน', w: 18, list: EVIDENCE }, { h: 'ลิงก์รูป', w: 18 },
     { h: 'รหัสงาน', w: 13, s: 'text', f: r => `IF(A${r}="","",IFERROR(INDEX(${col('เงินทดรอง', 'C')},MATCH(A${r},${col('เงินทดรอง', 'A')},0)),""))` },
-  ], [
-    ['ADV-2569-001', { date: `${year}-03-06` }, 'ร้านอาหารสมมติ (ตัวอย่าง)', 'อาหารกลางวันกอง 20 ที่', 'อาหาร', 3000, 0, 'ใบเสร็จ', '', null],
-    ['ADV-2569-001', { date: `${year}-03-06` }, 'ปั๊มน้ำมันสมมติ (ตัวอย่าง)', 'น้ำมันรถตู้', 'เดินทาง', 2400, 157.01, 'ใบกำกับภาษีอย่างย่อ', '', null],
-  ]);
+  ], []);
   return [
     howTo(TEMPLATE_INFO.production, TEMPLATE_INFO.production.tabs, [
       '1. กรอกแท็บ ตั้งค่า แล้วเปิดหนึ่งแถวในแท็บ งาน ต่อหนึ่งงาน ใช้รหัสงานเดียวกันทุกแท็บ',
@@ -639,7 +622,7 @@ function office(year: number): SheetSpec[] {
     { h: 'รหัสลูกค้า', w: 11 }, { h: 'ชื่อกิจการ', w: 26 }, { h: 'ประเภทกิจการ', w: 14, list: ['บุคคลธรรมดา', 'ห้างหุ้นส่วนจำกัด', 'บริษัทจำกัด'] },
     { h: 'เลขผู้เสียภาษี', w: 16, id: true }, { h: 'จด VAT', w: 9, list: YES_NO }, { h: 'มีลูกจ้าง', w: 9, list: YES_NO }, { h: 'วันสิ้นรอบบัญชี', w: 14, s: 'date' },
     { h: 'ผู้รับผิดชอบ', w: 16 }, { h: 'ค่าบริการต่อเดือน', w: 15, s: 'money' },
-  ], [['C001', 'บริษัท สมมติโปรดักชัน จำกัด (ตัวอย่าง)', 'บริษัทจำกัด', '0000000000401', 'ใช่', 'ใช่', { date: `${year}-12-31` }, '', 3500]]);
+  ], []);
   const checklist = table('เช็กลิสต์เอกสาร', [
     { h: 'ปี (พ.ศ.)', w: 9, s: 'text' }, { h: 'เดือน (1–12)', w: 10, s: 'text' }, { h: 'รหัสลูกค้า', w: 11 },
     { h: 'กำหนดส่งเอกสาร', w: 15, s: 'date', f: r => `IF(OR(A${r}="",B${r}=""),"",WORKDAY(DATE(A${r}-543,B${r}+1,5)-1,1,${H}))` },

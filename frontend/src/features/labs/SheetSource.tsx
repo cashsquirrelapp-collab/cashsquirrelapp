@@ -3,6 +3,7 @@ import { ExternalLink } from 'lucide-react';
 import type { Expense, Job, SheetSeen, StatusOption } from '../../../../shared/types';
 import { labOn } from '../../../../shared/labs';
 import { sheetRowUrl, type GoogleStatus, type LiveTab, type SheetLink, type SheetMap } from '../../../../shared/googleSheets';
+import { exampleRowsOf } from '../../../../shared/sheetRow';
 import { tr } from '../../i18n/tr';
 import { getCurrentAccount } from '../../services/api';
 import { googleApi } from '../../services/google';
@@ -60,13 +61,17 @@ const SYNC_GAP = 20_000;
  * The line over a list kept from the sheet, and the reading that keeps the page in step with it: `read` plans what the
  * sheet changes from its tabs and applies it (jobs or expenses).
  */
-function SheetSourceLine({ testId, tabOf, read, onRemoveHeld, unsynced, mobile }: {
+type Confirm = (title: string, message: string, onYes: () => void, onNo?: () => void) => void;
+
+function SheetSourceLine({ testId, tabOf, read, onRemoveHeld, unsynced, confirm, mobile }: {
   testId: string; tabOf: (map: SheetMap | null | undefined) => SheetMap['tabs'][number] | null;
   /** Applies what the sheet changes; returns the records whose rows all went at once and wait for the person. */
   read: (tabs: LiveTab[], map: SheetMap, fileId: string, recentRows: { tab: string; row: number }[]) => string[];
   onRemoveHeld: (ids: string[], fileId: string) => void;
   /** Records in the app that are not in the sheet yet, and sending them there (owner, 2026-11-18). */
   unsynced?: { count: number; send: () => void };
+  /** The page's own confirm dialog (deleting the template's example rows asks first). */
+  confirm?: Confirm;
   mobile: boolean;
 }) {
   const account = getCurrentAccount() ?? null;
@@ -80,6 +85,10 @@ function SheetSourceLine({ testId, tabOf, read, onRemoveHeld, unsynced, mobile }
   const [reading, setReading] = React.useState(false);
   const [problem, setProblem] = React.useState(false);
   const [held, setHeld] = React.useState<string[]>([]);
+  // The template's example rows still in the sheet (workbooks made before 2026-11-18), and deleting them.
+  const [examples, setExamples] = React.useState(0);
+  const [examplesProblem, setExamplesProblem] = React.useState('');
+  const [deletingExamples, setDeletingExamples] = React.useState(false);
   const latest = React.useRef(read);
   latest.current = read;
   const lastRun = React.useRef(0);
@@ -93,6 +102,7 @@ function SheetSourceLine({ testId, tabOf, read, onRemoveHeld, unsynced, mobile }
     try {
       const reply = await googleApi.read(account);
       setHeld(latest.current(reply.tabs, map, file.id, reply.recentRows ?? []));
+      setExamples(reply.tabs.reduce((sum, item) => sum + exampleRowsOf(item.rows).length, 0));
       setReadAt(new Date()); setProblem(false);
     } catch { setProblem(true); }
     finally { setReading(false); }
@@ -112,6 +122,22 @@ function SheetSourceLine({ testId, tabOf, read, onRemoveHeld, unsynced, mobile }
   const [hiddenAt, setHiddenAt] = React.useState<number>(() => { try { return Number(localStorage.getItem(hideKey) || 0); } catch { return 0; } });
   React.useEffect(() => { try { setHiddenAt(Number(localStorage.getItem(hideKey) || 0)); } catch { setHiddenAt(0); } }, [hideKey]);
   const hide = (count: number) => { setHiddenAt(count); try { localStorage.setItem(hideKey, String(count)); } catch { /* this device only */ } };
+
+  const deleteExamples = () => {
+    if (!account || deletingExamples) return;
+    const go = async () => {
+      setDeletingExamples(true); setExamplesProblem('');
+      try {
+        const result = await googleApi.deleteExamples(account);
+        if (result?.error) setExamplesProblem(result.error);
+        else { setExamples(0); await sync(true); }
+      } catch { setExamplesProblem(tr("ลบแถวตัวอย่างไม่สำเร็จ กรุณาลองอีกครั้ง")); }
+      finally { setDeletingExamples(false); }
+    };
+    const message = tr("แถวตัวอย่าง {0} แถวที่แอปใส่ไว้ตอนสร้างชีต (ชื่อลงท้ายว่า ตัวอย่าง) จะถูกลบออกจากชีต แถวอื่นไม่ถูกแตะ ต้องการดำเนินการต่อหรือไม่", examples);
+    if (confirm) confirm(tr("ลบแถวตัวอย่างในชีต"), message, () => void go());
+    else void go();
+  };
 
   if (!ready || !file || !tab) return null;
   const when = problem ? tr("อ่านชีตไม่ได้ จะลองใหม่เมื่อกลับมาที่หน้านี้") : readAt ? tr("อัปเดต {0}", timeOf(readAt)) : reading ? tr("กำลังอ่านชีต…") : '';
@@ -135,8 +161,18 @@ function SheetSourceLine({ testId, tabOf, read, onRemoveHeld, unsynced, mobile }
           <button type="button" className="lab-sheetline-btn is-primary" onClick={() => { onRemoveHeld(held, file.id); setHeld([]); }}>{tr("ลบออกจากแอป")}</button>
         </div>
       )}
+      {/* The template's example rows (owner, 2026-11-18: "ใน Google Sheet อ่ะเอามาทำไม"): one tap deletes them from the sheet. */}
+      {examples > 0 && held.length === 0 && (
+        <div className={`lab lab-sheetline is-held${mobile ? ' is-phone' : ''}`} data-testid={`${testId}-examples`} role="status">
+          <p>
+            <b>{tr("ชีตนี้ยังมีแถวตัวอย่าง {0} แถว", examples)}</b>
+            <span className={examplesProblem ? 'is-red' : undefined}>{mobile ? '' : ' · '}{examplesProblem || tr("แอปใส่ไว้ตอนสร้างชีต ไม่ใช่รายการของคุณ")}</span>
+          </p>
+          <button type="button" className="lab-sheetline-btn is-primary" disabled={deletingExamples} onClick={deleteExamples}>{deletingExamples ? tr("กำลังลบ…") : tr("ลบแถวตัวอย่าง")}</button>
+        </div>
+      )}
       {/* Records made in the app before the sheet was connected (or from elsewhere): one tap copies them under the last row. */}
-      {unsynced && unsynced.count > hiddenAt && held.length === 0 && (
+      {unsynced && unsynced.count > hiddenAt && held.length === 0 && examples === 0 && (
         <div className={`lab lab-sheetline is-held${mobile ? ' is-phone' : ''}`} data-testid={`${testId}-copy`} role="status">
           <p>
             <b>{tr("ในแอปมี {0} รายการที่ยังไม่อยู่ในชีต", unsynced.count)}</b>
@@ -151,9 +187,9 @@ function SheetSourceLine({ testId, tabOf, read, onRemoveHeld, unsynced, mobile }
 }
 
 /** The line over the jobs list, and the reading that keeps the page in step with the sheet. */
-export function SheetJobsLine({ jobs, statuses, jobTypes, seen, onSync, onSendUnsynced, busy, mobile = false }: {
+export function SheetJobsLine({ jobs, statuses, jobTypes, seen, onSync, onSendUnsynced, busy, confirm, mobile = false }: {
   jobs: Job[]; statuses: StatusOption[]; jobTypes: string[]; seen?: SheetSeen | null; onSync: (changes: SheetSyncChanges) => void;
-  onSendUnsynced?: (jobs: Job[]) => void; busy?: (id: string) => boolean; mobile?: boolean;
+  onSendUnsynced?: (jobs: Job[]) => void; busy?: (id: string) => boolean; confirm?: Confirm; mobile?: boolean;
 }) {
   const read = (tabs: LiveTab[], map: SheetMap, fileId: string, recentRows: { tab: string; row: number }[]) => {
     const changes = planSheetSync({ jobs, tabs, map, fileId, statuses, jobTypes, today: todayKey(), seen, recentRows });
@@ -163,14 +199,14 @@ export function SheetJobsLine({ jobs, statuses, jobTypes, seen, onSync, onSendUn
   const removeHeld = (ids: string[], fileId: string) =>
     onSync({ fileId, add: [], update: [], remove: ids, rows: 0, missing: 0, gone: ids.length, held: [], skipped: 0, seen: null, asked: true });
   const notInSheet = jobs.filter(job => !job.sheetLink && !busy?.(job.id));
-  return <SheetSourceLine testId="sheet-jobs-line" tabOf={jobTabOf} read={read} onRemoveHeld={removeHeld} mobile={mobile}
+  return <SheetSourceLine testId="sheet-jobs-line" tabOf={jobTabOf} read={read} onRemoveHeld={removeHeld} confirm={confirm} mobile={mobile}
     unsynced={onSendUnsynced && notInSheet.length ? { count: notInSheet.length, send: () => onSendUnsynced(notInSheet) } : undefined} />;
 }
 
 /** รายจ่ายจากชีต (owner, 2026-11-14): the same line over the expenses list, reading the sheet's expense rows. */
-export function SheetExpensesLine({ expenses, seen, onSync, onSendUnsynced, busy, mobile = false }: {
+export function SheetExpensesLine({ expenses, seen, onSync, onSendUnsynced, busy, confirm, mobile = false }: {
   expenses: Expense[]; seen?: SheetSeen | null; onSync: (changes: SheetExpenseChanges) => void;
-  onSendUnsynced?: (expenses: Expense[]) => void; busy?: (id: string) => boolean; mobile?: boolean;
+  onSendUnsynced?: (expenses: Expense[]) => void; busy?: (id: string) => boolean; confirm?: Confirm; mobile?: boolean;
 }) {
   const read = (tabs: LiveTab[], map: SheetMap, fileId: string, recentRows: { tab: string; row: number }[]) => {
     const changes = planSheetExpenseSync({ expenses, tabs, map, fileId, today: todayKey(), seen, recentRows });
@@ -180,7 +216,7 @@ export function SheetExpensesLine({ expenses, seen, onSync, onSendUnsynced, busy
   const removeHeld = (ids: string[], fileId: string) =>
     onSync({ fileId, add: [], update: [], remove: ids, rows: 0, missing: 0, gone: ids.length, held: [], skipped: 0, seen: null, asked: true });
   const notInSheet = expenses.filter(expense => !expense.sheetLink && !busy?.(expense.id));
-  return <SheetSourceLine testId="sheet-expenses-line" tabOf={expenseTabOf} read={read} onRemoveHeld={removeHeld} mobile={mobile}
+  return <SheetSourceLine testId="sheet-expenses-line" tabOf={expenseTabOf} read={read} onRemoveHeld={removeHeld} confirm={confirm} mobile={mobile}
     unsynced={onSendUnsynced && notInSheet.length ? { count: notInSheet.length, send: () => onSendUnsynced(notInSheet) } : undefined} />;
 }
 

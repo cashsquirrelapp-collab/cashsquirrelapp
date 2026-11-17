@@ -13,7 +13,7 @@ import {
   encryptToken, exchangeCode, revokeToken, stateBack } from '../services/googleSheets.js';
 import { appOrigin } from '../config/env.js';
 import { supabaseAssistantDb } from '../ai/supabaseDb.js';
-import { deleteSheetRows, planRow, previewOf, recentRowsOf, saveAppRecord, saveAppRecords, sheetContext, undoWrite, writeFor, type TabRead } from '../services/sheetWrite.js';
+import { deleteExampleRows, deleteSheetRows, planRow, previewOf, recentRowsOf, saveAppRecord, saveAppRecords, sheetContext, undoWrite, writeFor, type TabRead } from '../services/sheetWrite.js';
 import { chooseTab } from '../../../shared/sheetRow.js';
 
 // ฟีเจอร์ทดลอง, phase 2 (shared/googleSheets.ts, services/googleSheets.ts). GET: this account's connection (never the
@@ -50,6 +50,8 @@ const actionSchema = z.discriminatedUnion('action', [
   // Older records copied into the sheet, or an Excel import's, in one go (the app sends at most 100 at a time).
   z.object({ action: z.literal('saveRows'), kind: z.enum(['job', 'expense']), records: z.array(z.record(z.string(), z.unknown())).min(1).max(100)
     .refine(value => JSON.stringify(value).length <= 600_000, 'too large') }).strict(),
+  // The template's example rows out of the connected sheet (the person confirms first in the app).
+  z.object({ action: z.literal('deleteExamples') }).strict(),
   z.object({ action: z.literal('forget') }).strict(),
   z.object({ action: z.literal('disconnect') }).strict(),
 ]);
@@ -164,6 +166,13 @@ export default withGuard(async (req, res) => {
     need('sheetWrite');
     await rateLimit('google-rows', user.id, 20, 60);
     res.json({ result: await saveAppRecords(user.id, body.kind, body.records) });
+    return;
+  }
+
+  if (body.action === 'deleteExamples') {
+    need('sheetWrite');
+    await rateLimit('google-rows', user.id, 20, 60);
+    res.json({ result: await deleteExampleRows(user.id) });
     return;
   }
 

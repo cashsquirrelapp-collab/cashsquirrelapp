@@ -8,6 +8,17 @@ import type { SheetMap, SheetMapColumn, SheetMapTab } from './googleSheets.js';
 
 export type RowKind = 'job' | 'expense';
 
+/** The template's example rows (workbooks made before 2026-11-18) end an invented name with "(ตัวอย่าง)": "บริษัท ตัวอย่างมีเดีย
+ *  จำกัด (ตัวอย่าง)". A note that only mentions a sample ("ส่ง (ตัวอย่าง) ให้ลูกค้า") is not one, nor a formula's result. */
+export const EXAMPLE_MARK = /\(ตัวอย่าง\)\s*$/;
+export const isExampleText = (...texts: unknown[]) => texts.some(text => EXAMPLE_MARK.test(String(text ?? '')));
+/** The rows of a tab read from the sheet (row numbers as the sheet shows them) that are the template's example rows. */
+export function exampleRowsOf(rows: { text?: string; raw?: unknown; formula?: true }[][]): number[] {
+  const found: number[] = [];
+  rows.forEach((cells, index) => { if (cells.some(cell => cell && !cell.formula && isExampleText(cell.text ?? cell.raw))) found.push(index + 1); });
+  return found;
+}
+
 /** A job or an expense deleted in the app, and the sheet row it was taken from (owner, 2026-11-17: deleted in the app,
  *  deleted in the sheet; backend/src/services/sheetWrite.ts deleteRecordRows). */
 export interface DeletedRecordRow { kind: RowKind; fileId: string; tab: string; row: number; name: string; amount: number }
