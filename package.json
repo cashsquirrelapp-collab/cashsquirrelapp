@@ -11,7 +11,7 @@
     "lint": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
     "check": "npm run lint && npm test && npm run build",
-    "security:audit": "npm audit --audit-level=high",
+    "security:audit": "node scripts/security-audit.mjs --level=high",
     "cloudflare:check": "npm run security:audit && npm run lint && tsc --noEmit -p tsconfig.cloudflare.json && node --import tsx --test tests/cloudflare-scheduled.test.ts tests/cloudflare-transport.test.ts tests/security.test.ts migration/staging-policy.test.ts",
     "cloudflare:build": "node scripts/build-ui-map.mjs && vite build --config frontend/vite.config.ts --configLoader runner && node scripts/build-liff-image.mjs && tsc --noEmit -p tsconfig.cloudflare.json",
     "cloudflare:dry-run": "npm run cloudflare:build && node scripts/cloudflare-preflight.mjs && npx --yes wrangler@4.151.0 deploy --dry-run --config wrangler.production.jsonc --outdir build/cloudflare-dry-run",

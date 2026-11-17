@@ -101,8 +101,16 @@ test('every release check starts with a dependency audit, and DOMPurify and Vite
  // build and test, has a known high or critical hole.
  const { readFile } = await import('node:fs/promises');
  const pkg = JSON.parse(await readFile('package.json','utf8'));
- assert.equal(pkg.scripts['security:audit'],'npm audit --audit-level=high');
+ // Owner, 2026-11-18 ("เอาตามที่แนะนำ"): one reviewed exception at a time, for a hole with no fixed release in a package used
+ // only to build (never in the production dependencies), with a short review date (scripts/security-audit.mjs).
+ assert.equal(pkg.scripts['security:audit'],'node scripts/security-audit.mjs --level=high');
  assert.match(pkg.scripts['cloudflare:check'],/^npm run security:audit && /);
+ const auditScript = await readFile('scripts/security-audit.mjs','utf8');
+ assert.match(auditScript,/audit\(\['--omit=dev'\]\)/,'an exception never covers a production dependency');
+ assert.match(auditScript,/today <= rule\.until/,'an exception ends on its review date');
+ const exceptions=[...auditScript.matchAll(/\{ id: '(GHSA-[a-z0-9-]+)', pkg: '([^']+)', until: '(\d{4}-\d{2}-\d{2})', why: '([^']{20,})' \}/g)];
+ assert.ok(exceptions.length <= 3,'a short list');
+ for (const [, id, , until] of exceptions) assert.ok(until <= '2027-03-31',`${id}: reviewed within months, not years`);
  assert.match(pkg.scripts['cloudflare:deploy'],/npm run cloudflare:check/);
  const lock = JSON.parse(await readFile('package-lock.json','utf8'));
  const [major, minor, patch] = lock.packages['node_modules/dompurify'].version.split('.').map(Number);
