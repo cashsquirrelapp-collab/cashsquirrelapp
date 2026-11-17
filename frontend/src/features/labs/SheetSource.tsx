@@ -26,6 +26,17 @@ export function rememberGoogleStatus(account: string, status: GoogleStatus): voi
   listeners.forEach(fn => fn());
 }
 
+/** The connected sheet's file id when it is ready to write into (connected, a file picked, its map saved), else null.
+ *  Shares the minute-long cache, so saving records does not ask Google's status each time. */
+export async function sheetReadyFor(account: string): Promise<string | null> {
+  let status = statusCache?.account === account && Date.now() - statusCache.at < STATUS_TTL ? statusCache.status : null;
+  if (!status) {
+    status = await googleApi.status(account).catch(() => null);
+    if (status) rememberGoogleStatus(account, status);
+  }
+  return status?.connected && status.file && status.map?.fileId === status.file.id ? status.file.id : null;
+}
+
 /** The account's Google connection, read once a minute and shared by the page and the job details. */
 function useGoogleStatus(account: string | null, on: boolean): GoogleStatus | null {
   const [, force] = React.useReducer((n: number) => n + 1, 0);
@@ -49,9 +60,11 @@ const SYNC_GAP = 20_000;
  * The line over a list kept from the sheet, and the reading that keeps the page in step with it: `read` plans what the
  * sheet changes from its tabs and applies it (jobs or expenses).
  */
-function SheetSourceLine({ testId, tabOf, read, mobile }: {
+function SheetSourceLine({ testId, tabOf, read, onRemoveHeld, mobile }: {
   testId: string; tabOf: (map: SheetMap | null | undefined) => SheetMap['tabs'][number] | null;
-  read: (tabs: LiveTab[], map: SheetMap, fileId: string) => void; mobile: boolean;
+  /** Applies what the sheet changes; returns the records whose rows all went at once and wait for the person. */
+  read: (tabs: LiveTab[], map: SheetMap, fileId: string) => string[];
+  onRemoveHeld: (ids: string[], fileId: string) => void; mobile: boolean;
 }) {
   const account = getCurrentAccount() ?? null;
   const labs = useLabs(account);
@@ -63,6 +76,7 @@ function SheetSourceLine({ testId, tabOf, read, mobile }: {
   const [readAt, setReadAt] = React.useState<Date | null>(null);
   const [reading, setReading] = React.useState(false);
   const [problem, setProblem] = React.useState(false);
+  const [held, setHeld] = React.useState<string[]>([]);
   const latest = React.useRef(read);
   latest.current = read;
   const lastRun = React.useRef(0);
@@ -75,7 +89,7 @@ function SheetSourceLine({ testId, tabOf, read, mobile }: {
     setReading(true);
     try {
       const reply = await googleApi.read(account);
-      latest.current(reply.tabs, map, file.id);
+      setHeld(latest.current(reply.tabs, map, file.id));
       setReadAt(new Date()); setProblem(false);
     } catch { setProblem(true); }
     finally { setReading(false); }
@@ -93,14 +107,26 @@ function SheetSourceLine({ testId, tabOf, read, mobile }: {
   if (!ready || !file || !tab) return null;
   const when = problem ? tr("อ่านชีตไม่ได้ จะลองใหม่เมื่อกลับมาที่หน้านี้") : readAt ? tr("อัปเดต {0}", timeOf(readAt)) : reading ? tr("กำลังอ่านชีต…") : '';
   return (
-    <div className={`lab lab-sheetline${mobile ? ' is-phone' : ''}`} data-testid={testId}>
-      <img src="/brand/partners/google-sheets.png" alt="" width={20} height={20} />
-      <p>
-        <b>{tr("ข้อมูลจากชีต {0}", file.name)}</b>
-        {when && <span className={problem ? 'is-red' : undefined}>{mobile ? '' : ' · '}{when}</span>}
-      </p>
-      <a className="lab-sheetline-btn" href={sheetRowUrl(file.id, tab.gid)} target="_blank" rel="noopener noreferrer"><ExternalLink size={14} aria-hidden="true" />{tr("เปิดชีต")}</a>
-    </div>
+    <>
+      <div className={`lab lab-sheetline${mobile ? ' is-phone' : ''}`} data-testid={testId}>
+        <img src="/brand/partners/google-sheets.png" alt="" width={20} height={20} />
+        <p>
+          <b>{tr("ข้อมูลจากชีต {0}", file.name)}</b>
+          {when && <span className={problem ? 'is-red' : undefined}>{mobile ? '' : ' · '}{when}</span>}
+        </p>
+        <a className="lab-sheetline-btn" href={sheetRowUrl(file.id, tab.gid)} target="_blank" rel="noopener noreferrer"><ExternalLink size={14} aria-hidden="true" />{tr("เปิดชีต")}</a>
+      </div>
+      {/* Many rows went from the sheet at one reading: the records stay until the person says so (sheetSync.ts goneOrHeld). */}
+      {held.length > 0 && (
+        <div className={`lab lab-sheetline is-held${mobile ? ' is-phone' : ''}`} data-testid={`${testId}-held`} role="status">
+          <p>
+            <b>{tr("ชีตไม่มี {0} รายการนี้แล้ว", held.length)}</b>
+            <span>{mobile ? '' : ' · '}{tr("ลบออกจากแอปด้วยหรือไม่")}</span>
+          </p>
+          <button type="button" className="lab-sheetline-btn is-primary" onClick={() => { onRemoveHeld(held, file.id); setHeld([]); }}>{tr("ลบออกจากแอป")}</button>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -111,8 +137,11 @@ export function SheetJobsLine({ jobs, statuses, jobTypes, seen, onSync, mobile =
   const read = (tabs: LiveTab[], map: SheetMap, fileId: string) => {
     const changes = planSheetSync({ jobs, tabs, map, fileId, statuses, jobTypes, today: todayKey(), seen });
     if (changes.add.length || changes.update.length || changes.remove.length || changes.seen) onSync(changes);
+    return changes.held;
   };
-  return <SheetSourceLine testId="sheet-jobs-line" tabOf={jobTabOf} read={read} mobile={mobile} />;
+  const removeHeld = (ids: string[], fileId: string) =>
+    onSync({ fileId, add: [], update: [], remove: ids, rows: 0, missing: 0, gone: ids.length, held: [], skipped: 0, seen: null, asked: true });
+  return <SheetSourceLine testId="sheet-jobs-line" tabOf={jobTabOf} read={read} onRemoveHeld={removeHeld} mobile={mobile} />;
 }
 
 /** รายจ่ายจากชีต (owner, 2026-11-14): the same line over the expenses list, reading the sheet's expense rows. */
@@ -122,8 +151,11 @@ export function SheetExpensesLine({ expenses, seen, onSync, mobile = false }: {
   const read = (tabs: LiveTab[], map: SheetMap, fileId: string) => {
     const changes = planSheetExpenseSync({ expenses, tabs, map, fileId, today: todayKey(), seen });
     if (changes.add.length || changes.update.length || changes.remove.length || changes.seen) onSync(changes);
+    return changes.held;
   };
-  return <SheetSourceLine testId="sheet-expenses-line" tabOf={expenseTabOf} read={read} mobile={mobile} />;
+  const removeHeld = (ids: string[], fileId: string) =>
+    onSync({ fileId, add: [], update: [], remove: ids, rows: 0, missing: 0, gone: ids.length, held: [], skipped: 0, seen: null, asked: true });
+  return <SheetSourceLine testId="sheet-expenses-line" tabOf={expenseTabOf} read={read} onRemoveHeld={removeHeld} mobile={mobile} />;
 }
 
 /** In a job's or an expense's details: where it sits in the sheet, and ดูในชีต to open that row. */

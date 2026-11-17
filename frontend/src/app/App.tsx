@@ -80,6 +80,8 @@ import { useFeedbackWaiting } from '../features/feedback/useFeedbackWaiting';
 import { applyFields, carriesBatch, recentImports, undoUpdate } from '../features/import/importBatches';
 import type { ImportCommit, ImportResult, SaveOutcome } from '../features/import/importShared';
 import type { SheetExpenseChanges, SheetSyncChanges } from '../features/labs/sheetSync';
+import { sheetReadyFor } from '../features/labs/SheetSource';
+import { deletedRowOf } from '../../../shared/sheetRow';
 import { IMPORT_FILE_EVENT } from '../features/assistant/importFileEvent';
 import { importActionsChanged, registerImportActions, type ImportActions } from '../features/import/importActions';
 import type { SettingsView } from '../features/settings/SettingsTab';
@@ -2575,6 +2577,7 @@ export default function App() {
       lastActivityAt: new Date().toISOString(),
     };
     setJobs(prev => [jobWithId, ...prev]);
+    writeToSheet('job', jobWithId, null);
     fireMascot({
       mood: 'happy',
       title: tr("เพิ่มงานแล้ว"),
@@ -2612,6 +2615,8 @@ export default function App() {
     // Use the latest state for local save feedback and preserve the existing payment transitions.
     let oldJob: Job | undefined;
     const stamped = { ...updated, lastActivityAt: new Date().toISOString() };
+    const sheetBefore = jobs.find(job => job.id === id);
+    if (sheetBefore?.sheetLink && sheetFieldsChanged(sheetBefore, updated, JOB_SHEET_FIELDS)) writeToSheet('job', { ...sheetBefore, ...stamped }, sheetBefore);
     setJobs(prev => {
       oldJob = prev.find(j => j.id === id);
       return prev.map(j => j.id === id ? { ...j, ...stamped } : j);
@@ -2952,9 +2957,12 @@ export default function App() {
       id: newExp.id || crypto.randomUUID()
     };
     setExpenses(prev => [expWithId, ...prev]);
+    writeToSheet('expense', expWithId, null);
   };
 
   const handleEditExpense = (id: string, updated: Partial<Expense>) => {
+    const sheetBefore = expenses.find(expense => expense.id === id);
+    if (sheetBefore?.sheetLink && sheetFieldsChanged(sheetBefore, updated, EXPENSE_SHEET_FIELDS)) writeToSheet('expense', { ...sheetBefore, ...updated }, sheetBefore);
     setExpenses(prev => prev.map(e => e.id === id ? { ...e, ...updated } : e));
   };
 
@@ -3091,7 +3099,45 @@ export default function App() {
     setSettings(prev => ({ ...prev, sheetSeen: { ...(prev.sheetSeen?.fileId === fileId ? prev.sheetSeen : { fileId }), [kind]: seen } }));
   };
 
+  // Rows deleted in the sheet took their records out of the app (owner, 2026-11-18): said once, as information.
+  const toldSheetGone = (count: number) => fireMascot({ mood: 'happy', tone: 'info', title: tr("อัปเดตตามชีตแล้ว"), message: tr("นำ {0} รายการที่ถูกลบในชีตออกจากแอปแล้ว", count) });
+
+  // Added or changed in the app, the same in the connected sheet (owner, 2026-11-18: "ค่าใน Google Sheet กับค่าในโปรแกรม
+  // กูมันทำไมไม่เหมือนกัน ... กูอยากทำให้มันแบบเหมือนกัน"): a job or an expense saved from the app's forms is written into the
+  // sheet (services/sheetWrite.ts saveAppRecord) and linked to its row. A changed record is written only when it came from
+  // the sheet and something the sheet keeps changed. While a write is on its way, and for 30 seconds after, readings of the
+  // sheet are not applied: one that started before the write landed would bring the old row back as a new record.
+  const sheetWritingRef = useRef(new Map<string, number>());
+  const sheetWriting = () => [...sheetWritingRef.current.values()].some(until => until > Date.now());
+  const writeToSheet = (kind: 'job' | 'expense', record: Job | Expense, before: Job | Expense | null) => {
+    const account = getCurrentAccount();
+    if (!account || session?.isGuest || financeGroupId || account !== session?.user?.id) return;
+    const beforeRow = before ? deletedRowOf(kind, before) : null;
+    if (before && !beforeRow) return;
+    void sheetReadyFor(account).then(fileId => {
+      if (!fileId || (beforeRow && beforeRow.fileId !== fileId)) return;
+      const failed = (message: string) => fireMascot({ mood: 'alert', tone: 'warning', title: tr("บันทึกลงชีตไม่สำเร็จ"), message, duration: 9000 });
+      sheetWritingRef.current.set(record.id, Infinity);
+      return googleApi.saveRow(account, kind, record, beforeRow).then(result => {
+        if (!result) return;
+        if (result.status === 'written') {
+          const link = { fileId: result.fileId, tab: result.tab, row: result.row, ...(result.gid === undefined ? {} : { gid: result.gid }) };
+          if (kind === 'job') setJobs(prev => prev.map(job => (job.id === record.id ? { ...job, sheetLink: link } : job)));
+          else setExpenses(prev => prev.map(expense => (expense.id === record.id ? { ...expense, sheetLink: link } : expense)));
+          return;
+        }
+        failed(result.status === 'notFound' ? tr("ไม่พบแถวของรายการนี้ในชีต จึงยังไม่ได้แก้ในชีต รายการในแอปบันทึกแล้ว") : tr("{0} รายการถูกบันทึกในแอปแล้ว", result.error));
+      }).catch(error => failed(tr("{0} รายการถูกบันทึกในแอปแล้ว", formatError(error))))
+        .finally(() => sheetWritingRef.current.set(record.id, Date.now() + 30_000));
+    });
+  };
+  const JOB_SHEET_FIELDS: (keyof Job)[] = ['name', 'client', 'type', 'value', 'whtRate', 'whtAmount', 'received', 'pending', 'status', 'paymentStatus', 'postDate', 'payDate', 'dueDate', 'creditTerm', 'note', 'installments', 'depositAmount', 'depositDate'];
+  const EXPENSE_SHEET_FIELDS: (keyof Expense)[] = ['name', 'amount', 'category', 'date', 'note'];
+  const sheetFieldsChanged = <T extends object>(before: T, updated: Partial<T>, fields: (keyof T)[]) =>
+    fields.some(field => field in updated && JSON.stringify(updated[field] ?? null) !== JSON.stringify(before[field] ?? null));
+
   const handleSheetSync = (changes: SheetSyncChanges) => {
+    if (sheetWriting() && !changes.asked) return;
     if (sessionRef.current?.user?.id) radarVisitRef.current = sessionRef.current.user.id;
     const at = new Date().toISOString();
     const added = changes.add.map(job => ({ ...job, id: crypto.randomUUID(), lastActivityAt: at }) as Job);
@@ -3104,10 +3150,12 @@ export default function App() {
       setJobs(prev => [...added, ...prev.filter(job => !removed.has(job.id)).map(job => { const fields = updates.get(job.id); return fields ? { ...job, ...fields } : job; })]);
     }
     rememberSheetSeen(changes.fileId, 'jobs', changes.seen);
+    if (changes.gone > 0) toldSheetGone(changes.gone);
   };
 
   // รายจ่ายจากชีต (ฟีเจอร์ทดลอง): the expenses page read the connected sheet; the same one state update, no toasts.
   const handleSheetExpenseSync = (changes: SheetExpenseChanges) => {
+    if (sheetWriting() && !changes.asked) return;
     const added = changes.add.map(expense => ({ ...expense, id: crypto.randomUUID() }) as Expense);
     const updates = new Map(changes.update.map(update => [update.id, update.fields]));
     const removed = new Set(changes.remove);
@@ -3117,6 +3165,7 @@ export default function App() {
       setExpenses(prev => [...added, ...prev.filter(expense => !removed.has(expense.id)).map(expense => { const fields = updates.get(expense.id); return fields ? { ...expense, ...fields } : expense; })]);
     }
     rememberSheetSeen(changes.fileId, 'expenses', changes.seen);
+    if (changes.gone > 0) toldSheetGone(changes.gone);
   };
 
   // Tries the save again after it failed; the import window waits on it the same way.

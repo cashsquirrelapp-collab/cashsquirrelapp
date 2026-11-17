@@ -13,7 +13,7 @@ import {
   encryptToken, exchangeCode, revokeToken, stateBack } from '../services/googleSheets.js';
 import { appOrigin } from '../config/env.js';
 import { supabaseAssistantDb } from '../ai/supabaseDb.js';
-import { deleteSheetRows, planRow, previewOf, sheetContext, undoWrite, writeFor, type TabRead } from '../services/sheetWrite.js';
+import { deleteSheetRows, planRow, previewOf, saveAppRecord, sheetContext, undoWrite, writeFor, type TabRead } from '../services/sheetWrite.js';
 import { chooseTab } from '../../../shared/sheetRow.js';
 
 // ฟีเจอร์ทดลอง, phase 2 (shared/googleSheets.ts, services/googleSheets.ts). GET: this account's connection (never the
@@ -24,6 +24,10 @@ import { chooseTab } from '../../../shared/sheetRow.js';
 // disconnect needs the account's ฟีเจอร์ทดลอง switch; leaving is always possible.
 
 const fileId = z.string().regex(/^[A-Za-z0-9_-]{10,200}$/);
+const deletedRow = z.object({
+  kind: z.enum(['job', 'expense']), fileId, tab: z.string().min(1).max(200), row: z.number().int().min(1).max(100000),
+  name: z.string().max(500), amount: z.number().finite().min(-1e12).max(1e12),
+}).strict();
 const actionSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('start'), back: z.enum(['connect', 'connect_new']).optional() }).strict(),
   z.object({ action: z.literal('token') }).strict(),
@@ -39,10 +43,10 @@ const actionSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('previewMany'), proposalIds: z.array(z.string().regex(/^p_[0-9a-f-]{36}$/)).min(1).max(40) }).strict(),
   z.object({ action: z.literal('writtenMany'), proposalIds: z.array(z.string().regex(/^p_[0-9a-f-]{36}$/)).min(1).max(40) }).strict(),
   // หน้างานและรายจ่ายจากชีต: records deleted in the app, whose rows go from the sheet too (services/sheetWrite.ts).
-  z.object({ action: z.literal('deleteRows'), rows: z.array(z.object({
-    kind: z.enum(['job', 'expense']), fileId, tab: z.string().min(1).max(200), row: z.number().int().min(1).max(100000),
-    name: z.string().max(500), amount: z.number().finite().min(-1e12).max(1e12),
-  }).strict()).min(1).max(50) }).strict(),
+  z.object({ action: z.literal('deleteRows'), rows: z.array(deletedRow).min(1).max(50) }).strict(),
+  // A job or an expense added or changed in the app's own forms, written into the sheet too (before: where its row was).
+  z.object({ action: z.literal('saveRow'), kind: z.enum(['job', 'expense']), record: z.record(z.string(), z.unknown())
+    .refine(value => JSON.stringify(value).length <= 40_000, 'too large'), before: deletedRow.nullable().optional() }).strict(),
   z.object({ action: z.literal('forget') }).strict(),
   z.object({ action: z.literal('disconnect') }).strict(),
 ]);
@@ -143,6 +147,13 @@ export default withGuard(async (req, res) => {
       if (error instanceof GoogleError) throw new HttpError(...MESSAGES[error.code]);
       throw error;
     }
+    return;
+  }
+
+  if (body.action === 'saveRow') {
+    need('sheetWrite');
+    await rateLimit('google-row', user.id, 60, 60);
+    res.json({ result: await saveAppRecord(user.id, { kind: body.kind, record: body.record, before: body.before ?? null }) });
     return;
   }
 

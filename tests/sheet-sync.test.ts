@@ -79,16 +79,21 @@ test('sheet sync: an amount edited in the sheet updates the job; a job saved by 
   assert.equal(link.fields.payDate, undefined, 'the sheet has no due date column: the app keeps its own');
 });
 
-test('sheet sync: a row deleted from the sheet marks its job missing; the job stays in the app', () => {
+// Owner, 2026-11-18: "ถ้ากูลบใน Google Sheet ออก ยอดในโปรแกรมก็ต้องออก".
+test('sheet sync: a row deleted from the sheet deletes its job in the app; many gone at once wait for the person; rows past a long read are never gone', () => {
   const jobs = apply([], sync([], ROWS));
   const changes = sync(jobs, ROWS.slice(0, 2));
-  assert.equal(changes.missing, 1);
-  assert.equal(changes.add.length, 0);
-  const gone = changes.update.find(update => update.fields.sheetLink?.missing)!;
-  assert.equal(jobs.find(job => job.id === gone.id)!.name, 'ตัดต่อคลิปรีวิวคาเฟ่ EP.3');
-  const after = apply(jobs, changes);
-  assert.equal(after.length, 3, 'nothing deleted');
-  assert.equal(sync(after, ROWS.slice(0, 2)).update.length, 0, 'marked once');
+  assert.deepEqual([changes.gone, changes.remove.length, changes.held.length, changes.missing, changes.add.length], [1, 1, 0, 0, 0]);
+  assert.equal(jobs.find(job => job.id === changes.remove[0])!.name, 'ตัดต่อคลิปรีวิวคาเฟ่ EP.3');
+  // Eleven of twelve rows gone at one reading (a tab cleared by mistake, a read gone wrong): nothing removed, they wait.
+  const many = Array.from({ length: 12 }, (_, i) => [day('1/11/2569', '2026-11-01'), cell(`งานที่ ${i + 1}`), cell('ร้านเอ'), cell(String(1000 + i)), cell('0'), cell('0'), cell(''), cell('')]);
+  const lots = apply([], sync([], many));
+  const cleared = sync(lots, many.slice(0, 1));
+  assert.deepEqual([cleared.remove.length, cleared.gone, cleared.held.length, cleared.missing], [0, 0, 11, 11]);
+  assert.equal(cleared.update.filter(update => update.fields.sheetLink?.missing).length, 11, 'marked, so the line can ask');
+  // A long tab read only in part: the jobs of rows past the part read are not gone.
+  const part = planSheetSync({ jobs, tabs: [{ ...tab(ROWS.slice(0, 1)), truncated: true }], map, fileId: FILE, statuses: STATUSES, jobTypes: [], today: '2026-11-14' });
+  assert.deepEqual([part.remove.length, part.held.length, part.missing], [0, 0, 0]);
 });
 
 test('sheet sync: a sheet without payment columns leaves payment as the app has it', () => {

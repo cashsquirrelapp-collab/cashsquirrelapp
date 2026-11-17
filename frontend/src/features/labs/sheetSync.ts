@@ -14,7 +14,8 @@ import { readTabs } from './sheetMap';
 // the same name (the row moved); a job made in the app (เลขา's chat, the form) with the same name, amount and client, not
 // yet linked (it is now linked, never added twice); otherwise a new job. Only what the sheet says is taken from it: a sheet
 // without a payment column leaves the job's payment as the app has it, one without a due date leaves the due date.
-// Nothing is deleted on the app's side: a linked job whose row is gone is marked `missing` and stays.
+// A row deleted from the sheet deletes its job in the app (owner, 2026-11-18: "ถ้ากูลบใน Google Sheet ออก ยอดในโปรแกรมก็
+// ต้องออก"), unless many go at once (see goneOrHeld): those are marked `missing` and wait for the person's one tap.
 
 export interface SheetSyncChanges {
   fileId: string;
@@ -26,6 +27,12 @@ export interface SheetSyncChanges {
   rows: number;
   /** Linked jobs whose row was not found. */
   missing: number;
+  /** Jobs removed because their row was deleted from the sheet (in `remove` too). */
+  gone: number;
+  /** Jobs whose rows went from the sheet all at once, too many to remove without asking: kept, marked missing. */
+  held: string[];
+  /** The person pressed ลบออกจากแอป for held records (not a reading of the sheet). */
+  asked?: true;
   /** Rows left out because their job was deleted in the app. */
   skipped: number;
   /** The new counts of rows taken (settings.sheetSeen.jobs), or null when they did not change. */
@@ -53,6 +60,18 @@ const hashOf = (text: string) => {
 const seenKey = (tab: string, ...parts: unknown[]) => `${hashOf(tab)}:${hashOf(parts.map(part => (typeof part === 'number' ? String(roundMoney(part)) : norm(part))).join('|'))}`;
 const exampleText = (...texts: unknown[]) => texts.some(text => EXAMPLE.test(String(text ?? '')));
 const exampleRow = (rows: LiveCell[][] | undefined, rowNumber: number) => (rows?.[rowNumber - 1] ?? []).some(cell => exampleText(cell?.text, cell?.raw));
+
+/**
+ * Rows gone from the sheet: their records go from the app too. A sheet that suddenly reads with most of its rows gone (a
+ * tab emptied by mistake, a filter, a read that went wrong) must not empty the app, so more than GONE_AT_ONCE records that
+ * are also more than half of those taken from the read tabs wait for the person to confirm (the line over the list asks).
+ * Rows beyond what was read of a long tab are never counted as gone.
+ */
+const GONE_AT_ONCE = 5;
+function goneOrHeld(candidates: string[], linkedInRead: number): { gone: string[]; held: string[] } {
+  return candidates.length <= GONE_AT_ONCE || candidates.length * 2 <= linkedInRead ? { gone: candidates, held: [] } : { gone: [], held: candidates };
+}
+const readLimits = (tabs: LiveTab[]) => new Map(tabs.filter(tab => tab.truncated).map(tab => [tab.name, tab.rows.length]));
 
 /** The rows with nothing in the app to match: those the app took before and no longer has were deleted in it, and stay out. */
 function leaveDeletedOut<T>(pending: { key: string; item: T }[], total: Map<string, number>, matched: Map<string, number>,
@@ -166,15 +185,26 @@ export function planSheetSync(input: {
   }
 
   let missing = 0;
+  let linkedInRead = 0;
+  const limits = readLimits(input.tabs);
+  const candidates: Job[] = [];
   for (const job of jobs) {
     const link = linked(job);
-    if (!link || claimed.has(job.id) || link.fileId !== fileId || !readTabNames.has(link.tab)) continue;
+    if (!link || link.fileId !== fileId || !readTabNames.has(link.tab)) continue;
+    if (limits.has(link.tab) && link.row > limits.get(link.tab)!) continue;
+    linkedInRead += 1;
+    if (claimed.has(job.id)) continue;
     if (exampleText(job.name, job.client)) { remove.push(job.id); continue; }
+    candidates.push(job);
+  }
+  const { gone, held } = goneOrHeld(candidates.map(job => job.id), linkedInRead);
+  remove.push(...gone);
+  for (const job of candidates.filter(job => held.includes(job.id))) {
     missing += 1;
-    if (!link.missing) update.push({ id: job.id, fields: { sheetLink: { ...link, missing: true } } });
+    if (!job.sheetLink!.missing) update.push({ id: job.id, fields: { sheetLink: { ...job.sheetLink!, missing: true } } });
   }
   const kept = leaveDeletedOut(pending, total, matchedCount, before, readTabNames);
-  return { fileId, add: kept.add, update, remove, rows, missing, skipped: kept.skipped, seen: kept.seen };
+  return { fileId, add: kept.add, update, remove, rows, missing, gone: gone.length, held, skipped: kept.skipped, seen: kept.seen };
 }
 
 // รายจ่ายจากชีต (owner, 2026-11-14: "ทำดึงรายจ่ายจากชีตต่อเลย"), the same way as the jobs: each expense row of the sheet's
@@ -184,8 +214,8 @@ export function planSheetSync(input: {
 // row when it is still the same (same name, or same amount and date); one linked to another row of the same tab with the
 // same name and amount (the row moved); one made in the app (เลขา's chat, the form) with the same name and amount and the
 // same date or none, not yet linked (now linked, never added twice); otherwise a new expense. Only what the tab has a
-// column for is taken (no category column leaves the app's category; no date column leaves the app's date). Nothing is
-// deleted on the app's side: a linked expense whose row is gone is marked `missing` and stays.
+// column for is taken (no category column leaves the app's category; no date column leaves the app's date). A row deleted
+// from the sheet deletes its expense in the app, as with the jobs (goneOrHeld).
 
 export interface SheetExpenseChanges {
   fileId: string;
@@ -195,6 +225,12 @@ export interface SheetExpenseChanges {
   remove: string[];
   rows: number;
   missing: number;
+  /** Expenses removed because their row was deleted from the sheet (in `remove` too). */
+  gone: number;
+  /** Expenses whose rows went from the sheet all at once, too many to remove without asking: kept, marked missing. */
+  held: string[];
+  /** The person pressed ลบออกจากแอป for held records (not a reading of the sheet). */
+  asked?: true;
   /** Rows left out because their expense was deleted in the app. */
   skipped: number;
   /** The new counts of rows taken (settings.sheetSeen.expenses), or null when they did not change. */
@@ -274,13 +310,24 @@ export function planSheetExpenseSync(input: { expenses: Expense[]; tabs: LiveTab
   }
 
   let missing = 0;
+  let linkedInRead = 0;
+  const limits = readLimits(input.tabs);
+  const candidates: Expense[] = [];
   for (const expense of expenses) {
     const link = expense.sheetLink;
-    if (!link || claimed.has(expense.id) || link.fileId !== fileId || !readTabNames.has(link.tab)) continue;
+    if (!link || link.fileId !== fileId || !readTabNames.has(link.tab)) continue;
+    if (limits.has(link.tab) && link.row > limits.get(link.tab)!) continue;
+    linkedInRead += 1;
+    if (claimed.has(expense.id)) continue;
     if (exampleText(expense.name, expense.note)) { remove.push(expense.id); continue; }
+    candidates.push(expense);
+  }
+  const { gone, held } = goneOrHeld(candidates.map(expense => expense.id), linkedInRead);
+  remove.push(...gone);
+  for (const expense of candidates.filter(expense => held.includes(expense.id))) {
     missing += 1;
-    if (!link.missing) update.push({ id: expense.id, fields: { sheetLink: { ...link, missing: true } } });
+    if (!expense.sheetLink!.missing) update.push({ id: expense.id, fields: { sheetLink: { ...expense.sheetLink!, missing: true } } });
   }
   const kept = leaveDeletedOut(pending, total, matchedCount, before, readTabNames);
-  return { fileId, add: kept.add, update, remove, rows, missing, skipped: kept.skipped, seen: kept.seen };
+  return { fileId, add: kept.add, update, remove, rows, missing, gone: gone.length, held, skipped: kept.skipped, seen: kept.seen };
 }

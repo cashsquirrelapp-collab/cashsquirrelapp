@@ -68,7 +68,7 @@ test('expense sync: a change in the sheet changes the expense; one เลขา 
   assert.deepEqual(linked.update[0].fields.sheetLink, { fileId: FILE, tab: 'รายจ่าย', row: 2, gid: 905 });
 });
 
-test('expense sync: without a category or date column the app keeps its own; a row gone is marked, never deleted', () => {
+test('expense sync: without a category or date column the app keeps its own; a row deleted from the sheet deletes the expense', () => {
   const head = ['รายการ', 'จำนวนเงิน'].map(text => cell(text));
   const plain: LiveTab = { name: 'ค่าใช้จ่าย', gid: 7, truncated: false, rows: [head, [cell('ค่ากาแฟลูกค้า'), cell('180')], [cell('ค่าหมึกพิมพ์'), cell('350')]] };
   const plainMap = mapOf(FILE, readTabs([plain]));
@@ -77,11 +77,11 @@ test('expense sync: without a category or date column the app keeps its own; a r
   assert.equal(read.update.length, 0, 'the app\'s category and date stay');
   assert.equal(read.add.length, 1);
 
+  // Owner, 2026-11-18: "ถ้ากูลบใน Google Sheet ออก ยอดในโปรแกรมก็ต้องออก".
   const expenses = apply([], sync([], ROWS));
   const gone = sync(expenses, ROWS.slice(0, 2));
-  assert.equal(gone.missing, 1);
-  assert.deepEqual(gone.update.map(update => update.fields.sheetLink?.missing), [true]);
-  assert.equal(apply(expenses, gone).length, 3, 'nothing is deleted on the app\'s side');
+  assert.deepEqual([gone.gone, gone.missing, gone.held.length, gone.update.length], [1, 0, 0, 0]);
+  assert.equal(expenses.find(expense => expense.id === gone.remove[0])!.name, 'ค่าโฆษณาเพจ');
 });
 
 test('expense sync: rows the sheet marks personal and rows with no amount stay out', () => {

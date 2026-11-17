@@ -30,9 +30,11 @@ const chatJob = { id: 'chat-job-1', name: 'ตัดต่อคลิปรี�
 const settings = { monthlyExpense: 0, monthlyRevenueGoal: 40000, savingsPercentage: 40, profileSetupCompleted: true, userPersona: 'freelance', onboarding: { completedAt: '2026-11-05T03:00:00.000Z' } };
 const versions = { cashflow_jobs: { 'chat-job-1': 1 }, cashflow_expenses: {}, cashflow_goals: {}, cashflow_invoices: {}, cashflow_documents: { settings: 1 } };
 
-async function open(page: Page, size: { width: number; height: number }, labsOn: string[], deleteReply: Record<string, unknown> = { deleted: 1, notFound: 0 }) {
+async function open(page: Page, size: { width: number; height: number }, labsOn: string[], deleteReply: Record<string, unknown> = { deleted: 1, notFound: 0 }, firstRows = ROWS) {
+  let sheetRows = firstRows;
   const posts: unknown[] = [];
   const deletes: unknown[] = [];
+  const saves: { kind: string; record: Record<string, unknown>; before: Record<string, unknown> | null }[] = [];
   let reads = 0;
   await page.clock.setFixedTime(new Date('2026-11-14T09:12:00+07:00'));
   await page.addInitScript(() => { localStorage.setItem('cashflow_language', 'th'); localStorage.setItem('cashflow_theme_pref', JSON.stringify({ mode: 'light', asked: true })); });
@@ -50,14 +52,19 @@ async function open(page: Page, size: { width: number; height: number }, labsOn:
     const status = { google: { configured: true, connected: true, email: 'mew@example.com', file: FILE, map: MAP } };
     if (route.request().method() === 'GET') return route.fulfill({ json: status });
     const body = route.request().postDataJSON() as { action?: string };
-    if (body.action === 'read') { reads += 1; return route.fulfill({ json: { ...status, tabs: [{ name: 'รายรับ', gid: 812, truncated: false, rows: ROWS }], readAt: '2026-11-14T02:12:00.000Z' } }); }
+    if (body.action === 'read') { reads += 1; return route.fulfill({ json: { ...status, tabs: [{ name: 'รายรับ', gid: 812, truncated: false, rows: sheetRows }], readAt: '2026-11-14T02:12:00.000Z' } }); }
     if (body.action === 'deleteRows') { deletes.push(body); return route.fulfill({ json: { ...status, result: deleteReply } }); }
+    if (body.action === 'saveRow') {
+      const save = body as unknown as { kind: string; record: Record<string, unknown>; before: Record<string, unknown> | null };
+      saves.push(save);
+      return route.fulfill({ json: { ...status, result: { status: 'written', fileId: FILE.id, tab: 'รายรับ', row: save.before ? Number(save.before.row) : 6, gid: 812 } } });
+    }
     return route.fulfill({ json: status });
   });
   await page.setViewportSize(size);
   await page.goto(noRadar('/jobs'));
   await loadLayoutFonts(page);
-  return { posts, deletes, reads: () => reads };
+  return { posts, deletes, saves, reads: () => reads, setRows: (rows: typeof ROWS) => { sheetRows = rows; } };
 }
 
 for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'phone', width: 390, height: 844 }]) {
@@ -158,6 +165,70 @@ test('a sheet row that cannot be found is said, and the job is deleted from the 
   await expect(page.getByText('ไม่พบแถวที่ตรงกับรายการนี้ในชีต กรุณาตรวจและลบในชีตเอง').first()).toBeVisible();
   expect(await textOverlapIssues(page)).toEqual([]);
   await page.screenshot({ path: 'test-results/labs-sheet-jobs-delete-not-found.png' });
+});
+
+// Owner, 2026-11-18: "ค่าใน Google Sheet กับค่าในโปรแกรมกูมันทำไมไม่เหมือนกัน ... กูอยากทำให้มันแบบเหมือนกัน".
+test('a job added in the app goes into the sheet as a new row; a job from the sheet changed in the app is written over its own row', async ({ page }) => {
+  const { saves, posts } = await open(page, { width: 1440, height: 900 }, ['sheets', 'sheetMap', 'sheetJobs', 'sheetWrite']);
+  const titles = page.locator('table tbody tr td:first-child p:first-child');
+  await expect(titles).toHaveCount(3);
+  await page.getByRole('button', { name: 'เพิ่มงาน', exact: true }).first().click();
+  await page.getByLabel('ชื่องาน / โปรเจกต์').fill('ถ่ายรูปเมนูใหม่');
+  await page.getByLabel('มูลค่างาน').fill('2500');
+  await page.getByRole('button', { name: 'บันทึกงาน' }).click();
+  await expect(titles).toHaveCount(4);
+  await expect.poll(() => saves.length).toBe(1);
+  expect(saves[0]).toMatchObject({ kind: 'job', before: null, record: { name: 'ถ่ายรูปเมนูใหม่', value: 2500 } });
+  // Linked to the row it went into, so the next reading of the sheet takes it as the same job.
+  await expect.poll(() => JSON.stringify(posts)).toContain('"sheetLink":{"fileId":"file-12345678","tab":"รายรับ","row":6,"gid":812}');
+
+  await titles.filter({ hasText: 'ออกแบบโลโก้ร้านกาแฟ' }).first().click();
+  await expect(page.getByRole('heading', { name: 'แก้ไขงาน' })).toBeVisible();
+  await page.getByLabel('มูลค่างาน').fill('5500');
+  await page.getByRole('button', { name: 'บันทึกงาน' }).click();
+  await expect.poll(() => saves.length).toBe(2);
+  expect(saves[1]).toMatchObject({ kind: 'job', before: { kind: 'job', fileId: FILE.id, tab: 'รายรับ', row: 3, name: 'ออกแบบโลโก้ร้านกาแฟ', amount: 5000 }, record: { name: 'ออกแบบโลโก้ร้านกาแฟ', value: 5500 } });
+  await expect(page.getByText('บันทึกลงชีตไม่สำเร็จ')).toHaveCount(0);
+});
+
+// Owner, 2026-11-18: "ถ้ากูลบใน Google Sheet ออก ยอดในโปรแกรมก็ต้องออก".
+test('a row deleted in the sheet takes its job out of the app; many rows gone at once wait for one tap', async ({ page }) => {
+  const { reads, setRows } = await open(page, { width: 1440, height: 900 }, ['sheets', 'sheetMap', 'sheetJobs']);
+  const titles = page.locator('table tbody tr td:first-child p:first-child');
+  await expect(titles).toHaveCount(3);
+  setRows(ROWS.filter(row => row[1]?.text !== 'ออกแบบโลโก้ร้านกาแฟ'));
+  await page.clock.setFixedTime(new Date('2026-11-14T09:13:30+07:00'));
+  const before = reads();
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect.poll(reads).toBeGreaterThan(before);
+  await expect(titles).toHaveCount(2);
+  await expect(titles.filter({ hasText: 'ออกแบบโลโก้ร้านกาแฟ' })).toHaveCount(0);
+  await expect(page.getByText('นำ 1 รายการที่ถูกลบในชีตออกจากแอปแล้ว').first()).toBeVisible();
+});
+
+test('many rows gone from the sheet at one reading: the jobs stay until ลบออกจากแอป is pressed', async ({ page }) => {
+  const many = [ROWS[0], ...Array.from({ length: 8 }, (_, i) => [d('1/11/2569', '2026-11-01'), c(`งานรายเดือน ${i + 1}`), c('ร้านเอ'), c(String(1000 + i)), c('0'), c(String(1000 + i), { formula: true }), c('0'), c(''), c('')])];
+  for (const device of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+    const { reads, setRows } = await open(page, device, ['sheets', 'sheetMap', 'sheetJobs'], undefined, many);
+    const titles = device.width > 700 ? page.locator('table tbody tr td:first-child p:first-child') : page.locator('.ksm-jobtitle');
+    await expect(titles).toHaveCount(9);
+    setRows(many.slice(0, 2));
+    await page.clock.setFixedTime(new Date('2026-11-14T09:14:30+07:00'));
+    const before = reads();
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await expect.poll(reads).toBeGreaterThan(before);
+    const held = page.getByTestId('sheet-jobs-line-held');
+    await expect(held).toContainText('ชีตไม่มี 7 รายการนี้แล้ว');
+    await expect(titles).toHaveCount(9);
+    expect(await textOverlapIssues(page)).toEqual([]);
+    await expect(page.locator('#app-splash')).toBeHidden({ timeout: 10_000 });
+    await held.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `test-results/labs-sheet-jobs-held-${device.width}.png` });
+    await held.getByRole('button', { name: 'ลบออกจากแอป' }).click();
+    await expect(titles).toHaveCount(2);
+    await expect(held).toHaveCount(0);
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+  }
 });
 
 test('without the feature the jobs page is as before and the sheet is never read', async ({ page }) => {

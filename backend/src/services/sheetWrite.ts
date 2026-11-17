@@ -318,17 +318,18 @@ const MAX_DELETE_SCAN = 3000;
 const plainText = (text: unknown) => String(text ?? '').toLowerCase().replace(/\s+/g, '');
 const moneyIn = (text: string) => { const cleaned = String(text).replace(/[^0-9.-]/g, ''); const value = cleaned ? Number(cleaned) : NaN; return Number.isFinite(value) ? value : NaN; };
 
-/** Finds each deleted record's row in the sheet and deletes those rows; what could not be found is counted. */
-export async function deleteRecordRows(ops: SheetOps, map: SheetMap, rows: DeletedRecordRow[]): Promise<DeleteRowsResult> {
-  let notFound = 0;
+type TabRows = { first: number; rows: string[][] };
+
+/** Where each record's row is now: { tab, row } or null. The tabs read on the way are kept in `reads` (from the first data row). */
+async function locateRecordRows(ops: SheetOps, map: SheetMap, rows: DeletedRecordRow[], reads = new Map<string, TabRows>()) {
   const chosen = new Map<string, Set<number>>();
-  const reads = new Map<string, { first: number; rows: string[][] }>();
+  const found: ({ tab: string; row: number } | null)[] = [];
   for (const item of rows) {
     const tab = map.tabs.find(candidate => candidate.name === item.tab);
     const nameColumns = tab?.columns.filter(column => column.target === 'name' || (item.kind === 'job' && column.target === 'project')).map(column => column.index) ?? [];
     const moneyTargets = item.kind === 'job' ? ['value', 'amount', 'income'] : ['amount', 'expense'];
     const moneyColumns = tab?.columns.filter(column => moneyTargets.includes(column.target)).map(column => column.index) ?? [];
-    if (!tab || !nameColumns.length || !plainText(item.name)) { notFound += 1; continue; }
+    if (!tab || !nameColumns.length || !plainText(item.name)) { found.push(null); continue; }
     const first = (tab.headerRow === null ? 0 : tab.headerRow + 1) + 1;
     let read = reads.get(tab.name);
     if (!read) {
@@ -341,21 +342,75 @@ export async function deleteRecordRows(ops: SheetOps, map: SheetMap, rows: Delet
     const sameMoney = (cells: string[]) => !moneyColumns.length || moneyColumns.some(index => Math.abs(moneyIn(cells[index] ?? '') - item.amount) < 0.005);
     const taken = chosen.get(tab.name) ?? new Set<number>();
     const cellsAt = (row: number) => read!.rows[row - read!.first] ?? [];
-    let found: number | null = item.row >= first && !taken.has(item.row) && sameName(cellsAt(item.row)) && sameMoney(cellsAt(item.row)) ? item.row : null;
-    if (found === null) {
+    let row: number | null = item.row >= first && !taken.has(item.row) && sameName(cellsAt(item.row)) && sameMoney(cellsAt(item.row)) ? item.row : null;
+    if (row === null) {
       let nearest = Infinity;
       read.rows.forEach((cells, index) => {
-        const row = read!.first + index;
-        if (!taken.has(row) && sameName(cells) && sameMoney(cells) && Math.abs(row - item.row) < nearest) { nearest = Math.abs(row - item.row); found = row; }
+        const candidate = read!.first + index;
+        if (!taken.has(candidate) && sameName(cells) && sameMoney(cells) && Math.abs(candidate - item.row) < nearest) { nearest = Math.abs(candidate - item.row); row = candidate; }
       });
     }
-    if (found === null) { notFound += 1; continue; }
-    taken.add(found);
+    if (row === null) { found.push(null); continue; }
+    taken.add(row);
     chosen.set(tab.name, taken);
+    found.push({ tab: tab.name, row });
   }
+  return { found, reads };
+}
+
+/** Finds each deleted record's row in the sheet and deletes those rows; what could not be found is counted. */
+export async function deleteRecordRows(ops: SheetOps, map: SheetMap, rows: DeletedRecordRow[]): Promise<DeleteRowsResult> {
+  const { found } = await locateRecordRows(ops, map, rows);
+  const byTab = new Map<string, number[]>();
+  for (const spot of found) if (spot) byTab.set(spot.tab, [...(byTab.get(spot.tab) ?? []), spot.row]);
   let deleted = 0;
-  for (const [tab, picked] of chosen) { await ops.deleteRows(tab, [...picked]); deleted += picked.size; }
-  return { deleted, notFound };
+  for (const [tab, picked] of byTab) { await ops.deleteRows(tab, picked); deleted += picked.length; }
+  return { deleted, notFound: found.filter(spot => !spot).length };
+}
+
+// Added or changed in the app, the same in the sheet (owner, 2026-11-18: "ค่าใน Google Sheet กับค่าในโปรแกรมกูมันทำไมไม่
+// เหมือนกัน ... กูอยากทำให้มันแบบเหมือนกัน"): a job or an expense saved from the app's own forms goes into the connected sheet
+// as well. A new one becomes a new row under the last, written as เลขา's cards write (planRow, writeRow); a changed one is
+// written over its own row, found the way a delete finds it (by the name and amount it had before), the customer's formula
+// columns never touched. Where its row cannot be found, nothing is written.
+export type AppRowResult = { status: 'written'; fileId: string; tab: string; row: number; gid?: number } | { status: 'notFound' } | { status: 'failed'; error: string };
+
+/** Writes a record saved in the app into its row of the given tab (an existing row: formulas and kept columns left as they are). */
+export async function writeOverRow(ops: SheetOps, map: SheetMap, kind: RowKind, record: Record<string, unknown>, spot: { tab: string; row: number }, read: TabRows | undefined): Promise<string[]> {
+  const tab = map.tabs.find(candidate => candidate.name === spot.tab);
+  if (!tab) return [];
+  const near = (read?.rows ?? []).slice(Math.max(0, spot.row - read!.first - 15), Math.max(0, spot.row - read!.first + 15));
+  const samples: Record<number, string[]> = {};
+  for (const column of tab.columns) samples[column.index] = near.map(cells => cells[column.index] ?? '').filter(Boolean);
+  const values = rowCells(tab, kind, record, samples)
+    .filter((cell): cell is RowCell & { value: string | number } => !cell.formula && cell.value !== null).map(cell => ({ index: cell.index, value: cell.value }));
+  return ops.write(tab.name, spot.row, values);
+}
+
+export async function saveAppRecord(userId: string, input: { kind: RowKind; record: Record<string, unknown>; before?: DeletedRecordRow | null }): Promise<AppRowResult | null> {
+  let context: Awaited<ReturnType<typeof sheetContext>>;
+  try { context = await sheetContext(userId); }
+  catch (error) { return { status: 'failed', error: error instanceof GoogleError ? ERRORS[error.code] : ERRORS.failed }; }
+  if (!context) return null;
+  const { record: google, ops } = context;
+  const fileId = google.file!.id;
+  try {
+    if (input.before) {
+      if (input.before.fileId !== fileId) return { status: 'notFound' };
+      const { found: [spot], reads } = await locateRecordRows(ops, google.map!, [input.before]);
+      if (!spot) return { status: 'notFound' };
+      await writeOverRow(ops, google.map!, input.kind, input.record, spot, reads.get(spot.tab));
+      const gid = await ops.tabId(spot.tab).catch(() => undefined);
+      return { status: 'written', fileId, tab: spot.tab, row: spot.row, ...(gid === undefined ? {} : { gid }) };
+    }
+    const plan = await planRow(ops, google.map!, input.kind, input.record);
+    if (!plan) return { status: 'failed', error: input.kind === 'expense' ? 'แผนที่ชีตยังไม่มีแท็บรายจ่าย' : 'แผนที่ชีตยังไม่มีแท็บรายรับหรืองาน' };
+    await writeRow(ops, plan);
+    const gid = await ops.tabId(plan.tab).catch(() => undefined);
+    return { status: 'written', fileId, tab: plan.tab, row: plan.row, ...(gid === undefined ? {} : { gid }) };
+  } catch (error) {
+    return { status: 'failed', error: error instanceof GoogleError ? ERRORS[error.code] : ERRORS.failed };
+  }
 }
 
 /** The account's connected sheet: deletes the rows of records deleted in the app. Null when no sheet is ready; never throws. */

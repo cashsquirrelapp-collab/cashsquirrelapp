@@ -41,6 +41,10 @@ export const googleApi = {
     method: 'POST', headers: { 'X-Account-ID': account }, body: JSON.stringify({ action: 'token' }),
   }),
   pick: (account: string, fileId: string) => post(account, { action: 'pick', fileId }).then(reply => reply.google),
+  /** A job or an expense added (before: null) or changed in the app, written into the connected sheet (null: no sheet ready). */
+  saveRow: (account: string, kind: 'job' | 'expense', record: object, before: { kind: 'job' | 'expense'; fileId: string; tab: string; row: number; name: string; amount: number } | null) =>
+    post<{ result: { status: 'written'; fileId: string; tab: string; row: number; gid?: number } | { status: 'notFound' } | { status: 'failed'; error: string } | null }>(
+      account, { action: 'saveRow', kind, record, before }).then(reply => reply.result),
   /** Records deleted in the app: their rows go from the connected sheet too (null: no sheet ready). */
   deleteRows: (account: string, rows: { kind: 'job' | 'expense'; fileId: string; tab: string; row: number; name: string; amount: number }[]) =>
     post<{ result: { deleted: number; notFound: number; error?: string } | null }>(account, { action: 'deleteRows', rows }).then(reply => reply.result),
