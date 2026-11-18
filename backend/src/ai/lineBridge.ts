@@ -19,7 +19,7 @@ import { appOrigin } from '../config/env.js';
 import { patchPrivate } from '../repositories/accounts.js';
 import { QUESTIONS_LEAD } from './gateway.js';
 import { pendingAiQuestions, type PendingAiQuestions } from '../services/lineAiQuestions.js';
-import { buildLineUpgradeMessages, markUpgradeCardShown, upgradeCardDue } from '../services/lineUpgrade.js';
+import { buildLineUpgradeCard, buildLineUpgradeMessages, markUpgradeCardShown, upgradeCardDue } from '../services/lineUpgrade.js';
 import { activeEntryBatch, ENTRY_BATCH_KEY, entryTurn, mayBeEntryTurn } from './batchTurn.js';
 import { KIND_WORDS, type EntryKind } from './batchEntries.js';
 import { entryQuestionMessages, entryReviewMessages } from './lineEntries.js';
@@ -58,6 +58,7 @@ export interface LineBridgeDeps {
 
 /** An account without a paid plan: free tokens, a gift, given tokens, or a paid plan that has ended. */
 const unpaid = (plan: PlanInfo) => plan.plan === 'trial' || plan.plan === 'lapsed';
+const isPlansLink = (card: AssistantCard) => card.kind === 'navigation' && /^\/plans(?:[/?#]|$)/.test(card.path);
 
 /**
  * LINE's answer has to go out inside the Worker's background time (about 30 s after LINE gets its 200; see
@@ -117,16 +118,20 @@ export async function lineAssistantAnswer(user: UserRow, text: string, history: 
       catch { console.error('line-assistant: questions not kept'); }
     }
     const shown = asking && reply.text.trim() === QUESTIONS_LEAD ? '' : reply.text;
+    // The plans asked for in words only เลขา understood (owner, 2026-11-18, a screenshot: "มันขึ้นแบบนี้แทน", two "อัปเกรด Pro ·
+    // เปิดหน้าในแอป" link cards under the answer): in LINE a link to the plans page becomes the Pro poster and the plan cards.
+    const plansLink = reply.cards.some(isPlansLink);
+    const cards = plansLink ? reply.cards.filter(card => !isPlansLink(card)) : reply.cards;
     // What the question is about stands out in a list of records (the delivery date, the payment date or the amount).
     const focus = listFocus(text);
-    let shaped = shapeLineReply(shown, reply.cards, undefined, { focus });
+    let shaped = shapeLineReply(shown, cards, undefined, { focus });
     // ทำต่อในแอป (owner's plan, item 4): an answer LINE cannot give complete goes on in the app's chat with this conversation.
     const why = continueWhy({ text, history, asking: Boolean(asking), left: shaped.left, oversized: shaped.oversized });
     if (why) {
       try {
         const id = await (deps.keepForApp ?? keepForApp)(user.user_id, why, continueTurns(history, text, files, { text: reply.text, cards: reply.cards }));
         const link = lineAppLink(`/assistant?continue=${id}`, 'ทำต่อในแอป');
-        if (link) shaped = shapeLineReply(shown, reply.cards, undefined, { continueLink: link, why, focus });
+        if (link) shaped = shapeLineReply(shown, cards, undefined, { continueLink: link, why, focus });
       } catch { console.error('line-assistant: the conversation was not kept for the app'); }
     }
     let messages = shaped.messages;
@@ -137,9 +142,13 @@ export async function lineAssistantAnswer(user: UserRow, text: string, history: 
       try {
         const groupId = `g${randomBytes(12).toString('hex')}`;
         await (deps.saveGroup ?? saveCardGroup)(user.user_id, groupId, { cards: confirms, files: 0 });
-        const base = why === 'detail' ? shapeLineReply(shown, reply.cards, undefined, { focus }).messages : messages;
+        const base = why === 'detail' ? shapeLineReply(shown, cards, undefined, { focus }).messages : messages;
         messages = [...base.slice(0, 4), confirmAllMessage(groupId, confirms)];
       } catch { console.error('line-assistant: the cards were not grouped'); }
+    }
+    if (plansLink) {
+      const now = deps.now ?? new Date();
+      messages = messages.length < 5 ? [...messages, ...buildLineUpgradeMessages('menu', now, 5 - messages.length)] : [...messages.slice(0, 4), buildLineUpgradeCard('menu', now)];
     }
     // Running low: say so under the answer, with the same number the app shows (never under a question).
     const limit = plan.plan === 'trial' ? config.trialTokens : plan.tokens ?? config.proTokensPerCycle;
@@ -151,7 +160,7 @@ export async function lineAssistantAnswer(user: UserRow, text: string, history: 
     // Plus / Pro (owner, 2026-11-16): under an answer to an account without a paid plan when its tokens run low, or once a
     // week anyway; never under a question, never past LINE's five messages, never more than once a week.
     const low = reply.tokensLeft !== null && reply.tokensLeft <= Math.max(5, Math.round(limit * 0.1));
-    if (unpaid(plan) && !asking && messages.length < 5) {
+    if (unpaid(plan) && !asking && !plansLink && messages.length < 5) {
       const now = deps.now ?? new Date();
       try {
         if (await (deps.upgradeDue ?? upgradeCardDue)(user.user_id, now)) {

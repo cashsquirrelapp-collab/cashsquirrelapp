@@ -138,3 +138,20 @@ test('the plans come however the request is spelt; a sentence about something el
     assert.equal(isLineFeatureShortcut(text), false, text);
   }
 });
+
+// Owner, 2026-11-18, a screenshot: "มันขึ้นแบบนี้แทน": asked in words only เลขา understood, the answer came with two
+// "อัปเกรด Pro · เปิดหน้าในแอป" link cards and no plan cards.
+test('เลขา\'s link to the plans page comes in LINE as the Pro poster and the plan cards, once, under its answer', async () => {
+  const plansLink = { kind: 'navigation', label: 'อัปเกรด Pro', path: '/plans', autoOpen: false };
+  for (const plan of ['pro', 'trial'] as const) {
+    const run = (async () => ({ ...reply, text: 'Pro ตอนนี้เปิดขายเฉพาะรายเดือนครับ', cards: [plansLink, { ...plansLink }] })) as unknown as typeof handleMessage;
+    const result = await lineAssistantAnswer({ user_id: A } as UserRow, 'การ์ดแพ็กเกจที่เราทำไว้ ส่งมาให้ดูหน่อยสิ', [], {
+      env, db: {} as AssistantDb, now: NOW, run,
+      plan: async () => ({ plan, email: null, ...(plan === 'trial' ? { tokens: 100, free: true } : {}) }) as never,
+      rateLimit: async () => undefined, consented: async () => true, upgradeDue: async () => true, markUpgrade: async () => undefined,
+    });
+    const kinds = result!.messages.map(message => (json(message).includes('pro-kv-v1') ? 'poster' : /สมัคร Plus ฿99/.test(json(message)) ? 'plans' : message.type));
+    assert.deepEqual(kinds, ['text', 'poster', 'plans'], plan);
+    assert.doesNotMatch(json(result!.messages), /เปิดหน้าในแอป/, plan);
+  }
+});
