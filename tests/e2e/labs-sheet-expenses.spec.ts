@@ -34,8 +34,9 @@ const chatExpense = { id: 'chat-expense-1', name: 'ค่าโฆษณาเ�
 const settings = { monthlyExpense: 0, monthlyRevenueGoal: 40000, savingsPercentage: 40, profileSetupCompleted: true, userPersona: 'freelance', onboarding: { completedAt: '2026-11-05T03:00:00.000Z' } };
 const versions = { cashflow_jobs: {}, cashflow_expenses: { 'chat-expense-1': 1 }, cashflow_goals: {}, cashflow_invoices: {}, cashflow_documents: { settings: 1 } };
 
-async function open(page: Page, size: { width: number; height: number }, labsOn: string[]) {
+async function open(page: Page, size: { width: number; height: number }, labsOn: string[], appOnly: Record<string, unknown>[] = [], path = '/incomeExpense') {
   const posts: unknown[] = [];
+  const batches: { kind: string; records: Record<string, unknown>[] }[] = [];
   let reads = 0;
   await page.clock.setFixedTime(new Date('2026-11-14T09:12:00+07:00'));
   await page.addInitScript(() => { localStorage.setItem('cashflow_language', 'th'); localStorage.setItem('cashflow_theme_pref', JSON.stringify({ mode: 'light', asked: true })); });
@@ -46,7 +47,7 @@ async function open(page: Page, size: { width: number; height: number }, labsOn:
   await page.route('**/api/groups?*', route => route.fulfill({ json: { systemRole: 'user', groups: [], invitations: [], total: 0, page: 0 } }));
   await page.route('**/api/data*', route => {
     if (route.request().method() === 'POST') { posts.push(route.request().postDataJSON()); return route.fulfill({ json: { ok: true, versions } }); }
-    return route.fulfill({ json: { snapshot: { jobs: [], expenses: [chatExpense], goals: [], invoices: [], settings, statuses: [], job_types: [], notif_settings: { enabled: false, pendingQueue: [] }, avatar_data_url: null, issuer_profile: null }, versions, subscription: { status: 'active', plan: 'pro_monthly', current_period_end: '2099-01-01T00:00:00Z' } } });
+    return route.fulfill({ json: { snapshot: { jobs: [], expenses: [chatExpense, ...appOnly], goals: [], invoices: [], settings, statuses: [], job_types: [], notif_settings: { enabled: false, pendingQueue: [] }, avatar_data_url: null, issuer_profile: null }, versions, subscription: { status: 'active', plan: 'pro_monthly', current_period_end: '2099-01-01T00:00:00Z' } } });
   });
   await page.route('**/api/labs', route => route.fulfill({ json: { labs: { tester: true, on: labsOn } } }));
   await page.route('**/api/google', route => {
@@ -57,12 +58,17 @@ async function open(page: Page, size: { width: number; height: number }, labsOn:
       reads += 1;
       return route.fulfill({ json: { ...status, tabs: [{ name: 'รายรับ', gid: 812, truncated: false, rows: JOB_ROWS }, { name: 'รายจ่าย', gid: 905, truncated: false, rows: EXPENSE_ROWS }], readAt: '2026-11-14T02:12:00.000Z' } });
     }
+    if (body.action === 'saveRows') {
+      const batch = body as unknown as { kind: string; records: Record<string, unknown>[] };
+      batches.push(batch);
+      return route.fulfill({ json: { ...status, result: { status: 'written', fileId: FILE.id, tab: batch.kind === 'expense' ? 'รายจ่าย' : 'รายรับ', rows: batch.records.map((_, i) => 7 + i), gid: 905 } } });
+    }
     return route.fulfill({ json: status });
   });
   await page.setViewportSize(size);
-  await page.goto(noRadar('/incomeExpense'));
+  await page.goto(noRadar(path));
   await loadLayoutFonts(page);
-  return { posts, reads: () => reads };
+  return { posts, batches, reads: () => reads };
 }
 
 for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'phone', width: 390, height: 844 }]) {
@@ -103,4 +109,14 @@ test('without the feature the expenses page is as before and the sheet is never 
   await expect(page.getByText('รายละเอียดรายจ่าย')).toBeVisible();
   await expect(page.getByTestId('sheet-row-line')).toHaveCount(0);
   expect(reads()).toBe(0);
+});
+
+// Owner, 2026-11-18: "ทำไมรายจ่ายไม่เห็นขึ้น": expenses recorded in the app before the sheet was connected never reached it.
+test('expenses in the app but not in the sheet go there by themselves, from any page, the oldest first', async ({ page }) => {
+  const rent = { id: 'app-exp-1', name: 'ค่าเช่าสตูดิโอ', category: 'ค่าเช่า', amount: 8000, date: '2026-11-01', note: '' };
+  const coffee = { id: 'app-exp-2', name: 'กาแฟประชุมลูกค้า', category: 'อาหาร/รับรองลูกค้า', amount: 120, date: '2026-11-04', note: '' };
+  const { batches, posts } = await open(page, { width: 1440, height: 900 }, ['sheets', 'sheetMap', 'sheetJobs', 'sheetWrite'], [coffee, rent], '/dashboard');
+  await expect.poll(() => batches.filter(batch => batch.kind === 'expense').length).toBe(1);
+  expect(batches.find(batch => batch.kind === 'expense')!.records.map(record => record.name)).toEqual(['ค่าเช่าสตูดิโอ', 'กาแฟประชุมลูกค้า']);
+  await expect.poll(() => JSON.stringify(posts)).toContain('"sheetLink":{"fileId":"file-12345678","tab":"รายจ่าย","row":7,"gid":905}');
 });

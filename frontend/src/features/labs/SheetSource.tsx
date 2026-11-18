@@ -84,6 +84,12 @@ function useView(): EngineView {
 export function useSheetEngine(input: {
   enabled: boolean; jobs: Job[]; expenses: Expense[]; statuses: StatusOption[]; jobTypes: string[]; seen?: SheetSeen | null;
   onJobs: (changes: SheetSyncChanges) => void; onExpenses: (changes: SheetExpenseChanges) => void;
+  /** Records in the app not in the sheet: sent there by App (sendRecordsToSheet), without asking (owner, 2026-11-18). */
+  onSendJobs?: (jobs: Job[]) => void; onSendExpenses?: (expenses: Expense[]) => void;
+  /** False while App is writing to the sheet or has given up sending for this session. */
+  canSend?: () => boolean;
+  /** A record on its way to the sheet right now. */
+  busy?: (id: string) => boolean;
 }): void {
   const account = getCurrentAccount() ?? null;
   const labs = useLabs(account);
@@ -96,6 +102,7 @@ export function useSheetEngine(input: {
   latest.current = input;
   const lastRun = React.useRef(0);
   const inFlight = React.useRef(false);
+  const examplesTried = React.useRef(new Set<string>());
   // The connection as it stands, kept apart from the object identities a status refresh renews: a new reading starts when
   // the account, the file or its saved map changes, not when the same status is fetched again.
   const where = React.useRef({ account, file, map });
@@ -108,6 +115,7 @@ export function useSheetEngine(input: {
     // One reading at a time: two at once would both plan from the same records and add the same rows twice.
     if (inFlight.current) return;
     if (!force && Date.now() - lastRun.current < SYNC_GAP) return;
+    let again = false;
     inFlight.current = true;
     lastRun.current = Date.now();
     setView({ reading: true });
@@ -116,19 +124,36 @@ export function useSheetEngine(input: {
       const now = latest.current;
       const recentRows = reply.recentRows ?? [];
       const held = { jobs: [] as string[], expenses: [] as string[] };
+      const examples = reply.tabs.reduce((sum, item) => sum + exampleRowsOf(item.rows).length, 0);
+      // Records the reading just linked to a row are in the sheet already, though the app's state has not caught up yet.
+      const justLinked = new Set<string>();
+      const sendable = examples === 0 && (now.canSend?.() ?? true);
       if (jobTabOf(map)) {
         const changes = planSheetSync({ jobs: now.jobs, tabs: reply.tabs, map, fileId: file.id, statuses: now.statuses, jobTypes: now.jobTypes, today: todayKey(), seen: now.seen, recentRows });
         if (changes.add.length || changes.update.length || changes.remove.length || changes.seen || changes.push.length) now.onJobs(changes);
         held.jobs = changes.held;
+        for (const update of changes.update) if (update.fields.sheetLink) justLinked.add(update.id);
+        const missing = now.jobs.filter(job => !job.sheetLink && !justLinked.has(job.id) && !now.busy?.(job.id));
+        if (sendable && missing.length) now.onSendJobs?.(missing);
       }
       if (expenseTabOf(map)) {
         const changes = planSheetExpenseSync({ expenses: now.expenses, tabs: reply.tabs, map, fileId: file.id, today: todayKey(), seen: now.seen, recentRows });
         if (changes.add.length || changes.update.length || changes.remove.length || changes.seen || changes.push.length) now.onExpenses(changes);
         held.expenses = changes.held;
+        for (const update of changes.update) if (update.fields.sheetLink) justLinked.add(update.id);
+        const missing = now.expenses.filter(expense => !expense.sheetLink && !justLinked.has(expense.id) && !now.busy?.(expense.id));
+        if (sendable && missing.length) now.onSendExpenses?.(missing);
       }
-      setView({ fileId: file.id, readAt: new Date(), problem: false, held, examples: reply.tabs.reduce((sum, item) => sum + exampleRowsOf(item.rows).length, 0) });
+      setView({ fileId: file.id, readAt: new Date(), problem: false, held, examples });
+      // The template's example rows (owner: "เอาตัวอย่างออกด้วยดิ"): taken out of the sheet by themselves, once a session per
+      // file, before anything is sent (the rows below them move up); the reading after that sends what is missing.
+      if (examples > 0 && !examplesTried.current.has(file.id) && (now.canSend?.() ?? true)) {
+        examplesTried.current.add(file.id);
+        const result = await googleApi.deleteExamples(account).catch(() => null);
+        if (result && !result.error && result.deleted > 0) again = true;
+      }
     } catch { setView({ problem: true }); }
-    finally { inFlight.current = false; setView({ reading: false }); }
+    finally { inFlight.current = false; setView({ reading: false }); if (again) void sync(true); }
   }, [readyKey]);
 
   React.useEffect(() => {

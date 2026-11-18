@@ -3144,6 +3144,9 @@ export default function App() {
   };
   // Many at once (older records made before the sheet was connected, an Excel import): in chunks of 100, each chunk one
   // request, linked to their rows as they land; the oldest first, so the sheet stays in date order.
+  // Sent by the sheet's reading itself (owner, 2026-11-18: "ทำไมรายจ่ายไม่เห็นขึ้น" — the app and the sheet are to match without
+  // a tap); a failure stops that for the session, so it is said once, and the line over the list still offers the button.
+  const sheetAutoStopped = useRef(false);
   const sendRecordsToSheet = (kind: 'job' | 'expense', records: (Job | Expense)[], ask: boolean) => {
     const account = getCurrentAccount();
     if (!account || session?.isGuest || financeGroupId || account !== session?.user?.id || !records.length) return;
@@ -3168,7 +3171,10 @@ export default function App() {
       } catch (error) { problem = formatError(error); }
       finally { const until = Date.now() + 30_000; for (const record of ordered) sheetWritingRef.current.set(record.id, until); }
       if (done) fireMascot({ mood: 'happy', tone: 'info', title: tr("ส่งลงชีตแล้ว"), message: tr("เพิ่ม {0} รายการต่อท้ายแท็บ {1}", done, tabName) });
-      if (problem) fireMascot({ mood: 'alert', tone: 'warning', title: tr("บันทึกลงชีตไม่สำเร็จ"), message: tr("ส่งได้ {0} จาก {1} รายการ {2}", done, ordered.length, problem), duration: 9000 });
+      if (problem) {
+        if (!ask) sheetAutoStopped.current = true;
+        fireMascot({ mood: 'alert', tone: 'warning', title: tr("บันทึกลงชีตไม่สำเร็จ"), message: tr("ส่งได้ {0} จาก {1} รายการ {2}", done, ordered.length, problem), duration: 9000 });
+      }
     });
     if (ask) triggerConfirm(tr("ส่งรายการลงชีต"), tr("รายการในแอปที่ยังไม่อยู่ในชีต {0} รายการ จะถูกเพิ่มต่อท้ายชีต เรียงจากเก่าไปใหม่ ต้องการดำเนินการต่อหรือไม่", ordered.length), go);
     else go();
@@ -3218,6 +3224,10 @@ export default function App() {
     enabled: Boolean(session?.user?.id) && !session?.isGuest && !financeGroupId,
     jobs, expenses, statuses, jobTypes, seen: settings.sheetSeen,
     onJobs: handleSheetSync, onExpenses: handleSheetExpenseSync,
+    onSendJobs: records => sendRecordsToSheet('job', records, false),
+    onSendExpenses: records => sendRecordsToSheet('expense', records, false),
+    canSend: () => !sheetAutoStopped.current && !sheetWriting(),
+    busy: sheetBusy,
   });
 
   // Tries the save again after it failed; the import window waits on it the same way.

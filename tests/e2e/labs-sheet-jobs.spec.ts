@@ -32,6 +32,7 @@ const versions = { cashflow_jobs: { 'chat-job-1': 1 }, cashflow_expenses: {}, ca
 
 async function open(page: Page, size: { width: number; height: number }, labsOn: string[], deleteReply: Record<string, unknown> = { deleted: 1, notFound: 0 }, firstRows = ROWS, appOnly: Record<string, unknown>[] = [], path = '/jobs') {
   let sheetRows = firstRows;
+  let deleteExampleCalls = 0;
   const batches: { kind: string; records: Record<string, unknown>[] }[] = [];
   const posts: unknown[] = [];
   const deletes: unknown[] = [];
@@ -57,6 +58,7 @@ async function open(page: Page, size: { width: number; height: number }, labsOn:
     if (body.action === 'read') { reads += 1; return route.fulfill({ json: { ...status, tabs: [{ name: 'รายรับ', gid: 812, truncated: false, rows: sheetRows }], readAt: '2026-11-14T02:12:00.000Z' } }); }
     if (body.action === 'deleteRows') { deletes.push(body); return route.fulfill({ json: { ...status, result: deleteReply } }); }
     if (body.action === 'deleteExamples') {
+      deleteExampleCalls += 1;
       const before = sheetRows.length;
       sheetRows = sheetRows.filter(row => !row.some(cell => /\(ตัวอย่าง\)\s*$/.test(String(cell.text))));
       return route.fulfill({ json: { ...status, result: { deleted: before - sheetRows.length } } });
@@ -76,7 +78,7 @@ async function open(page: Page, size: { width: number; height: number }, labsOn:
   await page.setViewportSize(size);
   await page.goto(noRadar(path));
   await loadLayoutFonts(page);
-  return { posts, deletes, saves, batches, reads: () => reads, setRows: (rows: typeof ROWS) => { sheetRows = rows; } };
+  return { posts, deletes, saves, batches, reads: () => reads, deletedExamples: () => deleteExampleCalls, setRows: (rows: typeof ROWS) => { sheetRows = rows; } };
 }
 
 for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'phone', width: 390, height: 844 }]) {
@@ -230,87 +232,52 @@ test('many rows gone from the sheet at one reading: the jobs stay until ลบ�
     await page.evaluate(() => window.dispatchEvent(new Event('focus')));
     await expect.poll(reads).toBeGreaterThan(before);
     const held = page.getByTestId('sheet-jobs-line-held');
-    await expect(held).toContainText('ชีตไม่มี 7 รายการนี้แล้ว');
+    // Seven rows of the sheet, and the chat's job the app sent there by itself (its row went with the others).
+    await expect(held).toContainText('ชีตไม่มี 8 รายการนี้แล้ว');
     await expect(titles).toHaveCount(9);
     expect(await textOverlapIssues(page)).toEqual([]);
     await expect(page.locator('#app-splash')).toBeHidden({ timeout: 10_000 });
     await held.scrollIntoViewIfNeeded();
     await page.screenshot({ path: `test-results/labs-sheet-jobs-held-${device.width}.png` });
     await held.getByRole('button', { name: 'ลบออกจากแอป' }).click();
-    await expect(titles).toHaveCount(2);
+    await expect(titles).toHaveCount(1);
     await expect(held).toHaveCount(0);
     await page.unrouteAll({ behavior: 'ignoreErrors' });
   }
 });
 
-// Owner, 2026-11-18 ("เอาตามที่แนะนำ"): jobs made in the app before the sheet was connected, copied there with one tap.
-test('jobs not in the sheet yet: the line offers to send them, asks first, sends the oldest first and links them', async ({ page }) => {
+// Owner, 2026-11-18 ("ทำไมรายจ่ายไม่เห็นขึ้น"): records made in the app before the sheet was connected go there by themselves.
+test('jobs not in the sheet yet are sent there by themselves, the oldest first, and linked to their rows', async ({ page }) => {
   const older = { ...chatJob, id: 'app-old-1', name: 'ออกแบบเมนูร้านก๋วยเตี๋ยว', client: 'ร้านเจ๊หมวย', value: 1800, postDate: '2026-09-02', payDate: '2026-09-12' };
   const newer = { ...chatJob, id: 'app-old-2', name: 'ถ่ายรูปงานบวช', client: 'คุณแป้ง', value: 4200, postDate: '2026-10-05', payDate: '2026-10-15' };
-  for (const device of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
-    const { batches, posts } = await open(page, device, ['sheets', 'sheetMap', 'sheetJobs', 'sheetWrite'], undefined, ROWS, [newer, older]);
-    const offer = page.getByTestId('sheet-jobs-line-copy');
-    await expect(offer).toContainText('ในแอปมี 2 รายการที่ยังไม่อยู่ในชีต');
-    // The opening logo times itself by the clock this test holds still: a few seconds on, it hands over.
-    await page.clock.setFixedTime(new Date('2026-11-14T09:12:20+07:00'));
-    await expect(page.locator('#app-splash')).toHaveCount(0, { timeout: 10_000 });
-    expect(await textOverlapIssues(page)).toEqual([]);
-    await offer.scrollIntoViewIfNeeded();
-    await page.screenshot({ path: `test-results/labs-sheet-jobs-copy-${device.width}.png` });
-    await offer.getByRole('button', { name: 'ส่งลงชีต' }).click();
-    const confirm = page.getByRole('dialog', { name: 'ส่งรายการลงชีต' });
-    await expect(confirm).toContainText('2 รายการ');
-    await confirm.getByRole('button', { name: 'ยืนยัน' }).click();
-    await expect.poll(() => batches.length).toBe(1);
-    expect(batches[0].kind).toBe('job');
-    expect(batches[0].records.map(record => record.name)).toEqual(['ออกแบบเมนูร้านก๋วยเตี๋ยว', 'ถ่ายรูปงานบวช']);
-    await expect(offer).toHaveCount(0);
-    await expect(page.getByText('เพิ่ม 2 รายการต่อท้ายแท็บ รายรับ').first()).toBeVisible();
-    await expect.poll(() => JSON.stringify(posts)).toContain('"sheetLink":{"fileId":"file-12345678","tab":"รายรับ","row":7,"gid":812}');
-    await page.unrouteAll({ behavior: 'ignoreErrors' });
-  }
-  // ไม่ต้อง hides it on this device.
-  const { batches } = await open(page, { width: 1440, height: 900 }, ['sheets', 'sheetMap', 'sheetJobs', 'sheetWrite'], undefined, ROWS, [older]);
-  const offer = page.getByTestId('sheet-jobs-line-copy');
-  await offer.getByRole('button', { name: 'ไม่ต้อง' }).click();
-  await expect(offer).toHaveCount(0);
-  await page.reload();
-  await expect(page.getByTestId('sheet-jobs-line')).toContainText('อัปเดต');
-  await expect(offer).toHaveCount(0);
-  expect(batches.length).toBe(0);
+  const { batches, posts } = await open(page, { width: 1440, height: 900 }, ['sheets', 'sheetMap', 'sheetJobs', 'sheetWrite'], undefined, ROWS, [newer, older]);
+  await expect.poll(() => batches.length).toBe(1);
+  expect(batches[0].kind).toBe('job');
+  expect(batches[0].records.map(record => record.name)).toEqual(['ออกแบบเมนูร้านก๋วยเตี๋ยว', 'ถ่ายรูปงานบวช']);
+  await expect(page.getByRole('dialog', { name: 'ส่งรายการลงชีต' })).toHaveCount(0);
+  await expect(page.getByText('เพิ่ม 2 รายการต่อท้ายแท็บ รายรับ').first()).toBeVisible();
+  await expect.poll(() => JSON.stringify(posts)).toContain('"sheetLink":{"fileId":"file-12345678","tab":"รายรับ","row":7,"gid":812}');
+  await expect(page.getByTestId('sheet-jobs-line-copy')).toHaveCount(0);
+  // Read again: the two are in the sheet now, nothing is sent twice.
+  await page.clock.setFixedTime(new Date('2026-11-14T09:14:30+07:00'));
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await page.waitForTimeout(800);
+  expect(batches.length).toBe(1);
 });
 
 // Owner, 2026-11-18: "เอาตัวอย่างออกด้วยดิ ... ใน Google Sheet อ่ะเอามาทำไม".
-test('a sheet made with example rows: they never become jobs, and one tap deletes them from the sheet after asking', async ({ page }) => {
+test('a sheet made with example rows: they never become jobs, and the app takes them out of the sheet by itself', async ({ page }) => {
   const example = [d('05/02/2026', '2026-02-05'), c('รีวิวสินค้า 2 คลิป'), c('บริษัท ตัวอย่างมีเดีย จำกัด (ตัวอย่าง)'), c('12,000'), c('360'), c('11,640', { formula: true }), c('0'), c(''), c('')];
   const withExamples = [ROWS[0], example, ...ROWS.slice(1)];
-  const { reads } = await open(page, { width: 1440, height: 900 }, ['sheets', 'sheetMap', 'sheetJobs', 'sheetWrite'], undefined, withExamples);
+  const { reads, deletedExamples } = await open(page, { width: 1440, height: 900 }, ['sheets', 'sheetMap', 'sheetJobs', 'sheetWrite'], undefined, withExamples);
   const titles = page.locator('table tbody tr td:first-child p:first-child');
   await expect(titles).toHaveCount(3);
   await expect(titles.filter({ hasText: 'รีวิวสินค้า 2 คลิป' })).toHaveCount(0);
-  const line = page.getByTestId('sheet-jobs-line-examples');
-  await expect(line).toContainText('ชีตนี้ยังมีแถวตัวอย่าง 1 แถว');
-  await page.clock.setFixedTime(new Date('2026-11-14T09:12:20+07:00'));
-  await expect(page.locator('#app-splash')).toHaveCount(0, { timeout: 10_000 });
-  expect(await textOverlapIssues(page)).toEqual([]);
-  await page.screenshot({ path: 'test-results/labs-sheet-jobs-examples.png' });
-  const before = reads();
-  await line.getByRole('button', { name: 'ลบแถวตัวอย่าง' }).click();
-  const confirm = page.getByRole('dialog', { name: 'ลบแถวตัวอย่างในชีต' });
-  await expect(confirm).toContainText('แถวอื่นไม่ถูกแตะ');
-  await confirm.getByRole('button', { name: 'ยืนยัน' }).click();
-  await expect.poll(reads).toBeGreaterThan(before);
-  await expect(line).toHaveCount(0);
+  await expect.poll(deletedExamples).toBe(1);
+  await expect.poll(reads).toBeGreaterThan(1);
+  await expect(page.getByTestId('sheet-jobs-line-examples')).toHaveCount(0);
+  await expect(page.getByRole('dialog', { name: 'ลบแถวตัวอย่างในชีต' })).toHaveCount(0);
   await expect(titles).toHaveCount(3);
-});
-
-// Owner, 2026-11-18: "ในส่วนรายจ่ายของชีตอ่ะกูยังไม่เห็นมันอัปเดตเลย": the sheet was kept in step only on its own page.
-test('the sheet is read for the whole app: from the overview, its rows become jobs without opening the jobs page', async ({ page }) => {
-  const { posts, reads } = await open(page, { width: 1440, height: 900 }, ['sheets', 'sheetMap', 'sheetJobs'], undefined, ROWS, [], '/dashboard');
-  await expect.poll(reads).toBeGreaterThan(0);
-  await expect.poll(() => JSON.stringify(posts)).toContain('"name":"ออกแบบโลโก้ร้านกาแฟ"');
-  await expect(page.getByTestId('sheet-jobs-line')).toHaveCount(0);
-  expect(reads()).toBe(1);
 });
 
 test('without the feature the jobs page is as before and the sheet is never read', async ({ page }) => {
