@@ -224,14 +224,32 @@ export type SheetWriteResult =
   | { status: 'failed'; error: string };
 
 /** The account's sheet, ready to write: connected, a picked file, a confirmed map. Null when any is missing. */
-export async function sheetContext(userId: string, known?: GoogleRecord | null): Promise<{ record: GoogleRecord; ops: SheetOps } | null> {
+export async function sheetContext(userId: string, known?: GoogleRecord | null): Promise<{ record: GoogleRecord; ops: SheetOps; token: string } | null> {
   if (!googleConfigured()) return null;
   const record = known === undefined ? await loadGoogle(userId) : known;
   if (!record?.file || !record.map || record.map.fileId !== record.file.id) return null;
   const refresh = decryptToken(record.enc);
   if (!refresh) return null;
   const { token } = await accessToken(refresh);
-  return { record, ops: googleOps(token, record.file.id) };
+  return { record, ops: googleOps(token, record.file.id), token };
+}
+
+// The template's example rows go before anything is written (owner, 2026-11-18: "ถ้าเกิด user กรอกข้อมูลลงไปแล้ว ... ลบตัวอย่าง
+// ... อัตโนมัติ ไม่ว่าจะเป็นรายรับหรือรายจ่ายทุกอย่าง"): the first write to a file from any channel (เลขา's cards, LINE's forms,
+// the app's forms, copies, imports) clears them in every tab first, once per file, so the new row lands where they were.
+// A failure leaves them for the next write; the write itself goes ahead.
+async function clearExamplesOnce(userId: string, context: { record: GoogleRecord; ops: SheetOps; token: string }): Promise<GoogleRecord> {
+  const fileId = context.record.file!.id;
+  if (context.record.examplesCleared === fileId) return context.record;
+  try {
+    for (const tab of await readSpreadsheet(context.token, fileId)) {
+      const rows = exampleRowsOf(tab.rows);
+      if (rows.length) await context.ops.deleteRows(tab.name, rows);
+    }
+    const next: GoogleRecord = { ...((await loadGoogle(userId)) ?? context.record), examplesCleared: fileId };
+    await saveGoogle(userId, next);
+    return next;
+  } catch { return context.record; }
 }
 
 const ERRORS: Record<GoogleError['code'], string> = {
@@ -259,7 +277,8 @@ export async function writeRecordToSheet(userId: string, proposalId: string, kin
     return { status: 'failed', error: message };
   }
   if (!context) return null;
-  const { record: google, ops } = context;
+  const { ops } = context;
+  const google = await clearExamplesOnce(userId, context);
   try {
     const plan = await planRow(ops, google.map!, kind, record);
     if (!plan) return { status: 'failed', error: kind === 'expense' ? 'แผนที่ชีตยังไม่มีแท็บรายจ่าย' : 'แผนที่ชีตยังไม่มีแท็บรายรับหรืองาน' };
@@ -443,7 +462,8 @@ export async function saveAppRecords(userId: string, kind: RowKind, records: Rec
   try { context = await sheetContext(userId); }
   catch (error) { return { status: 'failed', error: error instanceof GoogleError ? ERRORS[error.code] : ERRORS.failed }; }
   if (!context) return null;
-  const { record: google, ops } = context;
+  const { ops } = context;
+  const google = await clearExamplesOnce(userId, context);
   try {
     const written = await writeRowsBatch(ops, google.map!, kind, records);
     if (!written) return { status: 'failed', error: kind === 'expense' ? 'แผนที่ชีตยังไม่มีแท็บรายจ่าย' : 'แผนที่ชีตยังไม่มีแท็บรายรับหรืองาน' };
@@ -465,12 +485,14 @@ export async function saveAppRecord(userId: string, input: { kind: RowKind; reco
   try {
     if (input.before) {
       if (input.before.fileId !== fileId) return { status: 'notFound' };
+      await clearExamplesOnce(userId, context);
       const { found: [spot], reads } = await locateRecordRows(ops, google.map!, [input.before], new Map(), input.loose);
       if (!spot) return { status: 'notFound' };
       await writeOverRow(ops, google.map!, input.kind, input.record, spot, reads.get(spot.tab));
       const gid = await ops.tabId(spot.tab).catch(() => undefined);
       return { status: 'written', fileId, tab: spot.tab, row: spot.row, ...(gid === undefined ? {} : { gid }) };
     }
+    await clearExamplesOnce(userId, context);
     const plan = await planRow(ops, google.map!, input.kind, input.record);
     if (!plan) return { status: 'failed', error: input.kind === 'expense' ? 'แผนที่ชีตยังไม่มีแท็บรายจ่าย' : 'แผนที่ชีตยังไม่มีแท็บรายรับหรืองาน' };
     await writeRow(ops, plan);
@@ -512,6 +534,7 @@ export async function deleteExampleRows(userId: string): Promise<{ deleted: numb
       await ops.deleteRows(tab.name, rows);
       deleted += rows.length;
     }
+    await saveGoogle(userId, { ...((await loadGoogle(userId)) ?? record), examplesCleared: record.file.id }).catch(() => undefined);
     return { deleted };
   } catch (error) {
     return { deleted: 0, error: error instanceof GoogleError ? ERRORS[error.code] : ERRORS.failed };

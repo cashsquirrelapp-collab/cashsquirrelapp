@@ -318,3 +318,16 @@ test('example rows of older workbooks: a typed cell ending in (ตัวอย�
     [cell('20/03/2026'), cell('สถาบันสมมติการเรียนรู้ (ตัวอย่าง) ')],
   ]), [2, 6]);
 });
+
+test('the older agency and production example rows without "(ตัวอย่าง)" are known by their sample code and item together, never by a code alone', async () => {
+  const { exampleRowsOf } = await import('../shared/sheetRow');
+  const cell = (text: string) => ({ raw: text, text });
+  assert.deepEqual(exampleRowsOf([
+    [cell('รหัสโปรเจกต์'), cell('หมวด'), cell('รายการ'), cell('งบ')],
+    [cell('PRJ-2569-001'), cell('โปรดักชัน'), cell('ถ่ายวิดีโอ 1 วัน'), cell('45,000')],
+    [cell('PRJ-2569-001'), cell('KOL'), cell('อินฟลูเอนเซอร์ 3 คน'), cell('30,000')],
+    [cell('PRJ-2569-001'), cell('โปรดักชัน'), cell('ถ่ายสินค้า 2 วัน'), cell('60,000')],
+    [cell('INV-2569-001'), cell('MV-2569-001'), cell('01/03/2026'), cell('85,000')],
+    [cell('MV-2569-001'), cell('ทีมงาน'), cell('ช่างภาพ + ผู้ช่วย'), cell('2')],
+  ]), [2, 3, 5, 6], 'a real line under the same code stays');
+});

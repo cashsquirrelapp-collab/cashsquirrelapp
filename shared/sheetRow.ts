@@ -13,9 +13,20 @@ export type RowKind = 'job' | 'expense';
 export const EXAMPLE_MARK = /\(ตัวอย่าง\)\s*$/;
 export const isExampleText = (...texts: unknown[]) => texts.some(text => EXAMPLE_MARK.test(String(text ?? '')));
 /** The rows of a tab read from the sheet (row numbers as the sheet shows them) that are the template's example rows. */
+// A few example rows of the older agency and production workbooks carried no "(ตัวอย่าง)" (a budget line, a bill): they are
+// known by two of their own texts together, the sample code and the sample item, never by a code alone (a real first
+// project may well be PRJ-2569-001).
+const UNMARKED_EXAMPLES: [string, string][] = [
+  ['PRJ-2569-001', 'ถ่ายวิดีโอ 1 วัน'], ['PRJ-2569-001', 'อินฟลูเอนเซอร์ 3 คน'],
+  ['MV-2569-001', 'ช่างภาพ + ผู้ช่วย'], ['MV-2569-001', 'เช่ากล้องและไฟ'], ['MV-2569-001', 'อาหารกอง'],
+  ['INV-2569-001', 'PRJ-2569-001'], ['INV-2569-001', 'MV-2569-001'],
+];
 export function exampleRowsOf(rows: { text?: string; raw?: unknown; formula?: true }[][]): number[] {
   const found: number[] = [];
-  rows.forEach((cells, index) => { if (cells.some(cell => cell && !cell.formula && isExampleText(cell.text ?? cell.raw))) found.push(index + 1); });
+  rows.forEach((cells, index) => {
+    const typed = cells.filter(cell => cell && !cell.formula).map(cell => String(cell.text ?? cell.raw ?? '').trim());
+    if (typed.some(text => isExampleText(text)) || UNMARKED_EXAMPLES.some(([a, b]) => typed.includes(a) && typed.includes(b))) found.push(index + 1);
+  });
   return found;
 }
 
