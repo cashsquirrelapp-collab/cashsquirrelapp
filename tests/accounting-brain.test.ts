@@ -237,7 +237,7 @@ test('tools: checks, forecast, app receipts and official link cards read only th
 
 // The gateway with an offline provider: the reference and tools appear only for an admin's accounting question.
 const config = (extra: Record<string, string> = {}) => aiConfig({ AI_ENABLED: 'true', GEMINI_API_KEY: 'offline-gemini', OPENAI_API_KEY: 'offline-openai',
-  ANTHROPIC_API_KEY: 'offline-anthropic', AI_SMART_MODEL: 'claude-sonnet-5-5', ...extra });
+  AI_CHAT_MODEL: 'gemini-3.5-flash-lite', AI_ACTION_MODEL: 'gemini-3.5-flash-lite', ANTHROPIC_API_KEY: 'offline-anthropic', AI_SMART_MODEL: 'claude-sonnet-5-5', ...extra });
 async function ask(text: string, plan: AssistantRequest['plan'], tool?: ToolCall, extra: Record<string, string> = {}) {
   const sent: ProviderRequest[] = [];
   const outcomes: ToolOutcome[] = [];

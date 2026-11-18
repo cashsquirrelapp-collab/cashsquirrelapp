@@ -8,6 +8,8 @@ export const PRICES: Record<string, { input: number; cachedInput: number; output
   'gemini-3.5-flash-lite': { input: 0.3, cachedInput: 0.03, output: 2.5 },
   'gpt-5.4-mini': { input: 0.75, cachedInput: 0.075, output: 4.5 },
   'gpt-5.4-nano': { input: 0.2, cachedInput: 0.02, output: 1.25 },
+  // The light model from 2026-11-18 (owner: "ใช้ GPT Luna กับ Sonnet"); developers.openai.com/api/docs/pricing, checked 2026-11-18.
+  'gpt-6-luna': { input: 0.1, cachedInput: 0.01, output: 0.5 },
   // Anthropic first-party price (platform.claude.com/docs pricing, checked 2026-10-24): cache reads 0.05× input,
   // 5-minute cache writes 1.25×, 1-hour writes 2×. The owner chose Sonnet 5.5 for hard requests and no Haiku (2026-10-24).
   'claude-sonnet-5-5': { input: 2, cachedInput: 0.1, output: 10 },

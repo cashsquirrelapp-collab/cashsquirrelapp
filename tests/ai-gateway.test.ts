@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { aiConfig } from '../backend/src/ai/config';
-import { costUsd, krarokTokens } from '../backend/src/ai/cost';
+import { PRICES, costUsd, krarokTokens } from '../backend/src/ai/cost';
 import { AiUnavailableError, memoryStores, runAssistant } from '../backend/src/ai/gateway';
 import { lookupKnowledge } from '../backend/src/ai/knowledge';
 import { launched } from '../backend/src/ai/knowledgeBase';
@@ -25,7 +25,7 @@ const fixture = (): UserRow => ({
     { id: 'job-done', name: 'ถ่ายภาพสินค้า', client: 'ลูกค้าตัวอย่าง', value: 8000, received: 8000, pending: 0, status: 'done', creditTerm: 0, postDate: day(-2), payDate: day(-2), isPosted: true },
   ],
 });
-const config = (over: Record<string, string> = {}) => aiConfig({ AI_ENABLED: 'true', GEMINI_API_KEY: 'test-gemini', OPENAI_API_KEY: 'test-openai', AI_ACTION_MODEL: 'gpt-5.4-mini', ...over });
+const config = (over: Record<string, string> = {}) => aiConfig({ AI_ENABLED: 'true', GEMINI_API_KEY: 'test-gemini', OPENAI_API_KEY: 'test-openai', AI_CHAT_MODEL: 'gemini-3.5-flash-lite', AI_ACTION_MODEL: 'gpt-5.4-mini', ...over });
 
 type Sent = { url: string; headers: Record<string, string>; body: any };
 function fakeFetch(replies: unknown[], sent: Sent[], status = 200): typeof fetch {
@@ -79,7 +79,21 @@ test('config: off unless AI_ENABLED is exactly true, limits clamped', () => {
   // 8 by default (owner, 2026-10-24): complex requests (find, read, one card per job, answer) stopped halfway at 4.
   assert.equal(aiConfig({}).maxToolSteps, 8);
   assert.equal(aiConfig({ AI_MAX_TOOL_STEPS: '2.9' }).maxToolSteps, 2, 'the provider request budget is an integer');
-  assert.deepEqual([aiConfig({}).chatModel, aiConfig({}).actionModel], ['gemini-3.5-flash-lite', 'gemini-3.5-flash-lite'], 'Gemini only by default');
+  assert.deepEqual([aiConfig({}).chatModel, aiConfig({}).actionModel], ['gemini-3.5-flash-lite', 'gemini-3.5-flash-lite'], 'Gemini while there is no OpenAI key');
+});
+
+// Owner, 2026-11-18: "ใช้ GPT Luna กับ Sonnet แล้วกันสองตัวนี้": GPT-6 Luna answers chat and everyday records once the owner has
+// set the OpenAI key, Sonnet stays the smart model; without the key nothing changes, so a release never breaks เลขา.
+test('config: GPT-6 Luna is the light model once the OpenAI key is set; explicit models still win; its price is known', () => {
+  const luna = aiConfig({ OPENAI_API_KEY: 'k', AI_SMART_MODEL: 'claude-sonnet-5-5' });
+  assert.deepEqual([luna.chatModel, luna.actionModel, luna.smartModel], ['gpt-6-luna', 'gpt-6-luna', 'claude-sonnet-5-5']);
+  assert.deepEqual([aiConfig({ OPENAI_API_KEY: ' ' }).chatModel], ['gemini-3.5-flash-lite'], 'a blank key is no key');
+  assert.equal(aiConfig({ OPENAI_API_KEY: 'k', AI_CHAT_MODEL: 'gemini-3.5-flash-lite' }).chatModel, 'gemini-3.5-flash-lite', 'the way back');
+  assert.deepEqual(PRICES['gpt-6-luna'], { input: 0.1, cachedInput: 0.01, output: 0.5 });
+  // 8,000 fresh input tokens and 300 out cost $0.00095, about a quarter of Gemini 3.5 Flash-Lite's $0.00315.
+  const usage = { inputTokens: 8000, cachedInputTokens: 0, outputTokens: 300, thinkingTokens: 0 } as never;
+  assert.ok(Math.abs(costUsd('openai', 'gpt-6-luna', usage) - 0.00095) < 1e-9);
+  assert.ok(Math.abs(costUsd('gemini', 'gemini-3.5-flash-lite', usage) - 0.00315) < 1e-9);
 });
 
 test('knowledge: a question finds the matching app feature', () => {
@@ -551,4 +565,33 @@ test('a long message or pasted list reaches the model whole (6,000 characters), 
   const prompt = buildSystemPrompt({ route: 'action', plan: 'pro', nowLocal: 'x', knowledge: '-', accountContext: '{}' });
   assert.match(prompt, /prepare one card per job or item in the same turn/);
   assert.match(prompt, /Never ask the user to send the steps one at a time/);
+});
+
+// Owner, 2026-11-18: GPT-6 Luna is the light model once the OpenAI key is set. If OpenAI turns a message down (a setting
+// the new model does not take, an outage, a wrong key), Gemini answers that message instead of the person seeing an error.
+test('gateway: GPT-6 Luna answers chat; when OpenAI fails, Gemini answers the same message once', async () => {
+  const luna = aiConfig({ AI_ENABLED: 'true', GEMINI_API_KEY: 'test-gemini', OPENAI_API_KEY: 'test-openai' });
+  const sent: Sent[] = [];
+  const ok = await runAssistant({ user: fixture(), plan: 'admin', text: 'สวัสดีครับ', forceRoute: 'chat' }, {
+    config: luna, ...memoryStores(), fetchImpl: fakeFetch([openaiText('สวัสดีครับ มีอะไรให้ช่วยไหมครับ')], sent),
+  });
+  assert.equal(ok.text, 'สวัสดีครับ มีอะไรให้ช่วยไหมครับ');
+  assert.match(sent[0].url, /api\.openai\.com\/v1\/responses/);
+  assert.equal(sent[0].body.model, 'gpt-6-luna');
+
+  const tried: Sent[] = [];
+  const backed = await runAssistant({ user: fixture(), plan: 'admin', text: 'สวัสดีครับ', forceRoute: 'chat' }, {
+    config: luna, ...memoryStores(),
+    fetchImpl: fakeFetch([{ status: 400, json: { error: { message: 'Unsupported parameter' } } }, geminiText('สวัสดีครับ')], tried),
+  });
+  assert.equal(backed.text, 'สวัสดีครับ');
+  assert.match(tried[0].url, /api\.openai\.com/);
+  assert.match(tried[1].url, /generativelanguage\.googleapis\.com/);
+  assert.ok(backed.routing!.escalations.includes('light_backup'));
+
+  // Without a Gemini key there is nothing to fall back to: the error stays an error (no silent empty answer).
+  await assert.rejects(runAssistant({ user: fixture(), plan: 'admin', text: 'สวัสดีครับ', forceRoute: 'chat' }, {
+    config: aiConfig({ AI_ENABLED: 'true', OPENAI_API_KEY: 'test-openai' }), ...memoryStores(),
+    fetchImpl: fakeFetch([{ status: 400, json: { error: { message: 'Unsupported parameter' } } }], []),
+  }));
 });

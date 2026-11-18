@@ -43,6 +43,9 @@
     "CRON_ENABLED": "true",
     // เลขากระรอก (2026-10-24): available to active Pro/trial accounts and system admins, within existing quotas.
     // API keys remain secrets: wrangler secret put GEMINI_API_KEY.
+    // Light model (owner, 2026-11-18: "ใช้ GPT Luna กับ Sonnet"): GPT-6 Luna for everyday talk and plain changes as soon as
+    // the owner sets wrangler secret put OPENAI_API_KEY; until then Gemini 3.5 Flash-Lite, and Gemini answers any message
+    // OpenAI turns down. Dictation and the Excel import stay on Gemini. "AI_CHAT_MODEL"/"AI_ACTION_MODEL" pin a model.
     // Accounts allowed in before customers (owner, 2026-10-24) are a secret too, comma-separated emails, never in the
     // repository: wrangler secret put AI_ALLOWED_EMAILS.
     "AI_ENABLED": "true",

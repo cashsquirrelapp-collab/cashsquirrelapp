@@ -38,7 +38,7 @@
     "STAGING_LINE_OPEN": "enabled",
     "CRON_ENABLED": "false",
     // เลขากระรอก as on the real site; it answers only once the owner gives this Worker its own AI keys
-    // (wrangler secret put GEMINI_API_KEY / ANTHROPIC_API_KEY -c wrangler.staging.jsonc).
+    // (wrangler secret put GEMINI_API_KEY / ANTHROPIC_API_KEY -c wrangler.staging.jsonc; OPENAI_API_KEY turns on GPT-6 Luna).
     "AI_ENABLED": "true",
     "AI_ADMINS_ONLY": "false",
     "AI_SMART_MODEL": "claude-sonnet-5-5",

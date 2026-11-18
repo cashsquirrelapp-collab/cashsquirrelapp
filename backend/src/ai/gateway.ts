@@ -143,6 +143,8 @@ export interface AssistantReply {
   routing?: RoutingRecord;
 }
 
+/** Answers a message when the OpenAI light model fails (gateway attempt). */
+export const LIGHT_BACKUP_MODEL = 'gemini-3.5-flash-lite';
 const providerFor = (model: string): ProviderName => (/^gemini/i.test(model) ? 'gemini' : /^claude/i.test(model) ? 'anthropic' : 'openai');
 
 const FALLBACK_TEXT = {
@@ -284,7 +286,11 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
   const ownerSwitch = Boolean(config.smartForLight && smartReady);
   let smart = smartReady && decision.tier === 'smart' && !(soft && !decision.smartRequired) ? config.smartModel : undefined;
   let required = decision.smartRequired;
-  const lightModel = (route: Route) => ownerSwitch ? config.smartModel! : route === 'chat' ? config.chatModel : config.actionModel;
+  // GPT-6 Luna as the light model (owner, 2026-11-18): if OpenAI turns a message down or is out (a setting it does not take,
+  // an outage, a wrong key), that message is answered by Gemini 3.5 Flash-Lite instead, once, so เลขา never stops on it.
+  let lightBackedUp = false;
+  const lightModel = (route: Route) => ownerSwitch ? config.smartModel! : lightBackedUp ? LIGHT_BACKUP_MODEL
+    : route === 'chat' ? config.chatModel : config.actionModel;
   const modelFor = (route: Route) => smart ?? lightModel(route);
   const firstRoute = request.forceRoute ?? decision.tools;
   // Both keys are checked up front: a chat request can hand over to the action model mid-request. The light
@@ -628,8 +634,20 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
   // request is answered again by the light model. Cards from the failed attempt are dropped with it; their saved
   // proposals expire unconfirmed after 30 minutes. Version 2 holds back a document, delete, important edit or complex
   // change instead (the light model must not make those for Sonnet), and anything after a saved proposal or memory.
+  const runLight = async (route: Route, handoff?: string): Promise<ProviderResult> => {
+    try { return await run(route, handoff); }
+    catch (error) {
+      // Only before anything lasting was saved, and only once per message.
+      if (!(error instanceof ProviderError) || signal.aborted || error.provider !== 'openai' || lightBackedUp || ownerSwitch || lasting > 0 || !keys.gemini) throw error;
+      console.warn('ai: light model failed, Gemini answers', { status: error.status });
+      noteFailed(route, error);
+      lightBackedUp = true;
+      escalations.push('light_backup');
+      return run(route, handoff);
+    }
+  };
   const attempt = async (route: Route, handoff?: string): Promise<ProviderResult> => {
-    if (!smart) return run(route, handoff);
+    if (!smart) return runLight(route, handoff);
     try { return await run(route, handoff); }
     catch (error) {
       if (!(error instanceof ProviderError) || signal.aborted) throw error;
@@ -638,7 +656,7 @@ export async function runAssistant(request: AssistantRequest, deps: AssistantDep
       smart = undefined;
       if (policy === 'v2' && ((required && !config.lightFallbackWrites) || lasting > 0)) { fallback = 'blocked'; return held(route); }
       fallback = 'light';
-      return run(route, handoff);
+      return runLight(route, handoff);
     }
   };
 

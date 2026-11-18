@@ -72,22 +72,27 @@ export function assistantEnabledForPlan(config: AiConfig, plan: string, email?: 
 }
 
 export function aiConfig(env: Record<string, string | undefined> = process.env): AiConfig {
+  const openaiKey = env.OPENAI_API_KEY?.trim() || undefined;
+  // Owner, 2026-11-18: GPT-6 Luna for chat and everyday records, Claude Sonnet for the hard and risky ones ("ใช้ GPT Luna
+  // กับ Sonnet แล้วกันสองตัวนี้"; about four times cheaper than Gemini 3.5 Flash-Lite per message). The OpenAI key is the
+  // owner's to set (wrangler secret put OPENAI_API_KEY); until it is there the light model stays Gemini 3.5 Flash-Lite, so
+  // no release can leave เลขา without one. AI_CHAT_MODEL / AI_ACTION_MODEL still choose a model outright (for example
+  // gemini-3.5-flash-lite to go back). Dictation and the Excel import keep their own Gemini models.
+  const lightDefault = openaiKey ? 'gpt-6-luna' : 'gemini-3.5-flash-lite';
   return {
     enabled: env.AI_ENABLED?.trim().toLowerCase() === 'true',
     // Open Pro access by explicitly deploying AI_ADMINS_ONLY=false. Missing/invalid values fail closed.
     adminsOnly: env.AI_ADMINS_ONLY?.trim().toLowerCase() !== 'false',
     allowedEmails: (env.AI_ALLOWED_EMAILS || '').split(/[,\s]+/).map(email => email.trim().toLowerCase()).filter(email => email.includes('@')),
-    // Owner's choice 2026-10-24: Gemini only for now (no OpenAI account yet). 3.5 Flash-Lite is Google's pick for new
-    // projects; 3.1 Flash-Lite may be retired from 7 May 2027. Set AI_ACTION_MODEL=gpt-5.4-mini to bring GPT back.
-    chatModel: env.AI_CHAT_MODEL?.trim() || 'gemini-3.5-flash-lite',
-    actionModel: env.AI_ACTION_MODEL?.trim() || 'gemini-3.5-flash-lite',
+    chatModel: env.AI_CHAT_MODEL?.trim() || lightDefault,
+    actionModel: env.AI_ACTION_MODEL?.trim() || lightDefault,
     smartModel: env.AI_SMART_MODEL?.trim() || undefined,
     // Owner, 2026-10-26: dictation must be accurate. In the before/after check (artifacts/ai-secretary/eval/voice-1),
     // Gemini 3.8 Flash wrote all 10 noisy clips without a mistake; Flash-Lite with the same spelling lists got every name
     // and amount but still misheard a few words. AI_VOICE_MODEL=gemini-3.5-flash-lite costs about half.
     voiceModel: env.AI_VOICE_MODEL?.trim() || 'gemini-3.8-flash',
     geminiKey: env.GEMINI_API_KEY?.trim() || undefined,
-    openaiKey: env.OPENAI_API_KEY?.trim() || undefined,
+    openaiKey,
     anthropicKey: env.ANTHROPIC_API_KEY?.trim() || undefined,
     tokenUsd: num(env.AI_TOKEN_USD, 0.001, 0.00001, 1),
     // Owner, 2026-10-25: 1,650 a month for every Pro account, paid or given (was 2,500 from 2026-10-24).
