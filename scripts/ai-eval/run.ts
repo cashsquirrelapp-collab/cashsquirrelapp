@@ -5,7 +5,7 @@
 //   node --import tsx scripts/ai-eval/run.ts --smoke          one tiny call per provider (field names, usage)
 //   node --import tsx scripts/ai-eval/run.ts                  the full comparison
 //   node --import tsx scripts/ai-eval/run.ts --list           no API calls: what would run or be skipped
-//   options: --channel line (answers for LINE)  --only thai-01,thai-02  --arms gemini,gpt  --max-usd 2  --dataset <path>  --out <dir>
+//   options: --channel line (answers for LINE)  --only thai-01,thai-02  --arms gemini35,luna,lunamixed  --max-usd 2  --dataset <path>  --out <dir>
 //
 // Keys come from .env.local (GEMINI_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY), or the file AI_EVAL_ENV points to, and
 // are never printed: only "present" or "missing". AI_ACCOUNTING=all turns the Accounting Brain on for the example account.
@@ -41,8 +41,10 @@ const option = (name: string, fallback?: string) => { const at = args.indexOf(`-
 const flag = (name: string) => args.includes(`--${name}`);
 
 // mixed = what production runs with AI_SMART_MODEL: Gemini 3.5 Flash-Lite, Sonnet 5.5 for hard requests (difficulty.ts).
-const MODELS = { gemini: 'gemini-3.1-flash-lite', gemini35: 'gemini-3.5-flash-lite', gpt: 'gpt-5.4-mini', sonnet55: 'claude-sonnet-5-5', mixed: 'gemini-3.5-flash-lite + claude-sonnet-5-5' } as const;
-const keyFor = (arm: string) => (arm.startsWith('gemini') ? base.geminiKey : arm === 'mixed' ? base.geminiKey && base.anthropicKey : arm.startsWith('sonnet') ? base.anthropicKey : base.openaiKey);
+// luna / lunamixed (owner, 2026-11-18, way A): GPT-6 Luna alone, and Luna with Sonnet 5.5 for hard requests.
+const MODELS = { gemini: 'gemini-3.1-flash-lite', gemini35: 'gemini-3.5-flash-lite', gpt: 'gpt-5.4-mini', luna: 'gpt-6-luna', sonnet55: 'claude-sonnet-5-5', mixed: 'gemini-3.5-flash-lite + claude-sonnet-5-5', lunamixed: 'gpt-6-luna + claude-sonnet-5-5' } as const;
+const keyFor = (arm: string) => (arm.startsWith('gemini') ? base.geminiKey : arm === 'mixed' ? base.geminiKey && base.anthropicKey
+  : arm === 'lunamixed' ? base.openaiKey && base.anthropicKey : arm.startsWith('sonnet') ? base.anthropicKey : base.openaiKey);
 type Arm = keyof typeof MODELS;
 const BUILT_TOOLS = new Set(['search_documents', 'feature_lookup', 'money_summary', 'receivables', 'search_jobs', 'get_job', 'remember', 'route_to_action', 'propose_add_job', 'propose_record_payment', 'propose_edit_job', 'propose_delete_job',
   // Learning (2026-10-25, packages A–D) and the tools since the first set.
@@ -92,6 +94,7 @@ export function exampleAccount(): UserRow {
 async function smoke() {
   const ask = { system: 'Reply with the single Thai word: พร้อม', turns: [{ role: 'user' as const, text: 'ทดสอบ' }], tools: [], maxOutputTokens: 32, execute: async () => ({ result: null }) };
   for (const [arm, model] of Object.entries(MODELS) as [Arm, string][]) {
+    if (model.includes('+') || arm.startsWith('sonnet')) continue; // pairs and Claude: not a single Gemini/OpenAI call
     const key = arm.startsWith('gemini') ? base.geminiKey : base.openaiKey;
     if (!key) { console.log(`${model}: skipped (key missing)`); continue; }
     const started = Date.now();
@@ -231,8 +234,8 @@ async function main() {
       const stores = memoryStores();
       const observed: { call: ToolCall; outcome: ToolOutcome }[] = [];
       const history: ChatTurn[] = (test.history || []).map(turn => (turn.user !== undefined ? { role: 'user', text: turn.user } : { role: 'assistant', text: turn.bot || '' }));
-      const config = arm === 'mixed'
-        ? { ...base, enabled: true, chatModel: MODELS.gemini35, actionModel: MODELS.gemini35, smartModel: MODELS.sonnet55 }
+      const config = arm === 'mixed' || arm === 'lunamixed'
+        ? { ...base, enabled: true, chatModel: arm === 'mixed' ? MODELS.gemini35 : MODELS.luna, actionModel: arm === 'mixed' ? MODELS.gemini35 : MODELS.luna, smartModel: MODELS.sonnet55 }
         : { ...base, enabled: true, chatModel: MODELS[arm], actionModel: MODELS[arm], smartModel: undefined };
       const started = Date.now();
       try {
