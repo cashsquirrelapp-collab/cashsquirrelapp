@@ -1,5 +1,5 @@
 import { KEPT_WRITES, RECENT_ROWS_MS, UNDO_MS, sheetRowUrl, type GoogleRecord, type SheetMap, type SheetWrite } from '../../../shared/googleSheets.js';
-import { chooseTab, dataColumns, deletedRowOf, displayValue, exampleRowsOf, letter, rowCells, valueFor, type DeletedRecordRow, type RowCell, type RowKind } from '../../../shared/sheetRow.js';
+import { chooseTab, dataColumns, deletedRowOf, displayValue, exampleRowsOf, incomeTypeFor, isIncomeTypeColumn, letter, rowCells, valueFor, type DeletedRecordRow, type RowCell, type RowKind } from '../../../shared/sheetRow.js';
 import { evaluateRow, shiftFormula } from '../../../shared/sheetFormula.js';
 import { isValidWhtRate, roundMoney, whtAmountFor } from '../../../shared/wht.js';
 import { loadGoogle, saveGoogle } from '../repositories/google.js';
@@ -407,7 +407,10 @@ export async function writeOverRow(ops: SheetOps, map: SheetMap, kind: RowKind, 
   const near = (read?.rows ?? []).slice(Math.max(0, spot.row - read!.first - 15), Math.max(0, spot.row - read!.first + 15));
   const samples: Record<number, string[]> = {};
   for (const column of tab.columns) samples[column.index] = near.map(cells => cells[column.index] ?? '').filter(Boolean);
+  const current = read ? read.rows[spot.row - read.first] ?? [] : [];
   const values = rowCells(tab, kind, record, samples)
+    // A type of income the row already has is the person's (or was given before): never written over.
+    .filter(cell => !(isIncomeTypeColumn(tab.columns.find(column => column.index === cell.index)!) && (current[cell.index] ?? '').trim()))
     .filter((cell): cell is RowCell & { value: string | number } => !cell.formula && cell.value !== null).map(cell => ({ index: cell.index, value: cell.value }));
   return ops.write(tab.name, spot.row, values);
 }
@@ -554,6 +557,32 @@ export async function writeEditedRecordToSheet(userId: string, kind: RowKind, re
     if (!labState(labs, owner).on.includes('sheetWrite')) return null;
     return await saveAppRecord(userId, { kind, record, before: row, loose: true });
   } catch { return null; }
+}
+
+/** The job rows written before 2026-11-18 left ประเภทเงินได้ empty, so the sheet's reports counted no income: each row with
+ *  a job and no type gets the type the column uses most (else 40(2)), in one write. Rows that have one are left alone. */
+export async function fillIncomeTypes(ops: SheetOps, map: SheetMap): Promise<number> {
+  const tab = chooseTab(map, 'job');
+  const column = tab?.columns.find(isIncomeTypeColumn);
+  if (!tab || !column) return 0;
+  const first = (tab.headerRow === null ? 0 : tab.headerRow + 1) + 1;
+  const last = Math.min(await ops.lastRow(tab.name, dataColumns(tab)), first + MAX_DELETE_SCAN);
+  if (last < first) return 0;
+  const rows = await ops.readRows(tab.name, first, last, Math.max(0, ...tab.columns.map(item => item.index)));
+  const type = incomeTypeFor(rows.map(cells => cells[column.index] ?? ''), column.choices);
+  const data = dataColumns(tab);
+  const cells = rows.flatMap((cells, index) => (data.some(at => (cells[at] ?? '').trim()) && !(cells[column.index] ?? '').trim() ? [{ row: first + index, index: column.index, value: type }] : []));
+  if (cells.length) await ops.writeMany(tab.name, cells);
+  return cells.length;
+}
+
+export async function fillSheetIncomeTypes(userId: string): Promise<{ filled: number; error?: string } | null> {
+  let context: Awaited<ReturnType<typeof sheetContext>>;
+  try { context = await sheetContext(userId); }
+  catch (error) { return { filled: 0, error: error instanceof GoogleError ? ERRORS[error.code] : ERRORS.failed }; }
+  if (!context) return null;
+  try { return { filled: await fillIncomeTypes(context.ops, context.record.map!) }; }
+  catch (error) { return { filled: 0, error: error instanceof GoogleError ? ERRORS[error.code] : ERRORS.failed }; }
 }
 
 /** ย้อนกลับ: empties the cells of the last write, within 30 minutes, if it is still the connected file. */

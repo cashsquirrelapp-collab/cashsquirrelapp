@@ -169,7 +169,9 @@ test('our own sheets are read the way the template means them: an expense row ge
   assert.deepEqual(cellsOf('production', 'expense', coffee), { 'วันที่จ่าย': '2026-11-13', 'หมวด': 'อาหาร', 'รายการ': 'ค่ากาแฟ', 'ก่อน VAT': 60 });
   const job = { name: 'ตัดต่อคลิป', client: 'บริษัท ก จำกัด', value: 10000, whtRate: 3, payDate: '2026-11-10', paymentStatus: 'paid' };
   assert.deepEqual(cellsOf('freelance', 'job', job, { 6: ['3%'] }),
-    { 'วันที่รับเงิน': '2026-11-10', 'ผู้จ่ายเงิน': 'บริษัท ก จำกัด', 'รายการ': 'ตัดต่อคลิป', 'ยอดก่อนหัก': 10000, 'อัตราหัก': '3%' });
+    { 'วันที่รับเงิน': '2026-11-10', 'ผู้จ่ายเงิน': 'บริษัท ก จำกัด', 'รายการ': 'ตัดต่อคลิป', 'ประเภทเงินได้': '40(2)', 'ยอดก่อนหัก': 10000, 'อัตราหัก': '3%' });
+  // ประเภทเงินได้ (owner, 2026-11-18): the reports add income up by it; the column's own most-used type, else 40(2).
+  assert.equal(cellsOf('freelance', 'job', job, { 4: ['40(8)', '40(8)', '40(2)'], 6: ['3%'] })['ประเภทเงินได้'], '40(8)');
   assert.deepEqual(cellsOf('agency', 'job', { ...job, postDate: '2026-11-01' }),
     { 'ชื่อแคมเปญ': 'ตัดต่อคลิป', 'ลูกค้า': 'บริษัท ก จำกัด', 'ค่าบริการก่อน VAT': 10000, 'วันเริ่ม': '2026-11-01' });
   // Someone else's sheet is not taken for ours; ours with a column added after the last one still is.
@@ -330,4 +332,25 @@ test('the older agency and production example rows without "(ตัวอย่�
     [cell('INV-2569-001'), cell('MV-2569-001'), cell('01/03/2026'), cell('85,000')],
     [cell('MV-2569-001'), cell('ทีมงาน'), cell('ช่างภาพ + ผู้ช่วย'), cell('2')],
   ]), [2, 3, 5, 6], 'a real line under the same code stays');
+});
+
+test('job rows written without ประเภทเงินได้ get one, in one write; a row that has one, or holds no job, is left alone', async () => {
+  const { fillIncomeTypes } = await import('../backend/src/services/sheetWrite');
+  const tabs = live(buildBookTemplate(PROFILES.freelance, { year: 2026 }).sheets);
+  const map = upgradeTemplateMap(mapOf('file-1234567890', readTabs(tabs)));
+  const grid = [
+    ['วันที่รับเงิน', 'ผู้จ่ายเงิน', 'เลขผู้เสียภาษีผู้จ่าย', 'รายการ', 'ประเภทเงินได้', 'ยอดก่อนหัก'],
+    ['01/11/2026', 'แม่', '', 'แม่', '', '1,000.00'],
+    ['08/11/2026', 'ปล่อยจอย', '', 'คลิป', '40(8)', '1,000.00'],
+    ['', '', '', '', '', ''],
+    ['18/11/2026', 'กยศ', '', 'งานของ กยศ', '', '3,000.00'],
+  ];
+  const writes: { row: number; index: number; value: string | number }[][] = [];
+  const ops = {
+    async lastRow() { return grid.length; },
+    async readRows(_tab: string, from: number, to: number) { return grid.slice(from - 1, to); },
+    async writeMany(_tab: string, cells: { row: number; index: number; value: string | number }[]) { writes.push(cells); return []; },
+  } as never;
+  assert.equal(await fillIncomeTypes(ops, map), 2);
+  assert.deepEqual(writes, [[{ row: 2, index: 4, value: '40(8)' }, { row: 5, index: 4, value: '40(8)' }]], 'the type the column already uses');
 });

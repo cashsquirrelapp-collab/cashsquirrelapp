@@ -49,6 +49,8 @@ export const googleApi = {
   saveRows: (account: string, kind: 'job' | 'expense', records: object[]) =>
     post<{ result: { status: 'written'; fileId: string; tab: string; rows: number[]; gid?: number } | { status: 'failed'; error: string } | null }>(
       account, { action: 'saveRows', kind, records }).then(reply => reply.result),
+  /** ประเภทเงินได้ filled in on the job rows that have none (null: no sheet). */
+  fillIncomeTypes: (account: string) => post<{ result: { filled: number; error?: string } | null }>(account, { action: 'fillIncomeTypes' }).then(reply => reply.result),
   /** The template's example rows deleted from the connected sheet (null: no sheet). */
   deleteExamples: (account: string) => post<{ result: { deleted: number; error?: string } | null }>(account, { action: 'deleteExamples' }).then(reply => reply.result),
   /** Records deleted in the app: their rows go from the connected sheet too (null: no sheet ready). */

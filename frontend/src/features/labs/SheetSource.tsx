@@ -3,7 +3,7 @@ import { ExternalLink } from 'lucide-react';
 import type { Expense, Job, SheetSeen, StatusOption } from '../../../../shared/types';
 import { labOn } from '../../../../shared/labs';
 import { sheetRowUrl, type GoogleStatus, type SheetLink, type SheetMap } from '../../../../shared/googleSheets';
-import { exampleRowsOf } from '../../../../shared/sheetRow';
+import { exampleRowsOf, isIncomeTypeColumn } from '../../../../shared/sheetRow';
 import { tr } from '../../i18n/tr';
 import { getCurrentAccount } from '../../services/api';
 import { googleApi } from '../../services/google';
@@ -103,6 +103,7 @@ export function useSheetEngine(input: {
   const lastRun = React.useRef(0);
   const inFlight = React.useRef(false);
   const examplesTried = React.useRef(new Set<string>());
+  const typesTried = React.useRef(new Set<string>());
   // The connection as it stands, kept apart from the object identities a status refresh renews: a new reading starts when
   // the account, the file or its saved map changes, not when the same status is fetched again.
   const where = React.useRef({ account, file, map });
@@ -147,6 +148,17 @@ export function useSheetEngine(input: {
       setView({ fileId: file.id, readAt: new Date(), problem: false, held, examples });
       // The template's example rows (owner: "เอาตัวอย่างออกด้วยดิ"): taken out of the sheet by themselves, once a session per
       // file, before anything is sent (the rows below them move up); the reading after that sends what is missing.
+      // Job rows with no ประเภทเงินได้ (written before 2026-11-18): the sheet's reports counted no income; filled once a session.
+      const jobTab = jobTabOf(map);
+      const typeColumn = jobTab?.columns.find(isIncomeTypeColumn);
+      const jobRows = jobTab ? reply.tabs.find(item => item.name === jobTab.name)?.rows ?? [] : [];
+      const firstData = jobTab ? (jobTab.headerRow ?? -1) + 1 : 0;
+      const untyped = typeColumn ? jobRows.slice(firstData).some(cells => !String(cells[typeColumn.index]?.text ?? '').trim()
+        && jobTab!.columns.some(column => column.target === 'name' && String(cells[column.index]?.text ?? '').trim())) : false;
+      if (untyped && examples === 0 && !typesTried.current.has(file.id) && (now.canSend?.() ?? true)) {
+        typesTried.current.add(file.id);
+        await googleApi.fillIncomeTypes(account).catch(() => null);
+      }
       if (examples > 0 && !examplesTried.current.has(file.id) && (now.canSend?.() ?? true)) {
         examplesTried.current.add(file.id);
         const result = await googleApi.deleteExamples(account).catch(() => null);

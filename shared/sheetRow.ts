@@ -178,9 +178,23 @@ export function valueFor(column: SheetMapColumn, kind: RowKind, record: Record<s
 
 /** The new row for this record in this tab: one cell per mapped column, in column order. `samples` are the values the
  *  column already holds (its status words and date style are followed). */
+// The workbook's ประเภทเงินได้ column (owner, 2026-11-18: "ทุกอย่างตรงใช่ไหม" — the reports showed no income at all): รายงาน
+// เงินสดรับ-จ่าย and สรุปภาษีรายปี add income up by it, so a row without one counted nowhere. A job's row gets the type the
+// column itself uses most, else 40(2) (hired work, the usual freelance income); the person changes it in the sheet's own
+// drop-down, and the app never writes over one already there (services/sheetWrite.ts writeOverRow).
+const INCOME_TYPES = ['40(1)', '40(2)', '40(3)', '40(4)', '40(5)', '40(6)', '40(7)', '40(8)', 'อื่น ๆ'];
+export const isIncomeTypeColumn = (column: SheetMapColumn) => column.target === 'keep' && !column.formula && /ประเภทเงินได้/.test(column.header);
+export function incomeTypeFor(values: string[], choices?: string[]): string {
+  const known = new Set([...INCOME_TYPES, ...(choices ?? [])]);
+  const counts = new Map<string, number>();
+  for (const value of values) { const text = value.trim(); if (known.has(text)) counts.set(text, (counts.get(text) ?? 0) + 1); }
+  return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '40(2)';
+}
+
 export function rowCells(tab: SheetMapTab, kind: RowKind, record: Record<string, unknown>, samples: Record<number, string[]> = {}): RowCell[] {
   return tab.columns.slice().sort((a, b) => a.index - b.index).map(column => {
     const formula = Boolean(column.formula);
+    if (kind === 'job' && isIncomeTypeColumn(column)) return { index: column.index, header: column.header, target: column.target, formula: false, value: incomeTypeFor(samples[column.index] ?? [], column.choices) };
     const value = formula || column.target === 'keep' || column.target === 'ignore' ? null : valueFor(column, kind, record, samples[column.index] ?? [], tab.kind === 'mixed');
     return { index: column.index, header: column.header, target: column.target, formula, value: value === '' ? null : value };
   });
