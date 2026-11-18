@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import type Stripe from 'stripe';
 import { inFreeTrial } from '../../../shared/trial.js';
 import { costUsd } from '../ai/cost.js';
-import type { AiConfig } from '../ai/config.js';
+import { geminiModelOf, type AiConfig } from '../ai/config.js';
 import { summarizeStripeTransactions } from './adminStripeFinance.js';
 import { proTokenLimits } from './proTokens.js';
 import {
@@ -151,10 +151,11 @@ export async function loadStripeMonth(client: StripeReader | null, window: Month
  */
 export async function writeNote(metrics: ReportMetrics, config: Pick<AiConfig, 'enabled' | 'geminiKey' | 'chatModel' | 'timeoutMs'>, fetchImpl: typeof fetch = fetch): Promise<{ text: string; usd: number; by: 'ai' | 'code' }> {
   const fallback = { text: fallbackNote(metrics), usd: 0, by: 'code' as const };
-  if (!config.enabled || !config.geminiKey || !config.chatModel.startsWith('gemini')) return fallback;
+  if (!config.enabled || !config.geminiKey) return fallback;
+  const model = geminiModelOf(config.chatModel);
   const facts = reportFacts(metrics);
   try {
-    const response = await fetchImpl(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(config.chatModel)}:generateContent`, {
+    const response = await fetchImpl(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
       method: 'POST', signal: AbortSignal.timeout(Math.min(config.timeoutMs, 20_000)),
       headers: { 'content-type': 'application/json', 'x-goog-api-key': config.geminiKey },
       body: JSON.stringify({
@@ -165,7 +166,7 @@ export async function writeNote(metrics: ReportMetrics, config: Pick<AiConfig, '
     });
     const data = await response.json().catch(() => null) as { candidates?: { content?: { parts?: { text?: string }[] } }[]; usageMetadata?: Record<string, number> } | null;
     const meta = data?.usageMetadata ?? {};
-    const usd = Math.round(costUsd('gemini', config.chatModel, { inputTokens: Number(meta.promptTokenCount || 0), cachedInputTokens: Number(meta.cachedContentTokenCount || 0),
+    const usd = Math.round(costUsd('gemini', model, { inputTokens: Number(meta.promptTokenCount || 0), cachedInputTokens: Number(meta.cachedContentTokenCount || 0),
       outputTokens: Number(meta.candidatesTokenCount || 0), thinkingTokens: Number(meta.thoughtsTokenCount || 0) }) * 1_000_000);
     const text = (data?.candidates?.[0]?.content?.parts ?? []).map(part => part.text ?? '').join('').replace(/\s+/g, ' ').trim();
     if (!response.ok || !text || text.length > 500 || !noteUsesOnlyFacts(text, facts)) return { ...fallback, usd };

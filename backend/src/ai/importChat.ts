@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { AiConfig } from './config.js';
+import { geminiModelOf, type AiConfig } from './config.js';
 import { costUsd } from './cost.js';
 import type { AssistantDb } from './service.js';
 import { COLUMN_FIELDS, maskColumnSamples } from './columnMapping.js';
@@ -123,7 +123,7 @@ const bangkokDay = (now: Date) => new Date(now.getTime() + 7 * 3600_000).toISOSt
 export async function importChat(db: AssistantDb, config: AiConfig, userId: string, input: ImportChatInput,
   deps: { fetchImpl?: typeof fetch; now?: Date } = {}): Promise<{ reply: string; actions: ImportChatAction[]; available: boolean }> {
   if (!config.enabled || !config.geminiKey) return { reply: '', actions: [], available: false };
-  const model = config.actionModel;
+  const model = geminiModelOf(config.actionModel);
   const requestId = randomUUID();
   const now = deps.now ?? new Date();
   const reserved = await db.reserve({ userId, cycle: bangkokDay(now), requestId, tokens: 0, tokenLimit: null, requestLimit: null, dailyCapUsd: config.dailyCostCapUsd });

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { AiConfig } from './config.js';
+import { geminiModelOf, type AiConfig } from './config.js';
 import { costUsd } from './cost.js';
 import type { AssistantDb } from './service.js';
 import { maskPersonalText } from '../../../shared/privacyMask.js';
@@ -92,7 +92,7 @@ const bangkokDay = (now: Date) => new Date(now.getTime() + 7 * 3600_000).toISOSt
 export async function suggestColumns(db: AssistantDb, config: AiConfig, userId: string, input: ColumnMappingInput,
   deps: { fetchImpl?: typeof fetch; now?: Date } = {}): Promise<{ columns: ColumnSuggestion[]; available: boolean }> {
   if (!config.enabled || !config.geminiKey || !input.columns.length) return { columns: [], available: false };
-  const model = config.actionModel;
+  const model = geminiModelOf(config.actionModel);
   const requestId = randomUUID();
   const now = deps.now ?? new Date();
   const reserved = await db.reserve({ userId, cycle: bangkokDay(now), requestId, tokens: 0, tokenLimit: null, requestLimit: null, dailyCapUsd: config.dailyCostCapUsd });

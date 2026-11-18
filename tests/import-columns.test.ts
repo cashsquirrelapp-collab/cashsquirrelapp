@@ -96,3 +96,16 @@ test('without the AI, after a failure or past the daily cap the import simply go
   const capped = { reserve: async () => ({ ok: false, reason: 'daily_cap' }), settle: async () => { throw new Error('never settled'); } } as any;
   assert.deepEqual(await suggestColumns(capped, enabled, 'u1', input, { fetchImpl: reply({}) }), { columns: [], available: false });
 });
+
+// GPT-6 Luna becomes the light model once the OpenAI key is set (2026-11-18); the Excel import calls Google directly, so it
+// must keep sending a Gemini model there, never a GPT name.
+test('with GPT-6 Luna as the light model, column suggestions still ask Gemini with a Gemini model', async () => {
+  const luna = aiConfig({ AI_ENABLED: 'true', GEMINI_API_KEY: 'synthetic-never-sent', OPENAI_API_KEY: 'synthetic-openai' });
+  assert.equal(luna.actionModel, 'gpt-6-luna');
+  const urls: string[] = [];
+  const answer = { candidates: [{ content: { parts: [{ text: JSON.stringify({ columns: [{ index: 2, field: 'amount' }] }) }] } }], usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 5 } };
+  const fetchImpl = (async (url: string) => { urls.push(url); return new Response(JSON.stringify(answer), { status: 200, headers: { 'content-type': 'application/json' } }); }) as unknown as typeof fetch;
+  const out = await suggestColumns(fakeDb().db, luna, 'u1', input, { fetchImpl, now: new Date('2026-11-18T12:00:00Z') });
+  assert.deepEqual(out.columns, [{ index: 2, field: 'amount' }]);
+  assert.match(urls[0], /generativelanguage\.googleapis\.com\/v1beta\/models\/gemini-3\.5-flash-lite:generateContent/);
+});

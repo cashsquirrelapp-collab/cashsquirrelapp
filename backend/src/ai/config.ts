@@ -61,6 +61,15 @@ const num = (value: string | undefined, fallback: number, min: number, max: numb
   return Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : fallback;
 };
 
+/**
+ * The model for the features that call Google directly (the Excel import's column suggestions and chat, the admin profit
+ * note): the light model while it is Gemini, otherwise Gemini 3.5 Flash-Lite. Once GPT-6 Luna is the light model
+ * (2026-11-18) they keep working on Gemini instead of sending a GPT model name to Google.
+ */
+export function geminiModelOf(model: string | undefined): string {
+  return model && /^gemini/i.test(model) ? model : 'gemini-3.5-flash-lite';
+}
+
 /** The plan must come from the server's subscription/role lookup, never request data. */
 export function assistantEnabledForPlan(config: AiConfig, plan: string, email?: string | null): boolean {
   if (!config.enabled) return false;
