@@ -27,6 +27,7 @@ const commands: Record<string, 'vault' | 'wht50' | 'extras' | 'help' | 'invoice'
   // Plus / Pro (owner, 2026-11-16): the card with both plans and a button each (services/lineUpgrade.ts).
   แพ็กเกจ: 'plans', ดูแพ็กเกจ: 'plans', สมัครแพ็กเกจ: 'plans', สมัครสมาชิก: 'plans', อัปเกรด: 'plans', อัพเกรด: 'plans',
   สมัครpro: 'plans', สมัครplus: 'plans', เติมpro: 'plans', ราคาpro: 'plans', ราคาแพ็กเกจ: 'plans',
+  ราคา: 'plans', ดูราคา: 'plans', ขอดูราคา: 'plans', ราคาเท่าไหร่: 'plans', ราคาเท่าไร: 'plans',
 };
 
 // Asking for the plans the way people type it (owner, 2026-11-18: "กูยังพิมพ์ไม่เจอเลย"): only แพ็กเกจ with ก brought the cards,
@@ -34,9 +35,25 @@ const commands: Record<string, 'vault' | 'wht50' | 'extras' | 'help' | 'invoice'
 // (a word for the plans, or a verb with a plan name), so a sentence about something else still goes to เลขา.
 const PLAN_VERB = '(?:ขอ|อยาก)?(?:ดู|สมัคร|ราคา|ซื้อ|เติม|อัปเกรด|อัพเกรด)';
 const PLAN_ASK = new RegExp(`^(${PLAN_VERB})?(?:เป็น)?(แพ็?[คก]เ[กค]็?[จตด]|package|packages|แพลน|plans?)?(pro|plus|โปร|พลัส)?(?:หน่อย|ครับ|คับ|ค่ะ|คะ|นะ|จ้า|ค่า)*$`);
+// And asked in a sentence (owner, 2026-11-18: "การ์ดแพ็กเกจ ... กูเรียกหลายรอบแล้ว" — "การ์ดแพ็กเกจ", "แพ็กเกจมีอะไรบ้าง",
+// "แพ็กเกจราคาเท่าไหร่", "Pro ราคาเท่าไหร่" all went to เลขา, which answered in words with no cards). A short message with a
+// word for the plans, or Pro / Plus with a question about them, brings the cards. Never a record (no figures, not "ค่า… /
+// จ่าย…", not a phone, internet, trip or insurance package), never the person's own plan (when it ends, cancelling, a receipt:
+// เลขา answers those), and never โปรเจกต์ / โปรแกรม / โปรโมชั่น / โปรไฟล์ / โปรดักชั่น / โปรด.
+const PLAN_WORD = /แพ็?[คก]เ[กค]็?[จตด]|(?<![a-z])(?:packages?|plans?)(?![a-z])|แพลน/;
+const PLAN_NAME = /(?<![a-z])(?:pro|plus)(?![a-z])|พลัส|โปร(?!เจ|แกรม|โม|ไฟ|ด)/;
+const PLAN_QUESTION = /ราคา|เท่าไ[หร]|สมัคร|อัป?เกรด|อัพเกรด|ซื้อ|เติม|ดู|มีอะไร|ได้อะไร|ต่าง|คุ้ม|การ์ด|เมนู|ขอ|อยาก|ยังไง|อะไร|กับ|หรือ|vs|รายละเอียด/;
+// A customer's own packages too ("แพ็กเกจถ่ายรูปรับปริญญา", "แพ็กเกจรีวิว"): a job, not our plans.
+const NOT_OUR_PLANS = /\d|^(?:ค่า|จ่าย|รายจ่าย|รับเงิน|ได้เงิน)|เน็ต|อินเทอร์เน็ต|ไวไฟ|wifi|มือถือ|โทรศัพท์|ซิม|ทัวร์|ทริป|เที่ยว|ประกัน|ฟิตเนส|ยิม|ais|true|dtac|3bb|netflix|youtube|spotify|icloud|googleone|ถ่าย|ลูกค้า|แต่งงาน|รับปริญญา|พรีเวด|ตัดต่อ|ออกแบบ|รีวิว|ยิงแอด|โพสต์/;
+// "แพ็คเกจนี้ / นั้น…" points at something already in the conversation: เลขา knows which.
+const OWN_PLAN = /(?<!ทั้ง)หมด|นี้|นั้น|เหลือ|ยกเลิก|คืนเงิน|ใบเสร็จ|ใบกำกับ|ของ(?:ฉัน|ผม|เรา|หนู|กู|ชั้น|เค้า|เขา)|ใช้.*อยู่|อยู่ไหม|หักเงิน|ตัดบัตร|เมื่อไ[หร]|วันไหน/;
+const BARE_PLAN = /^(?:pro|plus|โปร|พลัส)(?:หน่อย|ครับ|คับ|ค่ะ|คะ|นะ|จ้า|ค่า)*$/;
 function isPlansAsk(text: string): boolean {
-  const match = normalize(text).match(PLAN_ASK);
-  return Boolean(match && (match[2] || (match[1] && match[3])));
+  const said = normalize(text);
+  const match = said.match(PLAN_ASK);
+  if (match && (match[2] || (match[1] && match[3]))) return true;
+  if (said.length > 60 || NOT_OUR_PLANS.test(said) || OWN_PLAN.test(said)) return false;
+  return PLAN_WORD.test(said) || BARE_PLAN.test(said) || (PLAN_NAME.test(said) && PLAN_QUESTION.test(said));
 }
 const commandOf = (text: string) => (Object.prototype.hasOwnProperty.call(commands, normalize(text)) ? commands[normalize(text)] : isPlansAsk(text) ? 'plans' as const : undefined);
 

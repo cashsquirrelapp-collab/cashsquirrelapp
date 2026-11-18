@@ -56,6 +56,18 @@ test('typing แพ็กเกจ (or pressing it in เมนูเพิ่�
   assert.match(json(buildLineFeatureShortcut('เมนูเพิ่มเติม', [], NOW)), /"label":"ดูแพ็กเกจ Plus \/ Pro","text":"แพ็กเกจ"/);
 });
 
+test('asked in a sentence ("การ์ดแพ็กเกจ", "แพ็กเกจมีอะไรบ้าง", "Pro ราคาเท่าไหร่") the cards come too; records, other packages and own-plan questions go on to เลขา', () => {
+  for (const word of ['การ์ดแพ็กเกจ', 'ขอการ์ดแพ็กเกจหน่อยครับ', 'แพ็กเกจมีอะไรบ้าง', 'มีแพ็คเกจอะไรบ้าง', 'แพ็กเกจราคาเท่าไหร่', 'ราคา', 'ดูราคา',
+    'Pro', 'โปร', 'pro ราคาเท่าไหร่', 'โปรกับพลัสต่างกันยังไง', 'แพ็กเกจทั้งหมด', 'เมนูแพ็กเกจ', 'อยากได้ Pro']) {
+    assert.equal(isLineFeatureShortcut(word), true, word);
+    assert.match(json(buildLineFeatureShortcut(word, [], NOW)), /สมัคร Plus ฿99/, word);
+  }
+  for (const word of ['ค่าแพ็กเกจเน็ต 599', 'ค่าแพ็คเกจมือถือ', 'แพ็กเกจถ่ายรูปรับปริญญา', 'โปรโมชั่น', 'โปรเจกต์ลูกค้าเอ', 'โปรแกรมนี้ใช้ยังไง',
+    'งานโปรดักชั่นเอ', 'Pro ของฉันหมดเมื่อไหร่', 'ยกเลิกแพ็กเกจ', 'ตอนนี้ใช้แพ็กเกจอะไรอยู่', 'สมัคร', 'approve']) {
+    assert.equal(isLineFeatureShortcut(word), false, word);
+  }
+});
+
 const reply = { text: 'สรุปเดือนนี้ รายรับ 12,000 บาท', cards: [], route: 'chat', tokens: 3, tokensLeft: 80, trialLeft: null };
 function answer(plan: 'trial' | 'pro' | 'lapsed', opts: { due?: boolean; left?: number; fail?: Error } = {}) {
   const marked: string[] = [];
@@ -122,7 +134,7 @@ test('the plans come however the request is spelt; a sentence about something el
     assert.equal(isLineFeatureShortcut(text), true, text);
     assert.ok(buildLineFeatureShortcut(text, [], new Date('2026-11-18T03:00:00Z')), text);
   }
-  for (const text of ['ราคา', 'Pro', 'โปร', 'โปรเจกต์', 'แพ็คเกจนี้ดีไหม', 'บันทึกค่าแพ็คเกจเน็ต 500', 'ค่าแพ็คเกจมือถือ 399']) {
+  for (const text of ['โปรเจกต์', 'แพ็คเกจนี้ดีไหม', 'บันทึกค่าแพ็คเกจเน็ต 500', 'ค่าแพ็คเกจมือถือ 399']) {
     assert.equal(isLineFeatureShortcut(text), false, text);
   }
 });
