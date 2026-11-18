@@ -82,6 +82,7 @@ import type { ImportCommit, ImportResult, SaveOutcome } from '../features/import
 import type { SheetExpenseChanges, SheetSyncChanges } from '../features/labs/sheetSync';
 import { sheetReadyFor, useSheetEngine } from '../features/labs/SheetSource';
 import { deletedRowOf, type DeletedRecordRow } from '../../../shared/sheetRow';
+import { recurringExpensesDue } from '../../../shared/recurringExpenses';
 import { IMPORT_FILE_EVENT } from '../features/assistant/importFileEvent';
 import { importActionsChanged, registerImportActions, type ImportActions } from '../features/import/importActions';
 import type { SettingsView } from '../features/settings/SettingsTab';
@@ -3229,6 +3230,29 @@ export default function App() {
     canSend: () => !sheetAutoStopped.current && !sheetWriting(),
     busy: sheetBusy,
   });
+
+  // รายจ่ายประจำลงชีตทุกเดือน (owner, 2026-11-18): with a connected sheet, this month's fixed items become this month's
+  // expenses once (shared/recurringExpenses.ts), and the sheet's reading sends them as rows like any expense.
+  const recurringTried = useRef(new Set<string>());
+  useEffect(() => {
+    const account = getCurrentAccount();
+    const items = settings.fixedExpenseItems ?? [];
+    if (!accountLoaded || !account || account !== session?.user?.id || session?.isGuest || financeGroupId || !items.length) return;
+    const now = new Date();
+    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const key = `${account}|${month}|${items.map(item => `${item.id}:${item.amount}`).join(',')}`;
+    if (recurringTried.current.has(key)) return;
+    const { create, made } = recurringExpensesDue({ items, expenses, month, made: settings.recurringMade });
+    const sameMade = JSON.stringify(made) === JSON.stringify(settings.recurringMade ?? null);
+    recurringTried.current.add(key);
+    if (!create.length && sameMade) return;
+    void sheetReadyFor(account).then(fileId => {
+      if (!fileId) { recurringTried.current.delete(key); return; }
+      const rows = create.map(item => ({ ...item, id: crypto.randomUUID() }) as Expense);
+      if (rows.length) setExpenses(prev => [...rows, ...prev]);
+      setSettings(prev => ({ ...prev, recurringMade: made }));
+    });
+  }, [accountLoaded, session?.user?.id, session?.isGuest, financeGroupId, settings.fixedExpenseItems, settings.recurringMade, expenses]);
 
   // Tries the save again after it failed; the import window waits on it the same way.
   const retryImportSave = (batchId: string) => new Promise<SaveOutcome>(resolve => {

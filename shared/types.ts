@@ -183,6 +183,8 @@ export interface AppSettings {
    *  tab and what they say, so a job or an expense deleted in the app is not added back from its row
    *  (frontend/src/features/labs/sheetSync.ts). */
   sheetSeen?: SheetSeen;
+  /** The fixed monthly items already made into this month's expenses (shared/recurringExpenses.ts). */
+  recurringMade?: { month: string; ids: string[] };
   profileJobTypes?: string[]; // selected job type tags from the setup wizard (profile info only)
   profileJobTypeOther?: string; // free-text entry when 'other' job type is selected
   // Who the account is for -- drives which nav items default to the always-visible "core"
@@ -255,6 +257,8 @@ export interface Expense {
   slipRef?: string;
   /** Where it sits in the connected sheet (รายจ่ายจากชีต, ฟีเจอร์ทดลอง; shared/googleSheets.ts SheetLink). */
   sheetLink?: { fileId: string; tab: string; row: number; gid?: number; missing?: true; sig?: string };
+  /** Made from a monthly fixed item (settings.fixedExpenseItems) for the connected sheet (shared/recurringExpenses.ts). */
+  recurringId?: string;
 }
 
 export interface InvoiceItem {
