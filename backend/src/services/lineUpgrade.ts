@@ -27,13 +27,17 @@ const baht = (value: number) => `฿${value.toLocaleString('en-US')}`;
 const asset = (path: string) => lineAppLink(path)?.uri;
 
 // One card per plan, swiped side by side (owner, 2026-11-16, showing another LINE assistant's plan cards: "มีกราฟฟิกสวยมาก
-// และมี UI ที่น่าสนใจมาก"). Our own look: the warm CI family only, flat colours, the official mascot poses (never redrawn),
-// every button CI orange. Pro leads on espresso with gold, Plus on peach, Free on cream.
-type Look = { bg: string; ink: string; soft: string; line: string; box: string; boxInk: string; accent: string; pose: string };
+// และมี UI ที่น่าสนใจมาก"). Our own look: the warm CI family only, flat colours, every button CI orange. Pro leads on espresso
+// with gold, Plus on peach, Free on cream. On top, เลขากระรอก dressed for the plan, large (owner, 2026-11-18: "อยากให้กระรอก
+// แต่งตัวเป็นคาแรคเตอร์อื่นได้", "เป็นเสื้อใหญ่ๆ"): Pro the boss in a suit, Plus the office worker in a shirt and tie, Free the
+// beginner in a tee and cap — outfits drawn over the official poses, never redrawn (scripts/line-plan-outfits).
+type Look = { bg: string; ink: string; soft: string; line: string; box: string; boxInk: string; accent: string; picture: string };
+/** The outfit pictures are 1040 × 720. */
+export const PLAN_PICTURE_RATIO = '13:9';
 const LOOKS: Record<'pro' | 'plus' | 'free', Look> = {
-  pro: { bg: '#4E2A1C', ink: '#FFFFFF', soft: '#E8D9CF', line: '#6B4535', box: '#5E3727', boxInk: '#FFD166', accent: '#FFD166', pose: 'guide' },
-  plus: { bg: '#FFF1E8', ink: '#1C1917', soft: '#6B6560', line: '#F3D3BF', box: '#FFFFFF', boxInk: '#C24A16', accent: '#C24A16', pose: 'working' },
-  free: { bg: '#FBF7F2', ink: '#1C1917', soft: '#6B6560', line: '#ECE3DB', box: '#FFFFFF', boxInk: '#8A3315', accent: '#8A3315', pose: 'review' },
+  pro: { bg: '#4E2A1C', ink: '#FFFFFF', soft: '#E8D9CF', line: '#6B4535', box: '#5E3727', boxInk: '#FFD166', accent: '#FFD166', picture: '/line/plan-hero-pro-v1.jpg' },
+  plus: { bg: '#FFF1E8', ink: '#1C1917', soft: '#6B6560', line: '#F3D3BF', box: '#FFFFFF', boxInk: '#C24A16', accent: '#C24A16', picture: '/line/plan-hero-plus-v1.jpg' },
+  free: { bg: '#FBF7F2', ink: '#1C1917', soft: '#6B6560', line: '#ECE3DB', box: '#FFFFFF', boxInk: '#8A3315', accent: '#8A3315', picture: '/line/plan-hero-free-v1.jpg' },
 };
 
 function planBubble(opts: {
@@ -41,10 +45,12 @@ function planBubble(opts: {
   rows: [string, string, string?][]; price: string; was?: string; per?: string; note: string; button: { label: string; path: string };
 }) {
   const { look } = opts;
-  const mascot = asset(`/line/mascot-v6-${look.pose}.png`);
+  const picture = asset(look.picture);
   const link = lineAppLink(opts.button.path, opts.button.label);
   return {
     type: 'bubble', size: 'kilo',
+    // The picture opens the same page as the card's button.
+    ...(picture ? { hero: { type: 'image', url: picture, size: 'full', aspectRatio: PLAN_PICTURE_RATIO, aspectMode: 'cover', ...(link ? { action: { type: 'uri', ...link } } : {}) } } : {}),
     body: {
       type: 'box', layout: 'vertical', backgroundColor: look.bg, paddingAll: '18px', spacing: 'none',
       contents: [
@@ -57,7 +63,6 @@ function planBubble(opts: {
             { type: 'text', text: opts.kicker, size: 'xxs', weight: 'bold', color: look.accent, wrap: true },
             { type: 'text', text: opts.name, size: '3xl', weight: 'bold', color: look.ink, wrap: false },
           ] },
-          ...(mascot ? [{ type: 'image', url: mascot, size: '88px', aspectRatio: '1:1', aspectMode: 'fit', flex: 0 }] : []),
         ] },
         { type: 'box', layout: 'vertical', margin: 'md', paddingAll: '10px', cornerRadius: '12px', backgroundColor: look.box, spacing: 'xs', contents: [
           { type: 'text', text: opts.highlight, size: 'sm', weight: 'bold', color: look.boxInk, wrap: true },

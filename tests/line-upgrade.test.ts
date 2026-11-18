@@ -5,7 +5,7 @@ import { HttpError } from '../backend/src/http/guard';
 import { lineAssistantAnswer } from '../backend/src/ai/lineBridge';
 import type { AssistantDb, handleMessage } from '../backend/src/ai/service';
 import { buildLineFeatureShortcut, isLineFeatureShortcut } from '../backend/src/services/lineFeatureShortcuts';
-import { buildLineProPoster, buildLineUpgradeCard, buildLineUpgradeMessages, PRO_POSTER, UPGRADE_EVERY_MS } from '../backend/src/services/lineUpgrade';
+import { buildLineProPoster, buildLineUpgradeCard, buildLineUpgradeMessages, PLAN_PICTURE_RATIO, PRO_POSTER, UPGRADE_EVERY_MS } from '../backend/src/services/lineUpgrade';
 import type { UserRow } from '../backend/src/services/lineAssistant';
 import { safeLineDestination } from '../shared/lineDestination';
 
@@ -35,9 +35,20 @@ test('the card: Plus and Pro with today\'s prices and a button each into the pla
   for (const words of ['ใช้ตอนคุยหรือสั่งงานเลขา ในแอปและ LINE', 'ใบเสนอราคา ใบแจ้งหนี้ ใบเสร็จ ในแอปหรือผ่านเลขา', 'สลิป บิล ใบ 50 ทวิ', 'ในแอป ไม่ใช้โทเคน'])
     assert.match(json(bubbles.contents[2]), new RegExp(words));
   assert.match(json(card), /ราคายังไม่รวมค่าธรรมเนียมชำระเงิน/);
-  assert.match(json(card), /mascot-v6-guide\.png/, 'official poses, never redrawn');
+  // On top, เลขากระรอก dressed for each plan (owner, 2026-11-18: "เป็นเสื้อใหญ่ๆ"): the outfit pictures from the app's public
+  // files, each opening the same page as its card's button. The old small pose beside the name is gone.
+  const pictures = bubbles.contents.map(bubble => (bubble as { hero?: { url: string; aspectRatio: string; action?: { uri: string } } }).hero);
+  assert.deepEqual(pictures.map(picture => picture?.url), ['pro', 'plus', 'free'].map(plan => `https://krarok.com/line/plan-hero-${plan}-v1.jpg`));
+  assert.ok(pictures.every(picture => picture?.aspectRatio === PLAN_PICTURE_RATIO));
+  assert.deepEqual(pictures.map(picture => decodeURIComponent(picture?.action?.uri ?? '').replace(/^https:\/\/liff\.line\.me\/[^?]+\?openPath=/, '')),
+    ['/plans?tier=pro&from=line', '/plans?tier=plus&from=line', '/plans?from=line']);
+  for (const plan of ['pro', 'plus', 'free']) {
+    const size = statSync(new URL(`../frontend/public/line/plan-hero-${plan}-v1.jpg`, import.meta.url)).size;
+    assert.ok(size > 10_000 && size < 1_000_000, plan);
+  }
+  assert.doesNotMatch(json(card), /"size":"88px"/);
   assert.doesNotMatch(json(card), /gradient/i);
-  assert.deepEqual(buttons(card).map(([label, uri]) => [label, uri.replace(/^https:\/\/liff\.line\.me\/[^?]+\?openPath=/, '')]),
+  assert.deepEqual(buttons(bubbles.contents.map(bubble => (bubble as { body: unknown }).body)).map(([label, uri]) => [label, uri.replace(/^https:\/\/liff\.line\.me\/[^?]+\?openPath=/, '')]),
     [['สมัคร Pro ฿169', '/plans?tier=pro&from=line'], ['สมัคร Plus ฿99', '/plans?tier=plus&from=line']]);
   // Before the sale ended (16 Nov 2569 03:00 Bangkok) Pro was ฿159, with ฿169 struck.
   const before = json(buildLineUpgradeCard('menu', new Date('2026-11-15T19:00:00Z')));

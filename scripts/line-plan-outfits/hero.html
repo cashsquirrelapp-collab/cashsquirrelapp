@@ -1,0 +1,28 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{margin:0}
+.stage{width:1040px;height:720px;position:relative;overflow:hidden}
+.disc{position:absolute;border-radius:50%}
+.sq{position:absolute;left:50%;bottom:-18px;width:700px;transform:translateX(-50%)}
+.star{position:absolute;width:0;height:0}
+.dot{position:absolute;border-radius:50%}
+</style></head><body><div id="s" class="stage"></div>
+<script>
+const plan = new URLSearchParams(location.search).get('plan');
+const L = {
+  pro:  { bg:'#4E2A1C', disc:'#F2C14E', ring:'#6B4535', acc:'#FFD166', img:'outfit-pro.png' },
+  plus: { bg:'#FFE3D1', disc:'#FFD3B8', ring:'#F7C2A2', acc:'#E65F2B', img:'outfit-plus.png' },
+  free: { bg:'#F6EDE4', disc:'#EFE2D5', ring:'#E6D5C5', acc:'#C24A16', img:'outfit-free.png' },
+}[plan];
+const s = document.getElementById('s'); s.style.background = L.bg;
+const add = (cls, css, html='') => { const e = document.createElement('div'); e.className = cls; Object.assign(e.style, css); e.innerHTML = html; s.appendChild(e); return e; };
+add('disc', { width:'760px', height:'760px', left:'140px', top:'60px', background:L.ring });
+add('disc', { width:'620px', height:'620px', left:'210px', top:'130px', background:L.disc });
+// flat sparkles: four-point stars drawn as rotated squares, and dots
+const spark = (x, y, r, c) => add('', { position:'absolute', left:x+'px', top:y+'px', width:r+'px', height:r+'px', background:c, clipPath:'polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%)' });
+spark(120, 120, 70, L.acc); spark(880, 90, 54, L.acc); spark(860, 420, 40, L.acc); spark(170, 470, 34, L.acc);
+add('dot', { left:'250px', top:'90px', width:'18px', height:'18px', background:L.acc, opacity:.7 });
+add('dot', { left:'800px', top:'260px', width:'14px', height:'14px', background:L.acc, opacity:.7 });
+const img = document.createElement('img'); img.className = 'sq'; img.src = L.img; s.appendChild(img);
+img.onload = () => { window.ready = true; };
+</script></body></html>
+<!-- One plan card's top picture in LINE (render.mjs): the plan's outfit large on its card colour, flat discs and sparkles. -->
