@@ -113,6 +113,7 @@ function ownedFields(targets: Set<string>): (keyof Job)[] {
 }
 
 const sameValue = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+const DATE_FIELDS = new Set<string>(['payDate', 'dueDate', 'postDate', 'date', 'depositDate']);
 const sameLink = (a: SheetLink | undefined, b: SheetLink) => Boolean(a) && a!.fileId === b.fileId && a!.tab === b.tab && a!.row === b.row && a!.gid === b.gid && !a!.missing && a!.sig === b.sig;
 
 // Which side changed (owner, 2026-11-18: "อัปเดตให้หมดด้วยให้มันทุกตรงทุกละเอียดทุกนิ้วให้มันตรง"). Before, the sheet won every
@@ -188,11 +189,14 @@ export function planSheetSync(input: {
     // A paid-date column decides the date only once the row is paid; until then the app's own due date stands (the
     // importer would otherwise put a guess there).
     if (!owned.includes('payDate') && targets.has('paidDate') && (sheetJob.paymentStatus === 'paid' || sheetJob.status === 'done')) owned.push('payDate', 'dueDate');
-    const sigFields = owned.filter(field => (sheetJob as Partial<Job>)[field] !== undefined);
+    // A date the row leaves empty is no date: it neither clears the app's nor counts in the fingerprint.
+    const sigFields = owned.filter(field => { const value = (sheetJob as Partial<Job>)[field]; return value !== undefined && !(DATE_FIELDS.has(field) && !value); });
     if (!match) {
       // Written by the app a moment ago for a record that has not reached this screen yet: left for it, not added.
       if (recent.has(`${row.sheet}\u0001${row.rowNumber}`)) { total.set(key, total.get(key)! - 1); continue; }
-      pending.push({ key, item: { ...sheetJob, sheetLink: { ...link, sig: fingerprint(sheetJob, sigFields) } } }); continue;
+      // A row paid with no date (typed into the sheet so): dated the day the app first sees it, so it lands in a month.
+      const dated = (sheetJob.paymentStatus === 'paid' || sheetJob.status === 'done') && !sheetJob.payDate ? { payDate: sheetJob.postDate || input.today } : {};
+      pending.push({ key, item: { ...sheetJob, ...dated, sheetLink: { ...link, sig: fingerprint(sheetJob, sigFields) } } }); continue;
     }
     claimed.add(match.id);
     matchedCount.set(key, (matchedCount.get(key) ?? 0) + 1);
@@ -202,7 +206,7 @@ export function planSheetSync(input: {
     if (direction === 'pull') {
       for (const field of owned) {
         const value = (sheetJob as Partial<Job>)[field];
-        if (value === undefined) continue;
+        if (value === undefined || (DATE_FIELDS.has(field) && !value)) continue;
         if (!sameValue(match[field], value)) (fields as Record<string, unknown>)[field] = value;
       }
       // The amount or the withholding changed but the sheet says nothing of payment: what is still owed follows.
@@ -211,6 +215,15 @@ export function planSheetSync(input: {
         const pending = Math.max(0, roundMoney(value - wht - (Number(match.received) || 0)));
         if (!sameMoney(pending, match.pending)) fields.pending = pending;
       }
+    }
+    // Paid in the sheet with no date there (owner, 2026-11-18: "ยอดเป็นไรทำไมไม่ตรงกันอีก"): the reading used to clear the
+    // app's payment date, so the money fell out of every month. The app's date stands; a paid job with no date anywhere
+    // takes its delivery date (else its start); and the row gets that date written in.
+    const paidWithoutDate = (sheetJob.paymentStatus === 'paid' || sheetJob.status === 'done') && !sheetJob.payDate;
+    if (paidWithoutDate) {
+      const date = match.payDate || match.postDate || match.startDate || input.today;
+      if (!match.payDate && !fields.payDate) fields.payDate = date;
+      if (direction !== 'push') push.push({ id: match.id, before: { kind: 'job', fileId, tab: row.sheet, row: row.rowNumber, name: sheetJob.name, amount: Number(sheetJob.value) || 0 } });
     }
     const signed: SheetLink = { ...link, sig };
     if (!sameLink(linked(match), signed)) fields.sheetLink = signed;

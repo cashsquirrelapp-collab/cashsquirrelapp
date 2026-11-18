@@ -189,6 +189,33 @@ test('sheet sync: whichever side changed since they last agreed wins; the app\'s
   assert.equal(sync(legacy, ROWS).update.find(update => update.id === logo.id)?.fields.value, 5000);
 });
 
+// Owner, 2026-11-18: "ยอดเป็นไรทำไมไม่ตรงกันอีก": งานของ กยศ, received 3,000, had its payment date cleared by a reading of a
+// row whose วันที่รับเงิน was empty, so the overview counted it in no month.
+test('sheet sync: a paid row with no payment date never clears the app\'s date; a paid job with none takes its delivery date, written into the row', () => {
+  const head = ['วันที่รับเงิน', 'ผู้จ่ายเงิน', 'รายการ', 'ยอดก่อนหัก', 'เงินเข้าจริง (คำนวณ)'].map(text => cell(text));
+  const income = (rows: LiveCell[][]): LiveTab => ({ name: 'รายรับ', gid: 9, truncated: false, rows: [head, ...rows] });
+  const row = (date: string) => [date ? day(date, date.split('/').reverse().join('-')) : cell(''), cell('กยศ'), cell('งานของ กยศ'), cell('3,000'), cell('3,000', { formula: true })];
+  const plainMap = mapOf(FILE, readTabs([income([row('18/11/2026')])]));
+  const run = (jobs: Job[], date: string) => planSheetSync({ jobs, tabs: [income([row(date)])], map: plainMap, fileId: FILE, statuses: STATUSES, jobTypes: [], today: '2026-11-18' });
+  const base = { id: 'kys', name: 'งานของ กยศ', client: 'กยศ', type: 'ยังไม่ระบุ', note: '', value: 3000, received: 3000, pending: 0, status: 'done', paymentStatus: 'paid', creditTerm: 0,
+    postDate: '2026-11-18', sheetLink: { fileId: FILE, tab: 'รายรับ', row: 2, gid: 9 } } as unknown as Job;
+  // The app knows when it was paid; the row is empty there: the app's date stays, and is written into the row.
+  const dated = run([{ ...base, payDate: '2026-11-16' }], '');
+  const kept = dated.update.find(update => update.id === 'kys')?.fields ?? {};
+  if ((dated.add.length) === 0) assert.ok(!('payDate' in kept) || kept.payDate === '2026-11-16', 'never cleared');
+  assert.deepEqual(dated.push.map(item => item.id), ['kys'], 'the row gets the date');
+  // No date anywhere (as in the owner's account): the delivery date, so the money lands in November.
+  const none = run([{ ...base, payDate: null } as unknown as Job], '');
+  assert.equal(none.update.find(update => update.id === 'kys')?.fields.payDate, '2026-11-18');
+  assert.deepEqual(none.push.map(item => item.id), ['kys']);
+  // A new row typed into the sheet paid but undated: dated the day the app first sees it.
+  assert.equal(run([], '').add[0].payDate, '2026-11-18');
+  // The row has its date: nothing to repair, nothing to write.
+  const fine = run([{ ...base, payDate: '2026-11-18' }], '18/11/2026');
+  assert.deepEqual(fine.push, []);
+  assert.equal(fine.update.find(update => update.id === 'kys')?.fields.payDate, undefined);
+});
+
 test('ดูในชีต: the address opens the tab with the row selected', () => {
   assert.equal(sheetRowUrl(FILE, 812, 4, 7), 'https://docs.google.com/spreadsheets/d/file-12345678/edit#gid=812&range=A4:H4');
   assert.equal(sheetRowUrl(FILE, 0), 'https://docs.google.com/spreadsheets/d/file-12345678/edit#gid=0');

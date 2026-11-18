@@ -157,7 +157,8 @@ export function valueFor(column: SheetMapColumn, kind: RowKind, record: Record<s
     case 'creditTerm': { const days = money(record.creditTerm); return days ? days : null; }
     case 'date': case 'postDate': { const date = isoDate(target === 'date' ? (record.postDate ?? record.payDate) : record.postDate); return date ? dateFor(date, samples) : null; }
     case 'dueDate': { const date = isoDate(record.dueDate ?? record.payDate); return date && paymentOf(record) !== 'paid' ? dateFor(date, samples) : null; }
-    case 'paidDate': { const date = isoDate(record.payDate); return date && paymentOf(record) === 'paid' ? dateFor(date, samples) : null; }
+    // A paid record with no payment date (2026-11-18) still gets a date in the row: its delivery date, else its start.
+    case 'paidDate': { const date = isoDate(record.payDate) ?? isoDate(record.postDate) ?? isoDate(record.startDate); return date && paymentOf(record) === 'paid' ? dateFor(date, samples) : null; }
     case 'note': return text(record.note) || null;
     case 'kind': return mixed ? (samples.find(sample => /(รับ|income|in\b)/i.test(sample)) ?? 'รายรับ') : null;
     default: return null;
