@@ -36,9 +36,11 @@ test('navigation binds every route to current workspace and rejects escape or se
   for (const path of ['https://foreign.test/jobs', '//foreign.test/jobs', '/\\foreign.test', '/jobs/another-account', '/jobs/my-workspace/other',
     '/jobs?user_id=owner-b', '/jobs?redirect=https://foreign.test', '/jobs#security', '/jobs/../plans', '/jobs/%2e%2e/plans', '/jobs%2Fforeign',
     '/adminDashboard', '/groups', '/api/assistant', '/settings?view=security', '/settings?view=backup', '/invoice?type=wrong',
-    '/invoice?document=a&document=b', '/invoice?document=../../private', '/invoice?unknown=1', '/tax', '/report']) {
+    '/invoice?document=a&document=b', '/invoice?document=../../private', '/invoice?unknown=1', '/tax']) {
     assert.equal(safeAssistantPath(path, context, true), null, path);
   }
+  // รายงาน is open to everyone since 2026-11-20.
+  assert.equal(safeAssistantPath('/report', context, true), '/report/my-workspace');
   assert.equal(safeAssistantPath('/settings?view=notif', context), null);
   assert.equal(safeAssistantPath('/settings?view=notif', context, true), '/settings/my-workspace?view=notif');
   assert.equal(safeAssistantPath('/plans', context), null);

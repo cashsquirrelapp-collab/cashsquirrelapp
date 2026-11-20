@@ -67,6 +67,8 @@ async function setup(page: Page, options: { admin?: boolean; guest?: boolean; se
     return route.fulfill({ status: 501, json: { error: 'Unmocked test endpoint' } });
   });
   await page.route('**/api/auth', route => route.fulfill({ json: { session: options.guest ? null : { user } } }));
+  // The labs switches every page reads since 2026-11-16 (services/labs.ts): none on for these accounts.
+  await page.route('**/api/labs', route => route.fulfill({ json: { labs: { tester: false, on: [] } } }));
   await page.route('**/api/profile', route => route.fulfill({ json: { userId: accountId, publicId: options.admin ? 'SQ-2222222222' : 'SQ-1111111111', displayName: options.admin ? 'Feedback admin' : 'Feedback user' } }));
   await page.route('**/api/groups?*', route => route.fulfill({ json: { systemRole: user.role, groups: [], invitations: [], total: 0, page: 0 } }));
   await page.route('**/api/data*', route => route.fulfill({ json: route.request().method() === 'POST' ? { ok: true } : { snapshot, versions: { cashflow_jobs: {}, cashflow_expenses: {}, cashflow_goals: {}, cashflow_invoices: { [quoteId]: 1 }, cashflow_documents: { settings: 1 } }, subscription: { status: 'active', plan: 'admin_grant', current_period_end: null } } }));
@@ -347,7 +349,9 @@ test('phase one hides advanced navigation for normal accounts; the feedback entr
   await page.goto('/feedback/feedback-user');
   const sidebar = page.locator('aside').first();
   await expect(sidebar.getByRole('button', { name: 'แจ้งปัญหา', exact: true })).toBeVisible();
-  for (const name of ['ภาษี', 'รายงาน', 'วิเคราะห์รายได้', 'คลังเอกสาร', 'ทีม']) await expect(sidebar.getByRole('button', { name, exact: true })).toHaveCount(0);
+  for (const name of ['ภาษี', 'วิเคราะห์รายได้', 'คลังเอกสาร', 'ทีม']) await expect(sidebar.getByRole('button', { name, exact: true })).toHaveCount(0);
+  // รายงาน opened to every account on 2026-11-20 (owner: "รายงาน ปล่อยให้คนธรรมดาใช้เลย").
+  await expect(sidebar.getByRole('button', { name: 'รายงาน', exact: true })).toBeVisible();
   await page.goto('/tax/feedback-user');
   await expect(page).toHaveURL(/\/dashboard\/feedback-user$/);
   await expect(page.getByRole('heading', { name: 'ภาษี', exact: true })).toHaveCount(0);

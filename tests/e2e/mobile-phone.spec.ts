@@ -280,6 +280,24 @@ test('390px phone: the bottom bar has ปฏิทิน instead of รอรั
   await expect(page.getByRole('heading', { name: 'เงินรอรับ', exact: true })).toBeVisible();
 });
 
+// รายงาน opened to every account on 2026-11-20 (owner: "รายงาน ปล่อยให้คนธรรมดาใช้เลย"): on a phone it sits in the menu's
+// เอกสาร section, after ติดตามใบ 50 ทวิ, so เงินรอรับ and รายจ่าย still open with one tap; the admin-only tools stay hidden.
+test('390px phone: an ordinary account finds รายงาน in the menu under เอกสาร and opens it', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await open(page, 1);
+  await page.getByRole('navigation', { name: 'เมนูหลัก' }).getByRole('button', { name: 'เมนู', exact: true }).click();
+  const menu = page.getByRole('region', { name: 'เครื่องมือทั้งหมด' });
+  await expect(menu.getByText('เครื่องมือขั้นสูง')).toHaveCount(0);
+  await expect(menu.getByRole('button', { name: /^เงินรอรับ/ })).toBeVisible();
+  await menu.locator('details', { hasText: 'ใบเสนอราคาและใบเสร็จรับเงิน' }).locator('summary').click();
+  const documents = menu.locator('details[open]');
+  const rows = await documents.getByRole('button').evaluateAll(nodes => nodes.map(node => node.querySelector('b')?.textContent || ''));
+  expect(rows.at(-1)).toBe('รายงาน');
+  await documents.getByRole('button', { name: /^รายงาน/ }).click();
+  await expect(page.getByRole('heading', { name: 'รายงาน', exact: true })).toBeVisible();
+  expect(await textOverlapIssues(page)).toEqual([]);
+});
+
 // ปฏิทิน / ไทม์ไลน์ layered like the overview and งาน (owner, 2026-10-20): the same terracotta header with a
 // view switch, one small box with the month's money still to receive, and every event as a card with its kind and amount.
 for (const width of [390, 320]) {

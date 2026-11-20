@@ -19,19 +19,20 @@ test('full feature access waits for the trusted role belonging to the current si
 test('a team admin opens the admin page and no other hidden page', () => {
   assert.equal(isPhaseOneFeatureAvailable('adminDashboard', false, true), true);
   assert.equal(resolvePhaseOneTab('adminDashboard', false, true), 'adminDashboard');
-  for (const tab of ['split', 'report', 'tax', 'groups', 'insight']) assert.equal(resolvePhaseOneTab(tab, false, true), 'dashboard', tab);
+  for (const tab of ['split', 'tax', 'groups', 'insight']) assert.equal(resolvePhaseOneTab(tab, false, true), 'dashboard', tab);
 });
 
 test('phase one keeps core pages, feedback, settings and subscription management reachable', () => {
-  // receivables, quotation, notifications and line were released to everyone on 2026-10-20; the vault and 50 ทวิ on 2026-10-31.
-  for (const tab of ['dashboard', 'incomeExpense', 'jobs', 'calendar', 'invoice', 'feedback', 'settings', 'plans', 'receivables', 'quotation', 'notifications', 'line', 'vault', 'wht50']) {
+  // receivables, quotation, notifications and line were released to everyone on 2026-10-20; the vault and 50 ทวิ on 2026-10-31;
+  // รายงาน on 2026-11-20 (owner: "รายงาน ปล่อยให้คนธรรมดาใช้เลย").
+  for (const tab of ['dashboard', 'incomeExpense', 'jobs', 'calendar', 'invoice', 'feedback', 'settings', 'plans', 'receivables', 'quotation', 'notifications', 'line', 'vault', 'wht50', 'report']) {
     assert.equal(isPhaseOneFeatureAvailable(tab, false), true, tab);
     assert.equal(resolvePhaseOneTab(tab, false), tab);
   }
 });
 
 test('hidden pages and legacy entry points fall back before rendering while admins retain access', () => {
-  for (const tab of ['split', 'report', 'insight', 'tax', 'groups', 'adminDashboard', 'line-documents', 'unknown-future-feature']) {
+  for (const tab of ['split', 'insight', 'tax', 'groups', 'adminDashboard', 'line-documents', 'unknown-future-feature']) {
     assert.equal(isPhaseOneFeatureAvailable(tab, false), false, tab);
     assert.equal(resolvePhaseOneTab(tab, false), 'dashboard', tab);
     assert.equal(resolvePhaseOneTab(tab, true), tab);

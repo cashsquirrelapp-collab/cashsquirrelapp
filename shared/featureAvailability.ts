@@ -15,6 +15,9 @@ const PHASE_ONE_FEATURES = new Set([
   // เอกสาร › คลังเอกสาร and ติดตามใบ 50 ทวิ. Free accounts keep up to VAULT_FREE_FILES files (shared/vault.ts); Pro has
   // no limit. The monthly 50 ทวิ LINE reminder: on for Pro accounts with LINE unless turned off (since 2026-11-03).
   'vault', 'wht50',
+  // Released to everyone on 2026-11-20 (owner: "รายงาน ปล่อยให้คนธรรมดาใช้เลย"): รายงาน. Free accounts see all time; the
+  // 3, 6 and 12 month views and the client drill-down stay Pro inside the page (features/report/ReportTab.tsx).
+  'report',
 ]);
 
 /**

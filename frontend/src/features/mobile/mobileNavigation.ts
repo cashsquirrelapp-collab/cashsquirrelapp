@@ -57,7 +57,6 @@ export type MobileMenuSectionId = typeof MOBILE_MENU_SECTIONS[number]['id'];
  */
 export const ADVANCED_MOBILE_TOOLS = [
   { key: 'split', title: T("เป้าหมายการเงิน"), description: T("เป้าหมาย การแบ่งเงิน ฝาก ถอน โอน"), icon: 'target', search: 'ออม สัดส่วน จัดสรร' },
-  { key: 'report', title: T("รายงาน"), description: T("รายรับ ลูกค้า ประเภท และจังหวะรับเงิน"), icon: 'chart', search: 'วิเคราะห์ กราฟ CSV' },
   { key: 'tax', title: T("ภาษี"), description: T("รายได้ ค่าใช้จ่าย ลดหย่อน และสรุป"), icon: 'receipt', search: 'ปี แบบประเมิน' },
   { key: 'groups', title: T("ทีมและสมาชิก"), description: T("กลุ่ม คำเชิญ และบทบาท"), icon: 'users', search: 'กลุ่ม ทีม' },
   { key: 'adminDashboard', title: 'Admin Analytics', description: T("ภาพรวมผู้ใช้สำหรับผู้ดูแล"), icon: 'chart', search: 'admin' },

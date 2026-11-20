@@ -309,7 +309,8 @@ test('prompt: without the accounting slot the prompt is byte-identical to the ap
     { route: 'chat', plan: 'pro', nowLocal: '26 ต.ค. 2569 10:00', knowledge: 'K', accountContext: '{}', offer: 'O' },
     { route: 'action', plan: 'admin', nowLocal: '26 ต.ค. 2569 10:00', knowledge: 'K', accountContext: '{}', founder: 'F', channel: 'line' },
   ];
-  const v30 = ['d6c7568e6805b769456fdcd3900631b2e3e5ee32641b05ccf62721e877f85b05', '83e94d08f8b2faf86e5cbadd2cb5fad3aff885b8344ef8f8448a35afc524aeac'];
+  // Recaptured 2026-11-20 when รายงาน opened to everyone: it leaves the "not open yet" list; no wording changed.
+  const v30 = ['a09edafbc56394befe2b9ce775478cce42201056cda0facd0e090da796c2e558', '95a029328f2e6758be0022d9057a009237dc757e386bb46e3d2dd3587b75e81c'];
   slots.forEach((slot, index) => assert.equal(createHash('sha256').update(buildSystemPrompt(slot)).digest('hex'), v30[index]));
   const withAccounting = buildSystemPrompt({ ...slots[0], accounting: 'REF' });
   assert.match(withAccounting, /ACCOUNTING REFERENCE \(selected for this message; general information with sources, not a ruling\)\n\nREF\n\nACCOUNT CONTEXT/);

@@ -65,12 +65,14 @@ test('questions about open menus find them; hidden areas get only "not available
   assert.equal(lookupKnowledge('รายการเงินที่มีอะไรบ้าง').catalog, undefined, 'record questions are not app-catalog requests');
 });
 
-test('annual and Buddhist-year export questions retrieve the export on the jobs page every account has', () => {
+// รายงาน opened to everyone on 2026-11-20 and has the same export menu, so the yearly export is found there (it was the
+// jobs page while รายงาน was closed).
+test('annual and Buddhist-year export questions retrieve the export on รายงาน, open to every account', () => {
   for (const question of ['ส่งออกรายรับทั้งปี', 'ขอสรุปรายรับปี 2569', 'รายได้ปี ๒๕๖๙', 'annual income export', 'export excel ทั้งปี']) {
     const hit = lookupKnowledge(question, 1);
-    assert.equal(hit.features[0]?.id, 'jobs', question);
+    assert.equal(hit.features[0]?.id, 'report', question);
     const snippet = knowledgeSnippets(hit);
-    assert.match(snippet, /ส่งออก → รายรับรายเดือน \/ ทั้งปี \(Excel\) → เลือก รายเดือน หรือ ทั้งปี → ดาวน์โหลด Excel/);
+    assert.match(snippet, /ส่งออก → รายรับรายเดือน \/ ทั้งปี \(Excel\)/);
     assert.match(snippet, /2569 = ค\.ศ\. 2026/);
     assert.match(snippet, /วันที่รับเงินจริง/);
     assert.doesNotMatch(snippet, /Plans:|กดไมค์|จับคู่คอลัมน์/);

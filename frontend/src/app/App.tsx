@@ -677,7 +677,10 @@ export default function App() {
       documents: [...tool('invoice', tr("เอกสาร"), quotationAccess ? tr("ใบเสนอราคา ใบแจ้งหนี้ ใบเสร็จ ใบกำกับภาษี") : tr("ใบแจ้งหนี้ ใบเสร็จ และใบกำกับภาษี"), 'document', "invoice quotation receipt pdf ใบเสนอราคา ใบแจ้งหนี้ ใบเสร็จ ใบกำกับภาษี ดาวน์โหลด"),
         // Open to everyone since 2026-10-31 (owner): under เอกสาร, as on the computer's sidebar.
         ...tool('vault', tr("คลังเอกสาร"), tr("ใบ 50 ทวิ สัญญา สลิป และหลักฐานแนบงาน"), 'folder', 'อัปโหลด รูป กล้อง คลังไฟล์ สลิป vault'),
-        ...tool('wht50', tr("ติดตามใบ 50 ทวิ"), tr("ใบรับรองหัก ณ ที่จ่ายของแต่ละงาน"), 'receipt', '50ทวิ ทวิ50 wht ใบรับรอง')],
+        ...tool('wht50', tr("ติดตามใบ 50 ทวิ"), tr("ใบรับรองหัก ณ ที่จ่ายของแต่ละงาน"), 'receipt', '50ทวิ ทวิ50 wht ใบรับรอง'),
+        // รายงาน, open to everyone since 2026-11-20 (owner: "รายงาน ปล่อยให้คนธรรมดาใช้เลย"; was among the admin tools). In this
+        // group so เงินรอรับ and รายจ่าย stay one tap.
+        ...tool('report', tr("รายงาน"), tr("รายรับ ลูกค้า ประเภท และจังหวะรับเงิน"), 'chart', "รายงาน วิเคราะห์ กราฟ CSV ส่งออก รายได้")],
       // The package page, as in the desktop sidebar (owner, 2026-10-20: upgrading was only on computers
       // and iPads), then LINE, which needs Pro (or the Pro trial) and a linked account.
       line: [
