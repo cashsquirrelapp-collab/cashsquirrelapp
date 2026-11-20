@@ -1246,8 +1246,10 @@ export default function App() {
     const assistantFirst = (items: typeof base) => [...items.filter(item => item.key === 'assistant'), ...items.filter(item => item.key !== 'assistant')];
     if (!fullFeatureAccess) {
       // Same order as the full sidebar (owner, 2026-10-20): เลขากระรอก · ภาพรวม · งาน · ปฏิทิน with เงินค้างรับ under it ·
-      // รายจ่าย · เอกสาร · แจ้งปัญหา. Sub-items stay under their parent.
-      const order: TabKey[] = ['assistant', 'dashboard', 'adminDashboard', 'jobs', 'calendar', 'receivables', 'incomeExpense', 'invoice', 'feedback', 'plans', 'settings'];
+      // รายจ่าย · รายงาน · เอกสาร · แจ้งปัญหา. Sub-items stay under their parent. รายงาน (open to everyone since 2026-11-20) sits
+      // just before เอกสาร, as in the owner's sidebar (owner: "ย้ายตำแหน่งฟีเจอร์ รายงาน ไปตำแหน่งเดียวกันกับแอดมิน"); a key left
+      // out of this list would sort to the very top.
+      const order: TabKey[] = ['assistant', 'dashboard', 'adminDashboard', 'jobs', 'calendar', 'receivables', 'incomeExpense', 'report', 'invoice', 'feedback', 'plans', 'settings'];
       return base.map(item => item.group === 'bottom' || item.group === 'sub' ? item : { ...item, group: 'core' as const })
         .sort((left, right) => order.indexOf(left.key) - order.indexOf(right.key));
     }

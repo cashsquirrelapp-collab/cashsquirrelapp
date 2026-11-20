@@ -352,6 +352,12 @@ test('phase one hides advanced navigation for normal accounts; the feedback entr
   for (const name of ['ภาษี', 'วิเคราะห์รายได้', 'คลังเอกสาร', 'ทีม']) await expect(sidebar.getByRole('button', { name, exact: true })).toHaveCount(0);
   // รายงาน opened to every account on 2026-11-20 (owner: "รายงาน ปล่อยให้คนธรรมดาใช้เลย").
   await expect(sidebar.getByRole('button', { name: 'รายงาน', exact: true })).toBeVisible();
+  // in the owner's place: after รายจ่าย, just before เอกสาร
+  const order = await sidebar.locator('nav button').evaluateAll(nodes => nodes.map(node => node.textContent?.trim() ?? ''));
+  const at = (name: string) => order.findIndex(text => text.startsWith(name));
+  expect(at('รายจ่าย')).toBeLessThan(at('รายงาน'));
+  expect(at('รายงาน')).toBeLessThan(at('เอกสาร'));
+  expect(at('เลขากระรอก')).toBeLessThan(at('รายงาน'));
   await page.goto('/tax/feedback-user');
   await expect(page).toHaveURL(/\/dashboard\/feedback-user$/);
   await expect(page.getByRole('heading', { name: 'ภาษี', exact: true })).toHaveCount(0);
