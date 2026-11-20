@@ -88,9 +88,6 @@ import { importActionsChanged, registerImportActions, type ImportActions } from 
 import type { SettingsView } from '../features/settings/SettingsTab';
 import { KsIcon, type KsIconName } from '../features/mobile/icons';
 import { useMobileLayout } from '../features/mobile/useMobileLayout';
-import { RADAR_QUERY } from '../features/receivables/radar/desktopQuery';
-import { bangkokToday, buildCreditRadar } from '../features/receivables/radar/radarData';
-const CreditRadar = lazy(() => import('../features/receivables/radar/CreditRadar').then(m => ({ default: m.CreditRadar })));
 import { hideSplash } from './splash';
 import { isUpdateReady, reloadForUpdate, setUpdateGuard } from './appUpdate';
 import { MobilePageHero } from '../features/mobile/MobilePageHero';
@@ -587,21 +584,8 @@ export default function App() {
   const [isDesktop, setIsDesktop] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
   // Phones only get the mobile design; tablets and computers keep the layout they always had.
   const isPhone = useMobileLayout();
-  const isPhoneRef = useRef(isPhone);
-  isPhoneRef.current = isPhone;
-  // Computers and iPads (744px+): the overdue check opens the fullscreen Credit Radar (owner, 2026-10-30: "เต็มหน้าจอเลย
-  // ของบนคอมแล้วก็ iPad"); phones keep their alert.
-  const [creditRadarOpen, setCreditRadarOpen] = useState(false);
-  // Kept mounted once opened, so closing can fade out.
-  const [creditRadarMounted, setCreditRadarMounted] = useState(false);
-  const closeCreditRadar = React.useCallback(() => setCreditRadarOpen(false), []);
-  const openCreditRadar = React.useCallback(() => { setCreditRadarMounted(true); setCreditRadarOpen(true); }, []);
-  // ?radar=1 opens it once the account's jobs are in (for the team and the tests), on computers and iPads.
-  const radarLinkRef = useRef(new URLSearchParams(window.location.search).get('radar') === '1');
-  // The account whose visit has already been checked for overdue jobs (once per page load and account).
-  const radarVisitRef = useRef<string | null>(null);
-  // The address the visit started with: links clean their own action off the address (?openAddJob=1) before the jobs load.
-  const entrySearchRef = useRef(window.location.search);
+  // The fullscreen Credit Radar (2026-10-30) is gone (owner, 2026-11-20: "เอาหน้านี้ออกมันดูติดเล่นไป"): every device now gets
+  // the plain overdue alert below, which leads to เงินรอรับ. Its files stay in features/receivables/radar until deleted.
   const openPhoneMenu = React.useCallback(() => setIsMobileMenuOpen(true), []);
   useEffect(() => {
     const query = window.matchMedia('(min-width: 1024px)');
@@ -2437,34 +2421,6 @@ export default function App() {
     };
   }, [jobs, goals, statuses, jobTypes, settings, notifSettings, expenses, session, isLoadedForUser, cloudSyncStatus, financeOwner]);
 
-  // ?radar=1: the Credit Radar opens once the account's jobs are in (computers and iPads).
-  useEffect(() => {
-    if (!radarLinkRef.current || isPhone || !(session?.user?.email && isLoadedForUser === session.user.email)) return;
-    radarLinkRef.current = false;
-    const params = new URLSearchParams(window.location.search);
-    params.delete('radar');
-    window.history.replaceState(window.history.state, '', `${window.location.pathname}${params.toString() ? `?${params}` : ''}`);
-    openCreditRadar();
-  }, [session, isLoadedForUser, isPhone, openCreditRadar]);
-
-  // Every visit on a computer or iPad (owner, 2026-10-31: "เข้าเว็บไซต์มา มีรายการเลยกำหนด ให้ขึ้นหน้าเรดาร์ทันที ทุกครั้ง"):
-  // when the account's jobs are in and the radar counts any overdue job, it opens at once. Once per page load and
-  // account, so closing it is respected until the next visit.
-  useEffect(() => {
-    // Signed-in accounts only: the guest preview's sample jobs never open it.
-    if (isPhone || session?.isGuest || !(session?.user?.email && isLoadedForUser === session.user.email) || !session.user.id || termsWaiting) return;
-    // The jobs arrive with the load; the visit is decided once they are in.
-    if (radarVisitRef.current === session.user.id || jobs.length === 0) return;
-    radarVisitRef.current = session.user.id;
-    if (!window.matchMedia(RADAR_QUERY).matches) return;
-    // A plain visit only: a link that carries its own action (LINE's เพิ่มงาน, a document, a payment, a guide, ?radar=0
-    // for opening the app without it) goes straight to what it opens.
-    if (entrySearchRef.current.length > 1 || window.location.search.length > 1) return;
-    let overdue = 0;
-    try { overdue = buildCreditRadar(jobs, bangkokToday()).overdue.length; } catch { return; }
-    if (overdue > 0) openCreditRadar();
-  }, [session, isLoadedForUser, isPhone, jobs, openCreditRadar, termsWaiting]);
-
   // Check for overdue credit terms on login/data load
   useEffect(() => {
     if (!notificationsAccess) return;
@@ -2535,8 +2491,6 @@ export default function App() {
           const newCount = updatedQueue.filter(r => r.detectedDate === todayStr && r.status === 'pending').length;
           
           setTimeout(() => {
-            // Computers and iPads: the radar already opened on this visit (above); phones keep this alert.
-            if (!isPhoneRef.current && window.matchMedia(RADAR_QUERY).matches) return;
             triggerConfirm(
               tr("ตรวจพบดีลค้างชำระเลยกำหนด!"),
               tr("ระบบตรวจพบดีลงานเลยกำหนดเครดิตเทอมใหม่วันนี้ (จำนวน {0} รายการ)\n\nต้องการไปที่หน้าเงินรอรับ เพื่อตั้งเตือนหรือบันทึกรับเงินเลยไหมครับ?", newCount),
@@ -3071,9 +3025,6 @@ export default function App() {
   // came in with and where in the file it came from; a row the import updated keeps what it was before.
   // So the whole import can be undone for 7 days (Settings > สำรอง & นำเข้าข้อมูล).
   const handleImportRows = (commit: ImportCommit): ImportResult => {
-    // The person's own file coming in is not a visit: the overdue radar does not open over the chat or the import window
-    // for jobs that arrived just now (an account that opened with no jobs decided its visit only when jobs came in).
-    if (sessionRef.current?.user?.id) radarVisitRef.current = sessionRef.current.user.id;
     const batchId = crypto.randomUUID();
     const importedAt = new Date().toISOString();
     const jobRows = commit.jobs.map(job => ({ ...job, id: crypto.randomUUID(), lastActivityAt: importedAt, importBatchId: batchId, importedAt }) as Job);
@@ -3190,7 +3141,6 @@ export default function App() {
 
   const handleSheetSync = (changes: SheetSyncChanges) => {
     if (sheetWriting() && !changes.asked) return;
-    if (sessionRef.current?.user?.id) radarVisitRef.current = sessionRef.current.user.id;
     const at = new Date().toISOString();
     const added = changes.add.map(job => ({ ...job, id: crypto.randomUUID(), lastActivityAt: at }) as Job);
     const updates = new Map(changes.update.map(update => [update.id, update.fields]));
@@ -3996,7 +3946,6 @@ export default function App() {
               {activeTab === 'receivables' && (
                 <ReceivablesTab
                   onMobileBack={openPhoneMenu}
-                  onOpenRadar={isPhone ? undefined : openCreditRadar}
                   jobs={jobs}
                   onEditJob={handleEditJob}
                   onViewJob={handleViewJob}
@@ -4158,24 +4107,11 @@ export default function App() {
           </Suspense>
         )}
         {showThemeTip && !proKvOpen && <ThemeTip phone={isPhone} onChoose={answerThemeTip} />}
-        {creditRadarMounted && (
-          <Suspense fallback={null}>
-            <CreditRadar open={creditRadarOpen} jobs={jobs} onClose={closeCreditRadar}
-              onOpenJob={(id: string) => {
-                // The job on the jobs page, scrolled to and blinking slowly (owner, 2026-10-30: "กดไปแล้วไม่รู้ว่าเป็นโปรเจกต์ไหน").
-                setCreditRadarOpen(false);
-                setScrollToJobId(id);
-                window.setTimeout(() => setScrollToJobId(current => (current === id ? null : current)), 10000);
-                navigateTab('jobs');
-              }}
-              onOpenReceivables={() => { setCreditRadarOpen(false); navigateTab('receivables'); }} />
-          </Suspense>
-        )}
         {/* The team's message to everyone (owner, 2026-11-03): once the account has loaded and nothing else is open. */}
         {session && !session.isGuest && !financeGroupId && (
           <Suspense fallback={null}>
             <BroadcastPrompt key={session.user.id} accountId={session.user.id}
-              ready={accountLoaded && !termsWaiting && !onboardingFirst && !onboardingEdit && !birthOpen && !dialog.isOpen && !proKvOpen && !creditRadarOpen && !isImportOpen
+              ready={accountLoaded && !termsWaiting && !onboardingFirst && !onboardingEdit && !birthOpen && !dialog.isOpen && !proKvOpen && !isImportOpen
                 && !showThemeTip && !isProPromoOpen && !accountSwitcherOpen && !isMobileMenuOpen} />
           </Suspense>
         )}
