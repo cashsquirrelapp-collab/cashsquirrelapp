@@ -173,6 +173,10 @@ body {
   overflow-x: hidden;
 }
 
+/* Phones behave like an app (owner, 2026-11-22): no double-tap zoom, no sideways drift. */
+html { touch-action: manipulation; }
+body { overscroll-behavior-x: none; }
+
 button, a, input, select, textarea {
   -webkit-tap-highlight-color: transparent;
 }

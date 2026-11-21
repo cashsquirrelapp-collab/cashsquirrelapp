@@ -4,7 +4,7 @@ import { uiPrimaryButton, uiSurface } from '../../components/ui/uiStyles';
 import { privateCache } from '../../services/privateCache';
 import { readInvoices, saveCloud, type DocumentQuota } from '../../services/cloud';
 import { validateChanges } from '../../../../shared/validation';
-import { applyDocumentBranding, issuerForDocumentEdit } from '../../../../shared/documentBranding';
+import { applyDocumentBranding, documentIssuerFor, issuerForDocumentEdit, ISSUER_TEXT_FIELDS, profileWithIssuerDetails, type IssuerUse } from '../../../../shared/documentBranding';
 import { useLanguage } from '../../i18n/LanguageContext';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
@@ -204,6 +204,22 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
   // Linked documents: the document this draft was issued from ("ออกต่อเป็น…") and whether it stays linked.
   const [linkSource, setLinkSource] = useState<Invoice | null>(null);
   const [linkedFromId, setLinkedFromId] = useState<string | undefined>(undefined);
+  // ผู้ออกเอกสารของใบนี้ (owner, 2026-11-22): the issuer typed for this document alone; null = the business profile.
+  const [customIssuer, setCustomIssuer] = useState<InvoiceProfile | null>(null);
+  const [customIssuerUse, setCustomIssuerUse] = useState<IssuerUse>({ logo: false, signature: false });
+  const [customIssuerAsDefault, setCustomIssuerAsDefault] = useState(false);
+  const loadCustomIssuer = (source: Invoice | null | undefined) => {
+    setCustomIssuer(source?.issuerCustom ? { ...source.issuer } : null);
+    setCustomIssuerUse({ logo: Boolean(source?.issuerCustom && source.issuer.logoUrl), signature: Boolean(source?.issuerCustom && source.issuer.signatureUrl) });
+    setCustomIssuerAsDefault(false);
+  };
+  const startCustomIssuer = () => {
+    const start = documentIssuerFor(issuerProfile, issuerProfile, { logo: false, signature: false });
+    setCustomIssuer(start);
+    setCustomIssuerUse({ logo: false, signature: false });
+    setCustomIssuerAsDefault(false);
+  };
+  const setCustomIssuerField = (field: typeof ISSUER_TEXT_FIELDS[number], value: string) => setCustomIssuer(current => current ? { ...current, [field]: value } : current);
   const hasDocTerms = Boolean(paymentTerm || deliveryTerm || refNo);
   const docTermsVisible = docTermsOpen || hasDocTerms;
   
@@ -398,7 +414,8 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
     createdDate: createdDate,
     dueDate: dueDate || undefined,
     responseDate: responseDate || undefined,
-    issuer: issuerForDocumentEdit(editingInvoiceId ? invoices.find(invoice => invoice.id === editingInvoiceId) : undefined, issuerProfile),
+    issuer: customIssuer ? documentIssuerFor(customIssuer, issuerProfile, customIssuerUse) : issuerForDocumentEdit(editingInvoiceId ? invoices.find(invoice => invoice.id === editingInvoiceId) : undefined, issuerProfile),
+    issuerCustom: customIssuer ? true : undefined,
     client: {
       name: clientName,
       address: clientAddress,
@@ -438,7 +455,13 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
     }
     if (!editingInvoiceId && !allowNewDocuments()) return false;
 
-    const newInvoice: Invoice = { ...buildDraftInvoice(), id: editingInvoiceId || crypto.randomUUID() };
+    let newInvoice: Invoice = { ...buildDraftInvoice(), id: editingInvoiceId || crypto.randomUUID() };
+    // "ตั้งเป็นค่าเริ่มต้นด้วย": the typed issuer becomes the business profile, and this document follows it like any other.
+    if (customIssuer && customIssuerAsDefault) {
+      const profile = profileWithIssuerDetails(issuerProfile, customIssuer);
+      void saveIssuerProfile(profile, { quiet: true });
+      newInvoice = applyDocumentBranding({ ...newInvoice, issuerCustom: undefined, issuer: profile }, profile);
+    }
 
     let updatedList;
     if (editingInvoiceId) {
@@ -453,6 +476,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
     setSelectedInvoice(newInvoice);
     setDocTypeFilter(getWorkspaceTab(newInvoice.documentType));
     setEditingInvoiceId(null);
+    loadCustomIssuer(null);
     setActiveSubTab('list');
     return true;
   };
@@ -486,6 +510,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
     setEditingInvoiceId(null);
     setLinkSource(null);
     setLinkedFromId(undefined);
+    loadCustomIssuer(null);
     setSelectedJobId('');
     setDocType(type);
     
@@ -536,6 +561,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
     setRefNo(draft.refNo);
     setLinkSource(source);
     setLinkedFromId(draft.linkedFromId);
+    loadCustomIssuer(source);
     return true;
   };
   const setKeepLinked = (keep: boolean) => {
@@ -551,6 +577,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
       tr("ยืนยันการล้างข้อมูลฟอร์ม"),
       tr("คุณแน่ใจหรือไม่ว่าต้องการล้างข้อมูลที่กรอกไว้ทั้งหมดเพื่อเริ่มต้นใหม่?"),
       () => {
+        loadCustomIssuer(null);
         setClientName('');
         setClientAddress('');
         setClientPhone('');
@@ -615,6 +642,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
     setRefNo(inv.refNo || '');
     setLinkSource(null);
     setLinkedFromId(inv.linkedFromId);
+    loadCustomIssuer(inv);
     setActiveSubTab('create');
   };
 
@@ -629,14 +657,14 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
   };
 
   // The business profile from this page (phones; the same profile as ตั้งค่า › โปรไฟล์ธุรกิจ, saved the same way).
-  const saveIssuerProfile = async (profile: InvoiceProfile): Promise<boolean> => {
+  const saveIssuerProfile = async (profile: InvoiceProfile, options?: { quiet?: boolean }): Promise<boolean> => {
     privateCache.setItem(issuerKey, JSON.stringify(profile));
-    if (!ownerId) { setIssuerProfile(profile); triggerAlert(tr("บันทึกสำเร็จ"), tr("บันทึกโปรไฟล์ธุรกิจไว้ในเครื่องนี้แล้ว")); return true; }
+    if (!ownerId) { setIssuerProfile(profile); if (!options?.quiet) triggerAlert(tr("บันทึกสำเร็จ"), tr("บันทึกโปรไฟล์ธุรกิจไว้ในเครื่องนี้แล้ว")); return true; }
     try {
       await saveCloud(ownerId, { issuer_profile: profile });
       setIssuerProfile(profile);
       noteIssuerSaved();
-      triggerAlert(tr("บันทึกสำเร็จ"), tr("บันทึกโปรไฟล์ธุรกิจแล้ว ข้อมูลนี้จะถูกนำไปใช้เป็นค่าเริ่มต้นในเอกสารใบถัดไป"));
+      if (!options?.quiet) triggerAlert(tr("บันทึกสำเร็จ"), tr("บันทึกโปรไฟล์ธุรกิจแล้ว ข้อมูลนี้จะถูกนำไปใช้เป็นค่าเริ่มต้นในเอกสารใบถัดไป"));
       return true;
     } catch (error) {
       triggerAlert(tr("บันทึกไม่สำเร็จ"), (error as Error).message);
@@ -849,6 +877,8 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
       draft: {
         editingId: editingInvoiceId,
         docType, changeType: changeDocType,
+        customIssuer, startCustomIssuer, resetIssuer: () => loadCustomIssuer(null), setIssuerField: setCustomIssuerField,
+        issuerUse: customIssuerUse, setIssuerUse: setCustomIssuerUse, issuerAsDefault: customIssuerAsDefault, setIssuerAsDefault: setCustomIssuerAsDefault,
         docNo, setDocNo, createdDate, setCreatedDate, dueDate, setDueDate, responseDate, setResponseDate,
         client: currentClient,
         setClientField: (field, value) => clientSetters[field](value),
@@ -1181,6 +1211,79 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
               </div>
             </section>
           )}
+
+          {/* ผู้ออกเอกสาร (owner, 2026-11-22): the business profile by default; แก้ไขสำหรับใบนี้ types another issuer for this
+              document alone, with the saved logo and signature only when ticked. */}
+          <section className={formSection} data-testid="doc-issuer">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className={formHeading}>{tr("ผู้ออกเอกสาร")}</h3>
+              {customIssuer ? (
+                <button type="button" onClick={() => loadCustomIssuer(null)} className="text-[13px] font-medium text-[#C24A16] cursor-pointer dark:text-[#FF9A6B]">{tr("กลับไปใช้ข้อมูลตั้งต้น")}</button>
+              ) : (
+                <button type="button" onClick={startCustomIssuer} className="inline-flex h-9 items-center gap-1.5 rounded-[10px] border border-brand-border bg-brand-white px-3 text-[13px] font-medium text-brand-text transition-colors hover:bg-brand-faint cursor-pointer">
+                  <PenLine className="h-3.5 w-3.5" aria-hidden="true" />{tr("แก้ไขสำหรับใบนี้")}</button>
+              )}
+            </div>
+            {!customIssuer ? (
+              <p className={`${formHint} leading-[1.6]`}>
+                <span className="font-medium text-brand-text">{issuerProfile.name?.trim() || tr("ยังไม่ได้ตั้งข้อมูลผู้ออกเอกสาร")}</span>
+                {' · '}{tr("ใช้ข้อมูลตั้งต้นจากโปรไฟล์ธุรกิจ")}
+              </p>
+            ) : (
+              <>
+                <p className={`${formHint} leading-[1.6]`}>{tr("ข้อมูลที่แก้ตรงนี้ใช้กับเอกสารใบนี้ใบเดียว เอกสารใบอื่นและโปรไฟล์ธุรกิจไม่เปลี่ยน")}</p>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className={formLabel} htmlFor="doc-issuer-name">{tr("ชื่อผู้ออกเอกสาร")}</label>
+                    <input id="doc-issuer-name" type="text" value={customIssuer.name} onChange={(e) => setCustomIssuerField('name', e.target.value)} placeholder={tr("ชื่อบุคคล หรือ ชื่อบริษัท")} className={formInput} />
+                  </div>
+                  <div>
+                    <label className={formLabel} htmlFor="doc-issuer-tax">{tr("เลขผู้เสียภาษี")}</label>
+                    <input id="doc-issuer-tax" type="text" inputMode="numeric" value={customIssuer.taxId} onChange={(e) => setCustomIssuerField('taxId', e.target.value)} placeholder={tr("13 หลัก")} className={`${formInput} font-mono`} />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className={formLabel} htmlFor="doc-issuer-address">{tr("ที่อยู่")}</label>
+                    <input id="doc-issuer-address" type="text" value={customIssuer.address} onChange={(e) => setCustomIssuerField('address', e.target.value)} placeholder={tr("ที่อยู่ออกใบเสร็จ / ที่อยู่จดทะเบียน")} className={formInput} />
+                  </div>
+                  <div>
+                    <label className={formLabel} htmlFor="doc-issuer-phone">{tr("เบอร์โทร")}</label>
+                    <input id="doc-issuer-phone" type="tel" value={customIssuer.phone} onChange={(e) => setCustomIssuerField('phone', e.target.value)} className={formInput} />
+                  </div>
+                  <div>
+                    <label className={formLabel} htmlFor="doc-issuer-email">{tr("อีเมล")}</label>
+                    <input id="doc-issuer-email" type="email" value={customIssuer.email} onChange={(e) => setCustomIssuerField('email', e.target.value)} className={formInput} />
+                  </div>
+                  <div>
+                    <label className={formLabel} htmlFor="doc-issuer-bank">{tr("ธนาคาร")}</label>
+                    <input id="doc-issuer-bank" type="text" value={customIssuer.bankName} onChange={(e) => setCustomIssuerField('bankName', e.target.value)} placeholder={tr("เช่น พร้อมเพย์")} className={formInput} />
+                  </div>
+                  <div>
+                    <label className={formLabel} htmlFor="doc-issuer-account">{tr("เลขที่บัญชี")}</label>
+                    <input id="doc-issuer-account" type="text" inputMode="numeric" value={customIssuer.bankAccount} onChange={(e) => setCustomIssuerField('bankAccount', e.target.value)} className={`${formInput} font-mono`} />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className={formLabel} htmlFor="doc-issuer-account-name">{tr("ชื่อบัญชี")}</label>
+                    <input id="doc-issuer-account-name" type="text" value={customIssuer.bankAccountName} onChange={(e) => setCustomIssuerField('bankAccountName', e.target.value)} className={formInput} />
+                  </div>
+                </div>
+                <div className="space-y-2.5">
+                  {issuerProfile.logoUrl && (
+                    <label className="flex items-start gap-2.5 text-[14px] leading-[1.5] text-brand-text cursor-pointer">
+                      <input type="checkbox" checked={customIssuerUse.logo} onChange={(e) => setCustomIssuerUse(use => ({ ...use, logo: e.target.checked }))} className="mt-[3px] h-4 w-4 accent-[#E65F2B] cursor-pointer" />
+                      {tr("ใส่โลโก้ของฉันบนใบนี้")}</label>
+                  )}
+                  {issuerProfile.signatureUrl && (
+                    <label className="flex items-start gap-2.5 text-[14px] leading-[1.5] text-brand-text cursor-pointer">
+                      <input type="checkbox" checked={customIssuerUse.signature} onChange={(e) => setCustomIssuerUse(use => ({ ...use, signature: e.target.checked }))} className="mt-[3px] h-4 w-4 accent-[#E65F2B] cursor-pointer" />
+                      {tr("ใส่ลายเซ็นของฉันบนใบนี้")}</label>
+                  )}
+                  <label className="flex items-start gap-2.5 text-[14px] leading-[1.5] text-brand-text cursor-pointer">
+                    <input type="checkbox" checked={customIssuerAsDefault} onChange={(e) => setCustomIssuerAsDefault(e.target.checked)} className="mt-[3px] h-4 w-4 accent-[#E65F2B] cursor-pointer" />
+                    {tr("ตั้งเป็นข้อมูลตั้งต้นสำหรับเอกสารใบถัดไปด้วย")}</label>
+                </div>
+              </>
+            )}
+          </section>
 
           {/* 2. Customer */}
           <section className={formSection}>

@@ -5,6 +5,9 @@ import {
   Maximize2, Minus, MoreHorizontal, PenLine, Plus, Printer, ReceiptText, Share2, Trash2, X,
 } from 'lucide-react';
 import type { DocumentType, Invoice, InvoiceItem, InvoiceProfile, Job } from '../../../../shared/types';
+import { documentColorOf } from '../../../../shared/documentColors';
+import { DocColorPicker } from './DocColorPicker';
+import { ISSUER_TEXT_FIELDS, type IssuerUse } from '../../../../shared/documentBranding';
 import { A4_WIDTH_PX, DEFAULT_LOGO_HEIGHT, DocumentPreview, MAX_LOGO_HEIGHT, MIN_LOGO_HEIGHT, getDocumentMeta, paginateItems } from './DocumentA4';
 import { getWorkspaceTab, type DocumentWorkspaceTab } from './documentAvailability';
 import { canNativeShare, canShareFile } from './DocumentWorkspaceParts';
@@ -69,6 +72,13 @@ export interface DocDraft {
   setKeepLinked: (keep: boolean) => void;
   selectedJobId: string;
   selectJob: (id: string) => void;
+  /** ผู้ออกเอกสารของใบนี้: null while the document follows the business profile. */
+  customIssuer: InvoiceProfile | null;
+  startCustomIssuer: () => void;
+  resetIssuer: () => void;
+  setIssuerField: (field: typeof ISSUER_TEXT_FIELDS[number], value: string) => void;
+  issuerUse: IssuerUse; setIssuerUse: (use: IssuerUse) => void;
+  issuerAsDefault: boolean; setIssuerAsDefault: (value: boolean) => void;
   /** The document as the form describes it, with the current logo and signature. */
   preview: () => Invoice;
   /** True when it was saved (the form then closes and the saved document is the selected one). */
@@ -618,6 +628,7 @@ function FormScreen({ m, step, setStep, onBack, onIssuer, onPickJob, onSaved }: 
   const [terms, setTerms] = React.useState(() => Boolean(d.paymentTerm || d.deliveryTerm || d.refNo));
   const [openItems, setOpenItems] = React.useState<Record<string, boolean>>({});
   const [viewer, setViewer] = React.useState(false);
+  const [issuerSheet, setIssuerSheet] = React.useState(false);
   const nameRef = React.useRef<HTMLInputElement>(null);
   React.useEffect(() => { document.getElementById('main-content')?.scrollTo({ top: 0 }); }, [step]);
   const title = d.editingId ? tr("แก้ไข{0}", tr(meta.th)) : tr("{0}ใหม่", tr(meta.th));
@@ -829,10 +840,45 @@ function FormScreen({ m, step, setStep, onBack, onIssuer, onPickJob, onSaved }: 
             )}
             <Stacked label={tr("หมายเหตุท้ายเอกสาร")} htmlFor="dp-note"><textarea id="dp-note" rows={3} value={d.note} onChange={event => d.setNote(event.target.value)} placeholder={tr("เช่น กรุณาโอนภายใน 30 วัน")} /></Stacked>
           </div>
-          <button type="button" className="dp-card dp-row" onClick={onIssuer}>
-            <span className="dp-row-text"><b>{tr("ผู้ออกเอกสาร")}</b><span>{m.issuer.name?.trim() ? m.issuer.name : tr("ยังไม่ได้ตั้งข้อมูลผู้ออกเอกสาร")}</span></span>
+          <button type="button" className="dp-card dp-row" onClick={() => setIssuerSheet(true)} aria-haspopup="dialog">
+            <span className="dp-row-text"><b>{tr("ผู้ออกเอกสาร")}</b><span>{d.customIssuer ? tr("{0} · เฉพาะใบนี้", d.customIssuer.name.trim() || tr("ยังไม่ได้กรอกชื่อ")) : m.issuer.name?.trim() ? m.issuer.name : tr("ยังไม่ได้ตั้งข้อมูลผู้ออกเอกสาร")}</span></span>
             <ChevronRight size={17} className="dp-chevron" aria-hidden="true" />
           </button>
+          {issuerSheet && (
+            <MobileSheet title={tr("ผู้ออกเอกสาร")} onClose={() => setIssuerSheet(false)}>
+              {!d.customIssuer ? (
+                <div className="dp-brandsheet">
+                  <p className="dp-note">{tr("ใบนี้ใช้ข้อมูลตั้งต้น: {0}", m.issuer.name?.trim() || tr("ยังไม่ได้ตั้งข้อมูลผู้ออกเอกสาร"))}</p>
+                  <button type="button" className="dp-primary is-wide" onClick={d.startCustomIssuer}>{tr("แก้ไขสำหรับใบนี้")}</button>
+                  <button type="button" className="dp-card dp-row" onClick={() => { setIssuerSheet(false); onIssuer(); }}>
+                    <span className="dp-row-text"><b>{tr("แก้ข้อมูลตั้งต้น")}</b><span>{tr("ใช้กับเอกสารทุกใบ")}</span></span>
+                    <ChevronRight size={17} className="dp-chevron" aria-hidden="true" />
+                  </button>
+                </div>
+              ) : (
+                <div className="dp-brandsheet">
+                  <p className="dp-note">{tr("ข้อมูลที่แก้ตรงนี้ใช้กับเอกสารใบนี้ใบเดียว เอกสารใบอื่นและโปรไฟล์ธุรกิจไม่เปลี่ยน")}</p>
+                  <div className="dp-card dp-form">
+                    <Field label={tr("ชื่อ")} htmlFor="dp-doc-issuer-name"><input id="dp-doc-issuer-name" type="text" value={d.customIssuer.name} onChange={event => d.setIssuerField('name', event.target.value)} placeholder={tr("ชื่อบุคคล หรือ ชื่อบริษัท")} /></Field>
+                    <Field label={tr("เลขผู้เสียภาษี")} htmlFor="dp-doc-issuer-tax"><input id="dp-doc-issuer-tax" type="text" inputMode="numeric" value={d.customIssuer.taxId} onChange={event => d.setIssuerField('taxId', event.target.value)} placeholder={tr("13 หลัก")} /></Field>
+                    <Field label={tr("ที่อยู่")} htmlFor="dp-doc-issuer-address" top><textarea id="dp-doc-issuer-address" rows={2} value={d.customIssuer.address} onChange={event => d.setIssuerField('address', event.target.value)} /></Field>
+                    <Field label={tr("เบอร์โทร")} htmlFor="dp-doc-issuer-phone"><input id="dp-doc-issuer-phone" type="tel" value={d.customIssuer.phone} onChange={event => d.setIssuerField('phone', event.target.value)} /></Field>
+                    <Field label={tr("อีเมล")} htmlFor="dp-doc-issuer-email"><input id="dp-doc-issuer-email" type="email" value={d.customIssuer.email} onChange={event => d.setIssuerField('email', event.target.value)} /></Field>
+                    <Field label={tr("ธนาคาร")} htmlFor="dp-doc-issuer-bank"><input id="dp-doc-issuer-bank" type="text" value={d.customIssuer.bankName} onChange={event => d.setIssuerField('bankName', event.target.value)} placeholder={tr("เช่น พร้อมเพย์")} /></Field>
+                    <Field label={tr("เลขที่บัญชี")} htmlFor="dp-doc-issuer-account"><input id="dp-doc-issuer-account" type="text" inputMode="numeric" value={d.customIssuer.bankAccount} onChange={event => d.setIssuerField('bankAccount', event.target.value)} /></Field>
+                    <Field label={tr("ชื่อบัญชี")} htmlFor="dp-doc-issuer-account-name"><input id="dp-doc-issuer-account-name" type="text" value={d.customIssuer.bankAccountName} onChange={event => d.setIssuerField('bankAccountName', event.target.value)} /></Field>
+                  </div>
+                  <div className="dp-card dp-checks">
+                    {m.issuer.logoUrl && <label className="dp-check"><input type="checkbox" checked={d.issuerUse.logo} onChange={event => d.setIssuerUse({ ...d.issuerUse, logo: event.target.checked })} />{tr("ใส่โลโก้ของฉันบนใบนี้")}</label>}
+                    {m.issuer.signatureUrl && <label className="dp-check"><input type="checkbox" checked={d.issuerUse.signature} onChange={event => d.setIssuerUse({ ...d.issuerUse, signature: event.target.checked })} />{tr("ใส่ลายเซ็นของฉันบนใบนี้")}</label>}
+                    <label className="dp-check"><input type="checkbox" checked={d.issuerAsDefault} onChange={event => d.setIssuerAsDefault(event.target.checked)} />{tr("ตั้งเป็นข้อมูลตั้งต้นสำหรับเอกสารใบถัดไปด้วย")}</label>
+                  </div>
+                  <button type="button" className="dp-primary is-wide" onClick={() => setIssuerSheet(false)}>{tr("เสร็จ")}</button>
+                  <button type="button" className="dp-tool is-text" onClick={d.resetIssuer}>{tr("กลับไปใช้ข้อมูลตั้งต้น")}</button>
+                </div>
+              )}
+            </MobileSheet>
+          )}
           <div className="dp-bar-space" aria-hidden="true" />
           <BottomBar>
             <button type="button" className="dp-primary is-wide" onClick={() => { if (d.save()) onSaved(); }}><Check size={18} strokeWidth={2.6} aria-hidden="true" />{d.editingId ? tr("บันทึกการแก้ไข") : tr("บันทึก{0}", tr(meta.th))}</button>
@@ -850,6 +896,7 @@ function IssuerScreen({ m, backLabel, onBack }: { m: InvoicePhoneModel; backLabe
   const [saving, setSaving] = React.useState(false);
   const [brand, setBrand] = React.useState<'logo' | 'signature' | null>(null);
   const [viewer, setViewer] = React.useState(false);
+  const [colorSheet, setColorSheet] = React.useState(false);
   // The bank as a sheet from the bottom with the whole list to scroll (owner, 2026-11-03: the drop-down was cut off by its
   // card, "อยากให้มันเลื่อนเห็นชัดๆ").
   const [bankSheet, setBankSheet] = React.useState(false);
@@ -901,7 +948,7 @@ function IssuerScreen({ m, backLabel, onBack }: { m: InvoicePhoneModel; backLabe
 
       <p className="dp-note">{tr("ชื่อ ที่อยู่ เลขผู้เสียภาษี และบัญชีรับเงินพิมพ์บนเอกสารทุกใบ ลูกค้าที่ได้รับเอกสารจะเห็นข้อมูลนี้")}</p>
 
-      <p className="dp-label">{tr("โลโก้และลายเซ็น")}</p>
+      <p className="dp-label">{tr("แบรนด์บนเอกสาร")}</p>
       <div className="dp-card">
         {(['logo', 'signature'] as const).map(kind => {
           const value = kind === 'logo' ? profile.logoUrl : profile.signatureUrl;
@@ -914,6 +961,12 @@ function IssuerScreen({ m, backLabel, onBack }: { m: InvoicePhoneModel; backLabe
             </button>
           );
         })}
+        <button type="button" className="dp-row" onClick={() => setColorSheet(true)} aria-haspopup="dialog">
+          <span className="dp-colorthumb" aria-hidden="true"><i style={{ background: documentColorOf(profile.docColor).accent }} /></span>
+          <span className="dp-row-text"><b>{tr("สีเอกสาร")}</b></span>
+          <span className="dp-muted">{tr(documentColorOf(profile.docColor).name)}</span>
+          <ChevronRight size={17} className="dp-chevron" aria-hidden="true" />
+        </button>
       </div>
       <div className="dp-bar-space" aria-hidden="true" />
       <BottomBar>
@@ -952,6 +1005,14 @@ function IssuerScreen({ m, backLabel, onBack }: { m: InvoicePhoneModel; backLabe
               </div>
             );
           })()}
+        </MobileSheet>
+      )}
+      {colorSheet && (
+        <MobileSheet title={tr("สีเอกสาร")} onClose={() => setColorSheet(false)}>
+          <p className="dp-note" style={{ padding: '0 4px 10px' }}>{tr("สีหัวเรื่อง เส้น และกรอบยอดรวมบนเอกสารทุกประเภท")}</p>
+          <div className="dp-colorpick"><DocColorPicker large value={profile.docColor} logoUrl={profile.logoUrl} onChange={docColor => setProfile(current => ({ ...current, docColor }))} /></div>
+          <button type="button" className="dp-primary is-wide" onClick={() => setColorSheet(false)}>{tr("เสร็จ")}</button>
+          <p className="dp-note">{tr("กด บันทึก ด้านล่างของหน้าเพื่อเก็บสีนี้")}</p>
         </MobileSheet>
       )}
       {brand && (

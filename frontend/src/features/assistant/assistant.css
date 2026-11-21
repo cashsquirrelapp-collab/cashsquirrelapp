@@ -1695,3 +1695,19 @@ button.asx-party-tile:hover:not(:disabled) .asx-party-copy strong { color: var(-
 .dark .kfw-dock-offer { background: rgba(240, 116, 64, 0.12); border-color: #F07440; }
 @keyframes kfw-offer-in { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .kfw.is-snapping { transition: none; } .kfw-dock-offer { animation: none; } }
+
+/* Phone composer (owner, 2026-11-22: like ChatGPT's box, with a little charm): one roomy pill, + on the left, the mic and
+   a round send button inside it; 16px text so iPhone never zooms in on a tap; the send button pops in once there is text. */
+.asx.is-mobile .asx-composer.lg-glass { min-height: 56px; gap: 4px; padding: 7px 7px 7px 6px; border-radius: 28px;
+  box-shadow: 0 0 0 0.5px rgba(60, 60, 67, 0.14), 0 6px 18px rgba(28, 25, 23, 0.08); }
+.asx.is-mobile .asx-composer.lg-glass:focus-within { box-shadow: 0 0 0 0.5px rgba(60, 60, 67, 0.2), 0 8px 24px rgba(28, 25, 23, 0.12); }
+.dark .asx.is-mobile .asx-composer.lg-glass:focus-within { box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.16), 0 8px 24px rgba(0, 0, 0, 0.4); }
+.asx.is-mobile .asx-composer textarea { font-size: 16px; padding: 8px 4px; }
+.asx.is-mobile .asx-composer textarea::placeholder { transition: opacity 0.3s; }
+.asx.is-mobile .asx-composer .asx-icon-btn { width: 40px; height: 40px; color: #3F3A36; }
+.dark .asx.is-mobile .asx-composer .asx-icon-btn { color: #E7E2DC; }
+.asx.is-mobile .asx-composer .asx-icon-btn:first-of-type svg { transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1); }
+.asx.is-mobile .asx-composer .asx-icon-btn:first-of-type:active svg { transform: rotate(90deg); }
+.asx.is-mobile .asx-composer .asx-send { width: 40px; height: 40px; transition: background-color 0.15s, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.asx.is-mobile .asx-composer .asx-send:disabled { transform: scale(0.86); }
+.asx.is-mobile .asx-composer .asx-send:not(:disabled) { transform: scale(1); }

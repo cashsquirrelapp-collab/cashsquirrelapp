@@ -72,3 +72,35 @@ test('the link in the email comes back to the profile page, which says the email
   await expect(page.getByTestId('login-email-result')).toHaveText('เพิ่มอีเมลแล้ว เข้าสู่ระบบบนเว็บด้วยอีเมลนี้และรหัสผ่านที่ตั้งไว้ได้เลย');
   await expect.poll(() => page.url()).not.toContain('loginEmail=');
 });
+
+// สีเอกสาร on the computer (owner, 2026-11-22): Settings › โปรไฟล์ธุรกิจ, eight colours, the live header preview follows.
+test('the computer picks a document colour in โปรไฟล์ธุรกิจ and the preview follows', async ({ page }) => {
+  await open(page, { width: 1440, height: 900 });
+  await page.getByRole('button', { name: /^โปรไฟล์ธุรกิจ/ }).last().click();
+  const group = page.getByRole('radiogroup', { name: 'สีเอกสาร' });
+  await expect(group.getByRole('radio')).toHaveCount(8);
+  await expect(group.getByRole('radio', { name: 'ส้ม' })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.locator('.da4-titlebox h1').first()).toHaveCSS('color', 'rgb(230, 95, 43)');
+  await group.getByRole('radio', { name: 'เขียวหัวเป็ด' }).click();
+  await expect(group.getByRole('radio', { name: 'เขียวหัวเป็ด' })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.locator('.da4-titlebox h1').first()).toHaveCSS('color', 'rgb(29, 107, 102)');
+  // Any colour from the rainbow +; one too light for text is printed a little darker, and says so.
+  await page.getByLabel('เลือกสีเอง').fill('#ffe066');
+  await expect(page.getByText('สีนี้อ่อนเกินไปสำหรับตัวหนังสือบนกระดาษขาว')).toBeVisible();
+  await expect(group.getByRole('radio', { name: 'สีที่เลือกเอง' })).toHaveAttribute('aria-checked', 'true');
+  const printed = await page.locator('.da4-titlebox h1').first().evaluate(node => getComputedStyle(node).color);
+  expect(printed).not.toBe('rgb(255, 224, 102)');
+  await group.getByRole('radio', { name: 'เขียวหัวเป็ด' }).click();
+  // A logo adds its own colours as a row to pick from.
+  await page.locator('input[type="file"]').first().setInputFiles('tests/e2e/fixtures/logo-two-colors.png');
+  const logoRow = page.getByRole('radiogroup', { name: 'สีจากโลโก้ของคุณ' });
+  await expect(logoRow.getByRole('radio')).toHaveCount(2);
+  await group.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: 'test-results/settings-document-color-logo.png' });
+  await group.getByRole('radio', { name: 'เขียวหัวเป็ด' }).click();
+  expect(await textOverlapIssues(page)).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+  await page.screenshot({ path: 'test-results/settings-document-color-computer.png' });
+  await page.locator('.da4-titlebox').first().scrollIntoViewIfNeeded();
+  await page.screenshot({ path: 'test-results/settings-document-color-preview.png' });
+});

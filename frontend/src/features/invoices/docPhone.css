@@ -210,8 +210,17 @@ html[data-dp-task] #main-content.ksm-home-scroller { padding-bottom: 12px; }
 /* The issuer page. */
 .dp-brandthumb { flex-shrink: 0; display: grid; place-items: center; width: 40px; height: 40px; overflow: hidden; border: 1px dashed var(--ksm-border); border-radius: 10px; background: var(--ksm-surface); }
 .dp-brandthumb img { width: 100%; height: 100%; object-fit: contain; padding: 3px; }
+.dp-colorthumb { flex-shrink: 0; display: grid; place-items: center; width: 40px; height: 40px; }
+.dp-colorpick { padding: 4px 4px 16px; }
+.dp-colorpick + .dp-primary { width: 100%; flex: none; }
+.dp-colorthumb i { display: block; width: 24px; height: 24px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(31, 27, 24, 0.14); }
 .dp-brandsheet { display: flex; flex-direction: column; gap: 14px; padding-top: 14px; }
 .dp-brandsheet .dp-chips { margin-top: 4px; }
+.dp-brandsheet > .dp-primary { flex: none; }
+.dp-checks { display: grid; gap: 0; padding: 4px 14px; }
+.dp-check { display: flex; align-items: flex-start; gap: 10px; padding: 11px 0; font-size: 15px; line-height: 1.45; color: var(--ksm-text); cursor: pointer; }
+.dp-check + .dp-check { border-top: 1px solid var(--ksm-border); }
+.dp-check input { flex: none; width: 18px; height: 18px; margin-top: 2px; accent-color: #E65F2B; }
 
 /* คลังเอกสาร on phones (VaultTab). */
 .dp > .dp-block, .dp > .dp-folders { margin-top: 12px; }

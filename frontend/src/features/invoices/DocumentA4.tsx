@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 're
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { DocumentType, Invoice, InvoiceItem } from '../../../../shared/types';
+import { documentColorOf } from '../../../../shared/documentColors';
 import { findThaiBank, thaiBankLogo } from './thaiBanks';
 import { amountInWords, calculateDocumentTotals, formatDocDate, formatMoney, thaiBahtText } from './documentMath';
 
@@ -270,6 +271,8 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print, watermar
   const pages = paginateItems(invoice);
   const totalPages = pages.length;
   const { issuer, client } = invoice;
+  const color = documentColorOf(issuer.docColor);
+  const colorVars = { '--da4-accent': color.accent, '--da4-tint': color.tint } as React.CSSProperties;
   // How to pay (bank account) on quotations, invoices and tax invoices; a receipt records money
   // already received, so it has no payment section.
   const showPayment = !meta.isReceipt;
@@ -279,7 +282,7 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print, watermar
   const clientTitle = `${client.code ? `${client.code} ` : ''}${client.name || '-'}${client.branch ? ` (${client.branch})` : ''}`;
 
   return (
-    <div className={`da4 ${print ? 'da4-print-root' : ''}`}>
+    <div className={`da4 ${print ? 'da4-print-root' : ''}`} style={colorVars}>
       <div className={print ? undefined : 'da4-sheet'}>
         {pages.map((rows, pageIndex) => (
           <section className="da4-page" key={pageIndex} data-page={pageIndex + 1}>

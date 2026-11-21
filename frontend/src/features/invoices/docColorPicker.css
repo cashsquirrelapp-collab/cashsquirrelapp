@@ -1,0 +1,19 @@
+/* Document colour picker (owner, 2026-11-22: big round swatches like Canva's colour panel, not labelled pills). */
+.dcp { --dcp-size: 40px; --dcp-ring: #1F1B18; --dcp-gap-ring: #FFFFFF; --dcp-edge: rgba(31, 27, 24, 0.14); display: grid; gap: 14px; }
+.dcp.is-large { --dcp-size: 48px; }
+.dark .dcp { --dcp-ring: #F4EFEA; --dcp-gap-ring: #1A1B1F; --dcp-edge: rgba(255, 255, 255, 0.18); }
+.dcp-label { margin: 0 0 8px; font-size: 13px; line-height: 1.45; color: var(--dcp-muted, #6B635C); }
+.dark .dcp-label { color: #A8A29C; }
+.dcp-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.dcp-dot { position: relative; display: grid; place-items: center; width: var(--dcp-size); height: var(--dcp-size); padding: 0; border: 0; border-radius: 50%;
+  box-shadow: inset 0 0 0 1px var(--dcp-edge); cursor: pointer; transition: transform 0.12s ease; }
+.dcp-dot:hover { transform: scale(1.06); }
+.dcp-dot:focus-visible { outline: 2px solid var(--dcp-ring); outline-offset: 3px; }
+.dcp-dot[aria-checked="true"] { box-shadow: 0 0 0 2.5px var(--dcp-gap-ring), 0 0 0 5px var(--dcp-ring); }
+.dcp-dot.is-rainbow { background: conic-gradient(#E53935, #FDD835, #43A047, #1E88E5, #8E24AA, #E53935); }
+.dcp-dot.is-rainbow > span { display: grid; place-items: center; width: 58%; height: 58%; border-radius: 50%; background: #FFFFFF; color: #1F1B18; }
+.dcp-dot.is-tool { background: #FFFFFF; color: #1F1B18; box-shadow: inset 0 0 0 1px rgba(31, 27, 24, 0.18); }
+.dark .dcp-dot.is-tool { background: #24262B; color: #F4EFEA; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2); }
+.dcp-dot input[type="color"] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; }
+.dcp-note { margin: 0; font-size: 12px; line-height: 1.45; color: #6B635C; }
+.dark .dcp-note { color: #A8A29C; }

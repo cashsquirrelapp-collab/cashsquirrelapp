@@ -1,3 +1,4 @@
+import type { DocumentColorKey } from './documentColors.js';
 import type { OnboardingRecord } from './onboarding.js';
 import type { BusinessProfile } from './businessProfile.js';
 export interface StatusOption {
@@ -285,6 +286,7 @@ export interface InvoiceProfile {
   logoOffset?: number; // 0 (ซ้ายสุด) – 100 (ขวาสุด) เมื่อ logoPosition = 'custom'
   logoHeight?: number; // ความสูงโลโก้บนเอกสาร (px, 40–200)
   signatureUrl?: string; // ลายเซ็นผู้ออกเอกสาร (data URL)
+  docColor?: DocumentColorKey | string; // สีเอกสาร: ชื่อสีสำเร็จรูป หรือ #rrggbb ที่เลือกเอง (shared/documentColors.ts); ไม่ระบุ = ส้ม
   website?: string;
 }
 
@@ -294,6 +296,8 @@ export interface Invoice {
   id: string;
   /** Assistant-prepared documents stay unsigned, including when current profile branding is applied. */
   assistantDraft?: boolean;
+  /** The issuer was filled in for this document alone (ผู้ออกเอกสารของใบนี้): the business profile never replaces it. */
+  issuerCustom?: boolean;
   documentType: DocumentType;
   documentNo: string;
   createdDate: string; // YYYY-MM-DD

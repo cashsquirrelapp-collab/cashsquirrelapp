@@ -687,4 +687,8 @@ export const assistant: Record<string, string> = {
   "วางที่นี่ เพื่อชิดขวา": "Drop here to dock at the right",
   "ชิดขวาเต็มความสูง": "Dock at the right, full height",
   "ชิดขวาเต็มความสูง (หรือลากไปชนขอบขวา)": "Dock at the right, full height (or drag it to the right edge)",
+  "บันทึกค่าข้าว 120 บาท": "Record lunch, 120 baht",
+  "งานไหนยังไม่ได้รับเงิน": "Which jobs are still unpaid?",
+  "ออกใบเสนอราคาให้ลูกค้า": "Make a quotation for a client",
+  "เดือนนี้รายได้เท่าไร": "How much did I earn this month?",
 };

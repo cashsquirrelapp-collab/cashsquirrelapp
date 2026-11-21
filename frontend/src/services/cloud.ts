@@ -89,11 +89,22 @@ export async function refreshCloud(userId: string, current: () => CloudState): P
   const result = await apiJson<any>("/api/data?includeInvoices=0", { headers: financeHeaders(userId) });
   assertFinanceWorkspace(userId, epoch);
   if (!quiet()) return 'busy';
-  const next = baselineOf(result);
+  const next = keepDocumentBaseline(baseline, baselineOf(result));
   if (sameVersions(baseline, next)) return 'same';
   baselines.set(userId, next);
   reads.set(userId, (reads.get(userId) || 0) + 1);
   return { result };
+}
+/**
+ * The light read (includeInvoices=0) carries no documents and no issuer profile, so what readInvoices recorded for them
+ * stays. Without this every refresh dropped them (2026-11-22: saving the business profile or a document failed with
+ * บันทึกไม่สำเร็จ, the server seeing an existing record sent as new).
+ */
+export function keepDocumentBaseline(previous: Baseline, next: Baseline): Baseline {
+  if (previous.cashflow_invoices) next.cashflow_invoices = previous.cashflow_invoices;
+  const issuer = previous.cashflow_documents?.issuer_profile;
+  if (issuer && !next.cashflow_documents?.issuer_profile) (next.cashflow_documents ??= {}).issuer_profile = issuer;
+  return next;
 }
 export function clearCloud(userId?: string) {
   if (userId) baselines.delete(userId);

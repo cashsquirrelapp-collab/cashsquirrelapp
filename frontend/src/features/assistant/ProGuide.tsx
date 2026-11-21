@@ -247,6 +247,9 @@ export default function ProGuide({ accountId, start, practiceStart = 0, line, em
   };
   const showAll = () => update({ state: 'card', active: undefined });
   const later = () => update({ state: 'pill', active: undefined });
+  // Owner, 2026-11-22: "ให้มีกากบาทออกได้ อย่าบังคับสอน": every part of the guide closes with one ×.
+  const closeGuide = () => update({ state: 'off', active: undefined });
+  const closeX = <button type="button" className="pg-x" onClick={closeGuide} aria-label={tr('ปิดคำแนะนำเริ่มใช้ Pro')} title={tr('ปิดคำแนะนำเริ่มใช้ Pro')}><X size={16} aria-hidden="true" /></button>;
 
   // The step being done is finished: say so by the squirrel for a moment, then show the card with the next step.
   const [cheer, setCheer] = React.useState<ProGuideStep | null>(null);
@@ -413,6 +416,7 @@ export default function ProGuide({ accountId, start, practiceStart = 0, line, em
             <p>{practice ? tr('โหมดทดลองสำหรับแอดมิน ความคืบหน้าจริงของบัญชีไม่เปลี่ยน') : finished ? tr('ต่อจากนี้คุยกับเลขาได้ทุกหน้า ทั้งในแอปและ LINE') : tr('กดไปทำเลย แล้วน้องพาไปที่ปุ่มให้ทีละขั้น')}</p>
           </div>
           <span className="pg-count" aria-label={tr('ทำแล้ว {0} จาก {1} ขั้น', String(doneCount), String(STEPS.length))}>{doneCount}/{STEPS.length}</span>
+          {closeX}
         </div>
         {progress}
         <ol className="pg-steps">
@@ -451,7 +455,7 @@ export default function ProGuide({ accountId, start, practiceStart = 0, line, em
           : pillStep ? <><span className="pg-num">{STEPS.indexOf(pillStep) + 1}/{STEPS.length}</span>{stepTitle(pillStep)}</>
             : <><Face size={22} /><span>{tr('เริ่มใช้ Pro')}</span><span className="pg-num">{doneCount}/{STEPS.length}</span></>}
       </button>
-      {saved.state === 'pill' && <button type="button" className="pg-pill-x" onClick={() => update({ state: 'off', active: undefined })} aria-label={tr('ปิดคำแนะนำเริ่มใช้ Pro')} title={tr('ปิดคำแนะนำเริ่มใช้ Pro')}><X size={13} /></button>}
+      {<button type="button" className="pg-pill-x" onClick={closeGuide} aria-label={tr('ปิดคำแนะนำเริ่มใช้ Pro')} title={tr('ปิดคำแนะนำเริ่มใช้ Pro')}><X size={13} /></button>}
     </div>
   );
 
@@ -471,6 +475,7 @@ export default function ProGuide({ accountId, start, practiceStart = 0, line, em
     <Face size={40} />
     <div className="pg-head-text"><p className="pg-coach-kicker">{tr('ขั้นที่ {0} จาก {1}', String(index + 1), String(STEPS.length))}</p><h2 id="pg-coach-title">{title}</h2></div>
     <StepIcon step={active} size={30} />
+    {closeX}
   </div>;
 
   let coach: React.ReactNode = null;

@@ -45,7 +45,11 @@ export default function CustomDialog({ dialog, onClose }: CustomDialogProps) {
   // Phones (owner, 2026-10-21): a centred card, the official mascot in a square tile instead of an icon
   // (only its mood and what it holds change): a red "no" sign for a deletion, a celebration for good news.
   const isDestructive = dialog.type === 'confirm' && /ลบ|ปิดบัญชี|ล้างข้อมูล|ยกเลิกการสมัคร|delete|remove|close account/i.test(dialog.title);
+  // Something did not work (owner, 2026-11-22: "ทำเครื่องหมายกากบาท ... น้องยืนอยู่ ทำหน้าแบบมันไม่ได้"): the worried face
+  // holding the red × sign the deletion card already uses.
+  const isFailureAlert = dialog.type === 'alert' && /ไม่สำเร็จ|ผิดพลาด|ไม่ได้|unsuccessful|failed|error|couldn/i.test(dialog.title);
   const mascotPose: { mood: MascotMood; action: MascotAction } = isDestructive ? { mood: 'thinking', action: 'hold-cross' }
+    : isFailureAlert ? { mood: 'worried', action: 'hold-cross' }
     : dialog.type === 'alert' ? (isSuccessAlert ? { mood: 'happy', action: 'celebrate' } : { mood: 'checking', action: 'idle' })
     : dialog.type === 'prompt' ? { mood: 'thinking', action: 'hold-document' }
     : { mood: 'thinking', action: 'idle' };
@@ -59,7 +63,7 @@ export default function CustomDialog({ dialog, onClose }: CustomDialogProps) {
             initial={{ scale: 0.92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.92, opacity: 0 }}
             transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
             role="dialog" aria-modal="true" aria-label={dialog.title} className="ksm-confirm-card">
-            <span className={`ksm-confirm-mascot${isDestructive ? ' is-destructive' : ''}`} aria-hidden="true">
+            <span className={`ksm-confirm-mascot${isDestructive || isFailureAlert ? ' is-destructive' : ''}`} aria-hidden="true">
               <Mascot mood={mascotPose.mood} action={mascotPose.action} animated={false} size={108} />
             </span>
             <h3 className="ksm-confirm-title">{dialog.title}</h3>

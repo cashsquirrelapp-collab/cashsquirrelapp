@@ -14,6 +14,10 @@ clearLegacyFinancialCache();
 // New builds open without an error page or a new sign-in (app/appUpdate.ts). Production only.
 if ((import.meta as any).env?.PROD) startUpdateWatch();
 
+// iPhone Safari ignores user-scalable=no for pinching, so the pinch itself is stopped (owner, 2026-11-22: lock the UI like
+// an app, the job sheet zoomed and slid sideways).
+for (const name of ['gesturestart', 'gesturechange'] as const) document.addEventListener(name, event => event.preventDefault(), { passive: false });
+
 // Register PWA service worker
 if ('serviceWorker' in navigator && (import.meta as any).env?.PROD) {
   window.addEventListener('load', () => {

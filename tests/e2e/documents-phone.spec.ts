@@ -164,10 +164,25 @@ test('phones: a new quotation in three steps, saved, then on its own page ready 
   await expect(page.getByText('ขั้นที่ 3 จาก 3 · ตรวจแล้วบันทึก')).toBeVisible();
   await expect(page.locator('#dp-doc-type')).toHaveValue('quotation');
   await expect(page.getByRole('button', { name: /ผู้ออกเอกสาร/ })).toContainText('สตูดิโอกระรอก');
-  // A trip to ข้อมูลผู้ออกเอกสาร and back keeps the step and what was filled in.
+  // A trip to ข้อมูลผู้ออกเอกสาร (the default details) and back keeps the step and what was filled in.
   await page.getByRole('button', { name: /ผู้ออกเอกสาร/ }).click();
+  const issuerSheet = page.getByRole('dialog', { name: 'ผู้ออกเอกสาร' });
+  await expect(issuerSheet).toContainText('ใบนี้ใช้ข้อมูลตั้งต้น: สตูดิโอกระรอก');
+  await issuerSheet.getByRole('button', { name: /แก้ข้อมูลตั้งต้น/ }).click();
   await expect(page.getByRole('heading', { name: 'ข้อมูลผู้ออกเอกสาร', level: 2 })).toBeVisible();
   await page.goBack();
+  await expect(page.getByText('ขั้นที่ 3 จาก 3 · ตรวจแล้วบันทึก')).toBeVisible();
+  // Someone else issues this one (owner, 2026-11-22): typed for this document alone.
+  await page.getByRole('button', { name: /ผู้ออกเอกสาร/ }).click();
+  await issuerSheet.getByRole('button', { name: 'แก้ไขสำหรับใบนี้' }).click();
+  await expect(issuerSheet.locator('#dp-doc-issuer-name')).toHaveValue('สตูดิโอกระรอก');
+  await issuerSheet.locator('#dp-doc-issuer-name').fill('คุณสมชาย ใจดี');
+  await issuerSheet.locator('#dp-doc-issuer-tax').fill('3100500000001');
+  await page.waitForTimeout(400);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await shot(page, 'docs-issuer-this-doc');
+  await issuerSheet.getByRole('button', { name: 'เสร็จ' }).click();
+  await expect(page.getByRole('button', { name: /ผู้ออกเอกสาร/ })).toContainText('คุณสมชาย ใจดี · เฉพาะใบนี้');
   await expect(page.getByText('ขั้นที่ 3 จาก 3 · ตรวจแล้วบันทึก')).toBeVisible();
   await expect(page.locator('.dp-review')).toContainText('฿20,800');
   await page.getByRole('button', { name: /ดูหน้า A4 ก่อนบันทึก/ }).click();
@@ -182,6 +197,8 @@ test('phones: a new quotation in three steps, saved, then on its own page ready 
   await expect.poll(() => saved.some(change => change.table === 'cashflow_invoices' && (change.data?.client as { name?: string } | undefined)?.name === 'ร้านกาแฟดอยช้าง')).toBe(true);
   const created = saved.find(change => change.table === 'cashflow_invoices' && (change.data?.client as { name?: string } | undefined)?.name === 'ร้านกาแฟดอยช้าง')!;
   expect(created.data).toMatchObject({ documentType: 'quotation', vatRate: 7, whtRate: 3, items: [expect.objectContaining({ description: 'ถ่ายรีวิวเมนูใหม่', quantity: 2, price: 10000 })] });
+  expect(created.data).toMatchObject({ issuerCustom: true, issuer: { name: 'คุณสมชาย ใจดี', taxId: '3100500000001' } });
+  expect((created.data?.issuer as { signatureUrl?: string }).signatureUrl).toBeUndefined();
   // The saved quotation opens on its own page; back lands on the list with it.
   expect(await screen(page)).toBe('document');
   await expect(page.locator('.dp-summary')).toContainText('฿20,800');
@@ -249,10 +266,28 @@ test('phones: ข้อมูลผู้ออกเอกสาร is edited i
   await page.getByRole('button', { name: /โลโก้ธุรกิจ/ }).click();
   await expect(page.getByRole('dialog', { name: 'โลโก้ธุรกิจ' })).toContainText('อัปโหลดโลโก้');
   await page.getByRole('dialog', { name: 'โลโก้ธุรกิจ' }).getByRole('button', { name: 'เสร็จ' }).click();
+  // Document colour (owner, 2026-11-22): orange until one is picked; the A4 preview follows the pick.
+  await expect(page.getByRole('button', { name: /สีเอกสาร/ })).toContainText('ส้ม');
+  await page.getByRole('button', { name: /สีเอกสาร/ }).click();
+  const colors = page.getByRole('dialog', { name: 'สีเอกสาร' });
+  await expect(colors.getByRole('radio')).toHaveCount(8);
+  await expect(colors.getByRole('radio', { name: 'ส้ม' })).toHaveAttribute('aria-checked', 'true');
+  await page.waitForTimeout(400);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await shot(page, 'docs-colors');
+  await colors.getByRole('radio', { name: 'น้ำเงิน' }).click();
+  await expect(colors.getByRole('radio', { name: 'น้ำเงิน' })).toHaveAttribute('aria-checked', 'true');
+  await colors.getByRole('button', { name: 'เสร็จ' }).click();
+  await expect(colors).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /สีเอกสาร/ })).toContainText('น้ำเงิน');
+  await page.getByRole('button', { name: 'ดูบนเอกสาร' }).click();
+  await expect(page.locator('.da4-titlebox h1').first()).toHaveCSS('color', 'rgb(31, 63, 115)');
+  await shot(page, 'docs-colors-a4');
+  await page.getByRole('button', { name: 'กลับไปแก้ไข' }).click();
   await page.locator('.dp-bar').getByRole('button', { name: 'บันทึก' }).click();
   await expect(dialog(page)).toContainText('บันทึกโปรไฟล์ธุรกิจแล้ว');
   await dialog(page).getByRole('button').last().click();
-  await expect.poll(() => saved.find(change => change.table === 'cashflow_documents' && change.id === 'issuer_profile')?.data).toMatchObject({ name: 'สตูดิโอกระรอกน้อย', bankName: 'ธนาคารกรุงเทพ', bankAccount: '987-6-54321-0', taxId: '0105555555555' });
+  await expect.poll(() => saved.find(change => change.table === 'cashflow_documents' && change.id === 'issuer_profile')?.data).toMatchObject({ name: 'สตูดิโอกระรอกน้อย', bankName: 'ธนาคารกรุงเทพ', bankAccount: '987-6-54321-0', taxId: '0105555555555', docColor: 'navy' });
   await expect.poll(() => screen(page)).toBe('list');
   await expect(page.getByTestId('issuer-row')).toContainText('สตูดิโอกระรอกน้อย');
 });
@@ -315,4 +350,63 @@ test('computers: the documents page keeps its layout and gains ข้อมู�
   await page.getByTestId('issuer-button').click();
   await expect(page).toHaveURL(/\/settings/);
   await expect(page.locator('#biz-name')).toHaveValue('สตูดิโอกระรอก');
+});
+
+test('computers: แก้ไขสำหรับใบนี้ types another issuer for one document; the business profile stays', async ({ page }) => {
+  const saved = await open(page, '/invoice?type=quotation', { width: 1280, height: 820 });
+  await page.getByRole('button', { name: 'ออกเอกสารใหม่' }).first().click();
+  await page.getByRole('menuitem', { name: 'ใบเสนอราคา' }).click();
+  const section = page.getByTestId('doc-issuer');
+  await expect(section).toContainText('สตูดิโอกระรอก · ใช้ข้อมูลตั้งต้นจากโปรไฟล์ธุรกิจ');
+  await section.getByRole('button', { name: 'แก้ไขสำหรับใบนี้' }).click();
+  await page.locator('#doc-issuer-name').fill('คุณสมชาย ใจดี');
+  await page.locator('#doc-issuer-account').fill('111-2-33333-4');
+  await page.locator('#client-name').fill('ร้านกาแฟดอยช้าง');
+  await section.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(400);
+  // Only the new section is checked: the long form scrolls under its sticky save bar, and the scaled A4 preview is tiny.
+  const sectionText = await section.innerText();
+  expect((await textOverlapIssues(page)).filter(issue => sectionText.includes(issue.a ?? '') && sectionText.includes(issue.b ?? ''))).toEqual([]);
+  await shot(page, 'docs-issuer-this-doc-computer');
+  await page.getByRole('button', { name: /บันทึกและสร้างเอกสาร/ }).click();
+  await expect.poll(() => saved.some(change => change.table === 'cashflow_invoices' && (change.data?.client as { name?: string } | undefined)?.name === 'ร้านกาแฟดอยช้าง')).toBe(true);
+  const created = saved.find(change => change.table === 'cashflow_invoices' && (change.data?.client as { name?: string } | undefined)?.name === 'ร้านกาแฟดอยช้าง')!;
+  expect(created.data).toMatchObject({ issuerCustom: true, issuer: { name: 'คุณสมชาย ใจดี', bankAccount: '111-2-33333-4' } });
+  expect(saved.some(change => change.table === 'cashflow_documents' && change.id === 'issuer_profile')).toBe(false);
+});
+
+// The 12-second refresh (owner, 2026-11-22: "แก้ไขในตั้งค่า ... บันทึกไม่สำเร็จ"): the light read has no documents and no
+// issuer profile, and it used to wipe what the next save compares against, so every save sent them as new. Here the
+// mock answers like the real server, the refresh runs, and the saves after it still carry each record's version.
+test('phones: after the live refresh, deleting a document and saving the business profile send their versions', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-11-21T10:00:00+07:00') });
+  await page.addInitScript(() => localStorage.setItem('krarok.liveRefresh', 'on'));
+  await open(page, '/invoice?type=quotation');
+  const sent: { table: string; id: string; op: string; version: number | null }[] = [];
+  let lightReads = 0;
+  await page.route('**/api/data*', route => {
+    if (route.request().method() === 'POST') { sent.push(...((route.request().postDataJSON() as { changes: typeof sent }).changes || [])); return route.fulfill({ json: { ok: true, versions } }); }
+    if (!route.request().url().includes('includeInvoices=0')) return route.fallback();
+    lightReads += 1;
+    const { invoices: _invoices, issuer_profile: _issuer, ...light } = snapshot as Record<string, unknown>;
+    const { cashflow_invoices: _versions, ...lightVersions } = versions as Record<string, any>;
+    const { issuer_profile: _issuerVersion, ...documents } = lightVersions.cashflow_documents;
+    return route.fulfill({ json: { snapshot: light, versions: { ...lightVersions, cashflow_documents: documents }, subscription: { status: 'active', plan: 'pro_monthly', current_period_end: '2099-01-01T00:00:00Z' } } });
+  });
+  await expect(page.locator('.dp-docrow')).toHaveCount(3);
+  await page.clock.runFor(40_000);
+  await expect.poll(() => lightReads).toBeGreaterThan(0);
+  // A document: deleted with its version, and no other document is sent as new.
+  await page.getByRole('button', { name: /เปิด QT-2026-009/ }).click();
+  await page.getByRole('button', { name: 'ตัวเลือกเพิ่มเติมของ QT-2026-009' }).click();
+  await page.getByRole('dialog', { name: 'QT-2026-009' }).getByRole('button', { name: /ลบเอกสาร/ }).click();
+  await dialog(page).getByRole('button').last().click();
+  await expect.poll(() => sent.find(change => change.op === 'delete' && change.id === 'd0000003-0000-4000-8000-000000000003')?.version).toBe(1);
+  expect(sent.filter(change => change.table === 'cashflow_invoices' && change.op === 'set')).toEqual([]);
+  // The business profile: saved over version 1, not as a new record.
+  await expect.poll(() => screen(page)).toBe('list');
+  await page.getByTestId('issuer-row').click();
+  await page.locator('#dp-biz-name').fill('สตูดิโอกระรอกน้อย');
+  await page.locator('.dp-bar').getByRole('button', { name: 'บันทึก' }).click();
+  await expect.poll(() => sent.find(change => change.id === 'issuer_profile')?.version).toBe(1);
 });

@@ -6,6 +6,7 @@ import PageHeader from '../../components/ui/PageHeader';
 import React, { useState, useEffect } from 'react';
 import { isPhaseOneFeatureAvailable } from '../../../../shared/featureAvailability';
 import { AppSettings, Expense, FixedExpenseItem, Job, NotifSettings, Invoice, InvoiceProfile } from '../../../../shared/types';
+import { DocColorPicker } from '../invoices/DocColorPicker';
 import { formatCurrency, sumFixedExpenseItems, dateLocale } from '../../utils';
 import NumberInput from '../../components/ui/NumberInput';
 import { apiFetch, apiJson } from '../../services/api';
@@ -882,7 +883,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               </div>
             </div>
           </section>
-          <Panel title={tr("แบรนด์บนเอกสาร")} desc={tr("โลโก้และลายเซ็นที่แสดงบนเอกสารทุกประเภท")}>
+          <Panel title={tr("แบรนด์บนเอกสาร")} desc={tr("โลโก้ ลายเซ็น และสีที่แสดงบนเอกสารทุกประเภท")}>
             <div className="divide-y divide-brand-border">
               <div className="pb-5">
                 <BrandImageField
@@ -926,6 +927,15 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     </div>
                   )}
                 />
+              </div>
+              <div className="py-5">
+                <div className="space-y-3">
+                  <div>
+                    <h4 className="text-[14px] font-medium text-brand-text">{tr("สีเอกสาร")}</h4>
+                    <p className="mt-0.5 text-xs text-brand-muted">{tr("สีหัวเรื่อง เส้น และกรอบยอดรวมบนเอกสารทุกประเภท")}</p>
+                  </div>
+                  <DocColorPicker value={issuerProfile.docColor} logoUrl={issuerProfile.logoUrl} onChange={docColor => setIssuerProfile(prev => ({ ...prev, docColor }))} />
+                </div>
               </div>
               <div className="pt-5">
                 <BrandImageField
@@ -1320,7 +1330,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
                 <div className="space-y-7">
                   <Section icon={FileText} title={tr("การเงินและเอกสาร")} id="settings-finance">
-                    <NavRow icon={Building2} title={tr("โปรไฟล์ธุรกิจ")} desc={tr("โลโก้ ลายเซ็น ข้อมูลผู้ขาย และข้อมูลในเอกสาร")} onClick={() => openView('business')} guide="business" />
+                    <NavRow icon={Building2} title={tr("โปรไฟล์ธุรกิจ")} desc={tr("โลโก้ ลายเซ็น สีเอกสาร ข้อมูลผู้ขาย และข้อมูลในเอกสาร")} onClick={() => openView('business')} guide="business" />
                     <NavRow icon={CalendarClock} title={tr("รายจ่ายประจำ")} desc={tr("จัดการค่าใช้จ่ายที่เกิดขึ้นเป็นประจำ")} value={<span className="font-mono">{formatCurrency(ownMonthlyExpense(settings.monthlyExpense, settings.fixedExpenseItems))}</span>} onClick={() => openView('fixed')} />
                     {fullFeatureAccess && <NavRow icon={Target} title={tr("เป้ารายรับต่อเดือน")} desc={tr("ตั้งเป้ารายรับในแต่ละเดือน")} value={<span className="font-mono">{settings.monthlyRevenueGoal ? formatCurrency(settings.monthlyRevenueGoal) : tr("ยังไม่ได้ตั้ง")}</span>}
                       onClick={() => { setTargetDraft(settings.monthlyRevenueGoal ? String(settings.monthlyRevenueGoal) : ''); setSheet('target'); }} />}

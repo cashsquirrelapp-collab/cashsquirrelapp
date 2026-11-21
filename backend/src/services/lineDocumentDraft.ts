@@ -397,7 +397,7 @@ const PROFILE_FIELDS: (keyof InvoiceProfile)[] = ['name', 'address', 'phone', 'e
 export function documentIssuer(profile: unknown): InvoiceProfile {
   const source = profile && typeof profile === 'object' ? profile as Record<string, unknown> : {};
   const result = Object.fromEntries(PROFILE_FIELDS.map(field => [field, typeof source[field] === 'string' ? source[field] : ''])) as unknown as InvoiceProfile;
-  for (const field of ['logoUrl', 'logoPosition', 'logoOffset', 'logoHeight', 'website']) if (source[field] !== undefined) (result as unknown as Record<string, unknown>)[field] = source[field];
+  for (const field of ['logoUrl', 'logoPosition', 'logoOffset', 'logoHeight', 'docColor', 'website']) if (source[field] !== undefined) (result as unknown as Record<string, unknown>)[field] = source[field];
   return result;
 }
 

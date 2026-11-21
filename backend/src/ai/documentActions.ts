@@ -67,7 +67,7 @@ function ownIssuer(value: unknown): InvoiceProfile {
   const result: InvoiceProfile = { name: '', address: '', phone: '', email: '', taxId: '', bankName: '', bankAccount: '', bankAccountName: '' };
   for (const field of Object.keys(result) as (keyof InvoiceProfile)[]) if (typeof source[field] === 'string') (result as unknown as Record<string, unknown>)[field] = source[field];
   // Copy branding, but creating a draft never attaches the account's saved signature.
-  for (const field of ['logoUrl', 'logoPosition', 'logoOffset', 'logoHeight', 'website']) if (source[field] !== undefined) (result as unknown as Record<string, unknown>)[field] = source[field];
+  for (const field of ['logoUrl', 'logoPosition', 'logoOffset', 'logoHeight', 'docColor', 'website']) if (source[field] !== undefined) (result as unknown as Record<string, unknown>)[field] = source[field];
   return result;
 }
 export async function executeDocumentAction(name: string, args: Record<string, unknown>, context: ToolContext): Promise<ToolOutcome> {

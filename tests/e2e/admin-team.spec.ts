@@ -118,7 +118,7 @@ for (const size of [{ name: 'computer', width: 1440, height: 900 }, { name: 'iPa
     await expect(nav.getByRole('button', { name: 'ผู้ใช้งาน', exact: true })).toHaveAttribute('aria-current', 'page');
     // Back office only (owner, 2026-11-04): the admin page is in the menu, unreleased pages are not.
     await expect(page.getByRole('button', { name: 'แดชบอร์ดแอดมิน', exact: true })).toBeVisible();
-    for (const name of ['เป้าหมาย', 'รายงาน', 'ภาษี', 'ทีม']) await expect(page.getByRole('button', { name, exact: true })).toHaveCount(0);
+    for (const name of ['เป้าหมาย', 'ภาษี', 'ทีม']) await expect(page.getByRole('button', { name, exact: true })).toHaveCount(0);
     await expect(page.getByTestId('admin-line-samples')).toHaveCount(0);
     await nav.getByRole('button', { name: 'รายบัญชี', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'พฤติกรรมรายบัญชี' })).toBeVisible();

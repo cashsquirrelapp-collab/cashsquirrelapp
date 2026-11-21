@@ -1,7 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { AlertCircle, Archive, ArchiveRestore, ArrowDown, ArrowLeft, ArrowUp, Bell, BellRing, Check, ChevronDown, ChevronLeft, ChevronRight, FileText, FolderPlus, Image as ImageIcon, ListChecks, Lock, Mic, MoreHorizontal, PanelLeft, PanelLeftClose, Paperclip, Pencil, Pin, PinOff, RotateCcw, Search, Sparkles, SquarePen, Trash2, Wallet, X } from 'lucide-react';
+import { AlertCircle, Archive, ArchiveRestore, ArrowDown, ArrowLeft, ArrowUp, Bell, BellRing, Check, ChevronDown, ChevronLeft, ChevronRight, FileText, FolderPlus, Image as ImageIcon, ListChecks, Lock, Mic, Plus, MoreHorizontal, PanelLeft, PanelLeftClose, Paperclip, Pencil, Pin, PinOff, RotateCcw, Search, Sparkles, SquarePen, Trash2, Wallet, X } from 'lucide-react';
 import { Mascot } from '../../components/mascot/Mascot';
 import { Modal } from '../../components/ui/Modal';
 import { tr, trc } from '../../i18n/tr';
@@ -217,6 +217,9 @@ function storedCardStates(list: ChatMessage[]): Record<string, ConfirmState> {
   return states;
 }
 
+// What the empty box suggests on phones, in turn: the usual question first, then things เลขา can do.
+const PHONE_HINTS = [() => tr("ถามเลขากระรอกได้เลย"), () => tr("บันทึกค่าข้าว 120 บาท"), () => tr("งานไหนยังไม่ได้รับเงิน"), () => tr("ออกใบเสนอราคาให้ลูกค้า"), () => tr("เดือนนี้รายได้เท่าไร")];
+
 export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = false, previewTools = false, onPreviewBirth, onPreviewGuide, onOpenNotifications, onUpgrade, onNavigate, transport: given, liveNote, lineInbox, accountId, workspaceSlug, fullFeatureAccess, floating = false, onExpand, onAutoNavigate, handoff, onHandoff, connecting = false, briefing }: Props) {
   const reduce = useReducedMotion();
   const rootRef = React.useRef<HTMLElement>(null);
@@ -271,6 +274,13 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
   const [opening, setOpening] = React.useState(false);
   const [mode, setMode] = React.useState<AssistantMode>('greeting');
   const [draft, setDraft] = React.useState('');
+  // Phones (owner, 2026-11-22: a composer like ChatGPT's, with a small touch of fun): the empty box suggests what to ask.
+  const [hintAt, setHintAt] = React.useState(0);
+  React.useEffect(() => {
+    if (!mobile || draft) return;
+    const timer = window.setInterval(() => setHintAt(at => at + 1), 3600);
+    return () => window.clearInterval(timer);
+  }, [mobile, draft]);
   // A picture or PDF waiting to go with the next message (live เลขา only), and why the last pick failed.
   // Up to 5 pictures or PDFs with one message (owner, 2026-10-31).
   const [uploads, setUploads] = React.useState<PreparedFile[]>([]);
@@ -1350,14 +1360,14 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                     <input ref={fileRef} type="file" multiple accept={CHAT_FILE_ACCEPT} className="asx-sr" tabIndex={-1} aria-hidden="true"
                       onChange={event => { void pickFiles(event.target.files); event.target.value = ''; }} />
                     <button type="button" className="asx-icon-btn" onClick={() => fileRef.current?.click()} disabled={busy || blocked}
-                      aria-label={tr("แนบไฟล์")} title={tr("แนบรูป, PDF, Excel, Word หรือไฟล์ข้อความ")}><Paperclip size={18} /></button>
+                      aria-label={tr("แนบไฟล์")} title={tr("แนบรูป, PDF, Excel, Word หรือไฟล์ข้อความ")}>{mobile ? <Plus size={22} strokeWidth={2} /> : <Paperclip size={18} />}</button>
                   </>
                 ) : (
-                  <button type="button" className="asx-icon-btn is-soon" aria-disabled="true" aria-label={tr("แนบไฟล์ · เร็ว ๆ นี้")} title={tr("แนบไฟล์ · เร็ว ๆ นี้")}><Paperclip size={18} /></button>
+                  <button type="button" className="asx-icon-btn is-soon" aria-disabled="true" aria-label={tr("แนบไฟล์ · เร็ว ๆ นี้")} title={tr("แนบไฟล์ · เร็ว ๆ นี้")}>{mobile ? <Plus size={22} strokeWidth={2} /> : <Paperclip size={18} />}</button>
                 )}
                 <label htmlFor="asx-message" className="asx-sr">{tr("ข้อความถึงเลขากระรอก")}</label>
                 <textarea id="asx-message" ref={inputRef} rows={1} value={draft} maxLength={MAX_MESSAGE} disabled={blocked && !pendingConfirmation}
-                  placeholder={blocked && pendingConfirmation ? tr('พิมพ์ยืนยันหรือยกเลิกรายการ') : level === 'empty' ? (refill ? tr("โทเค็นหมด รอเติมรอบใหม่") : tr("โทเค็นที่ได้รับหมดแล้ว")) : tr("ถามเลขากระรอกได้เลย")}
+                  placeholder={blocked && pendingConfirmation ? tr('พิมพ์ยืนยันหรือยกเลิกรายการ') : level === 'empty' ? (refill ? tr("โทเค็นหมด รอเติมรอบใหม่") : tr("โทเค็นที่ได้รับหมดแล้ว")) : mobile && !blocked ? PHONE_HINTS[hintAt % PHONE_HINTS.length]() : tr("ถามเลขากระรอกได้เลย")}
                   onFocus={() => { if (mode === 'sleeping' || mode === 'greeting') setMode(draft ? 'listening' : 'awake'); }}
                   onChange={event => onDraft(event.target.value)}
                   onPaste={event => { const pasted = event.clipboardData?.files; if (pasted?.length && live && !busy && !blocked) { event.preventDefault(); void pickFiles(pasted); } }}
