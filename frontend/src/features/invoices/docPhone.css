@@ -276,3 +276,9 @@ html[data-dp-task] #main-content.ksm-home-scroller { padding-bottom: 12px; }
 .dp-bankname { flex: 1; min-width: 0; font-size: 16px; line-height: 1.5; color: var(--ksm-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dp-bankname.is-empty { color: var(--ksm-secondary); }
 .dp-banksearch { margin-top: 14px; }
+
+/* สีเอกสาร above the document picture on phones: finger-sized circles, the label on its own line. */
+.dp-colorrow { margin: 4px 2px 10px; }
+.dp-colorrow .dcp.is-compact { --dcp-size: 30px; gap: 8px; }
+.dp-colorrow .dcp-compact-label { flex-basis: 100%; margin: 0 0 -2px; font-size: 13px; }
+.dp-colorrow .dcp-compact-sep { height: 24px; }

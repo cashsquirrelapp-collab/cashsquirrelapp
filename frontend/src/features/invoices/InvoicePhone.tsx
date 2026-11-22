@@ -5,7 +5,6 @@ import {
   Maximize2, Minus, MoreHorizontal, PenLine, Plus, Printer, ReceiptText, Share2, Trash2, X,
 } from 'lucide-react';
 import type { DocumentType, Invoice, InvoiceItem, InvoiceProfile, Job } from '../../../../shared/types';
-import { documentColorOf } from '../../../../shared/documentColors';
 import { DocColorPicker } from './DocColorPicker';
 import { ISSUER_TEXT_FIELDS, type IssuerUse } from '../../../../shared/documentBranding';
 import { A4_WIDTH_PX, DEFAULT_LOGO_HEIGHT, DocumentPreview, MAX_LOGO_HEIGHT, MIN_LOGO_HEIGHT, getDocumentMeta, paginateItems } from './DocumentA4';
@@ -132,6 +131,8 @@ export interface InvoicePhoneModel {
   clients: Client[];
   issuer: InvoiceProfile;
   saveIssuer: (profile: InvoiceProfile) => Promise<boolean>;
+  /** สีเอกสาร picked above a document's picture: shown at once, saved to the business profile. */
+  pickDocColor: (value: string) => void;
   formOpen: boolean;
   draft: DocDraft;
   onMobileBack?: () => void;
@@ -571,6 +572,8 @@ function DocumentScreen({ m, invoice, onBack, onOpen, onEdit, onIssue, onRemoved
         </section>
       )}
 
+      {/* The colours above the picture, as on computers (owner, 2026-11-22: "ทำในมือถือด้วย"). */}
+      <div className="dp-colorrow"><DocColorPicker compact value={m.issuer.docColor} logoUrl={m.issuer.logoUrl} onChange={m.pickDocColor} /></div>
       <button type="button" className="dp-thumb" onClick={() => setViewer(true)} aria-label={tr("ดูหน้าเอกสารเต็มจอ")} data-testid="document-view">
         <span className="dp-thumb-paper dp-paper" aria-hidden="true"><DocumentPreview invoice={shown} scale={thumbScale} watermark={m.freePlan} /></span>
         <span className="dp-thumb-pill"><Maximize2 size={14} aria-hidden="true" />{tr("แตะเพื่อดูเต็มจอ")}</span>
@@ -896,7 +899,6 @@ function IssuerScreen({ m, backLabel, onBack }: { m: InvoicePhoneModel; backLabe
   const [saving, setSaving] = React.useState(false);
   const [brand, setBrand] = React.useState<'logo' | 'signature' | null>(null);
   const [viewer, setViewer] = React.useState(false);
-  const [colorSheet, setColorSheet] = React.useState(false);
   // The bank as a sheet from the bottom with the whole list to scroll (owner, 2026-11-03: the drop-down was cut off by its
   // card, "อยากให้มันเลื่อนเห็นชัดๆ").
   const [bankSheet, setBankSheet] = React.useState(false);
@@ -948,7 +950,7 @@ function IssuerScreen({ m, backLabel, onBack }: { m: InvoicePhoneModel; backLabe
 
       <p className="dp-note">{tr("ชื่อ ที่อยู่ เลขผู้เสียภาษี และบัญชีรับเงินพิมพ์บนเอกสารทุกใบ ลูกค้าที่ได้รับเอกสารจะเห็นข้อมูลนี้")}</p>
 
-      <p className="dp-label">{tr("แบรนด์บนเอกสาร")}</p>
+      <p className="dp-label">{tr("โลโก้และลายเซ็น")}</p>
       <div className="dp-card">
         {(['logo', 'signature'] as const).map(kind => {
           const value = kind === 'logo' ? profile.logoUrl : profile.signatureUrl;
@@ -961,12 +963,6 @@ function IssuerScreen({ m, backLabel, onBack }: { m: InvoicePhoneModel; backLabe
             </button>
           );
         })}
-        <button type="button" className="dp-row" onClick={() => setColorSheet(true)} aria-haspopup="dialog">
-          <span className="dp-colorthumb" aria-hidden="true"><i style={{ background: documentColorOf(profile.docColor).accent }} /></span>
-          <span className="dp-row-text"><b>{tr("สีเอกสาร")}</b></span>
-          <span className="dp-muted">{tr(documentColorOf(profile.docColor).name)}</span>
-          <ChevronRight size={17} className="dp-chevron" aria-hidden="true" />
-        </button>
       </div>
       <div className="dp-bar-space" aria-hidden="true" />
       <BottomBar>
@@ -1005,14 +1001,6 @@ function IssuerScreen({ m, backLabel, onBack }: { m: InvoicePhoneModel; backLabe
               </div>
             );
           })()}
-        </MobileSheet>
-      )}
-      {colorSheet && (
-        <MobileSheet title={tr("สีเอกสาร")} onClose={() => setColorSheet(false)}>
-          <p className="dp-note" style={{ padding: '0 4px 10px' }}>{tr("สีหัวเรื่อง เส้น และกรอบยอดรวมบนเอกสารทุกประเภท")}</p>
-          <div className="dp-colorpick"><DocColorPicker large value={profile.docColor} logoUrl={profile.logoUrl} onChange={docColor => setProfile(current => ({ ...current, docColor }))} /></div>
-          <button type="button" className="dp-primary is-wide" onClick={() => setColorSheet(false)}>{tr("เสร็จ")}</button>
-          <p className="dp-note">{tr("กด บันทึก ด้านล่างของหน้าเพื่อเก็บสีนี้")}</p>
         </MobileSheet>
       )}
       {brand && (

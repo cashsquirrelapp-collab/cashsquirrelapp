@@ -3,9 +3,9 @@ import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import type { InvoiceProfile } from '../../../../shared/types';
 import { BrandImageField } from './BrandImageField';
-import { DocColorPicker } from './DocColorPicker';
+import { BankPicker } from '../settings/BankPicker';
+import { findThaiBank } from './thaiBanks';
 import { DEFAULT_LOGO_HEIGHT, MAX_LOGO_HEIGHT, MIN_LOGO_HEIGHT } from './DocumentA4';
-import { THAI_BANKS } from './thaiBanks';
 import { tr } from '../../i18n/tr';
 
 // ข้อมูลผู้ออกเอกสาร edited on the documents page itself on computers and iPads (owner, 2026-11-22: "ไม่ต้องไปโหมดตั้งค่า
@@ -23,6 +23,7 @@ export function IssuerDialog({ profile, onSave, onClose, onError }: {
 }) {
   const [draft, setDraft] = React.useState<InvoiceProfile>(profile);
   const [saving, setSaving] = React.useState(false);
+  const [bankOther, setBankOther] = React.useState(false);
   const set = (field: keyof InvoiceProfile, value: string) => setDraft(current => ({ ...current, [field]: value }));
   React.useEffect(() => {
     const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
@@ -69,24 +70,29 @@ export function IssuerDialog({ profile, onSave, onClose, onError }: {
           <section className="space-y-4">
             <h3 className={heading}>{tr("บัญชีรับเงิน (แสดงท้ายเอกสาร)")}</h3>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {field('issuer-dialog-bank', tr("ธนาคาร"), 'bankName', { list: 'issuer-dialog-banks', placeholder: tr("เลือกธนาคาร") })}
-              <datalist id="issuer-dialog-banks">{THAI_BANKS.map(bank => <option key={bank.code} value={bank.name} />)}</datalist>
-              {field('issuer-dialog-account', tr("เลขที่บัญชี"), 'bankAccount', { inputMode: 'numeric' })}
-              <div className="sm:col-span-2">{field('issuer-dialog-account-name', tr("ชื่อบัญชี"), 'bankAccountName')}</div>
+              {/* The same bank list with logos as Settings (owner, 2026-11-22: "ให้มันเหมือนกันเด๊ะ"). */}
+              {/* Opening the list scrolls the dialog so the whole list shows above the save bar. */}
+              <div className="scroll-mt-3" onClickCapture={event => { const box = event.currentTarget; window.setTimeout(() => box.scrollIntoView({ block: 'start', behavior: 'smooth' }), 30); }}>
+                <span className={label}>{tr("ชื่อธนาคาร")}</span>
+                <BankPicker value={draft.bankName} otherMode={bankOther}
+                  onPick={choice => {
+                    if (choice === 'other') { setBankOther(true); if (findThaiBank(draft.bankName)) set('bankName', ''); }
+                    else { setBankOther(false); set('bankName', choice.bankName); }
+                  }} />
+                {!findThaiBank(draft.bankName) && (draft.bankName || bankOther) && (
+                  <input type="text" value={draft.bankName} onChange={event => set('bankName', event.target.value)}
+                    placeholder={tr("พิมพ์ชื่อธนาคาร / ช่องทางรับเงิน เช่น พร้อมเพย์")} aria-label={tr("ชื่อธนาคารอื่น ๆ")} className={`${input} mt-2`} />
+                )}
+              </div>
+              {field('issuer-dialog-account', tr("เลขที่บัญชี"), 'bankAccount', { inputMode: 'numeric', placeholder: tr("เช่น 123-4-56789-0") })}
+              <div className="sm:col-span-2">{field('issuer-dialog-account-name', tr("ชื่อบัญชีโอนรับเงิน"), 'bankAccountName', { placeholder: tr("เช่น นายออมสิน ดีแท้") })}</div>
             </div>
           </section>
           <section className="space-y-5">
-            <h3 className={heading}>{tr("แบรนด์บนเอกสาร")}</h3>
+            <h3 className={heading}>{tr("โลโก้และลายเซ็น")}</h3>
             <BrandImageField title={tr("โลโก้ธุรกิจ")} hint={tr("แสดงที่ส่วนหัวของเอกสารทุกประเภท และใช้เป็นตราประทับผู้ขาย")} emptyLabel={tr("ไม่มีโลโก้")} uploadLabel={tr("อัปโหลดโลโก้")} removeLabel={tr("ลบโลโก้")}
               value={draft.logoUrl} onChange={logoUrl => setDraft(current => ({ ...current, logoUrl }))} onError={onError}
               size={{ label: tr("ขนาดโลโก้บนเอกสาร"), value: draft.logoHeight || DEFAULT_LOGO_HEIGHT, min: MIN_LOGO_HEIGHT, max: MAX_LOGO_HEIGHT, onChange: logoHeight => setDraft(current => ({ ...current, logoHeight })) }} />
-            <div className="space-y-3">
-              <div>
-                <h4 className="text-[14px] font-medium text-brand-text">{tr("สีเอกสาร")}</h4>
-                <p className="mt-0.5 text-xs text-brand-muted">{tr("สีหัวเรื่อง เส้น และกรอบยอดรวมบนเอกสารทุกประเภท")}</p>
-              </div>
-              <DocColorPicker value={draft.docColor} logoUrl={draft.logoUrl} onChange={docColor => setDraft(current => ({ ...current, docColor }))} />
-            </div>
             <BrandImageField title={tr("ลายเซ็นผู้ออกเอกสาร")} hint={tr("แสดงเหนือเส้นลายเซ็นในช่อง “ผู้ออกเอกสาร” แนะนำไฟล์ PNG พื้นหลังโปร่งใส")} emptyLabel={tr("ไม่มีลายเซ็น")} uploadLabel={tr("อัปโหลดลายเซ็น")} removeLabel={tr("ลบลายเซ็น")}
               value={draft.signatureUrl} onChange={signatureUrl => setDraft(current => ({ ...current, signatureUrl }))} onError={onError} />
           </section>

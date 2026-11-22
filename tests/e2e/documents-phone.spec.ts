@@ -266,28 +266,12 @@ test('phones: ข้อมูลผู้ออกเอกสาร is edited i
   await page.getByRole('button', { name: /โลโก้ธุรกิจ/ }).click();
   await expect(page.getByRole('dialog', { name: 'โลโก้ธุรกิจ' })).toContainText('อัปโหลดโลโก้');
   await page.getByRole('dialog', { name: 'โลโก้ธุรกิจ' }).getByRole('button', { name: 'เสร็จ' }).click();
-  // Document colour (owner, 2026-11-22): orange until one is picked; the A4 preview follows the pick.
-  await expect(page.getByRole('button', { name: /สีเอกสาร/ })).toContainText('ส้ม');
-  await page.getByRole('button', { name: /สีเอกสาร/ }).click();
-  const colors = page.getByRole('dialog', { name: 'สีเอกสาร' });
-  await expect(colors.getByRole('radio')).toHaveCount(8);
-  await expect(colors.getByRole('radio', { name: 'ส้ม' })).toHaveAttribute('aria-checked', 'true');
-  await page.waitForTimeout(400);
-  expect(await textOverlapIssues(page)).toEqual([]);
-  await shot(page, 'docs-colors');
-  await colors.getByRole('radio', { name: 'น้ำเงิน' }).click();
-  await expect(colors.getByRole('radio', { name: 'น้ำเงิน' })).toHaveAttribute('aria-checked', 'true');
-  await colors.getByRole('button', { name: 'เสร็จ' }).click();
-  await expect(colors).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /สีเอกสาร/ })).toContainText('น้ำเงิน');
-  await page.getByRole('button', { name: 'ดูบนเอกสาร' }).click();
-  await expect(page.locator('.da4-titlebox h1').first()).toHaveCSS('color', 'rgb(31, 63, 115)');
-  await shot(page, 'docs-colors-a4');
-  await page.getByRole('button', { name: 'กลับไปแก้ไข' }).click();
+  // The colour is picked above a document's picture now, not here (owner, 2026-11-22).
+  await expect(page.getByRole('button', { name: /สีเอกสาร/ })).toHaveCount(0);
   await page.locator('.dp-bar').getByRole('button', { name: 'บันทึก' }).click();
   await expect(dialog(page)).toContainText('บันทึกโปรไฟล์ธุรกิจแล้ว');
   await dialog(page).getByRole('button').last().click();
-  await expect.poll(() => saved.find(change => change.table === 'cashflow_documents' && change.id === 'issuer_profile')?.data).toMatchObject({ name: 'สตูดิโอกระรอกน้อย', bankName: 'ธนาคารกรุงเทพ', bankAccount: '987-6-54321-0', taxId: '0105555555555', docColor: 'navy' });
+  await expect.poll(() => saved.find(change => change.table === 'cashflow_documents' && change.id === 'issuer_profile')?.data).toMatchObject({ name: 'สตูดิโอกระรอกน้อย', bankName: 'ธนาคารกรุงเทพ', bankAccount: '987-6-54321-0', taxId: '0105555555555' });
   await expect.poll(() => screen(page)).toBe('list');
   await expect(page.getByTestId('issuer-row')).toContainText('สตูดิโอกระรอกน้อย');
 });
@@ -358,10 +342,18 @@ test('computers: the documents page keeps its layout and edits ข้อมู�
   const dialogText = await dialog.innerText();
   expect((await textOverlapIssues(page)).filter(issue => dialogText.includes(issue.a ?? '') && dialogText.includes(issue.b ?? ''))).toEqual([]);
   await shot(page, 'docs-issuer-dialog-computer');
+  // The bank list with logos, as in Settings; no colour picker here (the row above the preview does that).
+  await expect(dialog.getByRole('radiogroup', { name: 'สีเอกสาร' })).toHaveCount(0);
+  await dialog.getByRole('button', { name: 'ธนาคาร', exact: true }).click();
+  await page.waitForTimeout(500);
+  await expect(dialog.getByRole('option', { name: /ธนาคารกสิกรไทย/ })).toBeInViewport();
+  await shot(page, 'docs-issuer-dialog-banks');
+  await dialog.getByRole('option', { name: /ธนาคารกรุงเทพ/ }).click();
+  await expect(dialog.getByRole('button', { name: 'ธนาคาร', exact: true })).toContainText('ธนาคารกรุงเทพ');
   await dialog.getByRole('button', { name: 'บันทึก', exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(page).toHaveURL(/\/invoice/);
-  await expect.poll(() => saved.find(change => change.table === 'cashflow_documents' && change.id === 'issuer_profile')?.data).toMatchObject({ name: 'สตูดิโอกระรอกน้อย' });
+  await expect.poll(() => saved.find(change => change.table === 'cashflow_documents' && change.id === 'issuer_profile')?.data).toMatchObject({ name: 'สตูดิโอกระรอกน้อย', bankName: 'ธนาคารกรุงเทพ' });
 });
 
 test('computers: the colour row above the preview recolours the document and saves the profile', async ({ page }) => {
@@ -469,4 +461,22 @@ test('phones: scrolling the add-job form up opens its status and details by itse
   // Closing it by a tap keeps it closed until the form is pushed up again.
   await page.locator('.ksm-jobmore summary').click();
   await expect(more).not.toHaveAttribute('open', '');
+});
+
+// Owner, 2026-11-22 ("ทำในมือถือด้วย"): the colours above a document's picture on phones recolour it and save the profile.
+test('phones: the colour row above the document picture recolours it and saves the profile', async ({ page }) => {
+  const saved = await open(page, '/invoice?type=quotation');
+  await page.getByRole('button', { name: /เปิด QT-2026-009/ }).click();
+  const row = page.locator('.dp-colorrow').getByRole('radiogroup', { name: 'สีเอกสาร' });
+  await expect(row.getByRole('radio', { name: 'ส้ม' })).toHaveAttribute('aria-checked', 'true');
+  const size = await row.getByRole('radio', { name: 'เขียว', exact: true }).boundingBox();
+  expect(size!.width).toBeGreaterThanOrEqual(30);
+  await row.getByRole('radio', { name: 'เขียว', exact: true }).click();
+  await expect(page.getByTestId('document-view').locator('.da4-titlebox h1').first()).toHaveCSS('color', 'rgb(47, 107, 59)');
+  await expect.poll(() => saved.find(change => change.table === 'cashflow_documents' && change.id === 'issuer_profile')?.data).toMatchObject({ docColor: 'green' });
+  expect(await noSideScroll(page)).toBe(true);
+  await page.waitForTimeout(400);
+  const rowText = await row.innerText();
+  expect((await textOverlapIssues(page)).filter(issue => rowText.includes(issue.a ?? '') || rowText.includes(issue.b ?? ''))).toEqual([]);
+  await shot(page, 'docs-color-row-phone');
 });

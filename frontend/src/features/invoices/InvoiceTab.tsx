@@ -884,6 +884,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
       clients,
       issuer: issuerProfile,
       saveIssuer: saveIssuerProfile,
+      pickDocColor,
       formOpen: activeSubTab === 'create' && canAccessDraft,
       draft: {
         editingId: editingInvoiceId,
