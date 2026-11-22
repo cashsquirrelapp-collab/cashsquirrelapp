@@ -16,8 +16,7 @@ import { DocumentFullView } from './DocumentFullView';
 import { DocColorPicker } from './DocColorPicker';
 import { IssuerDialog } from './IssuerDialog';
 import { QuoteApprovalStatus, copyQuoteLink } from './QuoteApprovalCard';
-import { apiJson } from '../../services/api';
-import { financeHeaders } from '../../services/financeWorkspace';
+import { newQuoteCode, quoteRevision, QUOTE_LINK_DAYS } from '../../../../shared/quoteApproval';
 import { downloadBlob, usePdfFile } from './documentPdf';
 import { DOCUMENT_WORKSPACE_TABS, getWorkspaceTab, isWorkspaceTab, isDocumentTypeAvailable, resolveDocumentWorkspaceTab, resolveDocumentSelection, mergeImportedDocuments, type DocumentWorkspaceTab } from './documentAvailability';
 import { Building2, ChevronRight, Eye, Link2, Search, ShieldCheck } from 'lucide-react';
@@ -317,15 +316,17 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
   }, [ownerId]);
 
   // Save invoices to local storage
-  const saveInvoicesToStorage = (updatedList: Invoice[]) => {
+  /** True once the server has the list (or there is no server to save to). */
+  const saveInvoicesToStorage = (updatedList: Invoice[]): Promise<boolean> => {
     const previousList = invoices;
     setInvoices(updatedList);
     privateCache.setItem(invoiceKey, JSON.stringify(updatedList));
     if (ownerId && storageReady) {
       setSaving(true);
-      saveCloud(ownerId, { invoices: updatedList }).then(reply => {
+      return saveCloud(ownerId, { invoices: updatedList }).then(reply => {
         setStorageError(null);
         if (reply?.document_quota) setQuota(reply.document_quota);
+        return true;
       }).catch(error => {
         if (error?.code === 'document_quota_exceeded') {
           // The server refused the new documents (the quota was used up elsewhere): take them off again.
@@ -334,11 +335,13 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
           setSelectedInvoice(current => current && previousList.some(inv => inv.id === current.id) ? current : null);
           setQuota(current => current && { ...current, used: current.limit });
           onUpgradePrompt?.(error.message);
-          return;
+          return false;
         }
         setStorageError(error.message); triggerAlert(tr("บันทึกเอกสารไม่สำเร็จ"), error.message);
+        return false;
       }).finally(() => setSaving(false));
     }
+    return Promise.resolve(!ownerId);
   };
 
   // Pre-fill fields from Job selection
@@ -666,16 +669,18 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
   // when one was sent so the card says รอลูกค้ายืนยัน.
   const createQuoteLink = async (inv: Invoice): Promise<string | null> => {
     if (!ownerId) { triggerAlert(tr("ยังสร้างลิงก์ไม่ได้"), tr("เข้าสู่ระบบก่อน แล้วบันทึกใบเสนอราคา")); return null; }
-    try {
-      const reply = await apiJson<{ token: string }>('/api/quote-approval', { method: 'POST', headers: { ...financeHeaders(ownerId), 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'link', documentId: inv.id }) });
-      const stamped = { ...inv, approvalRequestedAt: new Date().toISOString() };
-      saveInvoicesToStorage(invoices.map(item => item.id === inv.id ? stamped : item));
-      if (selectedInvoice?.id === inv.id) setSelectedInvoice(stamped);
-      return `${window.location.origin}/q/${reply.token}`;
-    } catch (error) {
-      triggerAlert(tr("สร้างลิงก์ไม่สำเร็จ"), (error as Error).message);
-      return null;
-    }
+    if (ownerId.includes(':')) { triggerAlert(tr("ยังสร้างลิงก์ไม่ได้"), tr("ลิงก์ให้ลูกค้ายืนยันยังใช้กับบัญชีกลุ่มไม่ได้")); return null; }
+    // A short link (owner, 2026-11-22: the long one looked like a scam): a random code kept on the quotation; the same
+    // code again while this version is unchanged and the link has not expired.
+    const revision = quoteRevision(inv);
+    const kept = inv.approvalLink && inv.approvalLink.revision === revision && Date.parse(inv.approvalLink.expires) > Date.now() + 86_400_000 ? inv.approvalLink : null;
+    const now = new Date();
+    const link = kept ?? { code: newQuoteCode(), revision, expires: new Date(now.getTime() + QUOTE_LINK_DAYS * 86_400_000).toISOString() };
+    const stamped = { ...inv, approvalRequestedAt: now.toISOString(), approvalLink: link };
+    if (selectedInvoice?.id === inv.id) setSelectedInvoice(stamped);
+    const saved = await saveInvoicesToStorage(invoices.map(item => item.id === inv.id ? stamped : item));
+    if (!saved) return null;
+    return `${window.location.origin}/q/${link.code}`;
   };
   // ข้อมูลผู้ออกเอกสาร on the documents page itself, and the colour row above the preview (owner, 2026-11-22).
   const [issuerDialogOpen, setIssuerDialogOpen] = useState(false);

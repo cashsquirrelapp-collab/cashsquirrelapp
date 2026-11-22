@@ -47,3 +47,29 @@ test('quotation confirmation: the server takes a body as large as the biggest si
   const body = JSON.stringify({ action: 'accept', token: 'a'.repeat(300), name: 'ก'.repeat(120), signature: `data:image/png;base64,${'A'.repeat(QUOTE_SIGNATURE_MAX - 30)}`, agree: true });
   assert.ok(Buffer.byteLength(body) <= bodyLimit('quote-approval'), 'a full-size signature must fit the route limit');
 });
+
+test('short quotation links: twelve letters and digits, a new one each time', async () => {
+  const { newQuoteCode, QUOTE_CODE } = await import('../shared/quoteApproval.js');
+  const codes = new Set(Array.from({ length: 200 }, () => newQuoteCode()));
+  assert.equal(codes.size, 200);
+  for (const code of codes) assert.match(code, QUOTE_CODE);
+});
+
+test('signer names: a pile of stacked Thai marks is cut back, spaces and hidden characters tidied', async () => {
+  const { cleanSignerName, quoteAcceptSchema } = await import('../shared/quoteApproval.js');
+  assert.equal(cleanSignerName('ั้ั้ั้สวว'), 'สวว');
+  assert.equal(cleanSignerName('ก้ั้ั้ั้ข'), 'ก้ัข');
+  assert.equal(cleanSignerName('  นพรัตน์   นาวะบุตร​ '), 'นพรัตน์ นาวะบุตร');
+  assert.equal(cleanSignerName('กั้'), 'กั้');
+  const parsed = quoteAcceptSchema.parse({ action: 'accept', token: 'AbCdEfGhJk23', name: 'ั้ั้ั้สวว', signature: 'data:image/png;base64,AAAA', agree: true });
+  assert.equal(parsed.name, 'สวว');
+});
+
+test('link preview of a quotation link: who sent it and which quotation, escaped, never indexed', async () => {
+  const { quoteShareHead, withQuoteShareHead } = await import('../shared/seo.js');
+  const head = quoteShareHead({ issuer: 'สตูดิโอ <กระรอก>', documentNo: 'QT-2569-001' }, 'https://krarok.com/q/AbCdEfGhJk23');
+  assert.match(head, /og:title" content="ใบเสนอราคา QT-2569-001 จาก สตูดิโอ &lt;กระรอก&gt;"/);
+  assert.match(head, /noindex/);
+  assert.doesNotMatch(head, /฿|บาท/);
+  assert.match(withQuoteShareHead('<html><head><title>x</title></head></html>', null, 'https://krarok.com/q/x'), /ใบเสนอราคารอให้คุณเซ็นยืนยัน/);
+});

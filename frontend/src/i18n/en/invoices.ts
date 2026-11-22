@@ -295,4 +295,6 @@ export const invoices: Record<string, string> = {
   "รอลูกค้ายืนยัน": "Waiting for the client to confirm",
   "ลิงก์ให้ลูกค้าเซ็นยืนยัน": "Link for the client to sign and confirm",
   "คัดลอกลิงก์ ลูกค้าเปิดแล้วเซ็นยืนยันได้เลย ไม่ต้องพิมพ์หรือสแกน": "Copy the link; the client opens it and signs. No printing or scanning",
+  "ลิงก์ให้ลูกค้ายืนยันยังใช้กับบัญชีกลุ่มไม่ได้": "Client confirmation links are not available for group accounts yet",
+  "โดย {0}": "by {0}",
 };

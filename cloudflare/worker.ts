@@ -6,7 +6,7 @@ import { liffPageRequest } from './liffPage.js';
 import { answerWithin } from './deferred.js';
 import { runScheduledJobs } from '../migration/scheduled-runner.js';
 import { enforceHttps, toMainHost } from './transport.js';
-import { seoPage, withSeoPage } from '../shared/seo.js';
+import { seoPage, withQuoteShareHead, withSeoPage, type QuoteShareInfo } from '../shared/seo.js';
 
 // Production on Cloudflare Workers: the same Express backend Vercel runs (backend/src/http/app.ts),
 // the built frontend as static assets, and the cron jobs vercel.json used to schedule.
@@ -58,10 +58,11 @@ function finish(response: Response, path: string, staging = false): Response {
 // The public pages (/, /founder, /login, /guides…) get their own title, description and preview tags in the head and
 // their words inside #root (shared/seoBody.ts), so search engines read them without running the app (shared/seo.ts, owner 2026-10-31). Asked for in full each time: the
 // stored copy of index.html is the same for every page, so a "not changed" answer could bring back another page's head.
-async function pageAsset(request: Request, env: Env, path: string): Promise<Response> {
+async function pageAsset(request: Request, env: Env, path: string, ctx: ExecutionContext): Promise<Response> {
   // The LINE form is answered at its registered address, not redirected (liffPage.ts).
   const liffPage = liffPageRequest(request, path);
   if (liffPage) return env.ASSETS.fetch(liffPage);
+  if (request.method === 'GET' && path.startsWith('/q/')) return quotePage(request, env, path, ctx);
   if (request.method !== 'GET' || !seoPage(path)) return env.ASSETS.fetch(request);
   const headers = new Headers(request.headers);
   headers.delete('If-None-Match');
@@ -72,6 +73,32 @@ async function pageAsset(request: Request, env: Env, path: string): Promise<Resp
   page.delete('ETag');
   page.delete('Content-Length');
   return new Response(withSeoPage(await response.text(), path), { status: 200, headers: page });
+}
+
+// A quotation's confirmation link (/q/<code>) tells a link preview who sent it and which quotation, read through the
+// app's own endpoint; anything unexpected leaves the plain wording.
+async function quotePage(request: Request, env: Env, path: string, ctx: ExecutionContext): Promise<Response> {
+  const headers = new Headers(request.headers);
+  headers.delete('If-None-Match');
+  headers.delete('If-Modified-Since');
+  const response = await env.ASSETS.fetch(new Request(new URL('/', request.url), { method: 'GET', headers }));
+  if (response.status !== 200 || !(response.headers.get('Content-Type') || '').includes('text/html')) return response;
+  let info: QuoteShareInfo | null = null;
+  try {
+    const code = decodeURIComponent(path.slice(3));
+    const lookup = new Request(new URL(`/api/quote-approval?c=${encodeURIComponent(code)}`, request.url), { headers: { Accept: 'application/json' } });
+    const answer = await withCloudflareClientIp(request as Request & { cf?: unknown }, () => nodeFetch!(lookup as never, env, ctx));
+    if (answer.ok) {
+      const body = await answer.json() as { invoice?: { documentNo?: unknown; issuer?: { name?: unknown } } };
+      const documentNo = typeof body.invoice?.documentNo === 'string' ? body.invoice.documentNo.slice(0, 40) : '';
+      const issuer = typeof body.invoice?.issuer?.name === 'string' ? body.invoice.issuer.name.slice(0, 80) : '';
+      if (documentNo) info = { documentNo, issuer };
+    }
+  } catch { /* plain wording */ }
+  const page = new Headers(response.headers);
+  page.delete('ETag');
+  page.delete('Content-Length');
+  return new Response(withQuoteShareHead(await response.text(), info, new URL(path, request.url).toString()), { status: 200, headers: page });
 }
 
 export default {
@@ -97,7 +124,7 @@ export default {
     }
     const response = path === '/api' || path.startsWith('/api/')
       ? await withCloudflareClientIp(request as Request & { cf?: unknown }, () => nodeFetch(request as never, env, ctx))
-      : await pageAsset(request, env, path);
+      : await pageAsset(request, env, path, ctx);
     return finish(response, path, Boolean(env.STAGING_MODE));
   },
 

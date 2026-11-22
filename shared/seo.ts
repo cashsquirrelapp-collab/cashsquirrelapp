@@ -120,3 +120,34 @@ export function withSeoPage(html: string, path: string): string {
   const body = page ? seoBody(path, page.description) : '';
   return body && withHead.includes('<div id="root"></div>') ? withHead.replace('<div id="root"></div>', () => `<div id="root">${body}</div>`) : withHead;
 }
+
+/** What a link preview says about a quotation's confirmation link (owner, 2026-11-22: "ก่อนจะกดเข้าลิงก์ ... ให้เขารู้
+ *  ว่าอันนี้คือเซ็นกำกับของเรา" so it is not taken for a scam): who sent it and which quotation, never the amounts. */
+export interface QuoteShareInfo { issuer: string; documentNo: string }
+
+export function quoteShareHead(info: QuoteShareInfo | null, url: string): string {
+  const title = info ? `ใบเสนอราคา ${info.documentNo} จาก ${info.issuer || 'ผู้ออกเอกสาร'}` : 'ใบเสนอราคารอให้คุณเซ็นยืนยัน';
+  const description = info
+    ? `${info.issuer || 'ผู้ออกเอกสาร'} ส่งใบเสนอราคาให้คุณตรวจและเซ็นยืนยันออนไลน์ ผ่าน Krarok กระรอกตุนเงิน`
+    : 'เปิดเพื่อตรวจใบเสนอราคาและเซ็นยืนยันออนไลน์ ผ่าน Krarok กระรอกตุนเงิน';
+  return [
+    `<title>${escape(title)}</title>`,
+    `<meta name="description" content="${escape(description)}" />`,
+    '<meta name="robots" content="noindex, nofollow" />',
+    '<meta property="og:type" content="website" />',
+    `<meta property="og:site_name" content="${SITE_NAME} กระรอกตุนเงิน" />`,
+    `<meta property="og:title" content="${escape(title)}" />`,
+    `<meta property="og:description" content="${escape(description)}" />`,
+    `<meta property="og:url" content="${escape(url)}" />`,
+    '<meta property="og:locale" content="th_TH" />',
+    `<meta property="og:image" content="${SHARE_IMAGE.url}" />`,
+    `<meta property="og:image:width" content="${SHARE_IMAGE.width}" />`,
+    `<meta property="og:image:height" content="${SHARE_IMAGE.height}" />`,
+    '<meta name="twitter:card" content="summary_large_image" />',
+  ].join('\n    ');
+}
+
+export function withQuoteShareHead(html: string, info: QuoteShareInfo | null, url: string): string {
+  if (!/<title>[^<]*<\/title>/.test(html)) return html;
+  return html.replace(/<title>[^<]*<\/title>/, () => quoteShareHead(info, url));
+}

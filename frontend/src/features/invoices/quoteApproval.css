@@ -12,8 +12,11 @@
 .qa-total span { font-size: 14px; color: #6B635C; }
 .qa-total b { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .qa-muted { margin: 10px 0 0; font-size: 14px; color: #6B635C; }
-.qa-done { display: flex; align-items: flex-start; gap: 8px; margin: 12px 0 0; padding: 10px 12px; border-radius: 12px; background: #E8F3EA; color: #2F6B3B; font-size: 14px; font-weight: 500; line-height: 1.5; }
+.qa-done { display: flex; align-items: flex-start; gap: 10px; margin: 12px 0 0; padding: 12px 14px; border-radius: 12px; background: #E8F3EA; color: #2F6B3B; font-size: 14px; line-height: 1.5; }
 .qa-done svg { flex: none; margin-top: 2px; }
+.qa-done > div { min-width: 0; flex: 1; }
+.qa-done b { display: block; font-size: 15px; font-weight: 600; }
+.qa-done span { display: block; overflow-wrap: anywhere; word-break: break-word; }
 .qa-paper { position: relative; display: block; width: 100%; margin: 0 0 14px; padding: 0; overflow: hidden; border: 1px solid #E7E1DA; border-radius: 12px; background: #FFFFFF; cursor: zoom-in; }
 .qa-paper-pill { position: absolute; right: 10px; bottom: 10px; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: rgba(31, 27, 24, 0.78); color: #FFFFFF; font-size: 13px; font-weight: 500; }
 .qa-form input[type="text"] { width: 100%; height: 48px; padding: 0 14px; border: 1px solid #DCD5CD; border-radius: 12px; background: #FFFFFF; color: #1F1B18; font: inherit; font-size: 16px; outline: none; }

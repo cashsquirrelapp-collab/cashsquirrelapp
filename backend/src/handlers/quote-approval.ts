@@ -6,7 +6,7 @@ import { clientIp } from '../security/ingress.js';
 import { rateLimit } from '../security/rateLimit.js';
 import { requireUser } from '../security/session.js';
 import { makeQuoteToken, readQuoteToken } from '../services/quoteLink.js';
-import { quoteAcceptSchema, quoteRevision, type QuoteApproval, type QuoteView } from '../../../shared/quoteApproval.js';
+import { QUOTE_CODE, quoteAcceptSchema, quoteRevision, type QuoteApproval, type QuoteLinkRecord, type QuoteView } from '../../../shared/quoteApproval.js';
 import { validateChanges } from '../../../shared/validation.js';
 import type { Invoice } from '../../../shared/types.js';
 
@@ -29,15 +29,34 @@ async function loadQuotation(owner: string, document: string): Promise<{ invoice
 
 /** The document as the client may see it: nothing the account keeps for itself. */
 function publicInvoice(invoice: Invoice): Invoice {
-  const { approval: _approval, approvalRequestedAt: _requested, ...rest } = invoice;
+  const { approval: _approval, approvalRequestedAt: _requested, approvalLink: _link, ...rest } = invoice;
   return rest as Invoice;
 }
 
-async function view(token: string): Promise<{ link: NonNullable<ReturnType<typeof readQuoteToken>>; found: { invoice: Invoice; version: number } }> {
-  const link = readQuoteToken(token, sessionSecret());
-  if (!link) throw new HttpError(410, GONE);
-  const found = await loadQuotation(link.owner, link.document);
-  if (!found) throw new HttpError(410, GONE);
+type Opened = { link: { owner: string; document: string; revision: string }; found: { invoice: Invoice; version: number } };
+
+/** A short link (krarok.com/q/<code>): the one quotation that carries the code, while it has not expired. */
+async function openCode(code: string): Promise<Opened> {
+  const { data, error } = await getSupabaseAdmin().from('cashflow_invoices').select('user_id,id,data,version').eq('data->approvalLink->>code', code).limit(2);
+  if (error) throw error;
+  if (!data || data.length !== 1) throw new HttpError(410, GONE);
+  const row = data[0] as { user_id: string; id: string; data: Invoice; version: number };
+  const record = row.data?.approvalLink as QuoteLinkRecord | undefined;
+  if (row.data?.documentType !== 'quotation' || !record || record.code !== code || !(Date.parse(record.expires) > Date.now())) throw new HttpError(410, GONE);
+  return { link: { owner: row.user_id, document: row.id, revision: record.revision }, found: { invoice: row.data, version: row.version } };
+}
+
+async function view(token: string): Promise<Opened> {
+  let opened: Opened;
+  if (QUOTE_CODE.test(token)) opened = await openCode(token);
+  else {
+    const link = readQuoteToken(token, sessionSecret());
+    if (!link) throw new HttpError(410, GONE);
+    const found = await loadQuotation(link.owner, link.document);
+    if (!found) throw new HttpError(410, GONE);
+    opened = { link, found };
+  }
+  const { link, found } = opened;
   // Confirmed already: the page shows what was confirmed even if the link's version is the confirmed one.
   if (found.invoice.approval?.revision === link.revision) return { link, found };
   if (quoteRevision(found.invoice) !== link.revision) throw new HttpError(410, GONE);
@@ -46,7 +65,7 @@ async function view(token: string): Promise<{ link: NonNullable<ReturnType<typeo
 
 export default withGuard(async (req, res) => {
   if (req.method === 'GET') {
-    const token = typeof req.query.t === 'string' ? req.query.t : '';
+    const token = typeof req.query.c === 'string' ? req.query.c : typeof req.query.t === 'string' ? req.query.t : '';
     await rateLimit('quote-view-ip', clientIp(req), 60, 600);
     const { found } = await view(token);
     const body: QuoteView = { invoice: publicInvoice(found.invoice), approval: found.invoice.approval ?? null };

@@ -497,8 +497,6 @@ for (const device of [{ name: 'computer', width: 1440, height: 900, path: '/invo
   test(`${device.name}: แชร์ให้ลูกค้า on a quotation offers the confirmation link and copies it and notes that it was sent`, async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     const saved = await open(page, device.path, { width: device.width, height: device.height });
-    let asked: unknown = null;
-    await page.route('**/api/quote-approval', route => { asked = route.request().postDataJSON(); return route.fulfill({ json: { token: 'tok_example_000000000000000000000000.sig', revision: 'r', accepted: false } }); });
     await device.open(page);
     await expect(page.getByTestId('quote-approval-status')).toHaveCount(0);
     // Inside แชร์ให้ลูกค้า, first among the ways to share (owner, 2026-11-22).
@@ -506,9 +504,12 @@ for (const device of [{ name: 'computer', width: 1440, height: 900, path: '/invo
     await shot(page, `quote-share-menu-${device.name}`);
     await page.getByRole(device.name === 'phone' ? 'button' : 'menuitem', { name: /ลิงก์ให้ลูกค้าเซ็นยืนยัน/ }).click();
     await expect(dialog(page)).toContainText('คัดลอกลิงก์แล้ว');
-    expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/\/q\/tok_example_/);
-    expect(asked).toMatchObject({ action: 'link', documentId: 'd0000001-0000-4000-8000-000000000001' });
-    await expect.poll(() => saved.some(change => change.table === 'cashflow_invoices' && change.id === 'd0000001-0000-4000-8000-000000000001' && typeof change.data?.approvalRequestedAt === 'string')).toBe(true);
+    // A short link (owner, 2026-11-22): krarok.com/q/ and twelve letters and digits, the code kept on the quotation.
+    const copied = await page.evaluate(() => navigator.clipboard.readText());
+    expect(copied).toMatch(/\/q\/[A-Za-z0-9]{12}$/);
+    const change = saved.find(item => item.table === 'cashflow_invoices' && item.id === 'd0000001-0000-4000-8000-000000000001' && typeof item.data?.approvalRequestedAt === 'string');
+    expect(change).toBeTruthy();
+    expect((change!.data as { approvalLink?: { code?: string } }).approvalLink?.code).toBe(copied.split('/q/')[1]);
     await dialog(page).getByRole('button').last().click();
     await expect(page.getByTestId('quote-approval-status').first()).toContainText('รอลูกค้ายืนยัน');
     await page.waitForTimeout(400);
@@ -526,7 +527,7 @@ for (const device of [{ name: 'phone', width: 390, height: 844 }, { name: 'compu
     await page.route('**/api/quote-approval*', route => {
       if (route.request().method() === 'GET') return route.fulfill({ json: { invoice: quotation, approval: null } });
       accepted = route.request().postDataJSON();
-      return route.fulfill({ json: { ok: true, approval: { status: 'accepted', name: 'คุณมานี ใจดี', signatureUrl: (accepted as { signature: string }).signature, at: '2026-11-22T05:30:00.000Z', revision: 'x' } } });
+      return route.fulfill({ json: { ok: true, approval: { status: 'accepted', name: 'คุณมานี ใจดี บริษัท ตัวอย่างชื่อยาวมากเป็นพิเศษสำหรับทดสอบการขึ้นบรรทัดใหม่ จำกัด', signatureUrl: (accepted as { signature: string }).signature, at: '2026-11-22T05:30:00.000Z', revision: 'x' } } });
     });
     await page.setViewportSize({ width: device.width, height: device.height });
     await page.goto('/q/tok_example_000000000000000000000000.sig');
@@ -547,7 +548,12 @@ for (const device of [{ name: 'phone', width: 390, height: 844 }, { name: 'compu
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
     await shot(page, `quote-client-${device.name}`);
     await page.getByRole('button', { name: 'ยืนยันใบเสนอราคา' }).click();
-    await expect(page.getByRole('status')).toContainText('ยืนยันแล้วโดย คุณมานี ใจดี');
+    await expect(page.getByRole('status')).toContainText('ยืนยันแล้ว');
+    await expect(page.getByRole('status')).toContainText('โดย คุณมานี ใจดี');
+    // A long name wraps inside its box (2026-11-22: it ran past the edge).
+    const fits = await page.getByRole('status').evaluate(node => node.scrollWidth <= node.clientWidth + 1);
+    expect(fits).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
     expect(accepted).toMatchObject({ action: 'accept', token: 'tok_example_000000000000000000000000.sig', name: 'คุณมานี ใจดี', agree: true });
     expect(String((accepted as unknown as { signature: string }).signature)).toMatch(/^data:image\/png;base64,/);
     await expect(page.getByRole('button', { name: 'ยืนยันใบเสนอราคา' })).toHaveCount(0);

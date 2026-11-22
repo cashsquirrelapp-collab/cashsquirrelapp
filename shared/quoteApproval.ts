@@ -6,6 +6,26 @@ import type { Invoice } from './types.js';
 // confirms; the quotation records who, when and which version. Editing the quotation afterwards makes the old link
 // stop working, so a client can never confirm a version they were not shown.
 
+/** The short link of a quotation (owner, 2026-11-22: the signed link looked long enough to pass for a scam): a random
+ * code made on the owner's device and kept on the quotation, krarok.com/q/<code>. */
+export interface QuoteLinkRecord { code: string; revision: string; expires: string }
+export const QUOTE_CODE = /^[A-Za-z0-9]{12}$/;
+const CODE_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+/** Twelve letters and digits from the device's random source (about 70 bits; never guessed). */
+export function newQuoteCode(random: (bytes: Uint8Array) => Uint8Array = bytes => crypto.getRandomValues(bytes)): string {
+  const bytes = random(new Uint8Array(12));
+  return Array.from(bytes, byte => CODE_LETTERS[byte % CODE_LETTERS.length]).join('');
+}
+
+/** A signer's name as it prints: one line of plain text, and no pile of Thai marks stacked on one letter (2026-11-22). */
+export function cleanSignerName(name: string): string {
+  return name.normalize('NFC')
+    .replace(/[\u0000-\u001f\u007f\u200b-\u200f\u2028-\u202e\u2060-\u206f]/g, '')
+    .replace(/^[\u0E31\u0E34-\u0E3A\u0E47-\u0E4E]+/, '')
+    .replace(/([\u0E31\u0E34-\u0E3A\u0E47-\u0E4E]{2})[\u0E31\u0E34-\u0E3A\u0E47-\u0E4E]+/g, '$1')
+    .replace(/\s+/g, ' ').trim().slice(0, 120);
+}
+
 /** What the client confirmed, kept on the quotation itself. */
 export interface QuoteApproval {
   status: 'accepted';
@@ -37,8 +57,9 @@ export function quoteRevision(invoice: Pick<Invoice, 'documentNo' | 'createdDate
 export const QUOTE_SIGNATURE_MAX = 200_000;
 export const quoteAcceptSchema = z.object({
   action: z.literal('accept'),
-  token: z.string().min(20).max(400),
-  name: z.string().trim().min(2).max(120),
+  /** The short code (krarok.com/q/<code>), or the long signed link sent before 2026-11-22's short links. */
+  token: z.string().min(12).max(400),
+  name: z.string().max(200).transform(cleanSignerName).pipe(z.string().min(2)),
   signature: z.string().max(QUOTE_SIGNATURE_MAX).regex(/^data:image\/png;base64,[A-Za-z0-9+/=]+$/),
   agree: z.literal(true),
 });

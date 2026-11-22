@@ -1,8 +1,8 @@
 /* A quotation's confirmation status as a few words beside its details (QuoteApprovalCard.tsx). */
-.qas { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; line-height: 1.5; color: #8C5A00; }
+.qas { display: flex; align-items: flex-start; gap: 4px; max-width: 100%; overflow-wrap: anywhere; word-break: break-word; font-size: 12px; font-weight: 500; line-height: 1.5; color: #8C5A00; }
 .qas.is-confirmed { color: #2F6B3B; }
 .qas.is-waiting { color: #6B635C; }
 .dark .qas { color: #F0B45A; }
 .dark .qas.is-confirmed { color: #8FCB98; }
 .dark .qas.is-waiting { color: #A8A29C; }
-.qas svg { flex: none; }
+.qas svg { flex: none; margin-top: 2px; }

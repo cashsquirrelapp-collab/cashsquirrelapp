@@ -213,7 +213,8 @@ export const DOCUMENT_CSS = `
 .da4-sig .area.noline{border-bottom:none}
 .da4-sig .area img{max-width:100%;max-height:52px;object-fit:contain}
 .da4-sig .area.box{border:1px dashed #8C857D;border-radius:0;height:62px}
-.da4-sig .under{margin-top:4px;min-height:14px;font-size:9.5px}
+.da4-sig .under{margin-top:4px;min-height:14px;font-size:9.5px;overflow-wrap:anywhere;word-break:break-word}
+.da4-sig > div{min-width:0}
 .da4-pageno{text-align:center;font-size:9px;margin-top:6px}
 .da4-watermark{position:absolute;left:10mm;right:10mm;bottom:14px;text-align:center;font-size:8.5px;line-height:1.2;color:#9C9289;letter-spacing:.01em}
 .da4-sheet{display:flex;flex-direction:column;gap:16px}

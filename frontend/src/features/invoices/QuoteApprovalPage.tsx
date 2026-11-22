@@ -1,6 +1,6 @@
 import React from 'react';
 import { CheckCircle2, Eraser, Maximize2, X } from 'lucide-react';
-import type { QuoteApproval, QuoteView } from '../../../../shared/quoteApproval';
+import { cleanSignerName, type QuoteApproval, type QuoteView } from '../../../../shared/quoteApproval';
 import { apiJson } from '../../services/api';
 import { BrandLockup } from '../../components/brand/BrandLogo';
 import { A4_WIDTH_PX, DocumentPreview } from './DocumentA4';
@@ -92,12 +92,12 @@ export default function QuoteApprovalPage({ token }: { token: string }) {
 
   const confirm = async () => {
     if (!('data' in state)) return;
-    if (name.trim().length < 2) { setProblem(tr("กรุณาพิมพ์ชื่อผู้อนุมัติ")); return; }
+    if (cleanSignerName(name).length < 2) { setProblem(tr("กรุณาพิมพ์ชื่อผู้อนุมัติ")); return; }
     if (!signature) { setProblem(tr("กรุณาเซ็นชื่อในช่องเซ็นชื่อ")); return; }
     if (!agree) { setProblem(tr("กรุณาติ๊กยืนยันว่าตรวจใบเสนอราคาแล้ว")); return; }
     setProblem(''); setSending(true);
     try {
-      const reply = await apiJson<{ approval: QuoteApproval }>('/api/quote-approval', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'accept', token, name: name.trim(), signature, agree: true }) });
+      const reply = await apiJson<{ approval: QuoteApproval }>('/api/quote-approval', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'accept', token, name: cleanSignerName(name), signature, agree: true }) });
       setState({ data: { ...state.data, approval: reply.approval } });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) {
@@ -127,7 +127,9 @@ export default function QuoteApprovalPage({ token }: { token: string }) {
           <h1>{invoice.documentNo}</h1>
           <div className="qa-total"><span>{tr("ยอดรับสุทธิ")}</span><b>฿{formatMoney(totals.payable)}</b></div>
           {approval ? (
-            <p className="qa-done" role="status"><CheckCircle2 size={18} aria-hidden="true" />{tr("ยืนยันแล้วโดย {0} เมื่อ {1}", approval.name, thaiDateTime(approval.at))}</p>
+            <div className="qa-done" role="status"><CheckCircle2 size={20} aria-hidden="true" />
+              <div><b>{tr("ยืนยันแล้ว")}</b><span>{tr("โดย {0}", approval.name)}</span><span>{thaiDateTime(approval.at)}</span></div>
+            </div>
           ) : <p className="qa-muted">{tr("ตรวจรายละเอียดด้านล่าง แล้วเซ็นยืนยันท้ายหน้า")}</p>}
         </section>
 
