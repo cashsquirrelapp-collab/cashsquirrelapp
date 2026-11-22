@@ -293,4 +293,6 @@ export const invoices: Record<string, string> = {
   "ลูกค้ายืนยันแล้ว · {0} · {1}": "Confirmed by the client · {0} · {1}",
   "แก้ไขหลังลูกค้ายืนยัน ส่งลิงก์ใหม่": "Edited after the client confirmed: send a new link",
   "รอลูกค้ายืนยัน": "Waiting for the client to confirm",
+  "ลิงก์ให้ลูกค้าเซ็นยืนยัน": "Link for the client to sign and confirm",
+  "คัดลอกลิงก์ ลูกค้าเปิดแล้วเซ็นยืนยันได้เลย ไม่ต้องพิมพ์หรือสแกน": "Copy the link; the client opens it and signs. No printing or scanning",
 };

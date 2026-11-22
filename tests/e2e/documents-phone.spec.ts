@@ -494,14 +494,17 @@ test('phones: the colour row above the document picture recolours it and saves t
 // types a name, signs, ticks and confirms; the quotation then shows who confirmed, and the signature sits on the paper.
 for (const device of [{ name: 'computer', width: 1440, height: 900, path: '/invoice?type=quotation', open: async (_page: Page) => {} },
   { name: 'phone', width: 390, height: 844, path: '/invoice?type=quotation', open: async (page: Page) => { await page.getByRole('button', { name: /เปิด QT-2026-011/ }).click(); } }]) {
-  test(`${device.name}: the link icon on a quotation copies a confirmation link and notes that it was sent`, async ({ page, context }) => {
+  test(`${device.name}: แชร์ให้ลูกค้า on a quotation offers the confirmation link and copies it and notes that it was sent`, async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     const saved = await open(page, device.path, { width: device.width, height: device.height });
     let asked: unknown = null;
     await page.route('**/api/quote-approval', route => { asked = route.request().postDataJSON(); return route.fulfill({ json: { token: 'tok_example_000000000000000000000000.sig', revision: 'r', accepted: false } }); });
     await device.open(page);
     await expect(page.getByTestId('quote-approval-status')).toHaveCount(0);
-    await page.getByRole('button', { name: 'คัดลอกลิงก์ให้ลูกค้าเซ็นยืนยัน' }).click();
+    // Inside แชร์ให้ลูกค้า, first among the ways to share (owner, 2026-11-22).
+    await page.getByRole('button', { name: 'แชร์ให้ลูกค้า' }).first().click();
+    await shot(page, `quote-share-menu-${device.name}`);
+    await page.getByRole(device.name === 'phone' ? 'button' : 'menuitem', { name: /ลิงก์ให้ลูกค้าเซ็นยืนยัน/ }).click();
     await expect(dialog(page)).toContainText('คัดลอกลิงก์แล้ว');
     expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/\/q\/tok_example_/);
     expect(asked).toMatchObject({ action: 'link', documentId: 'd0000001-0000-4000-8000-000000000001' });

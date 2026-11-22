@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import type { DocumentType, Invoice, InvoiceItem, InvoiceProfile, Job } from '../../../../shared/types';
 import { DocColorPicker } from './DocColorPicker';
-import { QuoteApprovalStatus, QuoteLinkButton } from './QuoteApprovalCard';
+import { QuoteApprovalStatus, copyQuoteLink } from './QuoteApprovalCard';
 import { ISSUER_TEXT_FIELDS, type IssuerUse } from '../../../../shared/documentBranding';
 import { A4_WIDTH_PX, DEFAULT_LOGO_HEIGHT, DocumentPreview, MAX_LOGO_HEIGHT, MIN_LOGO_HEIGHT, getDocumentMeta, paginateItems } from './DocumentA4';
 import { getWorkspaceTab, type DocumentWorkspaceTab } from './documentAvailability';
@@ -236,14 +236,21 @@ function useShare(m: InvoicePhoneModel, invoice: Invoice | null) {
     try { await navigator.share({ files: [pdf.file], title }); }
     catch (error) { if ((error as Error)?.name !== 'AbortError') m.notify(tr("แชร์ไม่สำเร็จ"), tr("ลองดาวน์โหลด PDF แล้วส่งเองแทน")); }
   };
+  const quote = invoice?.documentType === 'quotation';
   const start = () => {
-    if (canShareFile(pdf.file)) { void shareFile(); return; }
+    if (canShareFile(pdf.file) && !quote) { void shareFile(); return; }
     if (!pdf.file) pdf.ensure().catch(() => undefined);
     setOpen(true);
   };
   const sheet = open && invoice && (
     <MobileSheet title={tr("แชร์เอกสาร")} onClose={() => setOpen(false)}>
       <div className="dp-card dp-sheet-list">
+        {quote && (
+          <button type="button" className="dp-row" onClick={() => { setOpen(false); void copyQuoteLink(invoice, m.createQuoteLink, m.notify); }}>
+            <span className="dp-tile is-neutral" aria-hidden="true"><PenLine size={18} /></span>
+            <span className="dp-row-text"><b>{tr("ลิงก์ให้ลูกค้าเซ็นยืนยัน")}</b><span>{tr("คัดลอกลิงก์ ลูกค้าเปิดแล้วเซ็นยืนยันได้เลย ไม่ต้องพิมพ์หรือสแกน")}</span></span>
+          </button>
+        )}
         {canNativeShare() && typeof navigator.canShare === 'function' && (
           <button type="button" className="dp-row" onClick={() => void shareFile()} disabled={!canShareFile(pdf.file)}>
             <span className="dp-tile is-neutral" aria-hidden="true">{pdf.file || pdf.failed ? <Share2 size={18} /> : <Loader2 size={18} className="animate-spin" />}</span>
@@ -536,10 +543,7 @@ function DocumentScreen({ m, invoice, onBack, onOpen, onEdit, onIssue, onRemoved
   return (
     <>
       <MobilePageHero title={invoice.documentNo || tr(meta.th)} sub={`${tr(meta.th)} · ${invoice.client.name || tr("ไม่ระบุลูกค้า")}`} onBack={onBack} backLabel={T("เอกสาร")}
-        actions={<>
-          <QuoteLinkButton invoice={invoice} onCreateLink={m.createQuoteLink} notify={m.notify} className="ksm-toolbtn" />
-          <button type="button" className="ksm-toolbtn" onClick={() => setMenu(true)} aria-label={tr("ตัวเลือกเพิ่มเติมของ {0}", invoice.documentNo)}><MoreHorizontal size={19} /></button>
-        </>} />
+        actions={<button type="button" className="ksm-toolbtn" onClick={() => setMenu(true)} aria-label={tr("ตัวเลือกเพิ่มเติมของ {0}", invoice.documentNo)}><MoreHorizontal size={19} /></button>} />
       {m.linkedFocus && (
         <p className="dp-note is-banner" data-krarok-avoid="banner">{m.linkFrom === 'assistant' ? tr("เอกสารที่เลขาทำให้ · ดาวน์โหลด PDF หรือแชร์ให้ลูกค้าได้ด้านล่าง") : tr("เอกสารที่ขอจาก LINE · ดาวน์โหลด PDF หรือแชร์ให้ลูกค้าได้ด้านล่าง")}</p>
       )}

@@ -1,6 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronLeft, ChevronRight, Download, FileText, Loader2, Maximize2, Minus, MoreHorizontal, Plus, Printer, Share2, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, FileText, Loader2, Maximize2, Minus, MoreHorizontal, Plus, Printer, Share2, X, PenLine } from 'lucide-react';
 import { documentPdfName, type PdfFileState } from './documentPdf';
 import type { DocumentType, Invoice } from '../../../../shared/types';
 import { A4_HEIGHT_PX, A4_WIDTH_PX, DocumentPreview, getDocumentMeta, paginateItems } from './DocumentA4';
@@ -109,9 +109,11 @@ function useDismiss(open: boolean, close: () => void, root: React.RefObject<HTML
  * The PDF is prepared in the background (see usePdfFile) because a share sheet only opens right
  * after a tap; if it is not ready yet the menu says so and the next tap shares it.
  */
-export function ShareButton({ invoice, pdf, onDownload, onPrint, notify, className = '' }: {
+export function ShareButton({ invoice, pdf, onDownload, onPrint, notify, className = '', onQuoteLink }: {
   invoice: Invoice; pdf: PdfFileState; onDownload: () => void; onPrint: () => void;
   notify: (title: string, message: string) => void; className?: string;
+  /** Quotations: ลิงก์ให้ลูกค้าเซ็นยืนยัน, first in the menu. */
+  onQuoteLink?: () => void;
 }) {
   const [open, setOpen] = React.useState(false);
   const rootRef = React.useRef<HTMLDivElement>(null);
@@ -128,7 +130,7 @@ export function ShareButton({ invoice, pdf, onDownload, onPrint, notify, classNa
   };
   const shareFile = () => { if (!pdf.file) return; setOpen(false); void share({ files: [pdf.file], title }); };
   const onClick = () => {
-    if (fileShareable && isPhone()) { shareFile(); return; }
+    if (fileShareable && isPhone() && !onQuoteLink) { shareFile(); return; }
     if (!pdf.file) pdf.ensure().catch(() => undefined);
     setOpen(v => !v);
   };
@@ -146,6 +148,12 @@ export function ShareButton({ invoice, pdf, onDownload, onPrint, notify, classNa
             <p className="text-[13px] font-semibold text-brand-text">{tr("แชร์เอกสาร")}</p>
             <button type="button" onClick={close} aria-label={tr("ปิด")} className="rounded-lg p-1 text-brand-muted hover:bg-brand-faint cursor-pointer"><X className="h-4 w-4" /></button>
           </div>
+          {onQuoteLink && (
+            <button type="button" role="menuitem" onClick={() => { setOpen(false); onQuoteLink(); }} className={item}>
+              <PenLine className="mt-0.5 h-4 w-4 shrink-0 text-[#C24A16]" />
+              <span><span className="block text-[13px] font-medium text-brand-text">{tr("ลิงก์ให้ลูกค้าเซ็นยืนยัน")}</span><span className={sub}>{tr("คัดลอกลิงก์ ลูกค้าเปิดแล้วเซ็นยืนยันได้เลย ไม่ต้องพิมพ์หรือสแกน")}</span></span>
+            </button>
+          )}
           {fileShareSupported && (
             <button type="button" role="menuitem" onClick={shareFile} disabled={!fileShareable} className={item}>
               {pdf.file || pdf.failed ? <FileText className="mt-0.5 h-4 w-4 shrink-0 text-[#C24A16]" /> : <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-[#C24A16]" />}

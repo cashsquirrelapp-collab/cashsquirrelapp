@@ -15,7 +15,7 @@ import { NewDocumentButton, PreviewCanvas, RowMenu, ShareButton } from './Docume
 import { DocumentFullView } from './DocumentFullView';
 import { DocColorPicker } from './DocColorPicker';
 import { IssuerDialog } from './IssuerDialog';
-import { QuoteApprovalStatus, QuoteLinkButton } from './QuoteApprovalCard';
+import { QuoteApprovalStatus, copyQuoteLink } from './QuoteApprovalCard';
 import { apiJson } from '../../services/api';
 import { financeHeaders } from '../../services/financeWorkspace';
 import { downloadBlob, usePdfFile } from './documentPdf';
@@ -1081,13 +1081,12 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                           label={tr("ออกเอกสารต่อ")} menuTitle={tr("ออกต่อจาก {0}", selectedInvoice.documentNo)} itemLabel={type => tr(getDocumentMeta(type).th)} />
                       </div>
                     )}
-                    <QuoteLinkButton invoice={selectedInvoice} onCreateLink={createQuoteLink} notify={triggerAlert}
-                      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-brand-border bg-brand-white text-brand-text transition-colors hover:bg-brand-faint disabled:opacity-60 cursor-pointer" />
                     <button type="button" onClick={handleDownloadPdf} disabled={pdfBusy} aria-label={tr("ดาวน์โหลด PDF")} className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-brand-border bg-brand-white px-3.5 text-[13px] font-medium text-brand-text transition-colors hover:bg-brand-faint disabled:opacity-60 cursor-pointer">
                       <Download className="h-4 w-4" /> <span className="hidden sm:inline">{pdfBusy ? tr("กำลังสร้าง PDF…") : tr("ดาวน์โหลด PDF")}</span><span className="sm:hidden">PDF</span>
                     </button>
                     <div className="min-w-0 flex-1 sm:flex-none">
-                      <ShareButton invoice={withCurrentBranding(selectedInvoice)} pdf={pdf} onDownload={handleDownloadPdf} onPrint={handlePrintDocument} notify={triggerAlert} />
+                      <ShareButton invoice={withCurrentBranding(selectedInvoice)} pdf={pdf} onDownload={handleDownloadPdf} onPrint={handlePrintDocument} notify={triggerAlert}
+                        onQuoteLink={selectedInvoice.documentType === 'quotation' ? () => void copyQuoteLink(selectedInvoice, createQuoteLink, triggerAlert) : undefined} />
                     </div>
                     <RowMenu label={tr("ตัวเลือกเพิ่มเติมของ {0}", selectedInvoice.documentNo)} items={[
                       { label: tr("ทำสำเนา"), run: () => handleDuplicateInvoice(selectedInvoice) },
