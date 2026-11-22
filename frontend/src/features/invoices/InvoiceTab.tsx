@@ -13,6 +13,8 @@ import { DocumentPreview, DOCUMENT_TYPES, DEFAULT_LOGO_HEIGHT, MIN_LOGO_HEIGHT, 
 import { dateLocale, formatCurrency } from '../../utils';
 import { NewDocumentButton, PreviewCanvas, RowMenu, ShareButton } from './DocumentWorkspaceParts';
 import { DocumentFullView } from './DocumentFullView';
+import { DocColorPicker } from './DocColorPicker';
+import { IssuerDialog } from './IssuerDialog';
 import { downloadBlob, usePdfFile } from './documentPdf';
 import { DOCUMENT_WORKSPACE_TABS, getWorkspaceTab, isWorkspaceTab, isDocumentTypeAvailable, resolveDocumentWorkspaceTab, resolveDocumentSelection, mergeImportedDocuments, type DocumentWorkspaceTab } from './documentAvailability';
 import { Building2, ChevronRight, Eye, Link2, Search, ShieldCheck } from 'lucide-react';
@@ -657,6 +659,15 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
   };
 
   // The business profile from this page (phones; the same profile as ตั้งค่า › โปรไฟล์ธุรกิจ, saved the same way).
+  // ข้อมูลผู้ออกเอกสาร on the documents page itself, and the colour row above the preview (owner, 2026-11-22).
+  const [issuerDialogOpen, setIssuerDialogOpen] = useState(false);
+  const colorSaveTimer = React.useRef<number | undefined>(undefined);
+  const pickDocColor = (docColor: string) => {
+    const next = { ...issuerProfile, docColor };
+    setIssuerProfile(next);
+    window.clearTimeout(colorSaveTimer.current);
+    colorSaveTimer.current = window.setTimeout(() => { void saveIssuerProfile(next, { quiet: true }); }, 700);
+  };
   const saveIssuerProfile = async (profile: InvoiceProfile, options?: { quiet?: boolean }): Promise<boolean> => {
     privateCache.setItem(issuerKey, JSON.stringify(profile));
     if (!ownerId) { setIssuerProfile(profile); if (!options?.quiet) triggerAlert(tr("บันทึกสำเร็จ"), tr("บันทึกโปรไฟล์ธุรกิจไว้ในเครื่องนี้แล้ว")); return true; }
@@ -916,11 +927,12 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
         </div>
       )}
       
+      {issuerDialogOpen && <IssuerDialog profile={issuerProfile} onSave={saveIssuerProfile} onClose={() => setIssuerDialogOpen(false)} onError={triggerAlert} />}
       <PageHeader page="invoice" description={isDocumentTypeAvailable('quotation', fullFeatureAccess) ? undefined : t('page.invoicePhaseOneDescription')} className="no-print">
         <div className="flex flex-wrap items-center gap-2">
           {/* The business profile, one click away from the documents it is printed on (owner, 2026-11-03). */}
           {onOpenIssuer && (
-            <button type="button" onClick={onOpenIssuer} data-testid="issuer-button"
+            <button type="button" onClick={() => setIssuerDialogOpen(true)} data-testid="issuer-button"
               className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-brand-border bg-brand-white px-3.5 text-[13px] font-medium text-brand-text transition-colors hover:bg-brand-faint cursor-pointer">
               <Building2 className="h-4 w-4" />{tr("ข้อมูลผู้ออกเอกสาร")}</button>
           )}
@@ -1075,7 +1087,8 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                     ))}
                   </nav>
                 )}
-                <DocumentFullView invoice={withCurrentBranding(selectedInvoice)} watermark={freePlan} className="h-[72vh] min-h-[440px] lg:h-auto lg:flex-1" />
+                <DocumentFullView invoice={withCurrentBranding(selectedInvoice)} watermark={freePlan} className="h-[72vh] min-h-[440px] lg:h-auto lg:flex-1"
+                  toolbar={<DocColorPicker compact value={issuerProfile.docColor} logoUrl={issuerProfile.logoUrl} onChange={pickDocColor} />} />
               </div>
             ) : (
               <div className="flex min-h-[420px] flex-col items-center justify-center p-12 text-center lg:h-[calc(100vh-232px)]">

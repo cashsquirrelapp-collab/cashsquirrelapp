@@ -17,3 +17,11 @@
 .dcp-dot input[type="color"] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; }
 .dcp-note { margin: 0; font-size: 12px; line-height: 1.45; color: #6B635C; }
 .dark .dcp-note { color: #A8A29C; }
+
+/* Compact: one row of small circles above the document preview. */
+.dcp.is-compact { --dcp-size: 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.dcp.is-compact .dcp-dot[aria-checked="true"] { box-shadow: 0 0 0 2px var(--dcp-gap-ring), 0 0 0 3.5px var(--dcp-ring); }
+.dcp-compact-label { margin-right: 2px; font-size: 12px; font-weight: 500; line-height: 1.5; color: #6B635C; }
+.dark .dcp-compact-label { color: #A8A29C; }
+.dcp-compact-sep { width: 1px; height: 18px; background: rgba(31, 27, 24, 0.14); }
+.dark .dcp-compact-sep { background: rgba(255, 255, 255, 0.18); }

@@ -343,13 +343,40 @@ test('phones in dark mode: the document page reads', async ({ page }) => {
   await shot(page, 'docs-document-dark');
 });
 
-test('computers: the documents page keeps its layout and gains ข้อมูลผู้ออกเอกสาร, which opens the business profile', async ({ page }) => {
-  await open(page, '/invoice?type=quotation', { width: 1280, height: 820 });
+test('computers: the documents page keeps its layout and edits ข้อมูลผู้ออกเอกสาร in a dialog on the page', async ({ page }) => {
+  const saved = await open(page, '/invoice?type=quotation', { width: 1280, height: 820 });
   await expect(page.locator('.dp')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'เอกสาร', level: 1 })).toBeVisible();
+  // Edited on the documents page itself (owner, 2026-11-22): a dialog, and saving stays on เอกสาร.
   await page.getByTestId('issuer-button').click();
-  await expect(page).toHaveURL(/\/settings/);
-  await expect(page.locator('#biz-name')).toHaveValue('สตูดิโอกระรอก');
+  const dialog = page.getByTestId('issuer-dialog');
+  await expect(dialog).toBeVisible();
+  await expect(page).toHaveURL(/\/invoice/);
+  await expect(dialog.locator('#issuer-dialog-name')).toHaveValue('สตูดิโอกระรอก');
+  await dialog.locator('#issuer-dialog-name').fill('สตูดิโอกระรอกน้อย');
+  await page.waitForTimeout(400);
+  const dialogText = await dialog.innerText();
+  expect((await textOverlapIssues(page)).filter(issue => dialogText.includes(issue.a ?? '') && dialogText.includes(issue.b ?? ''))).toEqual([]);
+  await shot(page, 'docs-issuer-dialog-computer');
+  await dialog.getByRole('button', { name: 'บันทึก', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page).toHaveURL(/\/invoice/);
+  await expect.poll(() => saved.find(change => change.table === 'cashflow_documents' && change.id === 'issuer_profile')?.data).toMatchObject({ name: 'สตูดิโอกระรอกน้อย' });
+});
+
+test('computers: the colour row above the preview recolours the document and saves the profile', async ({ page }) => {
+  const saved = await open(page, '/invoice?type=quotation', { width: 1440, height: 900 });
+  await page.locator('[data-testid="document-view"]').first().waitFor();
+  const row = page.getByTestId('document-view').getByRole('radiogroup', { name: 'สีเอกสาร' });
+  await expect(row.getByRole('radio', { name: 'ส้ม' })).toHaveAttribute('aria-checked', 'true');
+  await row.getByRole('radio', { name: 'น้ำเงิน' }).click();
+  await expect(page.getByTestId('document-view').locator('.da4-titlebox h1').first()).toHaveCSS('color', 'rgb(31, 63, 115)');
+  await expect.poll(() => saved.find(change => change.table === 'cashflow_documents' && change.id === 'issuer_profile')?.data).toMatchObject({ docColor: 'navy' });
+  await page.waitForTimeout(400);
+  // Only the new row is checked: the scaled A4 preview's own small labels sit close by design.
+  const rowText = await row.innerText();
+  expect((await textOverlapIssues(page)).filter(issue => rowText.includes(issue.a ?? '') || rowText.includes(issue.b ?? ''))).toEqual([]);
+  await shot(page, 'docs-color-row-computer');
 });
 
 test('computers: แก้ไขสำหรับใบนี้ types another issuer for one document; the business profile stays', async ({ page }) => {

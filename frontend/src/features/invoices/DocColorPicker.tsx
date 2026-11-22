@@ -47,7 +47,7 @@ export async function logoColors(src: string | undefined): Promise<string[]> {
   }
 }
 
-export const DocColorPicker: React.FC<{ value?: string; logoUrl?: string; onChange: (value: string) => void; large?: boolean }> = ({ value, logoUrl, onChange, large }) => {
+export const DocColorPicker: React.FC<{ value?: string; logoUrl?: string; onChange: (value: string) => void; large?: boolean; compact?: boolean }> = ({ value, logoUrl, onChange, large, compact }) => {
   const current = documentColorOf(value);
   const [fromLogo, setFromLogo] = React.useState<string[]>([]);
   React.useEffect(() => {
@@ -64,6 +64,22 @@ export const DocColorPicker: React.FC<{ value?: string; logoUrl?: string; onChan
   const dot = (key: string, color: string, label: string) => (
     <button key={key} type="button" role="radio" aria-checked={current.key === key} aria-label={label} title={label}
       className="dcp-dot" style={{ background: color }} onClick={() => onChange(key)} />
+  );
+
+  // One small row above the document preview (owner, 2026-11-22: "เปลี่ยนสีได้เลย ตรงแถวด้านบนใบเสนอราคา ตรงที่มันโล่ง ๆ").
+  if (compact) return (
+    <div className="dcp is-compact" role="radiogroup" aria-label={tr("สีเอกสาร")}>
+      <span className="dcp-compact-label">{tr("สีเอกสาร")}</span>
+      <label className="dcp-dot is-rainbow" title={tr("เลือกสีเอง")}>
+        <span aria-hidden="true"><Plus size={12} strokeWidth={2.6} /></span>
+        <input type="color" aria-label={tr("เลือกสีเอง")} value={current.custom ? current.key.toLowerCase() : current.accent.toLowerCase()}
+          onChange={event => onChange(event.target.value.toUpperCase())} />
+      </label>
+      {customShown && dot(current.key, current.key, tr(current.name))}
+      {DOCUMENT_COLORS.map(color => dot(color.key, color.accent, tr(color.name)))}
+      {fromLogo.length > 0 && <span className="dcp-compact-sep" aria-hidden="true" />}
+      {fromLogo.map(hex => dot(hex, hex, tr("สีจากโลโก้ของคุณ")))}
+    </div>
   );
 
   return (

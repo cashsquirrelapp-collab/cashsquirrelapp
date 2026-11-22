@@ -8,7 +8,8 @@ export function issuerForDocumentEdit(invoice: Invoice | undefined, profile: Inv
 /** Current branding can refresh an ordinary document, but cannot silently sign an assistant draft. A document whose
  * issuer was filled in for that document alone keeps exactly what it was saved with. */
 export function applyDocumentBranding(invoice: Invoice, profile: InvoiceProfile): Invoice {
-  if (invoice.issuerCustom) return invoice;
+  // The colour is the account's look, picked above the preview, so it follows the profile on these too.
+  if (invoice.issuerCustom) return profile.docColor && profile.docColor !== invoice.issuer.docColor ? { ...invoice, issuer: { ...invoice.issuer, docColor: profile.docColor } } : invoice;
   return { ...invoice, issuer: {
     ...invoice.issuer,
     logoUrl: profile.logoUrl || invoice.issuer.logoUrl,
