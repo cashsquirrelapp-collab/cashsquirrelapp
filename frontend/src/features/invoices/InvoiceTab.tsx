@@ -15,7 +15,7 @@ import { NewDocumentButton, PreviewCanvas, RowMenu, ShareButton } from './Docume
 import { DocumentFullView } from './DocumentFullView';
 import { DocColorPicker } from './DocColorPicker';
 import { IssuerDialog } from './IssuerDialog';
-import { QuoteApprovalCard } from './QuoteApprovalCard';
+import { QuoteApprovalStatus, QuoteLinkButton } from './QuoteApprovalCard';
 import { apiJson } from '../../services/api';
 import { financeHeaders } from '../../services/financeWorkspace';
 import { downloadBlob, usePdfFile } from './documentPdf';
@@ -1070,6 +1070,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                     <p className="mt-1 truncate text-[13px] text-brand-muted">
                       {selectedInvoice.client.name || tr("ไม่ระบุลูกค้า")} · {tr(getDocumentMeta(selectedInvoice.documentType).th)} · {formatCurrency(calculateTotals(selectedInvoice.items, selectedInvoice.vatRate, selectedInvoice.whtRate).grandTotal)}
                     </p>
+                    <QuoteApprovalStatus invoice={selectedInvoice} />
                   </div>
                   <div className="flex w-full items-center gap-2 sm:w-auto">
                     <button type="button" onClick={() => handleStartEditInvoice(selectedInvoice)} className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-brand-border bg-brand-white px-3.5 text-[13px] font-medium text-brand-text transition-colors hover:bg-brand-faint cursor-pointer">
@@ -1080,6 +1081,8 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                           label={tr("ออกเอกสารต่อ")} menuTitle={tr("ออกต่อจาก {0}", selectedInvoice.documentNo)} itemLabel={type => tr(getDocumentMeta(type).th)} />
                       </div>
                     )}
+                    <QuoteLinkButton invoice={selectedInvoice} onCreateLink={createQuoteLink} notify={triggerAlert}
+                      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-brand-border bg-brand-white text-brand-text transition-colors hover:bg-brand-faint disabled:opacity-60 cursor-pointer" />
                     <button type="button" onClick={handleDownloadPdf} disabled={pdfBusy} aria-label={tr("ดาวน์โหลด PDF")} className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-brand-border bg-brand-white px-3.5 text-[13px] font-medium text-brand-text transition-colors hover:bg-brand-faint disabled:opacity-60 cursor-pointer">
                       <Download className="h-4 w-4" /> <span className="hidden sm:inline">{pdfBusy ? tr("กำลังสร้าง PDF…") : tr("ดาวน์โหลด PDF")}</span><span className="sm:hidden">PDF</span>
                     </button>
@@ -1093,7 +1096,6 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                     ]} />
                   </div>
                 </div>
-                <QuoteApprovalCard invoice={selectedInvoice} onCreateLink={createQuoteLink} notify={triggerAlert} />
                 {selectedChain.length > 0 && (
                   <nav aria-label={tr("เอกสารที่ลิงก์กัน")} className="flex flex-wrap items-center gap-1.5 rounded-xl bg-brand-faint px-3 py-2 text-[12px] no-print">
                     <span className="inline-flex items-center gap-1 pr-1 text-brand-muted"><Link2 className="h-3.5 w-3.5" /> {tr("เอกสารที่ลิงก์กัน")}</span>

@@ -1,70 +1,69 @@
 import React from 'react';
-import { CheckCircle2, Copy, Link2, Share2, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, Link as LinkIcon } from 'lucide-react';
 import type { Invoice } from '../../../../shared/types';
 import { quoteRevision } from '../../../../shared/quoteApproval';
 import { tr } from '../../i18n/tr';
 import './quoteApprovalCard.css';
 
-// A quotation's confirmation status and its link (shared/quoteApproval.ts), on computers and phones alike: confirmed
-// (who, when), confirmed before an edit (send a new link), or a button to make the link to send the client.
+// A quotation's confirmation link (shared/quoteApproval.ts) as one icon (owner, 2026-11-22: the card was too busy; "เอา
+// เป็นแค่ไอคอน ... ให้กด copy link"): a tap makes the link and copies it. Where it stands shows as a few words beside the
+// document's details.
 
 const thaiDateTime = (iso: string) => new Date(iso).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' });
 
-export function QuoteApprovalCard({ invoice, onCreateLink, notify, compact = false }: {
+export function quoteApprovalState(invoice: Invoice): 'confirmed' | 'stale' | 'waiting' | null {
+  if (invoice.documentType !== 'quotation') return null;
+  if (invoice.approval) return invoice.approval.revision === quoteRevision(invoice) ? 'confirmed' : 'stale';
+  return invoice.approvalRequestedAt ? 'waiting' : null;
+}
+
+/** รอลูกค้ายืนยัน / ลูกค้ายืนยันแล้ว · name · time / แก้ไขหลังลูกค้ายืนยัน, or nothing. */
+export function QuoteApprovalStatus({ invoice }: { invoice: Invoice }) {
+  const state = quoteApprovalState(invoice);
+  if (!state) return null;
+  return (
+    <span className={`qas is-${state}`} data-testid="quote-approval-status">
+      {state === 'confirmed' && <CheckCircle2 size={13} aria-hidden="true" />}
+      {state === 'confirmed' ? tr("ลูกค้ายืนยันแล้ว · {0} · {1}", invoice.approval!.name, thaiDateTime(invoice.approval!.at))
+        : state === 'stale' ? tr("แก้ไขหลังลูกค้ายืนยัน ส่งลิงก์ใหม่")
+          : tr("รอลูกค้ายืนยัน")}
+    </span>
+  );
+}
+
+/** One icon: makes the link and copies it; when copying is not allowed, the link is shown to copy by hand. */
+export function QuoteLinkButton({ invoice, onCreateLink, notify, className }: {
   invoice: Invoice;
-  /** Makes the link (and notes on the quotation that one was sent); the full URL, or null when it failed. */
   onCreateLink: (invoice: Invoice) => Promise<string | null>;
   notify: (title: string, message: string) => void;
-  compact?: boolean;
+  className: string;
 }) {
-  const [url, setUrl] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
-  React.useEffect(() => { setUrl(null); }, [invoice.id]);
   if (invoice.documentType !== 'quotation') return null;
-  const current = invoice.approval && invoice.approval.revision === quoteRevision(invoice);
-
-  const make = async () => {
-    setBusy(true);
-    const made = await onCreateLink(invoice);
-    setBusy(false);
-    if (made) setUrl(made);
-  };
+  const label = tr("คัดลอกลิงก์ให้ลูกค้าเซ็นยืนยัน");
   const copy = async () => {
-    if (!url) return;
-    try { await navigator.clipboard.writeText(url); notify(tr("คัดลอกลิงก์แล้ว"), tr("วางลิงก์ในแชทหรืออีเมลถึงลูกค้าได้เลย")); }
-    catch { notify(tr("คัดลอกไม่สำเร็จ"), tr("กดค้างที่ลิงก์เพื่อคัดลอกเอง")); }
+    setBusy(true);
+    const made = onCreateLink(invoice);
+    let url: string | null = null;
+    try {
+      // Safari only copies inside the tap itself, so the clipboard is handed the link while it is still being made.
+      const Item = (window as unknown as { ClipboardItem?: typeof ClipboardItem }).ClipboardItem;
+      if (Item && navigator.clipboard?.write) {
+        await navigator.clipboard.write([new Item({ 'text/plain': made.then(value => { url = value; if (!value) throw new Error('no link'); return new Blob([value], { type: 'text/plain' }); }) })]);
+      } else {
+        url = await made;
+        if (!url) throw new Error('no link');
+        await navigator.clipboard.writeText(url);
+      }
+      notify(tr("คัดลอกลิงก์แล้ว"), tr("ส่งลิงก์นี้ให้ลูกค้าทางแชทหรืออีเมล ลูกค้าเปิดแล้วเซ็นยืนยันใบเสนอราคาได้เลย"));
+    } catch {
+      url = url ?? await made.catch(() => null);
+      if (url) notify(tr("ลิงก์ให้ลูกค้ายืนยัน"), tr("คัดลอกลิงก์นี้ส่งให้ลูกค้า: {0}", url));
+    } finally { setBusy(false); }
   };
-  const share = async () => {
-    if (!url) return;
-    const text = tr("ใบเสนอราคา {0} จาก {1} กรุณาตรวจและกดยืนยันที่ลิงก์นี้", invoice.documentNo, invoice.issuer.name || '');
-    try { await navigator.share?.({ title: invoice.documentNo, text, url }); } catch { /* closed */ }
-  };
-
-  if (current) return (
-    <section className={`qac is-done${compact ? ' is-compact' : ''}`} data-testid="quote-approval" aria-label={tr("การยืนยันของลูกค้า")}>
-      <CheckCircle2 size={18} aria-hidden="true" />
-      <div><b>{tr("ลูกค้ายืนยันแล้ว")}</b><span>{tr("{0} · {1}", invoice.approval!.name, thaiDateTime(invoice.approval!.at))}</span></div>
-    </section>
-  );
-
   return (
-    <section className={`qac${invoice.approval ? ' is-stale' : ''}${compact ? ' is-compact' : ''}`} data-testid="quote-approval" aria-label={tr("การยืนยันของลูกค้า")}>
-      {invoice.approval ? <AlertTriangle size={18} aria-hidden="true" /> : <Link2 size={18} aria-hidden="true" />}
-      <div className="qac-body">
-        <b>{invoice.approval ? tr("ใบนี้ถูกแก้ไขหลังลูกค้ายืนยัน") : invoice.approvalRequestedAt ? tr("ส่งลิงก์แล้ว รอลูกค้ายืนยัน") : tr("ให้ลูกค้าเซ็นยืนยันผ่านลิงก์")}</b>
-        <span>{invoice.approval ? tr("ส่งลิงก์ใหม่ให้ลูกค้ายืนยันฉบับนี้") : tr("ลูกค้าเปิดลิงก์ ดูใบเสนอราคา เซ็นชื่อ แล้วกดยืนยัน ไม่ต้องพิมพ์หรือสแกน")}</span>
-        {url ? (
-          <div className="qac-link">
-            <input type="text" readOnly value={url} aria-label={tr("ลิงก์ให้ลูกค้ายืนยัน")} onFocus={event => event.currentTarget.select()} />
-            <div className="qac-actions">
-              <button type="button" className="qac-btn" onClick={() => void copy()}><Copy size={15} aria-hidden="true" />{tr("คัดลอกลิงก์")}</button>
-              {typeof navigator.share === 'function' && <button type="button" className="qac-btn" onClick={() => void share()}><Share2 size={15} aria-hidden="true" />{tr("แชร์")}</button>}
-            </div>
-          </div>
-        ) : (
-          <button type="button" className="qac-btn is-primary" onClick={() => void make()} disabled={busy}>{busy ? tr("กำลังสร้างลิงก์…") : invoice.approvalRequestedAt || invoice.approval ? tr("สร้างลิงก์ใหม่") : tr("สร้างลิงก์ให้ลูกค้ายืนยัน")}</button>
-        )}
-      </div>
-    </section>
+    <button type="button" className={className} onClick={() => void copy()} disabled={busy} aria-label={label} title={label} data-testid="quote-link-button">
+      <LinkIcon className="qlb-icon" size={18} aria-hidden="true" />
+    </button>
   );
 }

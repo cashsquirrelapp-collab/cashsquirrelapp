@@ -287,4 +287,10 @@ export const invoices: Record<string, string> = {
   "เมื่อกดยืนยัน ระบบบันทึกชื่อ ลายเซ็น และเวลาที่ยืนยันไว้กับใบเสนอราคาฉบับนี้ ผู้ออกเอกสารจะเห็นในแอป": "When you confirm, your name, signature and the time are kept with this version of the quotation, and the issuer sees it in their app",
   "ส่งผ่านกระรอกตุนเงิน": "Sent with Krarok",
   "ใบเสนอราคา {0}": "Quotation {0}",
+  "คัดลอกลิงก์ให้ลูกค้าเซ็นยืนยัน": "Copy a link for the client to sign and confirm",
+  "ส่งลิงก์นี้ให้ลูกค้าทางแชทหรืออีเมล ลูกค้าเปิดแล้วเซ็นยืนยันใบเสนอราคาได้เลย": "Send this link to your client by chat or email; they open it and sign to confirm the quotation",
+  "คัดลอกลิงก์นี้ส่งให้ลูกค้า: {0}": "Copy this link for your client: {0}",
+  "ลูกค้ายืนยันแล้ว · {0} · {1}": "Confirmed by the client · {0} · {1}",
+  "แก้ไขหลังลูกค้ายืนยัน ส่งลิงก์ใหม่": "Edited after the client confirmed: send a new link",
+  "รอลูกค้ายืนยัน": "Waiting for the client to confirm",
 };

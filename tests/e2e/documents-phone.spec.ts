@@ -492,22 +492,26 @@ test('phones: the colour row above the document picture recolours it and saves t
 
 // ลิงก์ให้ลูกค้ายืนยันใบเสนอราคา (owner, 2026-11-22). The owner makes the link on a quotation; the client opens it,
 // types a name, signs, ticks and confirms; the quotation then shows who confirmed, and the signature sits on the paper.
-test('computers: a quotation makes a confirmation link and notes that it was sent', async ({ page }) => {
-  const saved = await open(page, '/invoice?type=quotation', { width: 1440, height: 900 });
-  let asked: unknown = null;
-  await page.route('**/api/quote-approval', route => { asked = route.request().postDataJSON(); return route.fulfill({ json: { token: 'tok_example_000000000000000000000000.sig', revision: 'r', accepted: false } }); });
-  const card = page.getByTestId('quote-approval');
-  await expect(card).toContainText('ให้ลูกค้าเซ็นยืนยันผ่านลิงก์');
-  await card.getByRole('button', { name: 'สร้างลิงก์ให้ลูกค้ายืนยัน' }).click();
-  await expect(card.getByRole('textbox', { name: 'ลิงก์ให้ลูกค้ายืนยัน' })).toHaveValue(/\/q\/tok_example_/);
-  expect(asked).toMatchObject({ action: 'link', documentId: 'd0000001-0000-4000-8000-000000000001' });
-  await expect.poll(() => saved.some(change => change.table === 'cashflow_invoices' && change.id === 'd0000001-0000-4000-8000-000000000001' && typeof change.data?.approvalRequestedAt === 'string')).toBe(true);
-  await expect(card).toContainText('ส่งลิงก์แล้ว รอลูกค้ายืนยัน');
-  await page.waitForTimeout(400);
-  const cardText = await card.innerText();
-  expect((await textOverlapIssues(page)).filter(issue => cardText.includes(issue.a ?? '') || cardText.includes(issue.b ?? ''))).toEqual([]);
-  await shot(page, 'quote-link-computer');
-});
+for (const device of [{ name: 'computer', width: 1440, height: 900, path: '/invoice?type=quotation', open: async (_page: Page) => {} },
+  { name: 'phone', width: 390, height: 844, path: '/invoice?type=quotation', open: async (page: Page) => { await page.getByRole('button', { name: /เปิด QT-2026-011/ }).click(); } }]) {
+  test(`${device.name}: the link icon on a quotation copies a confirmation link and notes that it was sent`, async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    const saved = await open(page, device.path, { width: device.width, height: device.height });
+    let asked: unknown = null;
+    await page.route('**/api/quote-approval', route => { asked = route.request().postDataJSON(); return route.fulfill({ json: { token: 'tok_example_000000000000000000000000.sig', revision: 'r', accepted: false } }); });
+    await device.open(page);
+    await expect(page.getByTestId('quote-approval-status')).toHaveCount(0);
+    await page.getByRole('button', { name: 'คัดลอกลิงก์ให้ลูกค้าเซ็นยืนยัน' }).click();
+    await expect(dialog(page)).toContainText('คัดลอกลิงก์แล้ว');
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/\/q\/tok_example_/);
+    expect(asked).toMatchObject({ action: 'link', documentId: 'd0000001-0000-4000-8000-000000000001' });
+    await expect.poll(() => saved.some(change => change.table === 'cashflow_invoices' && change.id === 'd0000001-0000-4000-8000-000000000001' && typeof change.data?.approvalRequestedAt === 'string')).toBe(true);
+    await dialog(page).getByRole('button').last().click();
+    await expect(page.getByTestId('quote-approval-status').first()).toContainText('รอลูกค้ายืนยัน');
+    await page.waitForTimeout(400);
+    await shot(page, `quote-link-${device.name}`);
+  });
+}
 
 for (const device of [{ name: 'phone', width: 390, height: 844 }, { name: 'computer', width: 1280, height: 860 }]) {
   test(`the client confirms a quotation from its link (${device.name})`, async ({ page }) => {
