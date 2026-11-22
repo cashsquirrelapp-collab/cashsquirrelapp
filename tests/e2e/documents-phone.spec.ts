@@ -489,3 +489,69 @@ test('phones: the colour row above the document picture recolours it and saves t
   expect((await textOverlapIssues(page)).filter(issue => rowText.includes(issue.a ?? '') || rowText.includes(issue.b ?? ''))).toEqual([]);
   await shot(page, 'docs-color-row-phone');
 });
+
+// ลิงก์ให้ลูกค้ายืนยันใบเสนอราคา (owner, 2026-11-22). The owner makes the link on a quotation; the client opens it,
+// types a name, signs, ticks and confirms; the quotation then shows who confirmed, and the signature sits on the paper.
+test('computers: a quotation makes a confirmation link and notes that it was sent', async ({ page }) => {
+  const saved = await open(page, '/invoice?type=quotation', { width: 1440, height: 900 });
+  let asked: unknown = null;
+  await page.route('**/api/quote-approval', route => { asked = route.request().postDataJSON(); return route.fulfill({ json: { token: 'tok_example_000000000000000000000000.sig', revision: 'r', accepted: false } }); });
+  const card = page.getByTestId('quote-approval');
+  await expect(card).toContainText('ให้ลูกค้าเซ็นยืนยันผ่านลิงก์');
+  await card.getByRole('button', { name: 'สร้างลิงก์ให้ลูกค้ายืนยัน' }).click();
+  await expect(card.getByRole('textbox', { name: 'ลิงก์ให้ลูกค้ายืนยัน' })).toHaveValue(/\/q\/tok_example_/);
+  expect(asked).toMatchObject({ action: 'link', documentId: 'd0000001-0000-4000-8000-000000000001' });
+  await expect.poll(() => saved.some(change => change.table === 'cashflow_invoices' && change.id === 'd0000001-0000-4000-8000-000000000001' && typeof change.data?.approvalRequestedAt === 'string')).toBe(true);
+  await expect(card).toContainText('ส่งลิงก์แล้ว รอลูกค้ายืนยัน');
+  await page.waitForTimeout(400);
+  const cardText = await card.innerText();
+  expect((await textOverlapIssues(page)).filter(issue => cardText.includes(issue.a ?? '') || cardText.includes(issue.b ?? ''))).toEqual([]);
+  await shot(page, 'quote-link-computer');
+});
+
+for (const device of [{ name: 'phone', width: 390, height: 844 }, { name: 'computer', width: 1280, height: 860 }]) {
+  test(`the client confirms a quotation from its link (${device.name})`, async ({ page }) => {
+    const quotation = invoices[1];
+    let accepted: Record<string, unknown> | null = null;
+    await page.route('**/*', route => (['127.0.0.1', 'localhost'].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort()));
+    await page.route('**/api/**', route => route.fulfill({ json: {} }));
+    await page.route('**/api/auth*', route => route.fulfill({ status: 401, json: { error: 'no session' } }));
+    await page.route('**/api/quote-approval*', route => {
+      if (route.request().method() === 'GET') return route.fulfill({ json: { invoice: quotation, approval: null } });
+      accepted = route.request().postDataJSON();
+      return route.fulfill({ json: { ok: true, approval: { status: 'accepted', name: 'คุณมานี ใจดี', signatureUrl: (accepted as { signature: string }).signature, at: '2026-11-22T05:30:00.000Z', revision: 'x' } } });
+    });
+    await page.setViewportSize({ width: device.width, height: device.height });
+    await page.goto('/q/tok_example_000000000000000000000000.sig');
+    await expect(page.getByRole('heading', { name: 'QT-2026-011' })).toBeVisible();
+    await expect(page.getByText('ใบเสนอราคาจาก สตูดิโอกระรอก')).toBeVisible();
+    // Confirming without a name, a signature or the tick says what is missing.
+    await page.getByRole('button', { name: 'ยืนยันใบเสนอราคา' }).click();
+    await expect(page.getByRole('alert')).toContainText('กรุณาพิมพ์ชื่อผู้อนุมัติ');
+    await page.getByLabel('ชื่อผู้อนุมัติ').fill('คุณมานี ใจดี');
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    const pad = page.getByLabel('ช่องเซ็นชื่อ');
+    await pad.scrollIntoViewIfNeeded();
+    const box = (await pad.boundingBox())!;
+    await page.mouse.move(box.x + 30, box.y + 90); await page.mouse.down();
+    for (const [dx, dy] of [[60, -30], [110, 20], [170, -25], [230, 15]]) await page.mouse.move(box.x + dx, box.y + 90 + dy, { steps: 6 });
+    await page.mouse.up();
+    await page.getByRole('checkbox').check();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+    await shot(page, `quote-client-${device.name}`);
+    await page.getByRole('button', { name: 'ยืนยันใบเสนอราคา' }).click();
+    await expect(page.getByRole('status')).toContainText('ยืนยันแล้วโดย คุณมานี ใจดี');
+    expect(accepted).toMatchObject({ action: 'accept', token: 'tok_example_000000000000000000000000.sig', name: 'คุณมานี ใจดี', agree: true });
+    expect(String((accepted as unknown as { signature: string }).signature)).toMatch(/^data:image\/png;base64,/);
+    await expect(page.getByRole('button', { name: 'ยืนยันใบเสนอราคา' })).toHaveCount(0);
+    await shot(page, `quote-client-done-${device.name}`);
+  });
+}
+
+test('the client page says plainly when a link no longer works', async ({ page }) => {
+  await page.route('**/api/**', route => route.fulfill({ json: {} }));
+  await page.route('**/api/quote-approval*', route => route.fulfill({ status: 410, json: { error: 'ลิงก์นี้ใช้ไม่ได้แล้ว อาจหมดอายุหรือใบเสนอราคาถูกแก้ไข กรุณาขอลิงก์ใหม่จากผู้ออกเอกสาร' } }));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/q/old_link_000000000000000000000000.sig');
+  await expect(page.getByRole('alert')).toContainText('ลิงก์นี้ใช้ไม่ได้แล้ว');
+});

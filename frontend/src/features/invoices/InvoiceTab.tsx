@@ -15,6 +15,9 @@ import { NewDocumentButton, PreviewCanvas, RowMenu, ShareButton } from './Docume
 import { DocumentFullView } from './DocumentFullView';
 import { DocColorPicker } from './DocColorPicker';
 import { IssuerDialog } from './IssuerDialog';
+import { QuoteApprovalCard } from './QuoteApprovalCard';
+import { apiJson } from '../../services/api';
+import { financeHeaders } from '../../services/financeWorkspace';
 import { downloadBlob, usePdfFile } from './documentPdf';
 import { DOCUMENT_WORKSPACE_TABS, getWorkspaceTab, isWorkspaceTab, isDocumentTypeAvailable, resolveDocumentWorkspaceTab, resolveDocumentSelection, mergeImportedDocuments, type DocumentWorkspaceTab } from './documentAvailability';
 import { Building2, ChevronRight, Eye, Link2, Search, ShieldCheck } from 'lucide-react';
@@ -659,6 +662,21 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
   };
 
   // The business profile from this page (phones; the same profile as ตั้งค่า › โปรไฟล์ธุรกิจ, saved the same way).
+  // ลิงก์ให้ลูกค้ายืนยันใบเสนอราคา (owner, 2026-11-22): the server signs a link for this quotation; the quotation notes
+  // when one was sent so the card says รอลูกค้ายืนยัน.
+  const createQuoteLink = async (inv: Invoice): Promise<string | null> => {
+    if (!ownerId) { triggerAlert(tr("ยังสร้างลิงก์ไม่ได้"), tr("เข้าสู่ระบบก่อน แล้วบันทึกใบเสนอราคา")); return null; }
+    try {
+      const reply = await apiJson<{ token: string }>('/api/quote-approval', { method: 'POST', headers: { ...financeHeaders(ownerId), 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'link', documentId: inv.id }) });
+      const stamped = { ...inv, approvalRequestedAt: new Date().toISOString() };
+      saveInvoicesToStorage(invoices.map(item => item.id === inv.id ? stamped : item));
+      if (selectedInvoice?.id === inv.id) setSelectedInvoice(stamped);
+      return `${window.location.origin}/q/${reply.token}`;
+    } catch (error) {
+      triggerAlert(tr("สร้างลิงก์ไม่สำเร็จ"), (error as Error).message);
+      return null;
+    }
+  };
   // ข้อมูลผู้ออกเอกสาร on the documents page itself, and the colour row above the preview (owner, 2026-11-22).
   const [issuerDialogOpen, setIssuerDialogOpen] = useState(false);
   const colorSaveTimer = React.useRef<number | undefined>(undefined);
@@ -885,6 +903,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
       issuer: issuerProfile,
       saveIssuer: saveIssuerProfile,
       pickDocColor,
+      createQuoteLink,
       formOpen: activeSubTab === 'create' && canAccessDraft,
       draft: {
         editingId: editingInvoiceId,
@@ -1074,6 +1093,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                     ]} />
                   </div>
                 </div>
+                <QuoteApprovalCard invoice={selectedInvoice} onCreateLink={createQuoteLink} notify={triggerAlert} />
                 {selectedChain.length > 0 && (
                   <nav aria-label={tr("เอกสารที่ลิงก์กัน")} className="flex flex-wrap items-center gap-1.5 rounded-xl bg-brand-faint px-3 py-2 text-[12px] no-print">
                     <span className="inline-flex items-center gap-1 pr-1 text-brand-muted"><Link2 className="h-3.5 w-3.5" /> {tr("เอกสารที่ลิงก์กัน")}</span>

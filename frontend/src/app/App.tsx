@@ -133,6 +133,7 @@ const ImportChat = lazy(() => import('../features/import/ImportChat').then(modul
 const MotionStudy = import.meta.env.DEV ? lazy(() => import('../features/marketing/landing/study/MotionStudy')) : null;
 // The founder's story (owner, 2026-10-31): a public page, signed in or not.
 const FounderStory = lazy(() => import('../features/marketing/v5/FounderStory'));
+const QuoteApprovalPage = lazy(() => import('../features/invoices/QuoteApprovalPage'));
 const Guides = lazy(() => import('../features/marketing/v5/Guides'));
 // Signing up inside LINE with the website's welcome screens (owner, 2026-11-13); opened by the LINE page, signed out.
 const LineStartPage = lazy(() => import('../features/onboarding/LineStartPage'));
@@ -2042,7 +2043,7 @@ export default function App() {
   useEffect(() => {
     if (!session?.user?.id) return;
     // Signing up in LINE (and its preview) stays put even when this browser is already signed in to an account.
-    if (pathname === '/line-start' || pathname === '/connect-sheets') return;
+    if (pathname === '/line-start' || pathname === '/connect-sheets' || pathname.startsWith('/q/')) return;
     // LINE's document inbox is a focused personal-account screen, outside the app navigation.
     if (pathname === '/line-documents') {
       // Open to every account since the vault opened to all (2026-10-31); until 2026-11-04 this still sent everyone but
@@ -3339,6 +3340,8 @@ export default function App() {
     ? <div style={{ minHeight: '100svh', background: '#F3F2F0' }} />
     : <Suspense fallback={<div style={{ minHeight: '100svh', background: '#F3F2F0' }} />}><ConnectSheetsPage account={session && !session.isGuest ? session.user.id : null} /></Suspense>;
   if (pathname === '/line-start') return <Suspense fallback={<div style={{ minHeight: '100svh', background: '#FFFFFF' }} />}><LineStartPage /></Suspense>;
+  // A client confirming a quotation from its link: no account, no app chrome (owner, 2026-11-22).
+  if (pathname.startsWith('/q/')) return <Suspense fallback={<div style={{ minHeight: '100svh', background: '#F6F3EF' }} />}><QuoteApprovalPage token={decodeURIComponent(pathname.slice(3))} /></Suspense>;
   if (pathname === '/founder') return <Suspense fallback={<div style={{ minHeight: '100svh', background: '#FFFFFF' }} />}><FounderStory /></Suspense>;
   if (pathname === '/guides' || pathname.startsWith('/guides/')) return <Suspense fallback={<div style={{ minHeight: '100svh', background: '#FFFFFF' }} />}><Guides /></Suspense>;
   if (loadingSession) {

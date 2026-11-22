@@ -282,3 +282,5 @@ html[data-dp-task] #main-content.ksm-home-scroller { padding-bottom: 12px; }
 .dp-colorrow .dcp.is-compact { --dcp-size: 30px; gap: 8px; }
 .dp-colorrow .dcp-compact-label { flex-basis: 100%; margin: 0 0 -2px; font-size: 13px; }
 .dp-colorrow .dcp-compact-sep { height: 24px; }
+
+.dp-approval:not(:empty) { margin: 0 0 12px; }

@@ -3,6 +3,7 @@ import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { DocumentType, Invoice, InvoiceItem } from '../../../../shared/types';
 import { documentColorOf } from '../../../../shared/documentColors';
+import { quoteRevision } from '../../../../shared/quoteApproval';
 import { findThaiBank, thaiBankLogo } from './thaiBanks';
 import { amountInWords, calculateDocumentTotals, formatDocDate, formatMoney, thaiBahtText } from './documentMath';
 
@@ -272,6 +273,8 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print, watermar
   const totalPages = pages.length;
   const { issuer, client } = invoice;
   const color = documentColorOf(issuer.docColor);
+  // The client's signature only on the very version they confirmed; an edited quotation shows the slot empty again.
+  const approval = invoice.approval && invoice.approval.revision === quoteRevision(invoice) ? invoice.approval : null;
   const colorVars = { '--da4-accent': color.accent, '--da4-tint': color.tint } as React.CSSProperties;
   // How to pay (bank account) on quotations, invoices and tax invoices; a receipt records money
   // already received, so it has no payment section.
@@ -508,8 +511,10 @@ export const DocumentA4: React.FC<DocumentA4Props> = ({ invoice, print, watermar
                     </div>
                     <div>
                       <div className="role">{tr("{0} (ลูกค้า)", tr(meta.signatures[2]))}</div>
-                      <div className="area" />
-                      <div className="under b">{client.name}</div>
+                      {/* What the client signed through the confirmation link (shared/quoteApproval.ts). */}
+                      <div className="area">{approval?.signatureUrl ? <img src={approval.signatureUrl} alt="" /> : null}</div>
+                      <div className="under b">{approval ? approval.name : client.name}</div>
+                      {approval ? <div className="under">{formatDocDate(new Date(Date.parse(approval.at) + 7 * 3600_000).toISOString().slice(0, 10))}</div> : null}
                     </div>
                     <div>
                       <div className="role">{tr("ตราประทับ (ลูกค้า)")}</div>

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import type { DocumentType, Invoice, InvoiceItem, InvoiceProfile, Job } from '../../../../shared/types';
 import { DocColorPicker } from './DocColorPicker';
+import { QuoteApprovalCard } from './QuoteApprovalCard';
 import { ISSUER_TEXT_FIELDS, type IssuerUse } from '../../../../shared/documentBranding';
 import { A4_WIDTH_PX, DEFAULT_LOGO_HEIGHT, DocumentPreview, MAX_LOGO_HEIGHT, MIN_LOGO_HEIGHT, getDocumentMeta, paginateItems } from './DocumentA4';
 import { getWorkspaceTab, type DocumentWorkspaceTab } from './documentAvailability';
@@ -133,6 +134,8 @@ export interface InvoicePhoneModel {
   saveIssuer: (profile: InvoiceProfile) => Promise<boolean>;
   /** สีเอกสาร picked above a document's picture: shown at once, saved to the business profile. */
   pickDocColor: (value: string) => void;
+  /** A confirmation link for a saved quotation (QuoteApprovalCard). */
+  createQuoteLink: (invoice: Invoice) => Promise<string | null>;
   formOpen: boolean;
   draft: DocDraft;
   onMobileBack?: () => void;
@@ -572,6 +575,7 @@ function DocumentScreen({ m, invoice, onBack, onOpen, onEdit, onIssue, onRemoved
         </section>
       )}
 
+      <div className="dp-approval"><QuoteApprovalCard compact invoice={invoice} onCreateLink={m.createQuoteLink} notify={m.notify} /></div>
       {/* The colours above the picture, as on computers (owner, 2026-11-22: "ทำในมือถือด้วย"). */}
       <div className="dp-colorrow"><DocColorPicker compact value={m.issuer.docColor} logoUrl={m.issuer.logoUrl} onChange={m.pickDocColor} /></div>
       <button type="button" className="dp-thumb" onClick={() => setViewer(true)} aria-label={tr("ดูหน้าเอกสารเต็มจอ")} data-testid="document-view">

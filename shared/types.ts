@@ -1,4 +1,5 @@
 import type { DocumentColorKey } from './documentColors.js';
+import type { QuoteApproval } from './quoteApproval.js';
 import type { OnboardingRecord } from './onboarding.js';
 import type { BusinessProfile } from './businessProfile.js';
 export interface StatusOption {
@@ -298,6 +299,9 @@ export interface Invoice {
   assistantDraft?: boolean;
   /** The issuer was filled in for this document alone (ผู้ออกเอกสารของใบนี้): the business profile never replaces it. */
   issuerCustom?: boolean;
+  /** Quotations: when a confirmation link was last made, and what the client confirmed through it (shared/quoteApproval.ts). */
+  approvalRequestedAt?: string;
+  approval?: QuoteApproval;
   documentType: DocumentType;
   documentNo: string;
   createdDate: string; // YYYY-MM-DD

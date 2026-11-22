@@ -48,6 +48,8 @@ function finish(response: Response, path: string, staging = false): Response {
   }
   for (const [name, value] of Object.entries(SITE_HEADERS)) if (!headers.has(name)) headers.set(name, value);
   if (NO_STORE.test(path)) headers.set('Cache-Control', 'no-store');
+  // A quotation's confirmation page (/q/<link>) is private to whoever holds the link.
+  if (path.startsWith('/q/')) { headers.set('X-Robots-Tag', 'noindex, nofollow'); headers.set('Cache-Control', 'no-store'); }
   // The test site is never shown in search results.
   if (staging) headers.set('X-Robots-Tag', 'noindex, nofollow');
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });

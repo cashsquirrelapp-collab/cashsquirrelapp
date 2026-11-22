@@ -1,0 +1,23 @@
+/* A quotation's confirmation status (QuoteApprovalCard.tsx): warm neutral card, green when confirmed, amber after an edit. */
+.qac { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border: 1px solid var(--qac-border, #E7E1DA); border-radius: 14px; background: var(--qac-bg, #FFFFFF); color: var(--text, #1F1B18); font-size: 14px; line-height: 1.5; }
+.qac > svg { flex: none; margin-top: 2px; color: #C24A16; }
+.qac b { display: block; font-size: 14px; font-weight: 600; line-height: 1.45; }
+.qac span { display: block; margin-top: 1px; font-size: 13px; line-height: 1.5; color: #6B635C; }
+.qac-body { flex: 1; min-width: 0; }
+.qac.is-done { --qac-bg: #EEF6EF; --qac-border: #CFE3D2; }
+.qac.is-done > svg { color: #2F6B3B; }
+.qac.is-stale { --qac-bg: #FFF7EC; --qac-border: #F1DDBF; }
+.qac.is-stale > svg { color: #B26A00; }
+.dark .qac { --qac-bg: #1F2024; --qac-border: rgba(255, 255, 255, 0.1); }
+.dark .qac span { color: #A8A29C; }
+.dark .qac.is-done { --qac-bg: rgba(47, 107, 59, 0.18); --qac-border: rgba(120, 190, 130, 0.25); }
+.dark .qac.is-stale { --qac-bg: rgba(178, 106, 0, 0.16); --qac-border: rgba(240, 180, 90, 0.25); }
+.qac-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; margin-top: 10px; padding: 6px 14px; border: 1px solid #DCD5CD; border-radius: 10px; background: #FFFFFF; color: #1F1B18; font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; }
+.qac-btn.is-primary { border-color: #E65F2B; background: #E65F2B; color: #FFFFFF; }
+.qac-btn:disabled { opacity: 0.6; }
+.dark .qac-btn { border-color: rgba(255, 255, 255, 0.16); background: #2A2B30; color: #F4EFEA; }
+.dark .qac-btn.is-primary { border-color: #E2642E; background: #E2642E; color: #FFFFFF; }
+.qac-link input { width: 100%; height: 38px; margin-top: 10px; padding: 0 10px; border: 1px solid #DCD5CD; border-radius: 10px; background: #FAF8F5; color: #1F1B18; font: inherit; font-size: 13px; }
+.dark .qac-link input { border-color: rgba(255, 255, 255, 0.16); background: #141518; color: #F4EFEA; }
+.qac-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.qac.is-compact { padding: 12px; }

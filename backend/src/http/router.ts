@@ -51,6 +51,7 @@ import labs from '../handlers/labs.js';
 import google, { googleCallback } from '../handlers/google.js';
 import accountEmail from '../handlers/account-email.js';
 import lineLogin from '../handlers/line-login.js';
+import quoteApproval from '../handlers/quote-approval.js';
 const routes:Record<string,Handler>={auth,data,groups,profile,account,billing,'recover-account':recoverAccount,'close-expired-accounts':closeExpiredAccounts,'admin-users':adminUsers,'admin-analytics':adminAnalytics,'confirm-email':confirmEmail,'usage-analytics':usageAnalytics,vault,'vault-upload':vaultUpload,'vault-file':vaultFile,'download-report':download,'line-session':lineSession,'liff-config':liffConfig,'liff-submit':liffSubmit,'line-link-code':lineLink,'line-signup':lineSignup,'line-handoff':lineHandoff,'line-webhook':lineWebhook,notify,'password-reset-email':reset,'password-reset-line':reset,'send-monthly-report':report,'send-overdue-digest':digest,'send-admin-profit-report':adminProfitReport,'advance-card-renewals':advanceCardRenewals,'setup-line-richmenu':setup,'stripe-webhook':stripe};
 const rawRoutes=new Set(['stripe-webhook','line-webhook','vault-upload']);
 routes.feedback = feedback;
@@ -73,6 +74,8 @@ routes.broadcast = broadcast;
 // What the account has agreed to (owner, 2026-11-05): the terms, เลขากระรอก, LINE.
 routes.consent = consent;
 routes.labs = labs;
+// ลิงก์ให้ลูกค้ายืนยันใบเสนอราคา (owner, 2026-11-22): GET and accept are public, link needs a session.
+routes['quote-approval'] = quoteApproval;
 routes.google = google;
 routes['google/callback'] = googleCallback;
 // An account made in LINE adds an email and a password for the website (owner, 2026-11-14).

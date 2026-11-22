@@ -1,0 +1,36 @@
+/* The client's quotation page (/q/<link>): plain, formal, phone first; the app's warm neutrals and one orange button. */
+.qa { min-height: 100svh; padding: 0 0 calc(32px + env(safe-area-inset-bottom, 0px)); background: #F6F3EF; color: #1F1B18; font-family: var(--font-sans); font-size: 15px; line-height: 1.5; }
+.qa-wrap { width: min(100%, 760px); margin: 0 auto; padding: 0 16px; }
+.qa-brand { display: flex; align-items: center; padding: 18px 2px 12px; }
+.qa-card { margin-bottom: 14px; padding: 18px; border: 1px solid #E7E1DA; border-radius: 18px; background: #FFFFFF; }
+.qa-card h1 { margin: 2px 0 10px; font-size: 24px; font-weight: 700; line-height: 1.3; letter-spacing: -0.3px; }
+.qa-card h2 { margin: 0 0 14px; font-size: 18px; font-weight: 600; line-height: 1.45; }
+.qa-center { text-align: center; }
+.qa-center h1 { font-size: 20px; }
+.qa-kicker { margin: 0; font-size: 13px; color: #6B635C; }
+.qa-total { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 12px 14px; border-radius: 12px; background: #FCE9DD; }
+.qa-total span { font-size: 14px; color: #6B635C; }
+.qa-total b { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.qa-muted { margin: 10px 0 0; font-size: 14px; color: #6B635C; }
+.qa-done { display: flex; align-items: flex-start; gap: 8px; margin: 12px 0 0; padding: 10px 12px; border-radius: 12px; background: #E8F3EA; color: #2F6B3B; font-size: 14px; font-weight: 500; line-height: 1.5; }
+.qa-done svg { flex: none; margin-top: 2px; }
+.qa-paper { position: relative; display: block; width: 100%; margin: 0 0 14px; padding: 0; overflow: hidden; border: 1px solid #E7E1DA; border-radius: 12px; background: #FFFFFF; cursor: zoom-in; }
+.qa-paper-pill { position: absolute; right: 10px; bottom: 10px; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: rgba(31, 27, 24, 0.78); color: #FFFFFF; font-size: 13px; font-weight: 500; }
+.qa-form input[type="text"] { width: 100%; height: 48px; padding: 0 14px; border: 1px solid #DCD5CD; border-radius: 12px; background: #FFFFFF; color: #1F1B18; font: inherit; font-size: 16px; outline: none; }
+.qa-form input[type="text"]:focus { border-color: #E65F2B; }
+.qa-label { display: block; margin: 14px 0 6px; font-size: 14px; font-weight: 500; }
+.qa-label:first-of-type { margin-top: 0; }
+.qa-pad { position: relative; height: 170px; border: 1px dashed #CFC6BC; border-radius: 12px; background: #FFFFFF; }
+.qa-pad canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+.qa-pad-line { position: absolute; left: 18px; right: 18px; bottom: 40px; border-bottom: 1px solid #E7E1DA; pointer-events: none; }
+.qa-pad-clear { position: absolute; right: 8px; bottom: 6px; display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border: 0; border-radius: 8px; background: transparent; color: #6B635C; font: inherit; font-size: 13px; cursor: pointer; }
+.qa-check { display: flex; align-items: flex-start; gap: 10px; margin: 16px 0 0; font-size: 14px; line-height: 1.55; cursor: pointer; }
+.qa-check input { flex: none; width: 20px; height: 20px; margin-top: 1px; accent-color: #E65F2B; }
+.qa-problem { margin: 12px 0 0; padding: 10px 12px; border-radius: 10px; background: #FDEEEE; color: #A8332B; font-size: 14px; }
+.qa-confirm { width: 100%; height: 52px; margin-top: 16px; border: 0; border-radius: 14px; background: #E65F2B; color: #FFFFFF; font: inherit; font-size: 16px; font-weight: 600; cursor: pointer; }
+.qa-confirm:disabled { opacity: 0.6; }
+.qa-fine { margin: 10px 0 0; font-size: 12px; line-height: 1.55; color: #8C857D; }
+.qa-foot { margin: 18px 0 0; text-align: center; font-size: 12px; color: #9C9289; }
+.qa-full { position: fixed; inset: 0; z-index: 100; background: rgba(31, 27, 24, 0.92); }
+.qa-full-scroll { height: 100%; overflow: auto; padding: 56px 12px 24px; display: flex; justify-content: center; }
+.qa-full-close { position: fixed; top: 12px; right: 12px; z-index: 1; display: grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, 0.16); color: #FFFFFF; cursor: pointer; }
