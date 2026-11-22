@@ -53,6 +53,11 @@ import accountEmail from '../handlers/account-email.js';
 import lineLogin from '../handlers/line-login.js';
 import quoteApproval from '../handlers/quote-approval.js';
 const routes:Record<string,Handler>={auth,data,groups,profile,account,billing,'recover-account':recoverAccount,'close-expired-accounts':closeExpiredAccounts,'admin-users':adminUsers,'admin-analytics':adminAnalytics,'confirm-email':confirmEmail,'usage-analytics':usageAnalytics,vault,'vault-upload':vaultUpload,'vault-file':vaultFile,'download-report':download,'line-session':lineSession,'liff-config':liffConfig,'liff-submit':liffSubmit,'line-link-code':lineLink,'line-signup':lineSignup,'line-handoff':lineHandoff,'line-webhook':lineWebhook,notify,'password-reset-email':reset,'password-reset-line':reset,'send-monthly-report':report,'send-overdue-digest':digest,'send-admin-profit-report':adminProfitReport,'advance-card-renewals':advanceCardRenewals,'setup-line-richmenu':setup,'stripe-webhook':stripe};
+/** The largest JSON body each route takes; most need very little. quote-approval carries the client's drawn signature
+ * (a PNG up to QUOTE_SIGNATURE_MAX characters; 16 KB refused real signatures on 2026-11-22). */
+export function bodyLimit(route: string): number {
+  return route==='data'?4*1024*1024:route==='notify'?128*1024:route==='assistant'?12*1024*1024:route==='feedback-public'?3*1024*1024:route==='liff-submit'?1536*1024:route==='google'?2560*1024:route==='quote-approval'?300*1024:16*1024;
+}
 const rawRoutes=new Set(['stripe-webhook','line-webhook','vault-upload']);
 routes.feedback = feedback;
 // Reports from the public landing page (signed out), into the same แจ้งปัญหา system.
@@ -90,7 +95,7 @@ export function routeHandler(route:string):Handler {
    const contentType=req.headers['content-type']||'';
    if(!contentType.startsWith('application/json'))throw new HttpError(415,'Expected application/json');
    // liff-submit carries the picture of a new document for the LINE chat (a JPEG up to 1 MB, as base64 in JSON).
-   const raw=await readRawBody(req,route==='data'?4*1024*1024:route==='notify'?128*1024:route==='assistant'?12*1024*1024:route==='feedback-public'?3*1024*1024:route==='liff-submit'?1536*1024:route==='google'?2560*1024:16*1024);
+   const raw=await readRawBody(req,bodyLimit(route));
    try{req.body=raw.length?JSON.parse(raw.toString()):{};}catch{throw new HttpError(400,'Invalid JSON');}
   }
   await handler(req,res);

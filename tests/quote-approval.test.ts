@@ -40,3 +40,10 @@ test('quotation confirmation input: a name, a PNG signature and the tick', () =>
   assert.equal(quoteAcceptSchema.safeParse({ ...ok, name: ' ' }).success, false);
   assert.equal(quoteAcceptSchema.safeParse({ ...ok, signature: 'data:image/svg+xml;base64,AAAA' }).success, false);
 });
+
+test('quotation confirmation: the server takes a body as large as the biggest signature it accepts', async () => {
+  const { bodyLimit } = await import('../backend/src/http/router.js');
+  const { QUOTE_SIGNATURE_MAX } = await import('../shared/quoteApproval.js');
+  const body = JSON.stringify({ action: 'accept', token: 'a'.repeat(300), name: 'ก'.repeat(120), signature: `data:image/png;base64,${'A'.repeat(QUOTE_SIGNATURE_MAX - 30)}`, agree: true });
+  assert.ok(Buffer.byteLength(body) <= bodyLimit('quote-approval'), 'a full-size signature must fit the route limit');
+});

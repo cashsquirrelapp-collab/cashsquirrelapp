@@ -13,6 +13,16 @@ import './quoteApproval.css';
 
 const thaiDateTime = (iso: string) => new Date(iso).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
+/** The drawn signature as a small PNG (at most 600 px wide), so it travels light on a phone connection. */
+function compactSignature(canvas: HTMLCanvasElement): string {
+  const width = Math.min(600, canvas.width);
+  const height = Math.round(canvas.height * width / canvas.width);
+  const small = document.createElement('canvas');
+  small.width = width; small.height = height;
+  small.getContext('2d')!.drawImage(canvas, 0, 0, width, height);
+  return small.toDataURL('image/png');
+}
+
 function SignaturePad({ onChange }: { onChange: (dataUrl: string | null) => void }) {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const drawing = React.useRef(false);
@@ -46,7 +56,7 @@ function SignaturePad({ onChange }: { onChange: (dataUrl: string | null) => void
   const up = () => {
     if (!drawing.current) return;
     drawing.current = false; last.current = null;
-    if (drawn.current) onChange(canvasRef.current!.toDataURL('image/png'));
+    if (drawn.current) onChange(compactSignature(canvasRef.current!));
   };
   const clear = () => {
     const canvas = canvasRef.current!;

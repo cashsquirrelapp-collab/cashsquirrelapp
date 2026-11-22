@@ -562,3 +562,4 @@ test('the client page says plainly when a link no longer works', async ({ page }
   await page.goto('/q/old_link_000000000000000000000000.sig');
   await expect(page.getByRole('alert')).toContainText('ลิงก์นี้ใช้ไม่ได้แล้ว');
 });
+
