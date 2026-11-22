@@ -1018,7 +1018,7 @@ function IssuerScreen({ m, backLabel, onBack }: { m: InvoicePhoneModel; backLabe
                   </div>
                 )} />
             ) : (
-              <BrandImageField title={tr("ลายเซ็นผู้ออกเอกสาร")} hint={tr("แสดงเหนือเส้นลายเซ็นในช่อง “ผู้ออกเอกสาร” แนะนำไฟล์ PNG พื้นหลังโปร่งใส")} emptyLabel={tr("ไม่มีลายเซ็น")} uploadLabel={tr("อัปโหลดลายเซ็น")} removeLabel={tr("ลบลายเซ็น")}
+              <BrandImageField wide title={tr("ลายเซ็นผู้ออกเอกสาร")} hint={tr("แสดงเหนือเส้นลายเซ็นในช่อง “ผู้ออกเอกสาร” แนะนำไฟล์ PNG พื้นหลังโปร่งใส")} emptyLabel={tr("ไม่มีลายเซ็น")} uploadLabel={tr("อัปโหลดลายเซ็น")} removeLabel={tr("ลบลายเซ็น")}
                 value={profile.signatureUrl} onChange={signatureUrl => setProfile(current => ({ ...current, signatureUrl }))} onError={m.notify} />
             )}
             <button type="button" className="dp-primary is-wide" onClick={() => setBrand(null)}>{tr("เสร็จ")}</button>

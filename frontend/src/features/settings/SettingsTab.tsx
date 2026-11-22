@@ -939,7 +939,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               </div>
               <div className="pt-5">
                 <BrandImageField
-                  title={tr("ลายเซ็นผู้ออกเอกสาร")}
+                  wide title={tr("ลายเซ็นผู้ออกเอกสาร")}
                   hint={tr("แสดงเหนือเส้นลายเซ็นในช่อง “ผู้ออกเอกสาร” แนะนำไฟล์ PNG พื้นหลังโปร่งใส")}
                   emptyLabel={tr("ไม่มีลายเซ็น")}
                   uploadLabel={tr("อัปโหลดลายเซ็น")}

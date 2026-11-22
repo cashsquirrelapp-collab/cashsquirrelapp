@@ -17,7 +17,9 @@ export const BrandImageField: React.FC<{
   onError: (title: string, message: string) => void;
   size?: { label: string; value: number; min: number; max: number; onChange: (value: number) => void };
   extra?: React.ReactNode;
-}> = ({ title, hint, emptyLabel, uploadLabel, removeLabel, value, onChange, onError, size, extra }) => (
+  /** A wide box for a signature (owner, 2026-11-22: the square one was too small for one). */
+  wide?: boolean;
+}> = ({ title, hint, emptyLabel, uploadLabel, removeLabel, value, onChange, onError, size, extra, wide }) => (
   <div className="space-y-3">
     <div>
       <h4 className="text-[14px] font-medium text-brand-text">{title}</h4>
@@ -25,9 +27,9 @@ export const BrandImageField: React.FC<{
     </div>
 
     <div className="flex flex-col sm:flex-row gap-5 items-center">
-      <div className="w-24 h-24 border border-dashed border-brand-border rounded-xl bg-white dark:bg-[#141518] flex items-center justify-center overflow-hidden shrink-0">
+      <div className={`${wide ? 'w-full sm:w-72 h-32' : 'w-24 h-24'} border border-dashed border-brand-border rounded-xl bg-white dark:bg-[#141518] flex items-center justify-center overflow-hidden shrink-0`}>
         {value ? (
-          <img src={value} alt="" className="w-full h-full object-contain p-2" referrerPolicy="no-referrer" />
+          <img src={value} alt="" className={`w-full h-full object-contain ${wide ? 'p-3' : 'p-2'}`} referrerPolicy="no-referrer" />
         ) : (
           <div className="text-center p-2 flex flex-col items-center gap-1">
             <Upload className="w-5 h-5 text-brand-muted" />

@@ -338,9 +338,18 @@ test('computers: the documents page keeps its layout and edits ข้อมู�
   await expect(page).toHaveURL(/\/invoice/);
   await expect(dialog.locator('#issuer-dialog-name')).toHaveValue('สตูดิโอกระรอก');
   await dialog.locator('#issuer-dialog-name').fill('สตูดิโอกระรอกน้อย');
+  // The header preview follows: the name, then a logo placed on the right.
+  const preview = dialog.getByTestId('issuer-dialog-preview');
+  await expect(preview).toContainText('สตูดิโอกระรอกน้อย');
+  await dialog.locator('input[type="file"]').first().setInputFiles('tests/e2e/fixtures/logo-two-colors.png');
+  await expect(preview.locator('img.da4-logo')).toBeVisible();
+  await dialog.getByRole('group', { name: 'ตำแหน่งโลโก้' }).getByRole('button', { name: 'ขวา' }).click();
+  await expect(preview.locator('.da4-top')).toHaveClass(/pos-right/);
   await page.waitForTimeout(400);
   const dialogText = await dialog.innerText();
-  expect((await textOverlapIssues(page)).filter(issue => dialogText.includes(issue.a ?? '') && dialogText.includes(issue.b ?? ''))).toEqual([]);
+  const previewText = await preview.innerText();
+  expect((await textOverlapIssues(page)).filter(issue => dialogText.includes(issue.a ?? '') && dialogText.includes(issue.b ?? '')
+    && !previewText.includes(issue.a ?? '') && !previewText.includes(issue.b ?? ''))).toEqual([]);
   await shot(page, 'docs-issuer-dialog-computer');
   // The bank list with logos, as in Settings; no colour picker here (the row above the preview does that).
   await expect(dialog.getByRole('radiogroup', { name: 'สีเอกสาร' })).toHaveCount(0);
