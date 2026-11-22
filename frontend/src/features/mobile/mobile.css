@@ -901,3 +901,10 @@ body:has(.fbc.is-mobile, .asx.is-mobile) .ksm-nav-fade { display: none; }
 @media (prefers-reduced-motion: reduce) {
   .ksm-home > :not(.ksm-summary), .ksm-screen > :not(.ksm-summary), .ksm-page > :not(.ksm-summary) { animation: none; }
 }
+
+/* Up and down only (owner, 2026-11-22: "เพิ่มงาน ... ยังเลื่อนซ้ายเลื่อนขวาได้อยู่ มันไม่ล็อกเหมือนตรงอื่น"). A row a few
+   pixels wider than the sheet on an iPhone let the whole form slide sideways under a still header; the scrolling parts
+   of pages, sheets and cards never scroll sideways now. Chip rows that are meant to scroll keep their own overflow-x. */
+.ksm-layer, .ksm-sheet-content, .ksm-jobform-scroll, .ksm-peek, .ksm-modal.ksm-confirm > div.ksm-confirm-card { overflow-x: hidden; overscroll-behavior-x: none; }
+.ksm-jobform-scroll > *, .ksm-sheet-content > * { max-width: 100%; }
+@media (max-width: 743px) { #main-content { overflow-x: hidden; overscroll-behavior-x: none; } }

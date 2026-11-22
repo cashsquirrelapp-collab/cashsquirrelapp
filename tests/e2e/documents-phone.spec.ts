@@ -410,3 +410,16 @@ test('phones: after the live refresh, deleting a document and saving the busines
   await page.locator('.dp-bar').getByRole('button', { name: 'บันทึก' }).click();
   await expect.poll(() => sent.find(change => change.id === 'issuer_profile')?.version).toBe(1);
 });
+
+// Up and down only (owner, 2026-11-22): the job sheet's form never scrolls sideways, even with a row wider than it.
+test('phones: the add-job sheet scrolls up and down only', async ({ page }) => {
+  await open(page, '/');
+  await page.locator('.ksm-nav-add').click();
+  await page.locator('.ksm-jobmore summary').click();
+  const form = page.locator('.ksm-jobform-scroll');
+  await expect(form).toHaveCSS('overflow-x', 'hidden');
+  // A row made too wide on purpose, as a wider font on an iPhone can make one: the form still cannot be moved sideways.
+  await form.evaluate(node => { const wide = document.createElement('div'); wide.style.width = '700px'; wide.style.height = '4px'; node.append(wide); node.scrollLeft = 200; });
+  expect(await form.evaluate(node => node.scrollLeft)).toBe(0);
+  expect(await noSideScroll(page)).toBe(true);
+});
