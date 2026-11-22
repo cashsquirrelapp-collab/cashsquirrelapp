@@ -6,9 +6,10 @@ import { clientIp } from '../security/ingress.js';
 import { rateLimit } from '../security/rateLimit.js';
 import { requireUser } from '../security/session.js';
 import { makeQuoteToken, readQuoteToken } from '../services/quoteLink.js';
-import { QUOTE_CODE, quoteAcceptSchema, quoteRevision, type QuoteApproval, type QuoteLinkRecord, type QuoteView } from '../../../shared/quoteApproval.js';
+import { QUOTE_CODE, documentLinkKind, quoteAcceptSchema, quoteRevision, type QuoteApproval, type QuoteLinkRecord, type QuoteView } from '../../../shared/quoteApproval.js';
 import { validateChanges } from '../../../shared/validation.js';
 import type { Invoice } from '../../../shared/types.js';
+import { planTierForUser } from '../services/vault.js';
 
 // ลิงก์ให้ลูกค้ายืนยันใบเสนอราคา (shared/quoteApproval.ts).
 //   POST {action:'link', documentId}  signed in: a link for one of the account's own quotations
@@ -19,11 +20,11 @@ import type { Invoice } from '../../../shared/types.js';
 const linkSchema = z.object({ action: z.literal('link'), documentId: z.string().min(1).max(128) });
 const GONE = 'ลิงก์นี้ใช้ไม่ได้แล้ว อาจหมดอายุหรือใบเสนอราคาถูกแก้ไข กรุณาขอลิงก์ใหม่จากผู้ออกเอกสาร';
 
-async function loadQuotation(owner: string, document: string): Promise<{ invoice: Invoice; version: number } | null> {
+async function loadQuotation(owner: string, document: string, quotationsOnly = true): Promise<{ invoice: Invoice; version: number } | null> {
   const { data, error } = await getSupabaseAdmin().from('cashflow_invoices').select('data,version').eq('user_id', owner).eq('id', document).maybeSingle();
   if (error) throw error;
   const invoice = data?.data as Invoice | undefined;
-  if (!invoice || invoice.documentType !== 'quotation' || typeof data?.version !== 'number') return null;
+  if (!invoice || (quotationsOnly && invoice.documentType !== 'quotation') || typeof data?.version !== 'number') return null;
   return { invoice, version: data.version };
 }
 
@@ -42,7 +43,7 @@ async function openCode(code: string): Promise<Opened> {
   if (!data || data.length !== 1) throw new HttpError(410, GONE);
   const row = data[0] as { user_id: string; id: string; data: Invoice; version: number };
   const record = row.data?.approvalLink as QuoteLinkRecord | undefined;
-  if (row.data?.documentType !== 'quotation' || !record || record.code !== code || !(Date.parse(record.expires) > Date.now())) throw new HttpError(410, GONE);
+  if (!row.data?.documentType || !record || record.code !== code || !(Date.parse(record.expires) > Date.now())) throw new HttpError(410, GONE);
   return { link: { owner: row.user_id, document: row.id, revision: record.revision }, found: { invoice: row.data, version: row.version } };
 }
 
@@ -57,18 +58,29 @@ async function view(token: string): Promise<Opened> {
     opened = { link, found };
   }
   const { link, found } = opened;
+  // A receipt or a tax invoice is only looked at: the client sees it as it is now.
+  if (documentLinkKind(found.invoice.documentType) === 'view') return { link, found };
   // Confirmed already: the page shows what was confirmed even if the link's version is the confirmed one.
   if (found.invoice.approval?.revision === link.revision) return { link, found };
   if (quoteRevision(found.invoice) !== link.revision) throw new HttpError(410, GONE);
   return { link, found };
 }
 
+/** Whether the account's documents carry the Free plan's credit line (a failed lookup leaves it off). */
+async function freeAccount(owner: string): Promise<boolean> {
+  try {
+    const { data, error } = await getSupabaseAdmin().auth.admin.getUserById(owner);
+    if (error || !data?.user) return false;
+    return (await planTierForUser(data.user)) === 'free';
+  } catch { return false; }
+}
+
 export default withGuard(async (req, res) => {
   if (req.method === 'GET') {
     const token = typeof req.query.c === 'string' ? req.query.c : typeof req.query.t === 'string' ? req.query.t : '';
     await rateLimit('quote-view-ip', clientIp(req), 60, 600);
-    const { found } = await view(token);
-    const body: QuoteView = { invoice: publicInvoice(found.invoice), approval: found.invoice.approval ?? null };
+    const { link, found } = await view(token);
+    const body: QuoteView = { invoice: publicInvoice(found.invoice), approval: found.invoice.approval ?? null, watermark: await freeAccount(link.owner) };
     res.setHeader('Cache-Control', 'no-store');
     res.status(200).json(body);
     return;
@@ -97,8 +109,11 @@ export default withGuard(async (req, res) => {
     const parsed = quoteAcceptSchema.safeParse(req.body);
     if (!parsed.success) throw new HttpError(400, 'กรุณาพิมพ์ชื่อ เซ็นชื่อ และติ๊กยอมรับก่อนกดยืนยัน');
     const { link, found } = await view(parsed.data.token);
+    const kind = documentLinkKind(found.invoice.documentType);
+    if (kind === 'view') throw new HttpError(400, 'เอกสารนี้เปิดดูและดาวน์โหลดได้อย่างเดียว');
+    if (kind === 'sign' && !parsed.data.signature) throw new HttpError(400, 'กรุณาเซ็นชื่อในช่องเซ็นชื่อ');
     if (found.invoice.approval) { res.status(200).json({ ok: true, approval: found.invoice.approval, already: true }); return; }
-    const approval: QuoteApproval = { status: 'accepted', name: parsed.data.name, signatureUrl: parsed.data.signature, at: new Date().toISOString(), revision: link.revision };
+    const approval: QuoteApproval = { status: 'accepted', name: parsed.data.name, ...(parsed.data.signature ? { signatureUrl: parsed.data.signature } : {}), at: new Date().toISOString(), revision: link.revision };
     const changes = validateChanges([{ table: 'cashflow_invoices', id: link.document, op: 'set', version: found.version, data: { ...found.invoice, approval } }]);
     const { data, error } = await getSupabaseAdmin().rpc('cashflow_apply_changes', { p_user_id: link.owner, p_changes: changes });
     if (error?.code === '40001' || data === false) throw new HttpError(409, 'ใบเสนอราคานี้เพิ่งถูกแก้ไข กรุณาเปิดลิงก์อีกครั้ง');

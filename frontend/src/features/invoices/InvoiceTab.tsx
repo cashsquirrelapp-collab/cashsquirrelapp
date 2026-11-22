@@ -15,7 +15,7 @@ import { NewDocumentButton, PreviewCanvas, RowMenu, ShareButton } from './Docume
 import { DocumentFullView } from './DocumentFullView';
 import { DocColorPicker } from './DocColorPicker';
 import { IssuerDialog } from './IssuerDialog';
-import { QuoteApprovalStatus, copyQuoteLink } from './QuoteApprovalCard';
+import { QuoteApprovalStatus, copyQuoteLink, documentLinkLabel } from './QuoteApprovalCard';
 import { newQuoteCode, quoteRevision, QUOTE_LINK_DAYS } from '../../../../shared/quoteApproval';
 import { downloadBlob, usePdfFile } from './documentPdf';
 import { DOCUMENT_WORKSPACE_TABS, getWorkspaceTab, isWorkspaceTab, isDocumentTypeAvailable, resolveDocumentWorkspaceTab, resolveDocumentSelection, mergeImportedDocuments, type DocumentWorkspaceTab } from './documentAvailability';
@@ -1091,7 +1091,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                     </button>
                     <div className="min-w-0 flex-1 sm:flex-none">
                       <ShareButton invoice={withCurrentBranding(selectedInvoice)} pdf={pdf} onDownload={handleDownloadPdf} onPrint={handlePrintDocument} notify={triggerAlert}
-                        onQuoteLink={selectedInvoice.documentType === 'quotation' ? () => void copyQuoteLink(selectedInvoice, createQuoteLink, triggerAlert) : undefined} />
+                        onQuoteLink={() => void copyQuoteLink(selectedInvoice, createQuoteLink, triggerAlert)} linkLabel={documentLinkLabel(selectedInvoice)} />
                     </div>
                     <RowMenu label={tr("ตัวเลือกเพิ่มเติมของ {0}", selectedInvoice.documentNo)} items={[
                       { label: tr("ทำสำเนา"), run: () => handleDuplicateInvoice(selectedInvoice) },

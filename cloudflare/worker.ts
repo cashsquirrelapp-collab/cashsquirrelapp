@@ -89,10 +89,11 @@ async function quotePage(request: Request, env: Env, path: string, ctx: Executio
     const lookup = new Request(new URL(`/api/quote-approval?c=${encodeURIComponent(code)}`, request.url), { headers: { Accept: 'application/json' } });
     const answer = await withCloudflareClientIp(request as Request & { cf?: unknown }, () => nodeFetch!(lookup as never, env, ctx));
     if (answer.ok) {
-      const body = await answer.json() as { invoice?: { documentNo?: unknown; issuer?: { name?: unknown } } };
+      const body = await answer.json() as { invoice?: { documentNo?: unknown; documentType?: unknown; issuer?: { name?: unknown } } };
       const documentNo = typeof body.invoice?.documentNo === 'string' ? body.invoice.documentNo.slice(0, 40) : '';
       const issuer = typeof body.invoice?.issuer?.name === 'string' ? body.invoice.issuer.name.slice(0, 80) : '';
-      if (documentNo) info = { documentNo, issuer };
+      const documentType = typeof body.invoice?.documentType === 'string' ? body.invoice.documentType : undefined;
+      if (documentNo) info = { documentNo, issuer, documentType };
     }
   } catch { /* plain wording */ }
   const page = new Headers(response.headers);

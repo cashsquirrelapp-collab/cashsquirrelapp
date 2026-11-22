@@ -1,9 +1,10 @@
 import React from 'react';
-import { CheckCircle2, Eraser, Maximize2, X } from 'lucide-react';
-import { cleanSignerName, type QuoteApproval, type QuoteView } from '../../../../shared/quoteApproval';
+import { CheckCircle2, Download, Eraser, Maximize2, X } from 'lucide-react';
+import { cleanSignerName, documentLinkKind, type QuoteApproval, type QuoteView } from '../../../../shared/quoteApproval';
 import { apiJson } from '../../services/api';
 import { BrandLockup } from '../../components/brand/BrandLogo';
-import { A4_WIDTH_PX, DocumentPreview } from './DocumentA4';
+import { A4_WIDTH_PX, DocumentPreview, getDocumentMeta } from './DocumentA4';
+import { documentPdfName, downloadBlob, renderDocumentPdf } from './documentPdf';
 import { calculateDocumentTotals, formatMoney } from './documentMath';
 import { tr } from '../../i18n/tr';
 import './quoteApproval.css';
@@ -80,24 +81,26 @@ export default function QuoteApprovalPage({ token }: { token: string }) {
   const [sending, setSending] = React.useState(false);
   const [problem, setProblem] = React.useState('');
   const [full, setFull] = React.useState(false);
+  const [downloading, setDownloading] = React.useState(false);
   const [width, setWidth] = React.useState(() => Math.min(window.innerWidth, 760));
   React.useEffect(() => { const onResize = () => setWidth(Math.min(window.innerWidth, 760)); window.addEventListener('resize', onResize); return () => window.removeEventListener('resize', onResize); }, []);
   React.useEffect(() => {
     let alive = true;
     apiJson<QuoteView>(`/api/quote-approval?t=${encodeURIComponent(token)}`)
       .then(data => { if (alive) setState({ data }); })
-      .catch(error => { if (alive) setState({ error: (error as Error).message || tr("เปิดใบเสนอราคาไม่ได้ กรุณาลองใหม่") }); });
+      .catch(error => { if (alive) setState({ error: (error as Error).message || tr("เปิดเอกสารไม่ได้ กรุณาลองใหม่") }); });
     return () => { alive = false; };
   }, [token]);
 
   const confirm = async () => {
     if (!('data' in state)) return;
-    if (cleanSignerName(name).length < 2) { setProblem(tr("กรุณาพิมพ์ชื่อผู้อนุมัติ")); return; }
-    if (!signature) { setProblem(tr("กรุณาเซ็นชื่อในช่องเซ็นชื่อ")); return; }
-    if (!agree) { setProblem(tr("กรุณาติ๊กยืนยันว่าตรวจใบเสนอราคาแล้ว")); return; }
+    const kind = documentLinkKind(state.data.invoice.documentType);
+    if (cleanSignerName(name).length < 2) { setProblem(kind === 'sign' ? tr("กรุณาพิมพ์ชื่อผู้อนุมัติ") : tr("กรุณาพิมพ์ชื่อผู้รับเอกสาร")); return; }
+    if (kind === 'sign' && !signature) { setProblem(tr("กรุณาเซ็นชื่อในช่องเซ็นชื่อ")); return; }
+    if (!agree) { setProblem(kind === 'sign' ? tr("กรุณาติ๊กยืนยันว่าตรวจใบเสนอราคาแล้ว") : tr("กรุณาติ๊กยืนยันว่าได้รับใบแจ้งหนี้แล้ว")); return; }
     setProblem(''); setSending(true);
     try {
-      const reply = await apiJson<{ approval: QuoteApproval }>('/api/quote-approval', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'accept', token, name: cleanSignerName(name), signature, agree: true }) });
+      const reply = await apiJson<{ approval: QuoteApproval }>('/api/quote-approval', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'accept', token, name: cleanSignerName(name), ...(signature ? { signature } : {}), agree: true }) });
       setState({ data: { ...state.data, approval: reply.approval } });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) {
@@ -105,7 +108,7 @@ export default function QuoteApprovalPage({ token }: { token: string }) {
     } finally { setSending(false); }
   };
 
-  if ('loading' in state) return <main className="qa"><div className="qa-wrap"><p className="qa-muted">{tr("กำลังเปิดใบเสนอราคา…")}</p></div></main>;
+  if ('loading' in state) return <main className="qa"><div className="qa-wrap"><p className="qa-muted">{tr("กำลังเปิดเอกสาร…")}</p></div></main>;
   if ('error' in state) return (
     <main className="qa"><div className="qa-wrap">
       <header className="qa-brand"><BrandLockup size={28} /></header>
@@ -113,51 +116,66 @@ export default function QuoteApprovalPage({ token }: { token: string }) {
     </div></main>
   );
 
-  const { invoice, approval } = state.data;
+  const { invoice, approval, watermark = false } = state.data;
+  const kind = documentLinkKind(invoice.documentType);
+  const docName = tr(getDocumentMeta(invoice.documentType).th);
   const shown = approval ? { ...invoice, approval } : invoice;
   const totals = calculateDocumentTotals(invoice.items, invoice.vatRate, invoice.whtRate);
   const scale = Math.max(0.3, (width - 32) / A4_WIDTH_PX);
+  // The client keeps a copy (owner, 2026-11-22: "ทำปุ่มดาวน์โหลด ... ลูกค้าก็อยากเก็บไว้"): the PDF as it stands, with
+  // their signature once they have signed.
+  const download = async () => {
+    setDownloading(true);
+    try { downloadBlob(await renderDocumentPdf(shown, watermark), documentPdfName(shown)); }
+    catch { setProblem(tr("ดาวน์โหลดไม่สำเร็จ กรุณาลองใหม่")); }
+    finally { setDownloading(false); }
+  };
+  const doneTitle = kind === 'sign' ? tr("ยืนยันแล้ว") : tr("รับทราบแล้ว");
 
   return (
     <main className="qa">
       <div className="qa-wrap">
         <header className="qa-brand"><BrandLockup size={28} /></header>
         <section className="qa-card">
-          <p className="qa-kicker">{tr("ใบเสนอราคาจาก {0}", invoice.issuer.name || '-')}</p>
+          <p className="qa-kicker">{tr("{0}จาก {1}", docName, invoice.issuer.name || '-')}</p>
           <h1>{invoice.documentNo}</h1>
           <div className="qa-total"><span>{tr("ยอดรับสุทธิ")}</span><b>฿{formatMoney(totals.payable)}</b></div>
           {approval ? (
             <div className="qa-done" role="status"><CheckCircle2 size={20} aria-hidden="true" />
-              <div><b>{tr("ยืนยันแล้ว")}</b><span>{tr("โดย {0}", approval.name)}</span><span>{thaiDateTime(approval.at)}</span></div>
+              <div><b>{doneTitle}</b><span>{tr("โดย {0}", approval.name)}</span><span>{thaiDateTime(approval.at)}</span></div>
             </div>
-          ) : <p className="qa-muted">{tr("ตรวจรายละเอียดด้านล่าง แล้วเซ็นยืนยันท้ายหน้า")}</p>}
+          ) : kind === 'sign' ? <p className="qa-muted">{tr("ตรวจรายละเอียดด้านล่าง แล้วเซ็นยืนยันท้ายหน้า")}</p>
+            : kind === 'acknowledge' ? <p className="qa-muted">{tr("ตรวจรายละเอียดด้านล่าง แล้วกดรับทราบท้ายหน้า")}</p>
+              : <p className="qa-muted">{invoice.documentType === 'receipt' ? tr("สำเนาเอกสารสำหรับเก็บไว้ ดาวน์โหลดเป็น PDF ได้") : tr("สำเนาเอกสารสำหรับเก็บไว้ ดาวน์โหลดเป็น PDF ได้ ใบกำกับภาษีฉบับที่ใช้ขอคืนภาษี ให้ใช้ฉบับที่ผู้ออกเอกสารส่งให้ตามระบบของกรมสรรพากร")}</p>}
+          <button type="button" className="qa-download" onClick={() => void download()} disabled={downloading}><Download size={17} aria-hidden="true" />{downloading ? tr("กำลังสร้างไฟล์…") : tr("ดาวน์โหลด PDF")}</button>
         </section>
 
-        <button type="button" className="qa-paper" onClick={() => setFull(true)} aria-label={tr("ดูใบเสนอราคาเต็มจอ")}>
-          <DocumentPreview invoice={shown} scale={scale} />
+        <button type="button" className="qa-paper" onClick={() => setFull(true)} aria-label={tr("ดู{0}เต็มจอ", docName)}>
+          <DocumentPreview invoice={shown} scale={scale} watermark={watermark} />
           <span className="qa-paper-pill"><Maximize2 size={14} aria-hidden="true" />{tr("แตะเพื่อขยาย")}</span>
         </button>
 
-        {!approval && (
+        {!approval && kind !== 'view' && (
           <section className="qa-card qa-form" aria-labelledby="qa-form-title">
-            <h2 id="qa-form-title">{tr("ยืนยันใบเสนอราคา")}</h2>
-            <label className="qa-label" htmlFor="qa-name">{tr("ชื่อผู้อนุมัติ")}</label>
+            <h2 id="qa-form-title">{kind === 'sign' ? tr("ยืนยันใบเสนอราคา") : tr("รับทราบใบแจ้งหนี้")}</h2>
+            <label className="qa-label" htmlFor="qa-name">{kind === 'sign' ? tr("ชื่อผู้อนุมัติ") : tr("ชื่อผู้รับเอกสาร")}</label>
             <input id="qa-name" type="text" value={name} onChange={event => { setName(event.target.value); setProblem(''); }} placeholder={tr("ชื่อ-นามสกุล หรือชื่อบริษัท")} autoComplete="name" maxLength={120} />
-            <span className="qa-label">{tr("ลายเซ็น")}</span>
+            <span className="qa-label">{kind === 'sign' ? tr("ลายเซ็น") : tr("ลายเซ็น (ไม่บังคับ)")}</span>
             <SignaturePad onChange={value => { setSignature(value); setProblem(''); }} />
             <label className="qa-check"><input type="checkbox" checked={agree} onChange={event => { setAgree(event.target.checked); setProblem(''); }} />
-              <span>{tr("ข้าพเจ้าตรวจรายการและยอดเงินในใบเสนอราคานี้แล้ว และยืนยันการสั่งซื้อหรือว่าจ้างตามใบเสนอราคานี้")}</span></label>
+              <span>{kind === 'sign' ? tr("ข้าพเจ้าตรวจรายการและยอดเงินในใบเสนอราคานี้แล้ว และยืนยันการสั่งซื้อหรือว่าจ้างตามใบเสนอราคานี้") : tr("ข้าพเจ้าได้รับใบแจ้งหนี้ฉบับนี้แล้ว")}</span></label>
             {problem && <p className="qa-problem" role="alert">{problem}</p>}
-            <button type="button" className="qa-confirm" onClick={() => void confirm()} disabled={sending}>{sending ? tr("กำลังยืนยัน…") : tr("ยืนยันใบเสนอราคา")}</button>
-            <p className="qa-fine">{tr("เมื่อกดยืนยัน ระบบบันทึกชื่อ ลายเซ็น และเวลาที่ยืนยันไว้กับใบเสนอราคาฉบับนี้ ผู้ออกเอกสารจะเห็นในแอป")}</p>
+            <button type="button" className="qa-confirm" onClick={() => void confirm()} disabled={sending}>{sending ? tr("กำลังยืนยัน…") : kind === 'sign' ? tr("ยืนยันใบเสนอราคา") : tr("รับทราบใบแจ้งหนี้")}</button>
+            <p className="qa-fine">{kind === 'sign' ? tr("เมื่อกดยืนยัน ระบบบันทึกชื่อ ลายเซ็น และเวลาที่ยืนยันไว้กับใบเสนอราคาฉบับนี้ ผู้ออกเอกสารจะเห็นในแอป") : tr("เมื่อกดรับทราบ ระบบบันทึกชื่อและเวลาที่ได้รับใบแจ้งหนี้ฉบับนี้ ผู้ออกเอกสารจะเห็นในแอป")}</p>
           </section>
         )}
+        {(approval || kind === 'view') && problem && <p className="qa-problem" role="alert">{problem}</p>}
         <p className="qa-foot">{tr("ส่งผ่านกระรอกตุนเงิน")}</p>
       </div>
       {full && (
-        <div className="qa-full" role="dialog" aria-modal="true" aria-label={tr("ใบเสนอราคา {0}", invoice.documentNo)}>
+        <div className="qa-full" role="dialog" aria-modal="true" aria-label={`${docName} ${invoice.documentNo}`}>
           <button type="button" className="qa-full-close" onClick={() => setFull(false)} aria-label={tr("ปิด")}><X size={20} /></button>
-          <div className="qa-full-scroll"><DocumentPreview invoice={shown} scale={Math.max(0.4, (Math.min(window.innerWidth, 900) - 24) / A4_WIDTH_PX)} /></div>
+          <div className="qa-full-scroll"><DocumentPreview invoice={shown} watermark={watermark} scale={Math.max(0.4, (Math.min(window.innerWidth, 900) - 24) / A4_WIDTH_PX)} /></div>
         </div>
       )}
     </main>

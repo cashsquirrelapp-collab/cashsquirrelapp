@@ -1,6 +1,6 @@
 import { CheckCircle2 } from 'lucide-react';
 import type { Invoice } from '../../../../shared/types';
-import { quoteRevision } from '../../../../shared/quoteApproval';
+import { documentLinkKind, quoteRevision } from '../../../../shared/quoteApproval';
 import { tr } from '../../i18n/tr';
 import './quoteApprovalCard.css';
 
@@ -11,7 +11,7 @@ import './quoteApprovalCard.css';
 const thaiDateTime = (iso: string) => new Date(iso).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' });
 
 export function quoteApprovalState(invoice: Invoice): 'confirmed' | 'stale' | 'waiting' | null {
-  if (invoice.documentType !== 'quotation') return null;
+  if (documentLinkKind(invoice.documentType) === 'view') return null;
   if (invoice.approval) return invoice.approval.revision === quoteRevision(invoice) ? 'confirmed' : 'stale';
   return invoice.approvalRequestedAt ? 'waiting' : null;
 }
@@ -23,9 +23,12 @@ export function QuoteApprovalStatus({ invoice }: { invoice: Invoice }) {
   return (
     <span className={`qas is-${state}`} data-testid="quote-approval-status">
       {state === 'confirmed' && <CheckCircle2 size={13} aria-hidden="true" />}
-      {state === 'confirmed' ? tr("ลูกค้ายืนยันแล้ว · {0} · {1}", invoice.approval!.name, thaiDateTime(invoice.approval!.at))
-        : state === 'stale' ? tr("แก้ไขหลังลูกค้ายืนยัน ส่งลิงก์ใหม่")
-          : tr("รอลูกค้ายืนยัน")}
+      {invoice.documentType === 'invoice'
+        ? (state === 'confirmed' ? tr("ลูกค้ารับทราบแล้ว · {0} · {1}", invoice.approval!.name, thaiDateTime(invoice.approval!.at))
+          : state === 'stale' ? tr("แก้ไขหลังลูกค้ารับทราบ ส่งลิงก์ใหม่") : tr("รอลูกค้ารับทราบ"))
+        : state === 'confirmed' ? tr("ลูกค้ายืนยันแล้ว · {0} · {1}", invoice.approval!.name, thaiDateTime(invoice.approval!.at))
+          : state === 'stale' ? tr("แก้ไขหลังลูกค้ายืนยัน ส่งลิงก์ใหม่")
+            : tr("รอลูกค้ายืนยัน")}
     </span>
   );
 }
@@ -44,9 +47,20 @@ export async function copyQuoteLink(invoice: Invoice, onCreateLink: (invoice: In
       if (!url) throw new Error('no link');
       await navigator.clipboard.writeText(url);
     }
-    notify(tr("คัดลอกลิงก์แล้ว"), tr("ส่งลิงก์นี้ให้ลูกค้าทางแชทหรืออีเมล ลูกค้าเปิดแล้วเซ็นยืนยันใบเสนอราคาได้เลย"));
+    const kind = documentLinkKind(invoice.documentType);
+    notify(tr("คัดลอกลิงก์แล้ว"), kind === 'sign' ? tr("ส่งลิงก์นี้ให้ลูกค้าทางแชทหรืออีเมล ลูกค้าเปิดแล้วเซ็นยืนยันใบเสนอราคาได้เลย")
+      : kind === 'acknowledge' ? tr("ส่งลิงก์นี้ให้ลูกค้าทางแชทหรืออีเมล ลูกค้าเปิดแล้วกดรับทราบใบแจ้งหนี้ และดาวน์โหลดเก็บไว้ได้")
+        : tr("ส่งลิงก์นี้ให้ลูกค้าทางแชทหรืออีเมล ลูกค้าเปิดดูและดาวน์โหลดเอกสารเก็บไว้ได้"));
   } catch {
     url = url ?? await made.catch(() => null);
     if (url) notify(tr("ลิงก์ให้ลูกค้ายืนยัน"), tr("คัดลอกลิงก์นี้ส่งให้ลูกค้า: {0}", url));
   }
+}
+
+/** The share menu's wording for a document's link. */
+export function documentLinkLabel(invoice: Invoice): { title: string; sub: string } {
+  const kind = documentLinkKind(invoice.documentType);
+  if (kind === 'sign') return { title: tr("ลิงก์ให้ลูกค้าเซ็นยืนยัน"), sub: tr("คัดลอกลิงก์ ลูกค้าเปิดแล้วเซ็นยืนยันได้เลย ไม่ต้องพิมพ์หรือสแกน") };
+  if (kind === 'acknowledge') return { title: tr("ลิงก์ให้ลูกค้ารับทราบบิล"), sub: tr("คัดลอกลิงก์ ลูกค้าเปิดแล้วกดรับทราบ และดาวน์โหลดเก็บไว้ได้") };
+  return { title: tr("ลิงก์ให้ลูกค้าดูและดาวน์โหลด"), sub: tr("คัดลอกลิงก์ ลูกค้าเปิดดูและดาวน์โหลดเอกสารเก็บไว้ได้") };
 }

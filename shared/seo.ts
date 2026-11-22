@@ -123,13 +123,18 @@ export function withSeoPage(html: string, path: string): string {
 
 /** What a link preview says about a quotation's confirmation link (owner, 2026-11-22: "ก่อนจะกดเข้าลิงก์ ... ให้เขารู้
  *  ว่าอันนี้คือเซ็นกำกับของเรา" so it is not taken for a scam): who sent it and which quotation, never the amounts. */
-export interface QuoteShareInfo { issuer: string; documentNo: string }
+export interface QuoteShareInfo { issuer: string; documentNo: string; documentType?: string }
+const SHARE_DOC_NAMES: Record<string, string> = { quotation: 'ใบเสนอราคา', invoice: 'ใบแจ้งหนี้', receipt: 'ใบเสร็จรับเงิน', taxInvoice: 'ใบกำกับภาษี', receiptTaxInvoice: 'ใบเสร็จรับเงิน/ใบกำกับภาษี' };
 
 export function quoteShareHead(info: QuoteShareInfo | null, url: string): string {
-  const title = info ? `ใบเสนอราคา ${info.documentNo} จาก ${info.issuer || 'ผู้ออกเอกสาร'}` : 'ใบเสนอราคารอให้คุณเซ็นยืนยัน';
+  const type = info?.documentType ?? 'quotation';
+  const name = SHARE_DOC_NAMES[type] ?? 'เอกสาร';
+  const sender = info?.issuer || 'ผู้ออกเอกสาร';
+  const title = info ? `${name} ${info.documentNo} จาก ${sender}` : 'เอกสารจาก Krarok กระรอกตุนเงิน';
+  const action = type === 'quotation' ? 'ตรวจและเซ็นยืนยันออนไลน์' : type === 'invoice' ? 'ตรวจ กดรับทราบ และดาวน์โหลดเก็บไว้' : 'เปิดดูและดาวน์โหลดเก็บไว้';
   const description = info
-    ? `${info.issuer || 'ผู้ออกเอกสาร'} ส่งใบเสนอราคาให้คุณตรวจและเซ็นยืนยันออนไลน์ ผ่าน Krarok กระรอกตุนเงิน`
-    : 'เปิดเพื่อตรวจใบเสนอราคาและเซ็นยืนยันออนไลน์ ผ่าน Krarok กระรอกตุนเงิน';
+    ? `${sender} ส่ง${name}ให้คุณ${action} ผ่าน Krarok กระรอกตุนเงิน`
+    : 'เปิดเพื่อดูเอกสารที่ส่งถึงคุณ ผ่าน Krarok กระรอกตุนเงิน';
   return [
     `<title>${escape(title)}</title>`,
     `<meta name="description" content="${escape(description)}" />`,

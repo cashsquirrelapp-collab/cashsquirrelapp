@@ -6,6 +6,16 @@ import type { Invoice } from './types.js';
 // confirms; the quotation records who, when and which version. Editing the quotation afterwards makes the old link
 // stop working, so a client can never confirm a version they were not shown.
 
+/**
+ * What a link lets the client do with each kind of document (owner, 2026-11-22: links for every document, and a download):
+ * a quotation is signed to confirm it, an invoice is acknowledged as received (a signature is optional), a receipt or a
+ * tax invoice is only looked at and kept.
+ */
+export type DocumentLinkKind = 'sign' | 'acknowledge' | 'view';
+export function documentLinkKind(type: string): DocumentLinkKind {
+  return type === 'quotation' ? 'sign' : type === 'invoice' ? 'acknowledge' : 'view';
+}
+
 /** The short link of a quotation (owner, 2026-11-22: the signed link looked long enough to pass for a scam): a random
  * code made on the owner's device and kept on the quotation, krarok.com/q/<code>. */
 export interface QuoteLinkRecord { code: string; revision: string; expires: string }
@@ -30,8 +40,8 @@ export function cleanSignerName(name: string): string {
 export interface QuoteApproval {
   status: 'accepted';
   name: string;
-  /** The signature drawn on the page, a PNG data URL. */
-  signatureUrl: string;
+  /** The signature drawn on the page, a PNG data URL; an invoice may be acknowledged without one. */
+  signatureUrl?: string;
   at: string;
   /** quoteRevision() of the version confirmed. */
   revision: string;
@@ -60,7 +70,8 @@ export const quoteAcceptSchema = z.object({
   /** The short code (krarok.com/q/<code>), or the long signed link sent before 2026-11-22's short links. */
   token: z.string().min(12).max(400),
   name: z.string().max(200).transform(cleanSignerName).pipe(z.string().min(2)),
-  signature: z.string().max(QUOTE_SIGNATURE_MAX).regex(/^data:image\/png;base64,[A-Za-z0-9+/=]+$/),
+  /** Required to confirm a quotation; optional when acknowledging an invoice. */
+  signature: z.string().max(QUOTE_SIGNATURE_MAX).regex(/^data:image\/png;base64,[A-Za-z0-9+/=]+$/).optional(),
   agree: z.literal(true),
 });
 export type QuoteAcceptInput = z.infer<typeof quoteAcceptSchema>;
@@ -69,6 +80,8 @@ export type QuoteAcceptInput = z.infer<typeof quoteAcceptSchema>;
 export interface QuoteView {
   invoice: Invoice;
   approval: QuoteApproval | null;
+  /** A Free account's documents carry the small credit line, on the client's copy too. */
+  watermark?: boolean;
 }
 
 /** Days a link stays usable. */

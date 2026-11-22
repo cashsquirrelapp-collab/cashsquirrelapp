@@ -569,3 +569,58 @@ test('the client page says plainly when a link no longer works', async ({ page }
   await expect(page.getByRole('alert')).toContainText('ลิงก์นี้ใช้ไม่ได้แล้ว');
 });
 
+
+// Every document has a link (owner, 2026-11-22): an invoice is acknowledged (a signature optional), a receipt or tax
+// invoice is only viewed; every client page downloads the PDF.
+async function clientPage(page: Page, invoice: Record<string, unknown>, approvalName = 'ฝ่ายบัญชี บริษัท สยามบิวตี้') {
+  let accepted: Record<string, unknown> | null = null;
+  await page.route('**/*', route => (['127.0.0.1', 'localhost'].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort()));
+  await page.route('**/api/**', route => route.fulfill({ json: {} }));
+  await page.route('**/api/quote-approval*', route => {
+    if (route.request().method() === 'GET') return route.fulfill({ json: { invoice, approval: null, watermark: false } });
+    accepted = route.request().postDataJSON();
+    return route.fulfill({ json: { ok: true, approval: { status: 'accepted', name: approvalName, at: '2026-11-22T05:30:00.000Z', revision: 'x' } } });
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/q/AbCdEfGhJk23');
+  return () => accepted;
+}
+
+test('the client acknowledges an invoice from its link, without a signature, and downloads it', async ({ page }) => {
+  const sent = await clientPage(page, invoices[0]);
+  await expect(page.getByText('ใบแจ้งหนี้จาก สตูดิโอกระรอก')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'รับทราบใบแจ้งหนี้' })).toBeVisible();
+  await expect(page.getByText('ลายเซ็น (ไม่บังคับ)')).toBeVisible();
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'ดาวน์โหลด PDF' }).click();
+  expect((await download).suggestedFilename()).toMatch(/INV-2026-006.*\.pdf$/);
+  await page.getByLabel('ชื่อผู้รับเอกสาร').fill('ฝ่ายบัญชี บริษัท สยามบิวตี้');
+  await page.getByRole('checkbox').check();
+  await shot(page, 'doc-link-invoice');
+  await page.getByRole('button', { name: 'รับทราบใบแจ้งหนี้' }).click();
+  await expect(page.getByRole('status')).toContainText('รับทราบแล้ว');
+  expect(sent()).toMatchObject({ action: 'accept', token: 'AbCdEfGhJk23', name: 'ฝ่ายบัญชี บริษัท สยามบิวตี้', agree: true });
+  expect((sent() as unknown as { signature?: string }).signature).toBeUndefined();
+});
+
+test('a receipt link is view and download only', async ({ page }) => {
+  await clientPage(page, { ...invoices[0], documentType: 'receipt', documentNo: 'REC-2026-003' });
+  await expect(page.getByText('ใบเสร็จรับเงินจาก สตูดิโอกระรอก')).toBeVisible();
+  await expect(page.getByText('สำเนาเอกสารสำหรับเก็บไว้')).toBeVisible();
+  await expect(page.getByRole('checkbox')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'ดาวน์โหลด PDF' })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+  await shot(page, 'doc-link-receipt');
+});
+
+test('phones: an invoice offers a link to acknowledge the bill in แชร์ให้ลูกค้า', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await open(page, '/invoice?type=invoice');
+  await page.getByRole('button', { name: /เปิด INV-2026-006/ }).click();
+  await page.getByRole('button', { name: 'แชร์ให้ลูกค้า' }).first().click();
+  await page.getByRole('button', { name: /ลิงก์ให้ลูกค้ารับทราบบิล/ }).click();
+  await expect(dialog(page)).toContainText('คัดลอกลิงก์แล้ว');
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/\/q\/[A-Za-z0-9]{12}$/);
+  await dialog(page).getByRole('button').last().click();
+  await expect(page.getByTestId('quote-approval-status').first()).toContainText('รอลูกค้ารับทราบ');
+});

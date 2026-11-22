@@ -71,5 +71,5 @@ test('link preview of a quotation link: who sent it and which quotation, escaped
   assert.match(head, /og:title" content="ใบเสนอราคา QT-2569-001 จาก สตูดิโอ &lt;กระรอก&gt;"/);
   assert.match(head, /noindex/);
   assert.doesNotMatch(head, /฿|บาท/);
-  assert.match(withQuoteShareHead('<html><head><title>x</title></head></html>', null, 'https://krarok.com/q/x'), /ใบเสนอราคารอให้คุณเซ็นยืนยัน/);
+  assert.match(withQuoteShareHead('<html><head><title>x</title></head></html>', null, 'https://krarok.com/q/x'), /เอกสารจาก Krarok/);
 });

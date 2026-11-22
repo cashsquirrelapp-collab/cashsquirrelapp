@@ -109,11 +109,12 @@ function useDismiss(open: boolean, close: () => void, root: React.RefObject<HTML
  * The PDF is prepared in the background (see usePdfFile) because a share sheet only opens right
  * after a tap; if it is not ready yet the menu says so and the next tap shares it.
  */
-export function ShareButton({ invoice, pdf, onDownload, onPrint, notify, className = '', onQuoteLink }: {
+export function ShareButton({ invoice, pdf, onDownload, onPrint, notify, className = '', onQuoteLink, linkLabel }: {
   invoice: Invoice; pdf: PdfFileState; onDownload: () => void; onPrint: () => void;
   notify: (title: string, message: string) => void; className?: string;
-  /** Quotations: ลิงก์ให้ลูกค้าเซ็นยืนยัน, first in the menu. */
+  /** A link for the client (sign, acknowledge or just view and download), first in the menu. */
   onQuoteLink?: () => void;
+  linkLabel?: { title: string; sub: string };
 }) {
   const [open, setOpen] = React.useState(false);
   const rootRef = React.useRef<HTMLDivElement>(null);
@@ -151,7 +152,7 @@ export function ShareButton({ invoice, pdf, onDownload, onPrint, notify, classNa
           {onQuoteLink && (
             <button type="button" role="menuitem" onClick={() => { setOpen(false); onQuoteLink(); }} className={item}>
               <PenLine className="mt-0.5 h-4 w-4 shrink-0 text-[#C24A16]" />
-              <span><span className="block text-[13px] font-medium text-brand-text">{tr("ลิงก์ให้ลูกค้าเซ็นยืนยัน")}</span><span className={sub}>{tr("คัดลอกลิงก์ ลูกค้าเปิดแล้วเซ็นยืนยันได้เลย ไม่ต้องพิมพ์หรือสแกน")}</span></span>
+              <span><span className="block text-[13px] font-medium text-brand-text">{linkLabel?.title}</span><span className={sub}>{linkLabel?.sub}</span></span>
             </button>
           )}
           {fileShareSupported && (
