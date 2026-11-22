@@ -423,3 +423,23 @@ test('phones: the add-job sheet scrolls up and down only', async ({ page }) => {
   expect(await form.evaluate(node => node.scrollLeft)).toBe(0);
   expect(await noSideScroll(page)).toBe(true);
 });
+
+// Owner, 2026-11-22: pushing the job form further up opens สถานะและรายละเอียดเพิ่มเติม without a tap; a tap still works.
+test('phones: scrolling the add-job form up opens its status and details by itself', async ({ page }) => {
+  await open(page, '/');
+  await page.locator('.ksm-nav-add').click();
+  const more = page.locator('.ksm-jobmore');
+  await expect(more).not.toHaveAttribute('open', '');
+  const form = page.locator('.ksm-jobform-scroll');
+  const box = (await form.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.wheel(0, 300);
+  await expect(more).toHaveAttribute('open', '');
+  await expect(page.getByRole('tablist', { name: 'หมวดรายละเอียดของงาน' })).toBeInViewport();
+  await page.waitForTimeout(500);
+  expect(await textOverlapIssues(page)).toEqual([]);
+  await shot(page, 'job-form-scroll-opens-details');
+  // Closing it by a tap keeps it closed until the form is pushed up again.
+  await page.locator('.ksm-jobmore summary').click();
+  await expect(more).not.toHaveAttribute('open', '');
+});

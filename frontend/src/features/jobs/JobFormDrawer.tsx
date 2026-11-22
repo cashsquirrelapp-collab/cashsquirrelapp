@@ -113,6 +113,8 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
   const [moreOpen, setMoreOpen] = React.useState(false);
   const [extraTab, setExtraTab] = React.useState<ExtraTab>('schedule');
   const sheetRef = React.useRef<HTMLFormElement>(null);
+  const formScrollRef = React.useRef<HTMLDivElement>(null);
+  const moreRef = React.useRef<HTMLDetailsElement>(null);
 
   React.useEffect(() => {
     if (!open) return;
@@ -154,6 +156,37 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [open, onClose, typeManagerOpen]);
+
+  // Phones (owner, 2026-11-22: "เวลาเลื่อนขึ้น ... มันจะทำการเลื่อนให้เลยโดยที่เราไม่ต้องไปกด"): pushing the form further up
+  // at its end opens สถานะและรายละเอียดเพิ่มเติม by itself and brings it into view; a tap on it still works too.
+  React.useEffect(() => {
+    const scroller = formScrollRef.current;
+    if (!open || !mobile || moreOpen || !scroller) return;
+    const atEnd = () => scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop < 4;
+    let startY: number | null = null;
+    let done = false;
+    const reveal = () => {
+      if (done) return;
+      done = true;
+      setMoreOpen(true);
+      window.setTimeout(() => moreRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+    };
+    const onTouchStart = (event: TouchEvent) => { startY = event.touches[0]?.clientY ?? null; };
+    const onTouchMove = (event: TouchEvent) => {
+      const y = event.touches[0]?.clientY;
+      if (startY === null || y === undefined) return;
+      if (startY - y > 36 && atEnd()) reveal();
+    };
+    const onWheel = (event: WheelEvent) => { if (event.deltaY > 12 && atEnd()) reveal(); };
+    scroller.addEventListener('touchstart', onTouchStart, { passive: true });
+    scroller.addEventListener('touchmove', onTouchMove, { passive: true });
+    scroller.addEventListener('wheel', onWheel, { passive: true });
+    return () => {
+      scroller.removeEventListener('touchstart', onTouchStart);
+      scroller.removeEventListener('touchmove', onTouchMove);
+      scroller.removeEventListener('wheel', onWheel);
+    };
+  }, [open, mobile, moreOpen]);
 
   // Phones: keep the sheet inside what is left of the screen when the keyboard is up.
   React.useEffect(() => {
@@ -712,7 +745,7 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
         <h2 id="job-form-title">{isEdit ? tr("แก้ไขงาน") : tr("เพิ่มงาน")}</h2>
         <button type="button" className="ksm-sheet-close" onClick={onClose} aria-label={tr("ปิด")}><KsIcon name="close" /></button>
       </header>
-      <div className="ksm-jobform-scroll">
+      <div className="ksm-jobform-scroll" ref={formScrollRef}>
         <p className="ksm-jobform-intro">{isEdit ? tr("ปรับข้อมูลงานนี้ แล้วกดบันทึก") : tr("กรอกชื่องานและมูลค่า ก็เริ่มได้เลย")}</p>
         {isEdit && job && <SheetRowLine job={job} mobile />}
         <div className="ksm-field">
@@ -751,7 +784,7 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
           <label htmlFor="job-form-client"><span>{tr("ลูกค้า")}</span><small>{tr("ไม่บังคับ")}</small></label>
           <input id="job-form-client" type="text" value={client} onChange={(e) => setClient(e.target.value)} placeholder={tr("ชื่อผู้ว่าจ้างหรือแบรนด์")} enterKeyHint="done" />
         </div>
-        <details className="ksm-jobmore" open={moreOpen} onToggle={(e) => setMoreOpen((e.currentTarget as HTMLDetailsElement).open)}>
+        <details ref={moreRef} className="ksm-jobmore" open={moreOpen} onToggle={(e) => setMoreOpen((e.currentTarget as HTMLDetailsElement).open)}>
           <summary>
             <span><b>{tr("สถานะและรายละเอียดเพิ่มเติม")}</b><small>{tr("สถานะงาน:")}{' '}{isPosted ? tr("ส่งงานแล้ว") : tr("กำลังทำ")}{' '}{tr("· การรับเงิน:")}{' '}{tr(PAYMENT_OPTIONS.find(option => option.key === payment)?.label ?? '')}</small></span>
             <KsIcon name="down" size={17} />
