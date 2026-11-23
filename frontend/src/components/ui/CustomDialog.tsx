@@ -45,11 +45,11 @@ export default function CustomDialog({ dialog, onClose }: CustomDialogProps) {
   // Phones (owner, 2026-10-21): a centred card, the official mascot in a square tile instead of an icon
   // (only its mood and what it holds change): a red "no" sign for a deletion, a celebration for good news.
   const isDestructive = dialog.type === 'confirm' && /ลบ|ปิดบัญชี|ล้างข้อมูล|ยกเลิกการสมัคร|delete|remove|close account/i.test(dialog.title);
-  // Something did not work (owner, 2026-11-22: "ทำเครื่องหมายกากบาท ... น้องยืนอยู่ ทำหน้าแบบมันไม่ได้"): the worried face
-  // holding the red × sign the deletion card already uses.
+  // Something did not work (owner, 2026-11-22: "ทำเครื่องหมายกากบาท ... น้องยืนอยู่ ทำหน้าแบบมันไม่ได้"; 2026-11-23: sad,
+  // not cross): the sad face holding the red × sign the deletion card already uses.
   const isFailureAlert = dialog.type === 'alert' && /ไม่สำเร็จ|ผิดพลาด|ไม่ได้|ไม่ครบ|ไม่ถูกต้อง|เกินกำหนด|unsuccessful|failed|error|couldn|incomplete|invalid/i.test(dialog.title);
   const mascotPose: { mood: MascotMood; action: MascotAction } = isDestructive ? { mood: 'thinking', action: 'hold-cross' }
-    : isFailureAlert ? { mood: 'worried', action: 'hold-cross' }
+    : isFailureAlert ? { mood: 'sad', action: 'hold-cross' }
     // Good news holds up the green tick sign (owner, 2026-11-23: "อะไรที่โพสิทีฟ สัญลักษณ์ติ๊กถูก").
     : dialog.type === 'alert' ? (isSuccessAlert ? { mood: 'happy', action: 'hold-check' } : { mood: 'checking', action: 'idle' })
     : dialog.type === 'prompt' ? { mood: 'thinking', action: 'hold-document' }

@@ -17,7 +17,10 @@ export type MascotMood =
   | 'waiting'
   | 'error'
   /** Being petted: the happy colours with the closed "^ ^" eyes celebrate already uses. */
-  | 'blissful';
+  | 'blissful'
+  /** Something did not work (owner, 2026-11-23: "ทำหน้าเสียใจ ไม่ใช่โกรธ"): the usual brown, round eyes looking down,
+   *  brows raised in the middle, a small frown and one tear. Only the face changes. */
+  | 'sad';
 
 export type MascotAction =
   | 'idle'
@@ -567,6 +570,20 @@ export function Mascot({
           </>
         )}
 
+        {mood === 'sad' && (
+          <>
+            <circle cx="41" cy="47.5" r="2.8" fill={colors.eyes} />
+            <circle cx="59" cy="47.5" r="2.8" fill={colors.eyes} />
+            <circle cx="41.6" cy="48.4" r="0.9" fill="white" />
+            <circle cx="59.6" cy="48.4" r="0.9" fill="white" />
+            {/* Brows raised where they meet: sad, not cross */}
+            <path d="M37 43.5L44 40.5" stroke={colors.eyes} strokeWidth="1.7" strokeLinecap="round" />
+            <path d="M63 43.5L56 40.5" stroke={colors.eyes} strokeWidth="1.7" strokeLinecap="round" />
+            {/* One tear below the left eye */}
+            <path d="M38.6 51.2Q37.2 53.6 38.6 54.8Q40 53.6 38.6 51.2Z" fill="#60A5FA" />
+          </>
+        )}
+
         {mood === 'checking' && (
           <>
             {/* Focused, slightly narrowed eyes */}
@@ -630,6 +647,9 @@ export function Mascot({
         )}
         {mood === 'checking' && (
           <path d="M47 56H53" stroke={colors.eyes} strokeWidth="1.5" strokeLinecap="round" />
+        )}
+        {mood === 'sad' && (
+          <path d="M46.5 57.2Q50 54.6 53.5 57.2" stroke={colors.eyes} strokeWidth="1.5" fill="none" strokeLinecap="round" />
         )}
         {mood === 'waiting' && (
           <path d="M47 56Q50 57 53 56" stroke={colors.eyes} strokeWidth="1.4" fill="none" strokeLinecap="round" />
