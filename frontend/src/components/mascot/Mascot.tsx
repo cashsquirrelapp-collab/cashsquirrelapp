@@ -33,6 +33,9 @@ export type MascotAction =
   | 'typing'
   /** The hold-baht arm raising a round red sign with a white cross (confirming a deletion). */
   | 'hold-cross'
+  /** The same arm raising a round green sign with a white tick (owner, 2026-11-23: good news shows a tick, as bad
+   *  news shows the cross). Only the sign is new; the squirrel is unchanged. */
+  | 'hold-check'
   /** Walking toward you: the feet take turns stepping, the body shifts its weight and the paws swing (owner,
    *  2026-10-23: legs that really walk, like a person). Only the existing shapes move. */
   | 'walk'
@@ -235,7 +238,7 @@ export function Mascot({
   const rig = animated && (action === 'walk' || action === 'jump') ? action : null;
   const rigClass = (part: string) => (rig ? `squirrel-${rig}-${part}` : undefined);
   // Holding the ฿ coin (the logo pose) fills the paw, so the mood's floating accessory is dropped.
-  const showMoodAccessory = action !== 'hold-baht' && !isTypingAction;
+  const showMoodAccessory = action !== 'hold-baht' && action !== 'hold-check' && !isTypingAction;
 
   return (
     <div
@@ -711,6 +714,14 @@ export function Mascot({
             <path d="M64 60C68 55 70 50 70 46" stroke={colors.body} strokeWidth="4" strokeLinecap="round" />
             <circle cx="75.5" cy="40" r="8.5" fill="#E95454" stroke="#B83434" strokeWidth="1.2" />
             <path d="M72.4 36.9l6.2 6.2M78.6 36.9l-6.2 6.2" stroke="#FFFFFF" strokeWidth="2.1" strokeLinecap="round" />
+            <circle cx="70" cy="44" r="4" fill={colors.body} />
+          </>
+        ) : action === 'hold-check' ? (
+          <>
+            {/* The same raised arm as hold-cross, holding up a round "done" sign: green with a white tick. */}
+            <path d="M64 60C68 55 70 50 70 46" stroke={colors.body} strokeWidth="4" strokeLinecap="round" />
+            <circle cx="75.5" cy="40" r="8.5" fill="#3E9B5A" stroke="#2A7442" strokeWidth="1.2" />
+            <path d="M71.8 40.3l2.6 2.7l5-5.4" stroke="#FFFFFF" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" />
             <circle cx="70" cy="44" r="4" fill={colors.body} />
           </>
         ) : isHoldAction ? (

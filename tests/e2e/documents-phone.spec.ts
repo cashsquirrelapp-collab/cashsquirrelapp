@@ -624,3 +624,38 @@ test('phones: an invoice offers a link to acknowledge the bill in แชร์�
   await dialog(page).getByRole('button').last().click();
   await expect(page.getByTestId('quote-approval-status').first()).toContainText('รอลูกค้ารับทราบ');
 });
+
+// The squirrel tells good news from bad at a glance (owner, 2026-11-23): a green tick sign when something worked, the red
+// cross sign when it did not or something is missing; computers and phones alike.
+const sign = (page: Page) => page.locator('[role="dialog"] svg circle[fill="#3E9B5A"], [role="dialog"] svg circle[fill="#E95454"]').first();
+for (const device of [{ name: 'phone', width: 390, height: 844 }, { name: 'computer', width: 1280, height: 860 }]) {
+  test(`${device.name}: dialogs hold a tick for good news and a cross for bad news`, async ({ page }) => {
+    await open(page, '/invoice?type=quotation', { width: device.width, height: device.height });
+    if (device.name === 'phone') {
+      await page.getByTestId('issuer-row').click();
+      await page.locator('.dp-bar').getByRole('button', { name: 'บันทึก' }).click();
+    } else {
+      await page.getByTestId('issuer-button').click();
+      await page.getByTestId('issuer-dialog').getByRole('button', { name: 'บันทึก', exact: true }).click();
+    }
+    await expect(dialog(page)).toContainText('บันทึกสำเร็จ');
+    await expect(sign(page)).toHaveAttribute('fill', '#3E9B5A');
+    await page.waitForTimeout(300);
+    await shot(page, `dialog-good-${device.name}`);
+    await dialog(page).getByRole('button').last().click();
+    await page.route('**/api/data*', route => route.request().method() === 'POST' ? route.fulfill({ status: 500, json: { error: 'บริการไม่พร้อมใช้งาน กรุณาลองใหม่' } }) : route.fallback());
+    if (device.name === 'phone') {
+      await page.getByTestId('issuer-row').click();
+      await page.locator('#dp-biz-name').fill('สตูดิโอกระรอกน้อย');
+      await page.locator('.dp-bar').getByRole('button', { name: 'บันทึก' }).click();
+    } else {
+      await page.getByTestId('issuer-button').click();
+      await page.locator('#issuer-dialog-name').fill('สตูดิโอกระรอกน้อย');
+      await page.getByTestId('issuer-dialog').getByRole('button', { name: 'บันทึก', exact: true }).click();
+    }
+    await expect(dialog(page)).toContainText('บันทึกไม่สำเร็จ');
+    await expect(sign(page)).toHaveAttribute('fill', '#E95454');
+    await page.waitForTimeout(300);
+    await shot(page, `dialog-bad-${device.name}`);
+  });
+}

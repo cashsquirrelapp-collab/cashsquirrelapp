@@ -38,7 +38,7 @@ export default function CustomDialog({ dialog, onClose }: CustomDialogProps) {
   // instead of the exclamation-mark icon so success actually reads as success. Bilingual since
   // dialog.title comes from t() and can be Thai or English depending on the app's language;
   // "ไม่สำเร็จ" / "Unsuccessful" (failed) stay on the regular alert icon.
-  const isSuccessAlert = /สำเร็จ|success|saved|allocated|updated|confirmed|deposited|created|uploaded|ready/i.test(dialog.title)
+  const isSuccessAlert = /สำเร็จ|(บันทึก|คัดลอก|ส่ง|อัปเดต|ยืนยัน|เชื่อม|ออก|สร้าง|เพิ่ม|ชำระ|รับ)\S*แล้ว|success|saved|allocated|updated|confirmed|deposited|created|uploaded|ready|copied/i.test(dialog.title)
     && !/ไม่สำเร็จ|unsuccessful|failed|error/i.test(dialog.title);
 
 
@@ -47,10 +47,11 @@ export default function CustomDialog({ dialog, onClose }: CustomDialogProps) {
   const isDestructive = dialog.type === 'confirm' && /ลบ|ปิดบัญชี|ล้างข้อมูล|ยกเลิกการสมัคร|delete|remove|close account/i.test(dialog.title);
   // Something did not work (owner, 2026-11-22: "ทำเครื่องหมายกากบาท ... น้องยืนอยู่ ทำหน้าแบบมันไม่ได้"): the worried face
   // holding the red × sign the deletion card already uses.
-  const isFailureAlert = dialog.type === 'alert' && /ไม่สำเร็จ|ผิดพลาด|ไม่ได้|unsuccessful|failed|error|couldn/i.test(dialog.title);
+  const isFailureAlert = dialog.type === 'alert' && /ไม่สำเร็จ|ผิดพลาด|ไม่ได้|ไม่ครบ|ไม่ถูกต้อง|เกินกำหนด|unsuccessful|failed|error|couldn|incomplete|invalid/i.test(dialog.title);
   const mascotPose: { mood: MascotMood; action: MascotAction } = isDestructive ? { mood: 'thinking', action: 'hold-cross' }
     : isFailureAlert ? { mood: 'worried', action: 'hold-cross' }
-    : dialog.type === 'alert' ? (isSuccessAlert ? { mood: 'happy', action: 'celebrate' } : { mood: 'checking', action: 'idle' })
+    // Good news holds up the green tick sign (owner, 2026-11-23: "อะไรที่โพสิทีฟ สัญลักษณ์ติ๊กถูก").
+    : dialog.type === 'alert' ? (isSuccessAlert ? { mood: 'happy', action: 'hold-check' } : { mood: 'checking', action: 'idle' })
     : dialog.type === 'prompt' ? { mood: 'thinking', action: 'hold-document' }
     : { mood: 'thinking', action: 'idle' };
   if (phone) {
