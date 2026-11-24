@@ -295,8 +295,10 @@ function vatReport(kind: 'ขาย' | 'ซื้อ', month = 1): SheetSpec {
 // ── 1–2 Freelancers ───────────────────────────────────────────────────────────────────────────────────────────────
 const INCOME_TYPES = ['40(2)', '40(5)', '40(6)', '40(7)', '40(8)', 'อื่น ๆ'];
 const EXPENSE_CATEGORIES = ['ซื้อสินค้า', 'อุปกรณ์', 'ซอฟต์แวร์', 'เดินทาง', 'ค่าจ้างช่วง', 'ค่าสถานที่', 'โทรศัพท์-เน็ต', 'อื่น ๆ'];
-/** การชำระ (shared/paymentColumn.ts): last in รายรับ, so the columns the other tabs read keep their letters. */
-const PAYMENT_COL: Col = { h: PAYMENT_HEADER, w: 13, list: [...PAYMENT_CHOICES], t: 'status', tones: true };
+/** การชำระ (shared/paymentColumn.ts): last in รายรับ, so the columns the other tabs read keep their letters. No cell colours
+ *  (owner, 2026-11-24: the rounded chips, set once in the sheet: Google lets no app pick a drop-down's chip style or colours,
+ *  and a coloured cell would sit behind the chip). */
+const PAYMENT_COL: Col = { h: PAYMENT_HEADER, w: 15, list: [...PAYMENT_CHOICES], t: 'status' };
 const EVIDENCE = ['ใบกำกับภาษีเต็มรูป', 'ใบกำกับภาษีอย่างย่อ', 'ใบเสร็จ', 'ไม่มี'];
 
 function freelance(profile: BusinessProfile, year: number, vat: boolean, data: TemplateData | null, now: Date): SheetSpec[] {

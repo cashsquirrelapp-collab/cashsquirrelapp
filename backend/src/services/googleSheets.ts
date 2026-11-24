@@ -293,9 +293,10 @@ export interface SheetOps {
   copyFormulasDown(tab: string, fromRow: number, firstRow: number, lastRow: number, columns: number[]): Promise<void>;
   /**
    * Makes `column` a drop-down of these choices, each in its own colours, from the row under the header down to `lastRow`;
-   * its header takes the look of the header beside it, and the tab grows a column when it has none there (การชำระ).
+   * its header takes the look of the header beside it, and the tab grows a column when it has none there (การชำระ). Colours
+   * only when `tones` is given.
    */
-  choiceColumn?(tab: string, column: number, headerRow: number, lastRow: number, choices: readonly string[], tones: Record<string, { fill: string; ink: string }>): Promise<void>;
+  choiceColumn?(tab: string, column: number, headerRow: number, lastRow: number, choices: readonly string[], tones?: Record<string, { fill: string; ink: string }>): Promise<void>;
 }
 
 const columnName = (index: number): string => { let s = '', n = index + 1; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
@@ -402,8 +403,10 @@ export function googleOps(token: string, fileId: string): SheetOps {
       }
       requests.push({ updateDimensionProperties: { range: { sheetId: sheet, dimension: 'COLUMNS', startIndex: column, endIndex: column + 1 }, properties: { pixelSize: 110 }, fields: 'pixelSize' } });
       requests.push({ setDataValidation: { range: below, rule: { condition: { type: 'ONE_OF_LIST', values: choices.map(value => ({ userEnteredValue: value })) }, showCustomUi: true, strict: false } } });
+      // Colours only when asked: การชำระ goes without (owner, 2026-11-24: rounded chips, set once in the sheet; a coloured
+      // cell would sit behind them).
       choices.forEach((choice, index) => {
-        const tone = tones[choice];
+        const tone = tones?.[choice];
         if (tone) requests.push({ addConditionalFormatRule: { index, rule: { ranges: [below], booleanRule: { condition: { type: 'TEXT_STARTS_WITH', values: [{ userEnteredValue: choice }] }, format: { backgroundColor: rgb(tone.fill), textFormat: { foregroundColor: rgb(tone.ink), bold: true } } } } } });
       });
       await post(`${SHEETS}/${id}:batchUpdate`, { requests });

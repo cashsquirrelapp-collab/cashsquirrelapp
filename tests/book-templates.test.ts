@@ -359,8 +359,8 @@ test('job rows written without ประเภทเงินได้ get one, 
   assert.deepEqual(writes, [[{ row: 2, index: 4, value: '40(8)' }, { row: 5, index: 4, value: '40(8)' }]], 'the type the column already uses');
 });
 
-// Owner, 2026-11-24: "มีช่องบอกว่ารับเงินยังหรือยังไม่รับ เอาแบบให้เหมือนแบบที่กูส่งให้" (the computer's การชำระ pills).
-test('การชำระ: last in รายรับ, a drop-down in the app\'s words, each coloured as the app colours it; the other tabs\' letters unchanged', () => {
+// Owner, 2026-11-24: "มีช่องบอกว่ารับเงินยังหรือยังไม่รับ" and then "เอาแบบนี้เลย" (rounded chips, set once in the sheet).
+test('การชำระ: last in รายรับ, a drop-down in the app\'s words, no cell colours behind the chips; the other tabs\' letters unchanged', () => {
   for (const id of ['freelance', 'freelance_vat'] as const) {
     const { sheets } = buildBookTemplate(PROFILES[id], { year: 2026 });
     const income = sheets.find(sheet => sheet.name === 'รายรับ')!;
@@ -370,12 +370,8 @@ test('การชำระ: last in รายรับ, a drop-down in the app\
     assert.equal(income.targets?.[at], 'status');
     const letter = columnLetter(at);
     assert.ok(income.validations?.some(rule => rule.range.startsWith(`${letter}2:`) && 'list' in rule && rule.list.join() === 'รับครบแล้ว,รับบางส่วน,ยังไม่จ่าย'));
-    assert.deepEqual(income.colorRules?.map(rule => rule.text), ['รับครบแล้ว', 'รับบางส่วน', 'ยังไม่จ่าย']);
+    assert.deepEqual(income.colorRules, [], 'no colours behind the chips');
     const files = unzipSync(buildXlsx(sheets, { font: 'Sarabun' }));
-    const index = sheets.indexOf(income) + 1;
-    const xml = strFromU8(files[`xl/worksheets/sheet${index}.xml`]);
-    assert.match(xml, new RegExp(`<conditionalFormatting sqref="${letter}2:${letter}\\d+"><cfRule type="beginsWith" dxfId="2"[^>]*text="ยังไม่จ่าย"><formula>LEFT\\(${letter}2,LEN\\("ยังไม่จ่าย"\\)\\)="ยังไม่จ่าย"</formula>`));
-    assert.ok(xml.indexOf('<conditionalFormatting') < xml.indexOf('<dataValidations'), 'in the order Excel expects');
-    assert.match(strFromU8(files['xl/styles.xml']), /<dxfs count="3"><dxf><font><b\/><color rgb="FF047857"\/>/);
+    assert.doesNotMatch(strFromU8(files[`xl/worksheets/sheet${sheets.indexOf(income) + 1}.xml`]), /<conditionalFormatting/);
   }
 });

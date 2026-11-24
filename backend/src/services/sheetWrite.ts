@@ -3,7 +3,7 @@ import { chooseTab, dataColumns, deletedRowOf, displayValue, exampleRowsOf, inco
 import { evaluateRow, shiftFormula } from '../../../shared/sheetFormula.js';
 import { isValidWhtRate, roundMoney, whtAmountFor } from '../../../shared/wht.js';
 import { loadGoogle, saveGoogle } from '../repositories/google.js';
-import { PAYMENT_CHOICES, PAYMENT_HEADER, PAYMENT_TONES, paymentCellOf } from '../../../shared/paymentColumn.js';
+import { PAYMENT_CHOICES, PAYMENT_HEADER, paymentCellOf } from '../../../shared/paymentColumn.js';
 import { templateShapes } from '../../../shared/bookTemplates.js';
 import { GoogleError, accessToken, decryptToken, googleConfigured, googleOps, readSpreadsheet, type SheetOps } from './googleSheets.js';
 
@@ -601,7 +601,7 @@ export async function addPaymentColumn(ops: SheetOps, map: SheetMap, jobs: Recor
   const first = headerRow + 1;
   const last = Math.min(await ops.lastRow(tab.name, dataColumns(tab)), first + MAX_DELETE_SCAN);
   await ops.write(tab.name, headerRow, [{ index: column, value: PAYMENT_HEADER }]);
-  await ops.choiceColumn(tab.name, column, headerRow, Math.max(last, headerRow + 1000), PAYMENT_CHOICES, PAYMENT_TONES);
+  await ops.choiceColumn(tab.name, column, headerRow, Math.max(last, headerRow + 1000), PAYMENT_CHOICES);
   const paidDate = tab.columns.find(item => item.target === 'paidDate');
   const rows = last >= first ? await ops.readRows(tab.name, first, last, Math.max(...tab.columns.map(item => item.index))) : [];
   const linked = new Map<number, Record<string, unknown>>();
