@@ -106,7 +106,7 @@ import { usageAnalyticsApi } from '../services/usageAnalytics';
 import { authClient } from '../services/auth';
 import { apiFetch, apiJson, getCurrentAccount } from '../services/api';
 import { googleApi } from '../services/google';
-import { readCloud, refreshCloud, saveCloud, saveAppCloud, clearCloud, exportCloud, flushCloud, type CloudState } from '../services/cloud';
+import { readCloud, refreshCloud, saveCloud, saveAppCloud, clearCloud, exportCloud, flushCloud, savedRecord, type CloudState } from '../services/cloud';
 import { useLanguage } from '../i18n/LanguageContext';
 // Aliased: this file already has its own local `currentMonthKey` (a memoized string further
 // down, computed from local machine time) -- importing the same name here would silently shadow
@@ -3072,6 +3072,29 @@ export default function App() {
   // the sheet and something the sheet keeps changed. While a write is on its way, and for 30 seconds after, readings of the
   // sheet are not applied: one that started before the write landed would bring the old row back as a new record.
   const sheetWritingRef = useRef(new Map<string, number>());
+  // A row is written only once the record's save has landed (owner, 2026-11-24): another device that reads the sheet and
+  // finds the new values then finds them in the server too (sheetFresh), instead of saving them over this device's save
+  // and making this device's save fail with บันทึกไม่สำเร็จ. Waits at most 20 seconds; a save that never lands still writes.
+  const untilSaved = (kind: 'job' | 'expense', records: (Job | Expense)[]) => new Promise<void>(resolve => {
+    const table = kind === 'job' ? 'cashflow_jobs' : 'cashflow_expenses';
+    const started = Date.now();
+    const check = () => {
+      const owner = financeOwnerRef.current;
+      const saved = records.every(record => { const data = savedRecord(owner, table, record.id); return data !== undefined && writtenSig(kind, data as object) === writtenSig(kind, record); });
+      if (saved || Date.now() - started > 20_000) resolve(); else window.setTimeout(check, 250);
+    };
+    check();
+  });
+  // Before a reading of the sheet is used: this device's records are the server's latest, and nothing of its own is unsaved.
+  const sheetFresh = async (): Promise<boolean> => {
+    const user = sessionRef.current?.user;
+    const owner = financeOwnerRef.current;
+    if (!user || cloudReadyRef.current !== owner || cloudSyncStatusRef.current !== 'synced') return false;
+    const outcome = await refreshCloud(owner, () => appStateRef.current).catch(() => 'busy' as const);
+    if (outcome === 'same') return true;
+    if (typeof outcome === 'object' && sessionRef.current?.user?.id === user.id && financeOwnerRef.current === owner && cloudReadyRef.current === owner) applyCloudRecords(outcome.result.snapshot, user);
+    return false;
+  };
   const sheetWriting = () => [...sheetWritingRef.current.values()].some(until => until > Date.now());
   const sheetBusy = (id: string) => sheetWritingRef.current.get(id) === Infinity;
   // `row`: where the record's row is now, as the sheet's reading found it (a change the reading saw in the app only, see
@@ -3084,7 +3107,7 @@ export default function App() {
     const quiet = Boolean(row);
     // Marked at once, so the "not in the sheet yet" offer does not flash for a record on its way there.
     sheetWritingRef.current.set(record.id, Infinity);
-    void sheetReadyFor(account).then(fileId => {
+    void Promise.all([sheetReadyFor(account), untilSaved(kind, [record])]).then(([fileId]) => {
       if (!fileId || (beforeRow && beforeRow.fileId !== fileId)) { sheetWritingRef.current.delete(record.id); return; }
       const failed = (message: string) => { if (!quiet) fireMascot({ mood: 'alert', tone: 'warning', title: tr("บันทึกลงชีตไม่สำเร็จ"), message, duration: 9000 }); };
       return googleApi.saveRow(account, kind, record, beforeRow).then(result => {
@@ -3117,6 +3140,7 @@ export default function App() {
       try {
         for (let start = 0; start < ordered.length; start += 100) {
           const chunk = ordered.slice(start, start + 100);
+          await untilSaved(kind, chunk);
           const result = await googleApi.saveRows(account, kind, chunk);
           if (!result) break;
           if (result.status !== 'written') { problem = result.error; break; }
@@ -3183,6 +3207,7 @@ export default function App() {
     onSendExpenses: records => sendRecordsToSheet('expense', records, false),
     canSend: () => !sheetAutoStopped.current && !sheetWriting(),
     busy: sheetBusy,
+    fresh: sheetFresh,
   });
 
   // รายจ่ายประจำลงชีตทุกเดือน (owner, 2026-11-18): with a connected sheet, this month's fixed items become this month's

@@ -1,3 +1,4 @@
+import { fakeDataServer } from './fixtures/fakeDataServer';
 import { expect, test, type Page } from '@playwright/test';
 import { noRadar } from './radarVisit';
 import { textOverlapIssues } from './textOverlap';
@@ -34,9 +35,8 @@ async function open(page: Page, size: { width: number; height: number }, labsOn:
   let sheetRows = firstRows;
   let deleteExampleCalls = 0;
   const batches: { kind: string; records: Record<string, unknown>[] }[] = [];
-  const posts: unknown[] = [];
   const deletes: unknown[] = [];
-  const saves: { kind: string; record: Record<string, unknown>; before: Record<string, unknown> | null }[] = [];
+  const saves: { kind: string; record: Record<string, unknown>; before: Record<string, unknown> | null; serverHad?: unknown }[] = [];
   let reads = 0;
   await page.clock.setFixedTime(new Date('2026-11-14T09:12:00+07:00'));
   await page.addInitScript(() => { localStorage.setItem('cashflow_language', 'th'); localStorage.setItem('cashflow_theme_pref', JSON.stringify({ mode: 'light', asked: true })); });
@@ -45,11 +45,9 @@ async function open(page: Page, size: { width: number; height: number }, labsOn:
   await page.route('**/api/auth*', route => route.fulfill({ json: { session: { user } } }));
   await page.route('**/api/profile', route => route.fulfill({ json: { userId: user.id, publicId: 'SQ-6666666666', displayName: 'ผู้ทดสอบ' } }));
   await page.route('**/api/groups?*', route => route.fulfill({ json: { systemRole: 'user', groups: [], invitations: [], total: 0, page: 0 } }));
-  await page.route('**/api/data*', route => {
-    if (route.request().method() === 'POST') { posts.push(route.request().postDataJSON()); return route.fulfill({ json: { ok: true, versions } }); }
-    return route.fulfill({ json: { snapshot: { jobs: [chatJob, ...appOnly], expenses: [], goals: [], invoices: [], settings, statuses: [], job_types: [], notif_settings: { enabled: false, pendingQueue: [] }, avatar_data_url: null, issuer_profile: null },
-      versions: { ...versions, cashflow_jobs: { ...versions.cashflow_jobs, ...Object.fromEntries(appOnly.map(job => [String(job.id), 1])) } }, subscription: { status: 'active', plan: 'pro_monthly', current_period_end: '2099-01-01T00:00:00Z' } } });
-  });
+  const dataServer = fakeDataServer({ jobs: [chatJob, ...appOnly], expenses: [], goals: [], invoices: [], settings, statuses: [], job_types: [], notif_settings: { enabled: false, pendingQueue: [] }, avatar_data_url: null, issuer_profile: null }, { ...versions, cashflow_jobs: { ...versions.cashflow_jobs, ...Object.fromEntries(appOnly.map(job => [String(job.id), 1])) } }, { subscription: { status: 'active', plan: 'pro_monthly', current_period_end: '2099-01-01T00:00:00Z' } });
+  await page.route('**/api/data*', route => dataServer.handle(route));
+  const posts: unknown[] = dataServer.posts;
   await page.route('**/api/labs', route => route.fulfill({ json: { labs: { tester: true, on: labsOn } } }));
   await page.route('**/api/google', route => {
     const status = { google: { configured: true, connected: true, email: 'mew@example.com', file: FILE, map: MAP } };
@@ -69,7 +67,9 @@ async function open(page: Page, size: { width: number; height: number }, labsOn:
       return route.fulfill({ json: { ...status, result: { status: 'written', fileId: FILE.id, tab: 'รายรับ', rows: batch.records.map((_, i) => 6 + i), gid: 812 } } });
     }
     if (body.action === 'saveRow') {
-      const save = body as unknown as { kind: string; record: Record<string, unknown>; before: Record<string, unknown> | null };
+      const save = body as unknown as { kind: string; record: Record<string, unknown>; before: Record<string, unknown> | null; serverHad?: unknown };
+      // What the app's server held for this record when the row was written (it is written after the save lands, 2026-11-24).
+      save.serverHad = (dataServer.snapshot.jobs as Record<string, unknown>[]).find(job => job.id === save.record.id)?.value;
       saves.push(save);
       return route.fulfill({ json: { ...status, result: { status: 'written', fileId: FILE.id, tab: 'รายรับ', row: save.before ? Number(save.before.row) : 6, gid: 812 } } });
     }
@@ -93,7 +93,8 @@ for (const device of [{ name: 'computer', width: 1440, height: 900 }, { name: 'p
     await expect(titles).toHaveCount(3);
     await expect(titles).toContainText(['ตัดต่อคลิปรีวิวคาเฟ่ EP.3']);
     await expect.poll(() => JSON.stringify(posts)).toContain('"sheetLink":{"fileId":"file-12345678","tab":"รายรับ","row":4,"gid":812,"sig":');
-    expect(reads()).toBe(1);
+    // One reading, or two when the first came before the app's own first save had landed (App.tsx sheetFresh, 2026-11-24).
+    expect(reads()).toBeLessThanOrEqual(2);
     expect(await textOverlapIssues(page)).toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
     await page.screenshot({ path: `test-results/labs-sheet-jobs-${device.name}.png` });
@@ -202,6 +203,10 @@ test('a job added in the app goes into the sheet as a new row; a job from the sh
   await page.getByRole('button', { name: 'บันทึกงาน' }).click();
   await expect.poll(() => saves.length).toBe(2);
   expect(saves[1]).toMatchObject({ kind: 'job', before: { kind: 'job', fileId: FILE.id, tab: 'รายรับ', row: 3, name: 'ออกแบบโลโก้ร้านกาแฟ', amount: 5000 }, record: { name: 'ออกแบบโลโก้ร้านกาแฟ', value: 5500 } });
+  // Written over the row only once the app's own save had landed (owner, 2026-11-24): a computer reading the sheet in
+  // between then finds 5,500 on the server too, instead of saving it over this save (บันทึกไม่สำเร็จ here).
+  expect(saves[0].serverHad, 'the new job was saved before its row was written').toBe(2500);
+  expect(saves[1].serverHad, 'the new amount was saved before the row was written').toBe(5500);
   await expect(page.getByText('บันทึกลงชีตไม่สำเร็จ')).toHaveCount(0);
 });
 

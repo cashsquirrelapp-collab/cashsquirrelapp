@@ -106,6 +106,10 @@ export function keepDocumentBaseline(previous: Baseline, next: Baseline): Baseli
   if (issuer && !next.cashflow_documents?.issuer_profile) (next.cashflow_documents ??= {}).issuer_profile = issuer;
   return next;
 }
+/** A record as the server last confirmed it to this device (undefined when it is not there yet). */
+export function savedRecord(userId: string, table: string, id: string): unknown {
+  return baselines.get(userId)?.[table as keyof Baseline]?.[id]?.data;
+}
 export function clearCloud(userId?: string) {
   if (userId) baselines.delete(userId);
   else baselines.clear();

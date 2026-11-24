@@ -90,6 +90,12 @@ export function useSheetEngine(input: {
   canSend?: () => boolean;
   /** A record on its way to the sheet right now. */
   busy?: (id: string) => boolean;
+  /**
+   * True when this device has the server's latest records (App.tsx sheetFresh). A reading is planned only then: a sheet
+   * row changed by another device is in the server already (that device writes the row after its own save lands), so a
+   * reading on an older copy would save over that device's save and its next save would fail with บันทึกไม่สำเร็จ.
+   */
+  fresh?: () => Promise<boolean>;
 }): void {
   const account = getCurrentAccount() ?? null;
   const labs = useLabs(account);
@@ -102,6 +108,7 @@ export function useSheetEngine(input: {
   latest.current = input;
   const lastRun = React.useRef(0);
   const inFlight = React.useRef(false);
+  const staleTries = React.useRef(0);
   const examplesTried = React.useRef(new Set<string>());
   const typesTried = React.useRef(new Set<string>());
   // The connection as it stands, kept apart from the object identities a status refresh renews: a new reading starts when
@@ -122,6 +129,13 @@ export function useSheetEngine(input: {
     setView({ reading: true });
     try {
       const reply = await googleApi.read(account);
+      // Not up to date with the server (or this device's own edit not saved yet): this reading is left; the app catches up
+      // and the sheet is read again in a few seconds (three tries, then the next round).
+      if (latest.current.fresh && !(await latest.current.fresh())) {
+        if (staleTries.current < 3) { staleTries.current += 1; window.setTimeout(() => { void sync(true); }, 3_000); }
+        return;
+      }
+      staleTries.current = 0;
       const now = latest.current;
       const recentRows = reply.recentRows ?? [];
       const held = { jobs: [] as string[], expenses: [] as string[] };
