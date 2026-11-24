@@ -603,7 +603,7 @@ export default function JobsTab({
 
   // One colour per payment state, always. Lateness is shown by the red due date and the row's
   // left accent, so the badge doesn't also turn red (that made "ยังไม่จ่าย" look like two states).
-  const paymentBadge = (payment: string, interactive = false) => (
+  const paymentBadge = (payment: string, interactive = false, received = 0) => (
     <span className={`inline-flex items-center gap-0.5 whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-medium ${
       payment === 'รับครบแล้ว'
         ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
@@ -614,6 +614,8 @@ export default function JobsTab({
         : 'bg-[#FFF1E8] text-[#C24A16] dark:bg-orange-500/10 dark:text-orange-300'
     }`}>
       {tr(payment)}
+      {/* รับบางส่วน says how much came in (owner, 2026-11-24: "รับบางส่วนบอกด้วยว่ารับเท่าไหร่"). */}
+      {payment === 'รับบางส่วน' && received > 0 && <span className="ml-1 tabular-nums">{formatCurrency(received)}</span>}
       {interactive && <ChevronDown className="-mr-0.5 h-3 w-3 opacity-70" aria-hidden="true" />}
     </span>
   );
@@ -697,7 +699,9 @@ export default function JobsTab({
       : info.stage === 'working' ? { icon: 'calendar' as const, text: urgent ? tr("เลยกำหนดส่งงาน") : tr("กำหนดส่งงาน"), tone: urgent ? 'is-urgent' : '', right: shortDate }
       : urgent ? { icon: 'alert' as const, text: info.dueText, tone: 'is-urgent', right: tr("ครบ {0}", shortDate) }
       : { icon: 'clock' as const, text: info.dueTone === 'today' ? tr("ครบกำหนดวันนี้") : info.dueTone === 'soon' ? tr("ใกล้ครบกำหนด") : tr("กำหนดรับเงิน"), tone: info.dueTone === 'normal' ? '' : 'is-soon', right: shortDate };
-    const paymentTone = info.payment === 'รับครบแล้ว' ? 'is-success' : info.payment === 'ยังไม่จ่าย' ? '' : 'is-emphasis';
+    // Phones read like the computer's table (owner, 2026-11-24: "ในมือถืออยากให้มันดูง่ายเหมือนคอม"): two coloured pills, the
+    // job's stage and its payment, in the same words and colours as the สถานะงาน and การชำระ columns.
+    const paymentTone = info.payment === 'รับครบแล้ว' ? 'is-paid' : info.payment === 'รับบางส่วน' ? 'is-part' : info.payment === 'แบ่งงวด' ? 'is-split' : 'is-unpaid';
     const receive = receiveAction(j, info);
     return (
       <div
@@ -720,14 +724,10 @@ export default function JobsTab({
           </div>
         </div>
         <div className="ksm-jobstatus">
-          <span className="ksm-workstate">
-            <KsIcon name={info.stage === 'working' ? 'briefcase' : 'check'} size={17} />
-            {info.stage === 'working' ? tr("กำลังทำ") : tr("ส่งงานแล้ว")}
+          <span className={`ksm-statepill is-${info.stage}`} data-testid="job-stage-pill">
+            {info.stage === 'working' ? tr("กำลังทำ") : info.stage === 'awaiting' ? tr("เสร็จแล้ว") : tr("ปิดงานแล้ว")}
           </span>
-          <span className={`ksm-badge ${paymentTone}`}>
-            {info.payment === 'รับครบแล้ว' && <KsIcon name="check" size={14} />}
-            {info.payment === 'ยังไม่จ่าย' ? tr("ยังไม่รับเงิน") : tr(info.payment)}
-          </span>
+          <span className={`ksm-statepill ${paymentTone}`} data-testid="job-payment-pill">{tr(info.payment)}{info.payment === 'รับบางส่วน' && j.received > 0 ? ` ${formatCurrency(j.received)}` : ''}</span>
           {showWht50 && <Wht50Chip job={j} />}
           <span className="ksm-spacer" />
           <button
@@ -1058,7 +1058,7 @@ export default function JobsTab({
                       <td className="hidden truncate px-3 py-3 text-brand-muted xl:table-cell">{j.client || '—'}</td>
                       <td className={`truncate whitespace-nowrap px-3 py-3 ${dueClass(info.dueTone)}`} title={info.dueText}>{info.dueText}</td>
                       <td className="px-3 py-3">{badgeMenu(j, 'stage', i => stageBadge(info.stage, i), tr("สถานะงาน"))}</td>
-                      <td className="px-3 py-3"><div className="flex flex-col items-start gap-1">{badgeMenu(j, 'payment', i => paymentBadge(info.payment, i), tr("การชำระ"))}{showWht50 && <Wht50Chip job={j} />}</div></td>
+                      <td className="px-3 py-3"><div className="flex flex-col items-start gap-1">{badgeMenu(j, 'payment', i => paymentBadge(info.payment, i), tr("การชำระ"))}{info.payment === 'รับบางส่วน' && j.received > 0 && <span className="whitespace-nowrap text-[11px] tabular-nums text-brand-muted" data-testid="job-partial-received">{tr("รับแล้ว {0}", formatCurrency(j.received))}</span>}{showWht50 && <Wht50Chip job={j} />}</div></td>
                       <td className="whitespace-nowrap px-3 py-3 text-right font-mono font-semibold text-brand-text">{amountCell(j)}</td>
                       <td className="px-2 py-3 text-right">
                         <div className="flex items-center justify-end gap-1">
@@ -1109,7 +1109,7 @@ export default function JobsTab({
                   <div className="mt-2 flex items-center justify-between gap-2">
                     <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                       {badgeMenu(j, 'stage', i => stageBadge(info.stage, i), tr("สถานะงาน"))}
-                      {badgeMenu(j, 'payment', i => paymentBadge(info.payment, i), tr("การชำระ"))}
+                      {badgeMenu(j, 'payment', i => paymentBadge(info.payment, i, j.received), tr("การชำระ"))}
                       {showWht50 && <Wht50Chip job={j} />}
                       <span className={`text-[11px] ${dueClass(info.dueTone)}`}>{info.dueText}</span>
                     </div>

@@ -443,6 +443,17 @@ body:has(.fbc.is-mobile, .asx.is-mobile) .ksm-nav-fade { display: none; }
 .ksm-jobcard.is-overdue .ksm-badge:not(.is-success):not(.is-emphasis) { background: rgba(255, 255, 255, 0.6); }
 .dark .ksm-jobcard.is-overdue .ksm-badge:not(.is-success):not(.is-emphasis) { background: rgba(255, 255, 255, 0.06); }
 .ksm-badge.is-success { background: var(--ksm-success-soft); color: var(--ksm-text); }
+.ksm-statepill { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 8px; font-size: 12px; font-weight: 600; line-height: 1.5; white-space: nowrap; }
+.ksm-statepill.is-working { background: rgba(14, 165, 233, 0.1); color: #0369A1; }
+.ksm-statepill.is-awaiting, .ksm-statepill.is-paid { background: rgba(16, 185, 129, 0.1); color: #047857; }
+.ksm-statepill.is-closed { background: var(--ksm-muted); color: var(--ksm-secondary); }
+.ksm-statepill.is-unpaid { background: #FFF1E8; color: #C24A16; }
+.ksm-statepill.is-part { background: rgba(245, 158, 11, 0.12); color: #B45309; }
+.ksm-statepill.is-split { background: var(--ksm-selected); color: var(--ksm-accent-text); }
+.dark .ksm-statepill.is-working { color: #7DD3FC; }
+.dark .ksm-statepill.is-awaiting, .dark .ksm-statepill.is-paid { color: #6EE7B7; }
+.dark .ksm-statepill.is-unpaid { background: rgba(249, 115, 22, 0.1); color: #FDBA74; }
+.dark .ksm-statepill.is-part { color: #FCD34D; }
 /* iOS-style grey round ⋯ button (owner, 2026-10-23). */
 .ksm-cardmenu { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 32px; height: 32px; margin: -4px 0 -4px 12px; border-radius: 50%; background: rgba(118, 118, 128, 0.14); color: var(--ksm-text); cursor: pointer; }
 .dark .ksm-cardmenu { background: rgba(118, 118, 128, 0.26); }

@@ -169,7 +169,11 @@ test('our own sheets are read the way the template means them: an expense row ge
   assert.deepEqual(cellsOf('production', 'expense', coffee), { 'วันที่จ่าย': '2026-11-13', 'หมวด': 'อาหาร', 'รายการ': 'ค่ากาแฟ', 'ก่อน VAT': 60 });
   const job = { name: 'ตัดต่อคลิป', client: 'บริษัท ก จำกัด', value: 10000, whtRate: 3, payDate: '2026-11-10', paymentStatus: 'paid' };
   assert.deepEqual(cellsOf('freelance', 'job', job, { 6: ['3%'] }),
-    { 'วันที่รับเงิน': '2026-11-10', 'ผู้จ่ายเงิน': 'บริษัท ก จำกัด', 'รายการ': 'ตัดต่อคลิป', 'ประเภทเงินได้': '40(2)', 'ยอดก่อนหัก': 10000, 'อัตราหัก': '3%' });
+    { 'วันที่รับเงิน': '2026-11-10', 'ผู้จ่ายเงิน': 'บริษัท ก จำกัด', 'รายการ': 'ตัดต่อคลิป', 'ประเภทเงินได้': '40(2)', 'ยอดก่อนหัก': 10000, 'อัตราหัก': '3%', 'การชำระ': 'รับครบแล้ว' });
+  // การชำระ (owner, 2026-11-24): in the drop-down's own words, so a job not received yet says so in the sheet too.
+  assert.equal(cellsOf('freelance', 'job', { ...job, paymentStatus: 'unpaid', payDate: null })['การชำระ'], 'ยังไม่จ่าย');
+  // รับบางส่วน says how much came in (owner, 2026-11-24: "รับบางส่วนบอกด้วยว่ารับเท่าไหร่").
+  assert.equal(cellsOf('freelance', 'job', { ...job, paymentStatus: 'partial', status: 'partial', received: 1500, payDate: null })['การชำระ'], 'รับบางส่วน ฿1,500');
   // ประเภทเงินได้ (owner, 2026-11-18): the reports add income up by it; the column's own most-used type, else 40(2).
   assert.equal(cellsOf('freelance', 'job', job, { 4: ['40(8)', '40(8)', '40(2)'], 6: ['3%'] })['ประเภทเงินได้'], '40(8)');
   assert.deepEqual(cellsOf('agency', 'job', { ...job, postDate: '2026-11-01' }),
@@ -353,4 +357,25 @@ test('job rows written without ประเภทเงินได้ get one, 
   } as never;
   assert.equal(await fillIncomeTypes(ops, map), 2);
   assert.deepEqual(writes, [[{ row: 2, index: 4, value: '40(8)' }, { row: 5, index: 4, value: '40(8)' }]], 'the type the column already uses');
+});
+
+// Owner, 2026-11-24: "มีช่องบอกว่ารับเงินยังหรือยังไม่รับ เอาแบบให้เหมือนแบบที่กูส่งให้" (the computer's การชำระ pills).
+test('การชำระ: last in รายรับ, a drop-down in the app\'s words, each coloured as the app colours it; the other tabs\' letters unchanged', () => {
+  for (const id of ['freelance', 'freelance_vat'] as const) {
+    const { sheets } = buildBookTemplate(PROFILES[id], { year: 2026 });
+    const income = sheets.find(sheet => sheet.name === 'รายรับ')!;
+    const headers = income.rows[0].map(cell => String((cell as { v: string }).v));
+    const at = headers.indexOf('การชำระ');
+    assert.equal(at, headers.length - 1, `${id}: the last column`);
+    assert.equal(income.targets?.[at], 'status');
+    const letter = columnLetter(at);
+    assert.ok(income.validations?.some(rule => rule.range.startsWith(`${letter}2:`) && 'list' in rule && rule.list.join() === 'รับครบแล้ว,รับบางส่วน,ยังไม่จ่าย'));
+    assert.deepEqual(income.colorRules?.map(rule => rule.text), ['รับครบแล้ว', 'รับบางส่วน', 'ยังไม่จ่าย']);
+    const files = unzipSync(buildXlsx(sheets, { font: 'Sarabun' }));
+    const index = sheets.indexOf(income) + 1;
+    const xml = strFromU8(files[`xl/worksheets/sheet${index}.xml`]);
+    assert.match(xml, new RegExp(`<conditionalFormatting sqref="${letter}2:${letter}\\d+"><cfRule type="beginsWith" dxfId="2"[^>]*text="ยังไม่จ่าย"><formula>LEFT\\(${letter}2,LEN\\("ยังไม่จ่าย"\\)\\)="ยังไม่จ่าย"</formula>`));
+    assert.ok(xml.indexOf('<conditionalFormatting') < xml.indexOf('<dataValidations'), 'in the order Excel expects');
+    assert.match(strFromU8(files['xl/styles.xml']), /<dxfs count="3"><dxf><font><b\/><color rgb="FF047857"\/>/);
+  }
 });

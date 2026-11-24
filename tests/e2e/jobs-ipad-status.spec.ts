@@ -74,8 +74,10 @@ for (const size of ipads) {
       expect(row.paymentText, row.id).toMatch(/ยังไม่จ่าย|รับบางส่วน|รับครบแล้ว/);
       expect(row.spills, row.id).toEqual([]);
     }
-    // Every row is the same height, except the one carrying the 50 ทวิ chip under its payment (as on a computer).
-    const plain = rows.filter(row => row.id !== 'wht').map(row => row.height);
+    // Every row is the same height, except the one carrying the 50 ทวิ chip under its payment (as on a computer), and the one
+    // saying how much came in under รับบางส่วน (owner, 2026-11-24: "รับบางส่วนบอกด้วยว่ารับเท่าไหร่").
+    expect(rows.find(row => row.id === 'partial')?.paymentText).toContain('รับแล้ว ฿4,000');
+    const plain = rows.filter(row => row.id !== 'wht' && row.id !== 'partial').map(row => row.height);
     expect(Math.max(...plain) - Math.min(...plain)).toBeLessThanOrEqual(1);
 
     // The chips still open their menus.

@@ -1,3 +1,4 @@
+import { partialText } from './paymentColumn.js';
 import type { SheetMap, SheetMapColumn, SheetMapTab } from './googleSheets.js';
 
 // บันทึกลงชีตของคุณ (ฟีเจอร์ทดลอง sheetWrite, plan phase 3; owner, 2026-11-12: "อยากทำให้มันสามารถแก้ได้ โดยที่เราบันทึกผ่าน
@@ -164,7 +165,11 @@ export function valueFor(column: SheetMapColumn, kind: RowKind, record: Record<s
     case 'pending': return money(record.pending);
     case 'whtRate': return rate ? (samples.some(sample => sample.includes('%')) ? `${rate}%` : rate) : null;
     case 'whtAmount': return rate && value ? Math.round(value * rate) / 100 : null;
-    case 'status': return statusFor(paymentOf(record), samples);
+    case 'status': {
+      const word = statusFor(paymentOf(record), [...(column.choices ?? []), ...samples]);
+      const received = money(record.received) ?? 0;
+      return word === 'รับบางส่วน' && received > 0 ? partialText(received) : word;
+    }
     case 'creditTerm': { const days = money(record.creditTerm); return days ? days : null; }
     case 'date': case 'postDate': { const date = isoDate(target === 'date' ? (record.postDate ?? record.payDate) : record.postDate); return date ? dateFor(date, samples) : null; }
     case 'dueDate': { const date = isoDate(record.dueDate ?? record.payDate); return date && paymentOf(record) !== 'paid' ? dateFor(date, samples) : null; }

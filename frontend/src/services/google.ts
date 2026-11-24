@@ -51,6 +51,8 @@ export const googleApi = {
       account, { action: 'saveRows', kind, records }).then(reply => reply.result),
   /** ประเภทเงินได้ filled in on the job rows that have none (null: no sheet). */
   fillIncomeTypes: (account: string) => post<{ result: { filled: number; error?: string } | null }>(account, { action: 'fillIncomeTypes' }).then(reply => reply.result),
+  /** การชำระ added to a workbook of ours made before it, filled from the app's jobs (null: no sheet). */
+  addPaymentColumn: (account: string) => post<{ result: { added: boolean; filled: number; error?: string } | null }>(account, { action: 'addPaymentColumn' }).then(reply => reply.result),
   /** The template's example rows deleted from the connected sheet (null: no sheet). */
   deleteExamples: (account: string) => post<{ result: { deleted: number; error?: string } | null }>(account, { action: 'deleteExamples' }).then(reply => reply.result),
   /** Records deleted in the app: their rows go from the connected sheet too (null: no sheet ready). */

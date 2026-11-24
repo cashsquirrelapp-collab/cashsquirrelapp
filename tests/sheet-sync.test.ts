@@ -268,3 +268,21 @@ test('sheet sync: a row with no วันที่รับเงิน says not
   // Once the row has its date, the sheet says it was received.
   assert.equal(run([waiting], '18/11/2569').update.find(update => update.id === 'yai')?.fields.paymentStatus, 'paid');
 });
+
+// Owner, 2026-11-24: "รับบางส่วนบอกด้วยว่ารับเท่าไหร่". Our การชำระ cell names the amount, and the app reads it back.
+test('sheet sync: "รับบางส่วน ฿1,200" in การชำระ is 1,200 received; the words alone decide the others', () => {
+  const head = ['วันที่รับเงิน', 'ผู้จ่ายเงิน', 'รายการ', 'ยอดก่อนหัก', 'หมายเหตุ', 'การชำระ'].map(text => cell(text));
+  const rows = [
+    [cell(''), cell('แม่'), cell('ค่าขนม'), cell('3,000'), cell(''), cell('รับบางส่วน ฿1,200')],
+    [cell(''), cell('ยาย'), cell('ค่าข้าว'), cell('2,000'), cell(''), cell('ยังไม่จ่าย')],
+    [day('18/11/2569', '2026-11-18'), cell('กยศ'), cell('งานของ กยศ'), cell('3,000'), cell(''), cell('รับครบแล้ว')],
+  ];
+  const income: LiveTab = { name: 'รายรับ', gid: 1, truncated: false, rows: [head, ...rows] };
+  const plan = planSheetSync({ jobs: [], tabs: [income], map: mapOf(FILE, readTabs([income])), fileId: FILE, statuses: STATUSES, jobTypes: [], today: '2026-11-24' });
+  const of = (client: string) => plan.add.find(job => job.client === client)!;
+  assert.equal(of('แม่').paymentStatus, 'partial');
+  assert.equal(of('แม่').received, 1200);
+  assert.equal(of('แม่').pending, 1800);
+  assert.equal(of('ยาย').paymentStatus, 'unpaid');
+  assert.equal(of('กยศ').paymentStatus, 'paid');
+});

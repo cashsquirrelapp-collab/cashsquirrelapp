@@ -4,6 +4,7 @@
 // is, reads Thai and English dates, amounts and statuses, and builds jobs and expenses the same way
 // the job and expense forms do. Every row comes back with what the person should check.
 
+import { amountInText } from '../../../../shared/paymentColumn';
 import type { Expense, Job, StatusOption } from '../../../../shared/types';
 import { calculatePayDate } from '../../../../shared/calendar';
 import { roundMoney, whtAmountFor } from '../../../../shared/wht';
@@ -1040,6 +1041,11 @@ export function buildImportPlan(sheets: { grid: SheetGrid; analysis: SheetAnalys
         receivedFinal = Math.max(0, net - pendingCell);
         payment = pendingCell <= 0 ? 'paid' : receivedFinal > 0 ? 'partial' : 'unpaid';
       } else if (status.payment === 'paid' || (!status.payment && paidDate)) { payment = 'paid'; receivedFinal = net; }
+      else if (status.payment === 'partial' && amountInText(c.text('status')) !== null) {
+        // "รับบางส่วน ฿500" (our การชำระ column, 2026-11-24): the amount in the cell is what came in.
+        receivedFinal = Math.min(amountInText(c.text('status'))!, net);
+        payment = receivedFinal >= net && net > 0 ? 'paid' : 'partial';
+      }
       else if (status.payment === 'partial') issues.push('partialNoAmount');
       if (payment === 'paid') receivedFinal = net;
 

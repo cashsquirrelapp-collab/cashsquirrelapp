@@ -291,6 +291,11 @@ export interface SheetOps {
   writeMany(tab: string, cells: { row: number; index: number; value: string | number }[]): Promise<string[]>;
   /** Copies the formulas of these columns from one row down over rows first..last, in one request. */
   copyFormulasDown(tab: string, fromRow: number, firstRow: number, lastRow: number, columns: number[]): Promise<void>;
+  /**
+   * Makes `column` a drop-down of these choices, each in its own colours, from the row under the header down to `lastRow`;
+   * its header takes the look of the header beside it, and the tab grows a column when it has none there (การชำระ).
+   */
+  choiceColumn?(tab: string, column: number, headerRow: number, lastRow: number, choices: readonly string[], tones: Record<string, { fill: string; ink: string }>): Promise<void>;
 }
 
 const columnName = (index: number): string => { let s = '', n = index + 1; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
@@ -381,5 +386,27 @@ export function googleOps(token: string, fileId: string): SheetOps {
         .map(row => ({ deleteDimension: { range: { sheetId: sheet, dimension: 'ROWS', startIndex: row - 1, endIndex: row } } })) });
     },
     tabId: sheetId,
+    async choiceColumn(tab, column, headerRow, lastRow, choices, tones) {
+      const reply = await get<{ sheets?: { properties?: { sheetId?: number; title?: string; gridProperties?: { columnCount?: number } } }[] }>(`${SHEETS}/${id}?fields=sheets.properties(sheetId,title,gridProperties.columnCount)`);
+      const props = (reply.sheets || []).map(item => item.properties).find(item => item?.title === tab);
+      if (!props) throw new GoogleError('notFound', 'Tab not found');
+      const sheet = props.sheetId ?? 0;
+      const rgb = (hex: string) => ({ red: parseInt(hex.slice(0, 2), 16) / 255, green: parseInt(hex.slice(2, 4), 16) / 255, blue: parseInt(hex.slice(4, 6), 16) / 255 });
+      const box = (top: number, bottom: number, left: number) => ({ sheetId: sheet, startRowIndex: top, endRowIndex: bottom, startColumnIndex: left, endColumnIndex: left + 1 });
+      const below = box(headerRow, Math.max(lastRow, headerRow + 1), column);
+      const requests: unknown[] = [];
+      if ((props.gridProperties?.columnCount ?? 26) <= column) requests.push({ appendDimension: { sheetId: sheet, dimension: 'COLUMNS', length: column + 1 - (props.gridProperties?.columnCount ?? 26) } });
+      if (column > 0) {
+        requests.push({ copyPaste: { source: box(headerRow - 1, headerRow, column - 1), destination: box(headerRow - 1, headerRow, column), pasteType: 'PASTE_FORMAT' } });
+        requests.push({ copyPaste: { source: box(headerRow, Math.max(lastRow, headerRow + 1), column - 1), destination: below, pasteType: 'PASTE_FORMAT' } });
+      }
+      requests.push({ updateDimensionProperties: { range: { sheetId: sheet, dimension: 'COLUMNS', startIndex: column, endIndex: column + 1 }, properties: { pixelSize: 110 }, fields: 'pixelSize' } });
+      requests.push({ setDataValidation: { range: below, rule: { condition: { type: 'ONE_OF_LIST', values: choices.map(value => ({ userEnteredValue: value })) }, showCustomUi: true, strict: false } } });
+      choices.forEach((choice, index) => {
+        const tone = tones[choice];
+        if (tone) requests.push({ addConditionalFormatRule: { index, rule: { ranges: [below], booleanRule: { condition: { type: 'TEXT_STARTS_WITH', values: [{ userEnteredValue: choice }] }, format: { backgroundColor: rgb(tone.fill), textFormat: { foregroundColor: rgb(tone.ink), bold: true } } } } } });
+      });
+      await post(`${SHEETS}/${id}:batchUpdate`, { requests });
+    },
   };
 }

@@ -1,3 +1,4 @@
+import { PAYMENT_CHOICES, PAYMENT_HEADER } from './paymentColumn.js';
 import { isThaiPublicHoliday } from './calendar.js';
 import { hasSection40_5to8, templateFor, type BusinessProfile, type TemplateId } from './businessProfile.js';
 import { columnLetter, isListValidation, type Cell, type CellStyle, type SheetSpec, type Validation } from './xlsxWriter.js';
@@ -69,7 +70,7 @@ const taxIdCheck = (range: string, ref: string): Validation => ({ range, custom:
 
 /** id: a tax ID or branch code column (text, keeps leading zeros). t: what the column means to เลขา when it adds a row
  *  (a sheet-map target such as date, name, amount); any other column is left alone. */
-interface Col { h: string; w: number; s?: CellStyle; list?: string[]; f?: (r: number) => string; id?: boolean; t?: string }
+interface Col { h: string; w: number; s?: CellStyle; list?: string[]; f?: (r: number) => string; id?: boolean; t?: string; /** Each choice in its own colours (การชำระ). */ tones?: boolean }
 /** What a formula column looks like: grey, so nobody types over it. */
 const CALC: Partial<Record<CellStyle, CellStyle>> = { money: 'calc', text: 'calcText', date: 'calcDate', percent: 'calc' };
 const columnStyle = (c: Col): CellStyle => (c.f ? CALC[c.s ?? 'money'] ?? 'calc' : c.id ? 'idText' : c.list ? 'choice' : c.s === 'text' ? 'choice' : c.s ?? 'cell');
@@ -104,6 +105,7 @@ function table(name: string, cols: Col[], rows: Cell[][], tabColor = TAB.input):
       if (!c.f && c.s === 'date') return [{ range, date: DATE_RANGE, ...DATE_CHECK }];
       return [];
     }),
+    colorRules: cols.flatMap((c, j) => (c.tones ? PAYMENT_CHOICES.map(text => ({ range: `${columnLetter(j)}2:${columnLetter(j)}${END}`, text })) : [])),
   };
 }
 
@@ -293,6 +295,8 @@ function vatReport(kind: 'ขาย' | 'ซื้อ', month = 1): SheetSpec {
 // ── 1–2 Freelancers ───────────────────────────────────────────────────────────────────────────────────────────────
 const INCOME_TYPES = ['40(2)', '40(5)', '40(6)', '40(7)', '40(8)', 'อื่น ๆ'];
 const EXPENSE_CATEGORIES = ['ซื้อสินค้า', 'อุปกรณ์', 'ซอฟต์แวร์', 'เดินทาง', 'ค่าจ้างช่วง', 'ค่าสถานที่', 'โทรศัพท์-เน็ต', 'อื่น ๆ'];
+/** การชำระ (shared/paymentColumn.ts): last in รายรับ, so the columns the other tabs read keep their letters. */
+const PAYMENT_COL: Col = { h: PAYMENT_HEADER, w: 13, list: [...PAYMENT_CHOICES], t: 'status', tones: true };
 const EVIDENCE = ['ใบกำกับภาษีเต็มรูป', 'ใบกำกับภาษีอย่างย่อ', 'ใบเสร็จ', 'ไม่มี'];
 
 function freelance(profile: BusinessProfile, year: number, vat: boolean, data: TemplateData | null, now: Date): SheetSpec[] {
@@ -306,18 +310,18 @@ function freelance(profile: BusinessProfile, year: number, vat: boolean, data: T
     { h: 'ภาษีถูกหัก', w: 12, f: r => `IF(H${r}="","",ROUND(H${r}*${rate(`J${r}`)},2))` },
     { h: 'เงินเข้าจริง', w: 14, f: r => `IF(H${r}="","",H${r}+I${r}-K${r})` },
     { h: 'ได้ 50 ทวิ แล้ว', w: 14, list: ['ได้แล้ว', 'ยังไม่ได้', 'ไม่ต้องใช้'] }, { h: 'หมายเหตุ', w: 26, t: 'note' },
-    { h: 'ลำดับในรายงานภาษีขาย', w: 14, s: 'text', f: r => inMonth('รายงานภาษีขาย', r, 'H') },
+    { h: 'ลำดับในรายงานภาษีขาย', w: 14, s: 'text', f: r => inMonth('รายงานภาษีขาย', r, 'H') }, PAYMENT_COL,
   ] : [
     { h: 'วันที่รับเงิน', w: 13, s: 'date', t: 'paidDate' }, { h: 'ผู้จ่ายเงิน', w: 28, t: 'client' }, { h: 'เลขผู้เสียภาษีผู้จ่าย', w: 18, id: true }, { h: 'รายการ', w: 26, t: 'name' },
     { h: 'ประเภทเงินได้', w: 12, list: INCOME_TYPES }, { h: 'ยอดก่อนหัก', w: 14, s: 'money', t: 'value' }, { h: 'อัตราหัก', w: 9, list: RATES, t: 'whtRate' },
     { h: 'ภาษีถูกหัก', w: 12, f: r => `IF(F${r}="","",ROUND(F${r}*${rate(`G${r}`)},2))` },
     { h: 'เงินเข้าจริง', w: 14, f: r => `IF(F${r}="","",F${r}-H${r})` },
-    { h: 'หลักฐานการหัก', w: 14, list: ['50 ทวิ', 'e-WHT', 'ไม่ถูกหัก'] }, { h: 'ได้ 50 ทวิ แล้ว', w: 14, list: ['ได้แล้ว', 'ยังไม่ได้', 'ไม่ต้องใช้'] }, { h: 'หมายเหตุ', w: 26, t: 'note' },
+    { h: 'หลักฐานการหัก', w: 14, list: ['50 ทวิ', 'e-WHT', 'ไม่ถูกหัก'] }, { h: 'ได้ 50 ทวิ แล้ว', w: 14, list: ['ได้แล้ว', 'ยังไม่ได้', 'ไม่ต้องใช้'] }, { h: 'หมายเหตุ', w: 26, t: 'note' }, PAYMENT_COL,
   ];
   const incomeRows: Cell[][] = data?.income.length
     ? data.income.map(row => vat
-      ? [{ date: row.date }, '', row.payer, '', '', row.item, '', row.gross, null, `${Math.round(row.whtRate * 100)}%`, null, null, row.whtRate > 0 ? 'ยังไม่ได้' : 'ไม่ต้องใช้', row.received ? '' : 'ยังไม่ได้รับเงิน', null]
-      : [{ date: row.date }, row.payer, '', row.item, '', row.gross, `${Math.round(row.whtRate * 100)}%`, null, null, row.whtRate > 0 ? '50 ทวิ' : 'ไม่ถูกหัก', row.whtRate > 0 ? 'ยังไม่ได้' : 'ไม่ต้องใช้', row.received ? '' : 'ยังไม่ได้รับเงิน'])
+      ? [{ date: row.date }, '', row.payer, '', '', row.item, '', row.gross, null, `${Math.round(row.whtRate * 100)}%`, null, null, row.whtRate > 0 ? 'ยังไม่ได้' : 'ไม่ต้องใช้', row.received ? '' : 'ยังไม่ได้รับเงิน', null, row.received ? 'รับครบแล้ว' : 'ยังไม่จ่าย']
+      : [{ date: row.date }, row.payer, '', row.item, '', row.gross, `${Math.round(row.whtRate * 100)}%`, null, null, row.whtRate > 0 ? '50 ทวิ' : 'ไม่ถูกหัก', row.whtRate > 0 ? 'ยังไม่ได้' : 'ไม่ต้องใช้', row.received ? '' : 'ยังไม่ได้รับเงิน', row.received ? 'รับครบแล้ว' : 'ยังไม่จ่าย'])
     : [];
   // Column letters in รายรับ that the other tabs read.
   const I = vat ? { date: 'A', type: 'G', gross: 'H', wht: 'K', got: 'M' } : { date: 'A', type: 'E', gross: 'F', wht: 'H', got: 'K' };
@@ -682,7 +686,7 @@ export function templateShapes() {
       for (const validation of (sheet.validations ?? []).filter(isListValidation)) {
         const at = /^([A-Z]+)\d/.exec(validation.range)?.[1];
         const index = at ? [...at].reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0) - 1 : -1;
-        if (index >= 0 && sheet.targets?.[index] === 'category') choices[index] = validation.list;
+        if (index >= 0 && (sheet.targets?.[index] === 'category' || sheet.targets?.[index] === 'status')) choices[index] = validation.list;
       }
       return { name, headers: sheet.rows[0].map(cell => String((cell as { v: string }).v)), targets: sheet.targets ?? [], choices };
     });

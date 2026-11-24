@@ -97,7 +97,7 @@ export function mapOf(fileId: string, readings: TabReading[]): SheetMap {
     kind: analysis.kind,
     use,
     columns: analysis.columns.map(column => ({ index: column.index, header: column.header.slice(0, 200), target: column.target, ...(formulas.has(column.index) ? { formula: true } : {}),
-      ...(column.target === 'category' && choices?.[column.index]?.length ? { choices: choices[column.index] } : {}) })),
+      ...((column.target === 'category' || column.target === 'status') && choices?.[column.index]?.length ? { choices: choices[column.index] } : {}) })),
   }));
   return { fileId, at: new Date().toISOString(), tabs };
 }

@@ -1,3 +1,4 @@
+import { PAYMENT_CHOICES, PAYMENT_TONES, type PaymentChoice } from './paymentColumn.js';
 import { strToU8, zipSync } from 'fflate';
 
 // A small .xlsx writer for the bookkeeping templates (bookTemplates.ts; owner, 2026-11-12, plan phase 1). The app's
@@ -49,6 +50,8 @@ export interface SheetSpec {
   targets?: string[];
   /** Printing: one page wide, landscape or not, the frozen header repeated on every page. */
   print?: { landscape?: boolean; repeatHeader?: boolean };
+  /** A cell that says exactly this text takes its colours (the การชำระ drop-down, shared/paymentColumn.ts). */
+  colorRules?: { range: string; text: PaymentChoice }[];
 }
 
 // The look (owner, 2026-11-13: "สวยๆ เป็นทางการ"; 2026-11-12: brick #E65F2B flat on a neutral ground, no gradients, no
@@ -170,12 +173,17 @@ function sheetXml(sheet: SheetSpec): string {
   const validations = sheet.validations?.length
     ? `<dataValidations count="${sheet.validations.length}">${sheet.validations.map(validationXml).join('')}</dataValidations>`
     : '';
+  // By the start of the text, so "รับบางส่วน ฿500" takes รับบางส่วน's colours.
+  const colors = (sheet.colorRules ?? []).map((rule, i) => {
+    const first = rule.range.split(':')[0];
+    return `<conditionalFormatting sqref="${rule.range}"><cfRule type="beginsWith" dxfId="${PAYMENT_CHOICES.indexOf(rule.text)}" priority="${i + 1}" operator="beginsWith" text="${esc(rule.text)}"><formula>LEFT(${first},LEN("${esc(rule.text)}"))="${esc(rule.text)}"</formula></cfRule></conditionalFormatting>`;
+  }).join('');
   const merges = sheet.merges?.length ? `<mergeCells count="${sheet.merges.length}">${sheet.merges.map(ref => `<mergeCell ref="${ref}"/>`).join('')}</mergeCells>` : '';
   const fit = sheet.print ? '<pageSetUpPr fitToPage="1"/>' : '';
   const tab = sheet.tabColor || fit ? `<sheetPr>${sheet.tabColor ? `<tabColor rgb="FF${sheet.tabColor}"/>` : ''}${fit}</sheetPr>` : '';
   const format = `<sheetFormatPr defaultRowHeight="${sheet.defaultHeight ?? 18}"${sheet.defaultHeight ? ' customHeight="1"' : ''}/>`;
   const page = sheet.print ? `<pageSetup paperSize="9" orientation="${sheet.print.landscape ? 'landscape' : 'portrait'}" fitToWidth="1" fitToHeight="0"/>` : '';
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${tab}${freeze}${format}${cols}<sheetData>${rows}</sheetData>${merges}${validations}<pageMargins left="0.5" right="0.5" top="0.6" bottom="0.6" header="0.3" footer="0.3"/>${page}</worksheet>`;
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${tab}${freeze}${format}${cols}<sheetData>${rows}</sheetData>${merges}${colors}${validations}<pageMargins left="0.5" right="0.5" top="0.6" bottom="0.6" header="0.3" footer="0.3"/>${page}</worksheet>`;
 }
 
 const BORDERS: Record<BorderKind, string> = {
@@ -213,6 +221,7 @@ function stylesXml(font: string): string {
 <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
 <cellXfs count="${xfs.length}">${xfs.join('')}</cellXfs>
 <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+<dxfs count="${PAYMENT_CHOICES.length}">${PAYMENT_CHOICES.map(choice => `<dxf><font><b/><color rgb="FF${PAYMENT_TONES[choice].ink}"/></font><fill><patternFill patternType="solid"><fgColor rgb="FF${PAYMENT_TONES[choice].fill}"/><bgColor rgb="FF${PAYMENT_TONES[choice].fill}"/></patternFill></fill></dxf>`).join('')}</dxfs>
 </styleSheet>`;
 }
 

@@ -14,7 +14,7 @@ process.env.GOOGLE_CLIENT_ID = 'client-id.apps.googleusercontent.com';
 process.env.GOOGLE_CLIENT_SECRET = 'test-secret-not-real';
 process.env.GOOGLE_TOKEN_KEY = randomBytes(32).toString('base64');
 
-const { planRow, writeRow, previewOf, writeFor, deleteRecordRows, writeRowsBatch, writeOverRow, recentRowsOf } = await import('../backend/src/services/sheetWrite');
+const { planRow, writeRow, previewOf, writeFor, deleteRecordRows, writeRowsBatch, writeOverRow, recentRowsOf, addPaymentColumn } = await import('../backend/src/services/sheetWrite');
 const { googleOps } = await import('../backend/src/services/googleSheets');
 const { confirmProposal } = await import('../backend/src/ai/service');
 type SheetOps = import('../backend/src/services/googleSheets').SheetOps;
@@ -74,6 +74,7 @@ function fakeOps(sheet: Record<string, string[][]>, formulas: Record<string, Set
     async writeMany(tab, cells) { calls.push({ op: 'writeMany', args: [tab, cells] }); return cells.map(cell => `${tab}!${cell.index}${cell.row}`); },
     async copyFormulasDown(tab, from, first, last, columns) { calls.push({ op: 'copyDown', args: [tab, from, first, last, columns] }); },
     async tabId(tab) { return tab === 'รายจ่าย' ? 7 : 0; },
+    async choiceColumn(tab, column, headerRow, lastRow, choices) { calls.push({ op: 'choiceColumn', args: [tab, column, headerRow, lastRow, choices] }); },
     async formulaTexts(tab, row, columns) { return Object.fromEntries(columns.filter(column => formulas[tab]?.has(`${row}:${column}`)).map(column => [column, formulaText[tab]?.[`${row}:${column}`] ?? '=1'])); },
   };
   return { ops, calls };
@@ -360,4 +361,33 @@ test('a job set back to not received clears its payment date in the row; other e
   const cells = calls.find(call => call.op === 'write')!.args[2] as { index: number; value: unknown }[];
   assert.deepEqual(cells.find(cell => cell.index === 0), { index: 0, value: '' }, 'the payment date is cleared');
   assert.ok(!cells.some(cell => cell.index === 4), 'an empty note in the app does not wipe the row\'s note');
+});
+
+// Owner, 2026-11-24: "ในชีตอ่ะกูอยากให้มันแบบว่ามีช่องบอกว่ารับเงินยังหรือยังไม่รับ". A workbook of ours made before การชำระ gets
+// the column after its last, filled from the app's jobs, and the map is told; any other sheet, or one that has it, is left.
+test('การชำระ: added to our รายรับ after its last column, each row its job\'s word, the map told; never twice, never a sheet of the person\'s own', async () => {
+  const headers = ['วันที่รับเงิน', 'ผู้จ่ายเงิน', 'เลขผู้เสียภาษีผู้จ่าย', 'รายการ', 'ประเภทเงินได้', 'ยอดก่อนหัก', 'อัตราหัก', 'ภาษีถูกหัก (คำนวณ)', 'เงินเข้าจริง (คำนวณ)', 'หลักฐานการหัก', 'ได้ 50 ทวิ แล้ว', 'หมายเหตุ'];
+  const tab: SheetMapTab = { name: 'รายรับ', headerRow: 0, kind: 'jobs', use: true, columns: [
+    { index: 0, header: 'วันที่รับเงิน', target: 'paidDate' }, { index: 1, header: 'ผู้จ่ายเงิน', target: 'client' }, { index: 3, header: 'รายการ', target: 'name' },
+    { index: 5, header: 'ยอดก่อนหัก', target: 'value' }, { index: 8, header: 'เงินเข้าจริง (คำนวณ)', target: 'income', formula: true }, { index: 11, header: 'หมายเหตุ', target: 'note' },
+  ] };
+  const map: SheetMap = { fileId: 'file-12345678', at: '2026-11-18T03:00:00.000Z', tabs: [tab] };
+  const row = (date: string, payer: string, item: string, amount: string) => [date, payer, '', item, '40(2)', amount, '', '-', amount, '', '', ''];
+  const sheet = { รายรับ: [headers, row('18/11/2569', 'กยศ', 'งานของ กยศ', '3,000'), row('', 'ยาย', 'ยาย', '3,000'), row('', 'แม่', 'แม่', '1,000'), row('02/10/2569', 'ปล่อยจอย', 'รีวิว', '1,000')] };
+  const { ops, calls } = fakeOps(sheet);
+  const jobs = [
+    { id: 'a', name: 'งานของ กยศ', value: 3000, received: 3000, pending: 0, status: 'done', sheetLink: { fileId: map.fileId, tab: 'รายรับ', row: 2 } },
+    { id: 'b', name: 'ยาย', value: 3000, received: 0, pending: 3000, status: 'pending', sheetLink: { fileId: map.fileId, tab: 'รายรับ', row: 3 } },
+    { id: 'c', name: 'แม่', value: 1000, received: 500, pending: 500, status: 'partial', sheetLink: { fileId: map.fileId, tab: 'รายรับ', row: 4 } },
+  ];
+  const done = (await addPaymentColumn(ops, map, jobs, new Date('2026-11-24T06:00:00Z')))!;
+  assert.deepEqual(calls.find(call => call.op === 'write')!.args, ['รายรับ', 1, [{ index: 12, value: 'การชำระ' }]], 'the header after หมายเหตุ');
+  assert.deepEqual(calls.find(call => call.op === 'choiceColumn')!.args.slice(0, 2), ['รายรับ', 12]);
+  const cells = calls.find(call => call.op === 'writeMany')!.args[1] as { row: number; index: number; value: string }[];
+  assert.deepEqual(cells.map(cell => [cell.row, cell.value]), [[2, 'รับครบแล้ว'], [3, 'ยังไม่จ่าย'], [4, 'รับบางส่วน ฿500'], [5, 'รับครบแล้ว']], 'jobs by their app status; a row with no job by its date');
+  assert.deepEqual(done.map.tabs[0].columns.at(-1), { index: 12, header: 'การชำระ', target: 'status', choices: ['รับครบแล้ว', 'รับบางส่วน', 'ยังไม่จ่าย'] });
+  assert.equal(done.map.at, '2026-11-24T06:00:00.000Z', 'a new map: the app reads the sheet again with it');
+  assert.equal(await addPaymentColumn(ops, done.map, jobs), null, 'once only');
+  const own = fakeOps({ รายรับ: [['วันที่', 'ลูกค้า', 'งาน', 'เงิน', 'อื่น ๆ', 'หมายเหตุ'], ['1/11/2569', 'ก', 'ข', '100', '', '']] });
+  assert.equal(await addPaymentColumn(own.ops, map, jobs), null, 'a sheet of the person\'s own is never changed');
 });

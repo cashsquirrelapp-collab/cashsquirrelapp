@@ -56,6 +56,8 @@ const lastColumnOf = (map: SheetMap | null | undefined, tab: string) => Math.max
 const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const timeOf = (date: Date) => `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 const SYNC_GAP = 20_000;
+/** Columns that already say how a job stands on payment. */
+const PAYMENT_TARGETS = ['status', 'received', 'pending', 'installment', 'installmentStatus'];
 /** While the app is open and on screen, the sheet is read again this often wherever the person is in the app. */
 const SYNC_EVERY = 60_000;
 
@@ -111,6 +113,7 @@ export function useSheetEngine(input: {
   const staleTries = React.useRef(0);
   const examplesTried = React.useRef(new Set<string>());
   const typesTried = React.useRef(new Set<string>());
+  const paymentTried = React.useRef(new Set<string>());
   // The connection as it stands, kept apart from the object identities a status refresh renews: a new reading starts when
   // the account, the file or its saved map changes, not when the same status is fetched again.
   const where = React.useRef({ account, file, map });
@@ -172,6 +175,13 @@ export function useSheetEngine(input: {
       if (untyped && examples === 0 && !typesTried.current.has(file.id) && (now.canSend?.() ?? true)) {
         typesTried.current.add(file.id);
         await googleApi.fillIncomeTypes(account).catch(() => null);
+      }
+      // การชำระ (owner, 2026-11-24: "อยากให้มันมีช่องบอกว่ารับเงินยังหรือยังไม่รับ"): a workbook of ours made before the column
+      // gets it once, filled from the app's jobs; the map then says where payment is, and the next reading uses it.
+      if (jobTab && !jobTab.columns.some(column => PAYMENT_TARGETS.includes(column.target)) && examples === 0 && !paymentTried.current.has(file.id) && (now.canSend?.() ?? true)) {
+        paymentTried.current.add(file.id);
+        const result = await googleApi.addPaymentColumn(account).catch(() => null);
+        if (result?.added) { const status = await googleApi.status(account).catch(() => null); if (status) rememberGoogleStatus(account, status); }
       }
       if (examples > 0 && !examplesTried.current.has(file.id) && (now.canSend?.() ?? true)) {
         examplesTried.current.add(file.id);

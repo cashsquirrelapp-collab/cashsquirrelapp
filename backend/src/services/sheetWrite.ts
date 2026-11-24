@@ -1,8 +1,10 @@
 import { KEPT_WRITES, RECENT_ROWS_MS, UNDO_MS, sheetRowUrl, type GoogleRecord, type SheetMap, type SheetWrite } from '../../../shared/googleSheets.js';
-import { chooseTab, dataColumns, deletedRowOf, displayValue, exampleRowsOf, incomeTypeFor, isIncomeTypeColumn, letter, rowCells, valueFor, type DeletedRecordRow, type RowCell, type RowKind } from '../../../shared/sheetRow.js';
+import { chooseTab, dataColumns, deletedRowOf, displayValue, exampleRowsOf, incomeTypeFor, isExampleText, isIncomeTypeColumn, letter, rowCells, valueFor, type DeletedRecordRow, type RowCell, type RowKind } from '../../../shared/sheetRow.js';
 import { evaluateRow, shiftFormula } from '../../../shared/sheetFormula.js';
 import { isValidWhtRate, roundMoney, whtAmountFor } from '../../../shared/wht.js';
 import { loadGoogle, saveGoogle } from '../repositories/google.js';
+import { PAYMENT_CHOICES, PAYMENT_HEADER, PAYMENT_TONES, paymentCellOf } from '../../../shared/paymentColumn.js';
+import { templateShapes } from '../../../shared/bookTemplates.js';
 import { GoogleError, accessToken, decryptToken, googleConfigured, googleOps, readSpreadsheet, type SheetOps } from './googleSheets.js';
 
 // บันทึกลงชีตของคุณ (ฟีเจอร์ทดลอง sheetWrite, plan phase 3). A job or expense confirmed in เลขา's chat (web or LINE) is also
@@ -577,6 +579,70 @@ export async function fillIncomeTypes(ops: SheetOps, map: SheetMap): Promise<num
   const cells = rows.flatMap((cells, index) => (data.some(at => (cells[at] ?? '').trim()) && !(cells[column.index] ?? '').trim() ? [{ row: first + index, index: column.index, value: type }] : []));
   if (cells.length) await ops.writeMany(tab.name, cells);
   return cells.length;
+}
+
+/**
+ * การชำระ for a workbook of ours made before it (shared/paymentColumn.ts; owner, 2026-11-24): a column after the last, each
+ * job row given its job's word from the app (a row no job is linked to: รับครบแล้ว when it has a payment date, else ยังไม่จ่าย),
+ * and the map told, so the app reads and writes payment there from now on. Only our รายรับ tab, only once (a tab that
+ * already says how a job stands on payment is left alone). Returns the new map, or null when nothing was done.
+ */
+export async function addPaymentColumn(ops: SheetOps, map: SheetMap, jobs: Record<string, unknown>[], now = new Date()): Promise<{ map: SheetMap; filled: number } | null> {
+  const tab = chooseTab(map, 'job');
+  if (!tab || tab.headerRow === null || !ops.choiceColumn) return null;
+  if (tab.columns.some(column => ['status', 'received', 'pending', 'installment', 'installmentStatus'].includes(column.target))) return null;
+  const headerRow = tab.headerRow + 1;
+  const width = Math.max(...tab.columns.map(column => column.index)) + 8;
+  const [headers = []] = await ops.readRows(tab.name, headerRow, headerRow, width);
+  if (!isOurIncomeTab(tab.name, headers)) return null;
+  let column = headers.length;
+  while (column > 0 && !(headers[column - 1] ?? '').trim()) column -= 1;
+  if (headers.some(header => header.trim() === PAYMENT_HEADER)) return null;
+  const first = headerRow + 1;
+  const last = Math.min(await ops.lastRow(tab.name, dataColumns(tab)), first + MAX_DELETE_SCAN);
+  await ops.write(tab.name, headerRow, [{ index: column, value: PAYMENT_HEADER }]);
+  await ops.choiceColumn(tab.name, column, headerRow, Math.max(last, headerRow + 1000), PAYMENT_CHOICES, PAYMENT_TONES);
+  const paidDate = tab.columns.find(item => item.target === 'paidDate');
+  const rows = last >= first ? await ops.readRows(tab.name, first, last, Math.max(...tab.columns.map(item => item.index))) : [];
+  const linked = new Map<number, Record<string, unknown>>();
+  for (const job of jobs) {
+    const link = job.sheetLink as { fileId?: string; tab?: string; row?: number } | undefined;
+    if (link?.fileId === map.fileId && link.tab === tab.name && typeof link.row === 'number') linked.set(link.row, job);
+  }
+  const data = dataColumns(tab);
+  const cells = rows.flatMap((cells, index) => {
+    if (!data.some(at => (cells[at] ?? '').trim()) || exampleText(cells)) return [];
+    const job = linked.get(first + index);
+    const value = job ? paymentCellOf(job) : paidDate && (cells[paidDate.index] ?? '').trim() ? 'รับครบแล้ว' : 'ยังไม่จ่าย';
+    return [{ row: first + index, index: column, value }];
+  });
+  if (cells.length) await ops.writeMany(tab.name, cells);
+  const next: SheetMap = { ...map, at: now.toISOString(), tabs: map.tabs.map(item => (item === tab ? { ...item, columns: [...item.columns, { index: column, header: PAYMENT_HEADER, target: 'status', choices: [...PAYMENT_CHOICES] }] } : item)) };
+  return { map: next, filled: cells.length };
+}
+const exampleText = (cells: string[]) => isExampleText(...cells);
+/** Our workbooks' รายรับ: its headers, as far as the file has them, are the template's. */
+function isOurIncomeTab(name: string, headers: string[]): boolean {
+  const have = headers.map(header => header.trim());
+  while (have.length && !have[have.length - 1]) have.pop();
+  return have.length >= 6 && templateShapes().some(shape => shape.tabs.some(tab => tab.name === name && have.every((header, i) => (tab.headers[i] ?? '').trim() === header)));
+}
+
+export async function addSheetPaymentColumn(userId: string): Promise<{ added: boolean; filled: number; error?: string } | null> {
+  let context: Awaited<ReturnType<typeof sheetContext>>;
+  try { context = await sheetContext(userId); }
+  catch (error) { return { added: false, filled: 0, error: error instanceof GoogleError ? ERRORS[error.code] : ERRORS.failed }; }
+  if (!context) return null;
+  try {
+    const { getSupabaseAdmin } = await import('../config/supabase.js');
+    const { data, error } = await getSupabaseAdmin().from('cashflow_jobs').select('data').eq('user_id', userId);
+    if (error) throw error;
+    const done = await addPaymentColumn(context.ops, context.record.map!, (data ?? []).map(row => row.data as Record<string, unknown>));
+    if (!done) return { added: false, filled: 0 };
+    const latest = await loadGoogle(userId);
+    if (latest?.map?.fileId === done.map.fileId) await saveGoogle(userId, { ...latest, map: done.map });
+    return { added: true, filled: done.filled };
+  } catch (error) { return { added: false, filled: 0, error: error instanceof GoogleError ? ERRORS[error.code] : ERRORS.failed }; }
 }
 
 export async function fillSheetIncomeTypes(userId: string): Promise<{ filled: number; error?: string } | null> {
