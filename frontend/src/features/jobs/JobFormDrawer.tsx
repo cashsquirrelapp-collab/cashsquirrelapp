@@ -116,8 +116,13 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
   const formScrollRef = React.useRef<HTMLDivElement>(null);
   const moreRef = React.useRef<HTMLDetailsElement>(null);
 
+  // Filled from the job when the form opens, or when a different job is opened, and never again while it is open
+  // (owner, 2026-11-24: "แก้แล้วกลับไปเป็นเหมือนเดิม"): the records are fetched again in the background every few seconds
+  // (App.tsx live refresh, the sheet's reading), each time with a new statuses list and job object, and this used to put
+  // every field back to the saved values while the person was typing.
+  const formFor = open ? (job?.id ?? 'new') : null;
   React.useEffect(() => {
-    if (!open) return;
+    if (formFor === null) return;
     const status = job?.status ?? statusIdFor('unpaid', statuses);
     setName(job?.name ?? '');
     setClient(job?.client ?? '');
@@ -148,7 +153,7 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
     setMoreOpen(false);
     setExtraTab('schedule');
     setCreditOptionsOpen(Boolean(job?.excludeHolidays));
-  }, [open, job, statuses]);
+  }, [formFor]); // eslint-disable-line react-hooks/exhaustive-deps
 
   React.useEffect(() => {
     if (!open) return;

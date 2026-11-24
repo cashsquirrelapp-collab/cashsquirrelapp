@@ -112,3 +112,28 @@ test('automated browsers that did not ask never refresh by themselves (the rest 
   expect(mock.reads()).toBe(before);
   await expect(page.locator('[data-job-id="job-b"]').filter({ visible: true }).first()).toBeVisible();
 });
+
+for (const [device, size] of [['phone', { width: 390, height: 844 }], ['computer', { width: 1280, height: 860 }]] as const) {
+  test(`${device}: a refresh while a job is being edited never puts the typed amount back (2026-11-24: แก้แล้วกลับไปเป็นเหมือนเดิม)`, async ({ page }) => {
+    const mock = await open(page);
+    await page.setViewportSize(size);
+    const row = page.locator('[data-job-id="job-a"]').filter({ visible: true }).first();
+    if (device === 'phone') await row.click();
+    else {
+      await row.hover();
+      await row.getByRole('button', { name: /เมนู|ตัวเลือก|เพิ่มเติม/ }).first().click();
+      await page.getByRole('menuitem', { name: 'ดูและแก้ไขรายละเอียด' }).click();
+    }
+    const amount = page.locator('#job-form-value-input').filter({ visible: true });
+    await expect(amount).toHaveValue(/5,?000/);
+    await amount.fill('7500');
+    // Another device changed job B meanwhile: the refresh lands with a new job list and a new statuses list.
+    mock.server.snapshot = snapshotOf([job('job-a', 'ตัดต่อคลิปรีวิว'), job('job-b', 'ถ่ายภาพสินค้า — แก้จากมือถือ')]);
+    mock.server.versions = versionsOf({ 'job-a': 1, 'job-b': 2 });
+    const before = mock.reads();
+    await backToScreen(page);
+    await expect.poll(() => mock.reads()).toBeGreaterThan(before);
+    await page.waitForTimeout(800);
+    await expect(amount, 'the amount being typed stays').toHaveValue(/7,?500/);
+  });
+}
