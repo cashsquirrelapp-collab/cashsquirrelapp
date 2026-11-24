@@ -344,3 +344,20 @@ test('an edit made outside the app\'s forms finds its row by name or amount, one
   assert.equal(edits[0][1], 'job');
   assert.equal((edits[0][2] as { received: number }).received, 10000);
 });
+
+// Owner, 2026-11-24: "มันเปลี่ยนเป็นรับเงินครบ ทั้งๆที่ยังไม่รับเงิน". A job set back to not received kept its วันที่รับเงิน in
+// the row (an empty value was never written), so the next reading of the sheet made it paid again.
+test('a job set back to not received clears its payment date in the row; other empty values leave their cells alone', async () => {
+  const PAID_TAB: SheetMapTab = { name: 'รายรับ', headerRow: 0, kind: 'jobs', use: true, columns: [
+    { index: 0, header: 'วันที่รับเงิน', target: 'paidDate' }, { index: 1, header: 'ผู้จ่ายเงิน', target: 'client' },
+    { index: 2, header: 'รายการ', target: 'name' }, { index: 3, header: 'ยอดก่อนหัก', target: 'value' }, { index: 4, header: 'หมายเหตุ', target: 'note' },
+  ] };
+  const map: SheetMap = { fileId: 'file-12345678', at: '2026-11-24T03:00:00.000Z', tabs: [PAID_TAB] };
+  const sheet = { รายรับ: [['วันที่รับเงิน', 'ผู้จ่ายเงิน', 'รายการ', 'ยอดก่อนหัก', 'หมายเหตุ'], ['18/11/2569', 'แม่', 'แม่', '1,000', 'ฝากไว้']] };
+  const { ops, calls } = fakeOps(sheet);
+  const unpaid = { id: 'j', name: 'แม่', client: 'แม่', value: 1000, received: 0, pending: 1000, status: 'pending', paymentStatus: 'unpaid', payDate: '2026-11-30', creditTerm: 0, whtRate: 0, note: '' };
+  await writeOverRow(ops, map, 'job', unpaid, { tab: 'รายรับ', row: 2 }, { first: 2, rows: sheet.รายรับ.slice(1) });
+  const cells = calls.find(call => call.op === 'write')!.args[2] as { index: number; value: unknown }[];
+  assert.deepEqual(cells.find(cell => cell.index === 0), { index: 0, value: '' }, 'the payment date is cleared');
+  assert.ok(!cells.some(cell => cell.index === 4), 'an empty note in the app does not wipe the row\'s note');
+});

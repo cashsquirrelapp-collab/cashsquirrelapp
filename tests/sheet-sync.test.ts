@@ -247,3 +247,24 @@ test('ดูในชีต: the address opens the tab with the row selected', (
   assert.equal(sheetRowUrl(FILE, 0), 'https://docs.google.com/spreadsheets/d/file-12345678/edit#gid=0');
   assert.equal(sheetRowUrl(FILE, undefined, 4), 'https://docs.google.com/spreadsheets/d/file-12345678/edit');
 });
+
+// Owner, 2026-11-24: "มันเปลี่ยนเป็นรับเงินครบ ทั้งๆที่ยังไม่รับเงิน". Our freelancer workbook's รายรับ has a วันที่รับเงิน column
+// and no status: a row with that date empty was read as paid in full, so a job not received yet came back paid.
+test('sheet sync: a row with no วันที่รับเงิน says nothing about payment; a job not received yet stays so, and no date is written', () => {
+  const head = ['วันที่รับเงิน', 'ผู้จ่ายเงิน', 'รายการ', 'ยอดก่อนหัก', 'เงินเข้าจริง (คำนวณ)', 'หมายเหตุ'].map(text => cell(text));
+  const income = (r: LiveCell[][]): LiveTab => ({ name: 'รายรับ', gid: 1, truncated: false, rows: [head, ...r] });
+  const row = (date: string) => [date ? day(date, '2026-11-18') : cell(''), cell('ยาย'), cell('เงินจากที่บ้าน'), cell('3,000'), cell('3,000', { formula: true }), cell('')];
+  const incomeMap = mapOf(FILE, readTabs([income([row('18/11/2569')])]));
+  const run = (jobs: Job[], date: string) => planSheetSync({ jobs, tabs: [income([row(date)])], map: incomeMap, fileId: FILE, statuses: STATUSES, jobTypes: [], today: '2026-11-24' });
+  const waiting = { id: 'yai', name: 'เงินจากที่บ้าน', client: 'ยาย', type: 'ยังไม่ระบุ', note: '', value: 3000, received: 0, pending: 3000, status: 'pending', paymentStatus: 'unpaid', creditTerm: 0,
+    postDate: '2026-11-18', payDate: '2026-11-28', sheetLink: { fileId: FILE, tab: 'รายรับ', row: 2, gid: 1 } } as unknown as Job;
+  // Linked before fingerprints (the sheet's values once), changed in the app since its write, agreed: never made paid.
+  for (const job of [waiting, { ...waiting, sheetLink: { ...waiting.sheetLink!, wrote: 'old' } }, { ...waiting, sheetLink: { ...waiting.sheetLink!, sig: 'old' } }] as Job[]) {
+    const plan = run([job], '');
+    const fields = plan.update.find(update => update.id === 'yai')?.fields ?? {};
+    for (const field of ['status', 'paymentStatus', 'received', 'pending', 'payDate'] as const) assert.ok(!(field in fields), `${field} untouched`);
+    assert.deepEqual(plan.push, [], 'no payment date written for a job not received');
+  }
+  // Once the row has its date, the sheet says it was received.
+  assert.equal(run([waiting], '18/11/2569').update.find(update => update.id === 'yai')?.fields.paymentStatus, 'paid');
+});

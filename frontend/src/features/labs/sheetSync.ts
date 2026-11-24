@@ -112,6 +112,9 @@ function ownedFields(targets: Set<string>): (keyof Job)[] {
   return [...fields];
 }
 
+/** Columns that say how a job stands on payment, besides a payment date. */
+const PAYMENT_WORDS = ['received', 'pending', 'status', 'installment', 'installmentStatus'];
+const PAYMENT_FIELDS = new Set<string>(['received', 'pending', 'status', 'paymentStatus', 'depositDate', 'depositAmount', 'installments', 'payDate', 'dueDate']);
 const sameValue = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 const DATE_FIELDS = new Set<string>(['payDate', 'dueDate', 'postDate', 'date', 'depositDate']);
 const sameLink = (a: SheetLink | undefined, b: SheetLink) => Boolean(a) && a!.fileId === b.fileId && a!.tab === b.tab && a!.row === b.row && a!.gid === b.gid && !a!.missing && a!.sig === b.sig && a!.wrote === b.wrote;
@@ -203,7 +206,11 @@ export function planSheetSync(input: {
       ?? jobs.find(job => open(job) && !linked(job) && norm(job.name) === norm(sheetJob.name) && sameMoney(job.value, sheetJob.value)
         && (!norm(job.client) || !norm(sheetJob.client) || norm(job.client) === norm(sheetJob.client)));
     const targets = targetsOf.get(row.sheet) ?? new Set<string>();
-    const owned = ownedFields(targets);
+    // A วันที่รับเงิน column is the tab's only word on payment (our freelancer workbook's รายรับ) and this row's is empty: the
+    // row says nothing about payment, and the app's own status stands (owner, 2026-11-24: "มันเปลี่ยนเป็นรับเงินครบ ทั้งๆที่ยัง
+    // ไม่รับเงิน" — such a row was read as paid in full and turned the job paid again).
+    const silentOnPayment = targets.has('paidDate') && !sheetJob.payDate && !PAYMENT_WORDS.some(target => targets.has(target));
+    const owned = ownedFields(targets).filter(field => !(silentOnPayment && PAYMENT_FIELDS.has(field)));
     // A paid-date column decides the date only once the row is paid; until then the app's own due date stands (the
     // importer would otherwise put a guess there).
     if (!owned.includes('payDate') && targets.has('paidDate') && (sheetJob.paymentStatus === 'paid' || sheetJob.status === 'done')) owned.push('payDate', 'dueDate');
@@ -237,7 +244,8 @@ export function planSheetSync(input: {
     // Paid in the sheet with no date there (owner, 2026-11-18: "ยอดเป็นไรทำไมไม่ตรงกันอีก"): the reading used to clear the
     // app's payment date, so the money fell out of every month. The app's date stands; a paid job with no date anywhere
     // takes its delivery date (else its start); and the row gets that date written in.
-    const paidWithoutDate = (sheetJob.paymentStatus === 'paid' || sheetJob.status === 'done') && !sheetJob.payDate;
+    const paidWithoutDate = (sheetJob.paymentStatus === 'paid' || sheetJob.status === 'done') && !sheetJob.payDate
+      && (!silentOnPayment || match.paymentStatus === 'paid' || match.status === 'done');
     if (paidWithoutDate) {
       const date = match.payDate || match.postDate || match.startDate || input.today;
       if (!match.payDate && !fields.payDate) fields.payDate = date;

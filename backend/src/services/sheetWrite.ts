@@ -411,6 +411,9 @@ export async function writeOverRow(ops: SheetOps, map: SheetMap, kind: RowKind, 
   const values = rowCells(tab, kind, record, samples)
     // A type of income the row already has is the person's (or was given before): never written over.
     .filter(cell => !(isIncomeTypeColumn(tab.columns.find(column => column.index === cell.index)!) && (current[cell.index] ?? '').trim()))
+    // A payment or due date the record no longer has is cleared (2026-11-24): a job set back to not received kept its
+    // วันที่รับเงิน in the row, and the next reading of the sheet made it paid again. Other empty values leave the cell alone.
+    .map(cell => (cell.value === null && (cell.target === 'paidDate' || cell.target === 'dueDate') && (current[cell.index] ?? '').trim() ? { ...cell, value: '' } : cell))
     .filter((cell): cell is RowCell & { value: string | number } => !cell.formula && cell.value !== null).map(cell => ({ index: cell.index, value: cell.value }));
   return ops.write(tab.name, spot.row, values);
 }
