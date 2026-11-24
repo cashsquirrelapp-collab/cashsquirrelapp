@@ -9,7 +9,7 @@ import type { Job, SheetSeen, StatusOption } from '../shared/types';
 // saved in the app is linked, never added twice; only what the sheet says is taken from it; nothing is deleted.
 
 const { readTabs, mapOf } = await import('../frontend/src/features/labs/sheetMap');
-const { planSheetSync } = await import('../frontend/src/features/labs/sheetSync');
+const { planSheetSync, writtenSig } = await import('../frontend/src/features/labs/sheetSync');
 
 const cell = (text: string, extra: Partial<LiveCell> = {}): LiveCell => ({ raw: /^[\d,.]+$/.test(text) ? Number(text.replace(/,/g, '')) : text || null, text, ...extra });
 const day = (text: string, iso: string) => cell(text, { date: iso });
@@ -187,6 +187,32 @@ test('sheet sync: whichever side changed since they last agreed wins; the app\'s
   // Linked before fingerprints: the sheet's values once, as before.
   const legacy = edited.map(job => (job.id === logo.id ? { ...job, sheetLink: { ...job.sheetLink!, sig: undefined } } : job));
   assert.equal(sync(legacy, ROWS).update.find(update => update.id === logo.id)?.fields.value, 5000);
+});
+
+// Owner, 2026-11-24: "แก้ไขในเว็บหรือชีต … ลิ้งกันโดยไม่เด้งกลับ". A write from the app left the link with no fingerprint, so a
+// change made again before the next reading (in LINE, on another device) was undone by the sheet's older values.
+test('sheet sync: after the app wrote a row, a later change in the app is written again, never undone; agreeing signs the link', () => {
+  const first = apply([], sync([], ROWS));
+  const signed = apply(first, sync(first, ROWS));
+  const logo = signed.find(job => job.name === 'ออกแบบโลโก้ร้านกาแฟ')!;
+  // The web form changed the amount to 6,500 and wrote it over row 3 (App.tsx writeToSheet): the link keeps what it wrote.
+  const written = { ...logo, value: 6500, pending: 1500 };
+  const afterWrite = signed.map(job => (job.id === logo.id ? { ...written, sheetLink: { fileId: FILE, tab: 'รายรับ', row: 3, gid: 812, wrote: writtenSig('job', written) } } : job));
+  const sheetWritten = ROWS.map(row => (row[1].text === 'ออกแบบโลโก้ร้านกาแฟ' ? [row[0], row[1], row[2], cell('6,500'), ...row.slice(4)] : row));
+  // Then LINE changed it to 8,000 before any reading, and the reading still sees 6,500 in the row: the app's 8,000 is written.
+  const again = afterWrite.map(job => (job.id === logo.id ? { ...job, value: 8000, pending: 3000 } : job));
+  const plan = sync(again, sheetWritten);
+  assert.equal(plan.push.find(item => item.id === logo.id)?.before.amount, 6500, 'the app\'s 8,000 goes over the row');
+  const update = plan.update.find(item => item.id === logo.id);
+  assert.equal(update?.fields.value, undefined, 'the app keeps 8,000');
+  assert.equal(update?.fields.sheetLink?.wrote ?? afterWrite.find(job => job.id === logo.id)!.sheetLink!.wrote, writtenSig('job', written), 'still waiting for its write');
+  // Nothing changed since the write and the row agrees: signed with a fingerprint, the wait is over.
+  const agreed = sync(afterWrite, sheetWritten).update.find(item => item.id === logo.id)!;
+  assert.ok(agreed.fields.sheetLink?.sig);
+  assert.equal(agreed.fields.sheetLink?.wrote, undefined);
+  // Nothing changed in the app since its write but someone edited the row afterwards: the sheet's value is taken.
+  const sheetLater = ROWS.map(row => (row[1].text === 'ออกแบบโลโก้ร้านกาแฟ' ? [row[0], row[1], row[2], cell('9,000'), ...row.slice(4)] : row));
+  assert.equal(sync(afterWrite, sheetLater).update.find(item => item.id === logo.id)?.fields.value, 9000);
 });
 
 // Owner, 2026-11-18: "ยอดเป็นไรทำไมไม่ตรงกันอีก": งานของ กยศ, received 3,000, had its payment date cleared by a reading of a

@@ -79,7 +79,7 @@ import { VAULT_FREE_FILES } from '../../../shared/vault';
 import { useFeedbackWaiting } from '../features/feedback/useFeedbackWaiting';
 import { applyFields, carriesBatch, recentImports, undoUpdate } from '../features/import/importBatches';
 import type { ImportCommit, ImportResult, SaveOutcome } from '../features/import/importShared';
-import type { SheetExpenseChanges, SheetSyncChanges } from '../features/labs/sheetSync';
+import { EXPENSE_SHEET_FIELDS, JOB_SHEET_FIELDS, writtenSig, type SheetExpenseChanges, type SheetSyncChanges } from '../features/labs/sheetSync';
 import { sheetReadyFor, useSheetEngine } from '../features/labs/SheetSource';
 import { deletedRowOf, type DeletedRecordRow } from '../../../shared/sheetRow';
 import { recurringExpensesDue } from '../../../shared/recurringExpenses';
@@ -3090,7 +3090,7 @@ export default function App() {
       return googleApi.saveRow(account, kind, record, beforeRow).then(result => {
         if (!result) return;
         if (result.status === 'written') {
-          const link = { fileId: result.fileId, tab: result.tab, row: result.row, ...(result.gid === undefined ? {} : { gid: result.gid }) };
+          const link = { fileId: result.fileId, tab: result.tab, row: result.row, ...(result.gid === undefined ? {} : { gid: result.gid }), wrote: writtenSig(kind, record) };
           if (kind === 'job') setJobs(prev => prev.map(job => (job.id === record.id ? { ...job, sheetLink: link } : job)));
           else setExpenses(prev => prev.map(expense => (expense.id === record.id ? { ...expense, sheetLink: link } : expense)));
           return;
@@ -3121,7 +3121,7 @@ export default function App() {
           if (!result) break;
           if (result.status !== 'written') { problem = result.error; break; }
           tabName = result.tab;
-          const links = new Map(chunk.map((record, index) => [record.id, { fileId: result.fileId, tab: result.tab, row: result.rows[index], ...(result.gid === undefined ? {} : { gid: result.gid }) }]));
+          const links = new Map(chunk.map((record, index) => [record.id, { fileId: result.fileId, tab: result.tab, row: result.rows[index], ...(result.gid === undefined ? {} : { gid: result.gid }), wrote: writtenSig(kind, record) }]));
           if (kind === 'job') setJobs(prev => prev.map(job => (links.has(job.id) ? { ...job, sheetLink: links.get(job.id)! } : job)));
           else setExpenses(prev => prev.map(expense => (links.has(expense.id) ? { ...expense, sheetLink: links.get(expense.id)! } : expense)));
           done += chunk.length;
@@ -3137,8 +3137,6 @@ export default function App() {
     if (ask) triggerConfirm(tr("ส่งรายการลงชีต"), tr("รายการในแอปที่ยังไม่อยู่ในชีต {0} รายการ จะถูกเพิ่มต่อท้ายชีต เรียงจากเก่าไปใหม่ ต้องการดำเนินการต่อหรือไม่", ordered.length), go);
     else go();
   };
-  const JOB_SHEET_FIELDS: (keyof Job)[] = ['name', 'client', 'type', 'value', 'whtRate', 'whtAmount', 'received', 'pending', 'status', 'paymentStatus', 'postDate', 'payDate', 'dueDate', 'creditTerm', 'note', 'installments', 'depositAmount', 'depositDate'];
-  const EXPENSE_SHEET_FIELDS: (keyof Expense)[] = ['name', 'amount', 'category', 'date', 'note'];
   const sheetFieldsChanged = <T extends object>(before: T, updated: Partial<T>, fields: (keyof T)[]) =>
     fields.some(field => field in updated && JSON.stringify(updated[field] ?? null) !== JSON.stringify(before[field] ?? null));
 

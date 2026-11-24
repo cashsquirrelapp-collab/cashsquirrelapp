@@ -194,7 +194,7 @@ test('a job added in the app goes into the sheet as a new row; a job from the sh
   await expect.poll(() => saves.length).toBe(1);
   expect(saves[0]).toMatchObject({ kind: 'job', before: null, record: { name: 'ถ่ายรูปเมนูใหม่', value: 2500 } });
   // Linked to the row it went into, so the next reading of the sheet takes it as the same job.
-  await expect.poll(() => JSON.stringify(posts)).toContain('"sheetLink":{"fileId":"file-12345678","tab":"รายรับ","row":6,"gid":812}');
+  await expect.poll(() => JSON.stringify(posts)).toMatch(/"sheetLink":\{"fileId":"file-12345678","tab":"รายรับ","row":6,"gid":812,"wrote":"[a-z0-9]+"\}/);
 
   await titles.filter({ hasText: 'ออกแบบโลโก้ร้านกาแฟ' }).first().click();
   await expect(page.getByRole('heading', { name: 'แก้ไขงาน' })).toBeVisible();
@@ -256,7 +256,7 @@ test('jobs not in the sheet yet are sent there by themselves, the oldest first, 
   expect(batches[0].records.map(record => record.name)).toEqual(['ออกแบบเมนูร้านก๋วยเตี๋ยว', 'ถ่ายรูปงานบวช']);
   await expect(page.getByRole('dialog', { name: 'ส่งรายการลงชีต' })).toHaveCount(0);
   await expect(page.getByText('เพิ่ม 2 รายการต่อท้ายแท็บ รายรับ').first()).toBeVisible();
-  await expect.poll(() => JSON.stringify(posts)).toContain('"sheetLink":{"fileId":"file-12345678","tab":"รายรับ","row":7,"gid":812}');
+  await expect.poll(() => JSON.stringify(posts)).toMatch(/"sheetLink":\{"fileId":"file-12345678","tab":"รายรับ","row":7,"gid":812,"wrote":"[a-z0-9]+"\}/);
   await expect(page.getByTestId('sheet-jobs-line-copy')).toHaveCount(0);
   // Read again: the two are in the sheet now, nothing is sent twice.
   await page.clock.setFixedTime(new Date('2026-11-14T09:14:30+07:00'));

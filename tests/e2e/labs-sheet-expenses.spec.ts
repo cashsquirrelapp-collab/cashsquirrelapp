@@ -118,7 +118,7 @@ test('expenses in the app but not in the sheet go there by themselves, from any 
   const { batches, posts } = await open(page, { width: 1440, height: 900 }, ['sheets', 'sheetMap', 'sheetJobs', 'sheetWrite'], [coffee, rent], '/dashboard');
   await expect.poll(() => batches.filter(batch => batch.kind === 'expense').length).toBe(1);
   expect(batches.find(batch => batch.kind === 'expense')!.records.map(record => record.name)).toEqual(['ค่าเช่าสตูดิโอ', 'กาแฟประชุมลูกค้า']);
-  await expect.poll(() => JSON.stringify(posts)).toContain('"sheetLink":{"fileId":"file-12345678","tab":"รายจ่าย","row":7,"gid":905}');
+  await expect.poll(() => JSON.stringify(posts)).toMatch(/"sheetLink":\{"fileId":"file-12345678","tab":"รายจ่าย","row":7,"gid":905,"wrote":"[a-z0-9]+"\}/);
 });
 
 // Owner, 2026-11-18: "ทำให้รายจ่ายประจำลงชีตทุกเดือนด้วย".

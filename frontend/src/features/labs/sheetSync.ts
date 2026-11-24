@@ -114,7 +114,7 @@ function ownedFields(targets: Set<string>): (keyof Job)[] {
 
 const sameValue = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 const DATE_FIELDS = new Set<string>(['payDate', 'dueDate', 'postDate', 'date', 'depositDate']);
-const sameLink = (a: SheetLink | undefined, b: SheetLink) => Boolean(a) && a!.fileId === b.fileId && a!.tab === b.tab && a!.row === b.row && a!.gid === b.gid && !a!.missing && a!.sig === b.sig;
+const sameLink = (a: SheetLink | undefined, b: SheetLink) => Boolean(a) && a!.fileId === b.fileId && a!.tab === b.tab && a!.row === b.row && a!.gid === b.gid && !a!.missing && a!.sig === b.sig && a!.wrote === b.wrote;
 
 // Which side changed (owner, 2026-11-18: "อัปเดตให้หมดด้วยให้มันทุกตรงทุกละเอียดทุกนิ้วให้มันตรง"). Before, the sheet won every
 // reading: a job paid through LINE, or edited anywhere the sheet was not told, went back to the sheet's old values. Now each
@@ -127,12 +127,30 @@ const fingerprint = (record: object, fields: string[]) => hashOf(JSON.stringify(
   return typeof value === 'number' ? roundMoney(value) : typeof value === 'string' ? value.trim() : value ?? '';
 })));
 type Direction = 'same' | 'pull' | 'push';
-function directionOf(app: object, sheet: object, fields: string[], last: string | undefined): { direction: Direction; sig: string } {
+
+/** What the app writes over a row (App.tsx writeToSheet, sendRecordsToSheet): every column a sheet may keep. */
+export const JOB_SHEET_FIELDS: (keyof Job)[] = ['name', 'client', 'type', 'value', 'whtRate', 'whtAmount', 'received', 'pending', 'status', 'paymentStatus', 'postDate', 'payDate', 'dueDate', 'creditTerm', 'note', 'installments', 'depositAmount', 'depositDate'];
+export const EXPENSE_SHEET_FIELDS: (keyof Expense)[] = ['name', 'amount', 'category', 'date', 'note'];
+/**
+ * The record as the app wrote it over its row, kept on the link as `wrote` (owner, 2026-11-24: "แก้ไขในเว็บหรือชีต … ลิ้งกัน
+ * โดยไม่เด้งกลับ"). A write used to leave the link with no fingerprint at all, so if the record changed again before a
+ * reading found app and sheet agreeing (in LINE, by เลขา, on another device), that reading took the sheet's older values
+ * back. Now: the app changed since its own write → its values go to the row again; unchanged → the sheet's are taken.
+ */
+export function writtenSig(kind: 'job' | 'expense', record: object): string {
+  return fingerprint(record, (kind === 'job' ? JOB_SHEET_FIELDS : EXPENSE_SHEET_FIELDS) as string[]);
+}
+function directionOf(app: object, sheet: object, fields: string[], link: SheetLink | undefined, kind: 'job' | 'expense'): { direction: Direction; sig: string | undefined } {
   const sheetSig = fingerprint(sheet, fields), appSig = fingerprint(app, fields);
+  const last = link?.sig;
   if (sheetSig === appSig) return { direction: 'same', sig: sheetSig };
   if (last !== undefined && last === sheetSig && last !== appSig) return { direction: 'push', sig: last };
+  if (last === undefined && link?.wrote !== undefined && link.wrote !== writtenSig(kind, app)) return { direction: 'push', sig: undefined };
   return { direction: 'pull', sig: sheetSig };
 }
+/** The link a reading leaves on a record: agreed (a fingerprint), or still waiting for the app's own write (`wrote`). */
+const signedLink = (link: SheetLink, sig: string | undefined, before: SheetLink | undefined): SheetLink =>
+  sig === undefined ? { ...link, ...(before?.wrote === undefined ? {} : { wrote: before.wrote }) } : { ...link, sig };
 
 /** The job a sheet row is, and what the sheet changes in it. */
 export function planSheetSync(input: {
@@ -201,7 +219,7 @@ export function planSheetSync(input: {
     claimed.add(match.id);
     matchedCount.set(key, (matchedCount.get(key) ?? 0) + 1);
     const fields: Partial<Job> = {};
-    const { direction, sig } = directionOf(match, sheetJob, sigFields, linked(match)?.sig);
+    const { direction, sig } = directionOf(match, sheetJob, sigFields, linked(match), 'job');
     if (direction === 'push') push.push({ id: match.id, before: { kind: 'job', fileId, tab: row.sheet, row: row.rowNumber, name: sheetJob.name, amount: Number(sheetJob.value) || 0 } });
     if (direction === 'pull') {
       for (const field of owned) {
@@ -225,7 +243,7 @@ export function planSheetSync(input: {
       if (!match.payDate && !fields.payDate) fields.payDate = date;
       if (direction !== 'push') push.push({ id: match.id, before: { kind: 'job', fileId, tab: row.sheet, row: row.rowNumber, name: sheetJob.name, amount: Number(sheetJob.value) || 0 } });
     }
-    const signed: SheetLink = { ...link, sig };
+    const signed = signedLink(link, sig, linked(match));
     if (!sameLink(linked(match), signed)) fields.sheetLink = signed;
     if (Object.keys(fields).length) update.push({ id: match.id, fields });
   }
@@ -355,7 +373,7 @@ export function planSheetExpenseSync(input: { expenses: Expense[]; tabs: LiveTab
     claimed.add(match.id);
     matchedCount.set(key, (matchedCount.get(key) ?? 0) + 1);
     const fields: Partial<Expense> = {};
-    const { direction, sig } = directionOf(match, sheetExpense, owned, match.sheetLink?.sig);
+    const { direction, sig } = directionOf(match, sheetExpense, owned, match.sheetLink, 'expense');
     if (direction === 'push') push.push({ id: match.id, before: { kind: 'expense', fileId, tab: row.sheet, row: row.rowNumber, name: sheetExpense.name, amount: Number(sheetExpense.amount) || 0 } });
     if (direction === 'pull') {
       for (const field of owned) {
@@ -363,7 +381,7 @@ export function planSheetExpenseSync(input: { expenses: Expense[]; tabs: LiveTab
         if (!sameValue(match[field], value)) (fields as Record<string, unknown>)[field] = value;
       }
     }
-    const signed: SheetLink = { ...link, sig };
+    const signed = signedLink(link, sig, match.sheetLink);
     if (!sameLink(match.sheetLink, signed)) fields.sheetLink = signed;
     if (Object.keys(fields).length) update.push({ id: match.id, fields });
   }
