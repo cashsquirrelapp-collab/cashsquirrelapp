@@ -328,6 +328,21 @@
 .lab-sp-done > p { display: flex; align-items: flex-start; gap: 6px; margin: 0; font-size: 13px; font-weight: 600; line-height: 1.5; color: var(--lab-green); overflow-wrap: anywhere; }
 .lab-sp-done > p svg { flex: none; margin-top: 3px; }
 .lab-sp-undo-note { font-size: 12px; line-height: 1.5; color: var(--muted); }
+/* The written row only, as the sheet now has it: one strip of cells, each with its column letter and header, scrolling
+   sideways when the sheet is wide (owner, 2026-11-26: "พรีวิวชีต ... แค่ช่องเดียว ช่องที่เราลงไป"). */
+.lab-sp-one { overflow-x: auto; border-radius: 10px; box-shadow: inset 0 0 0 1px #CFE7D8; background: #fff; -webkit-overflow-scrolling: touch; }
+.lab-sp-one-row { display: flex; min-width: max-content; }
+.lab-sp-one-num { flex: none; display: flex; align-items: center; justify-content: center; width: 34px; background: #CFEEDB; color: #12804F; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.lab-sp-one-cell { display: flex; flex-direction: column; gap: 2px; min-width: 92px; max-width: 200px; padding: 6px 10px 7px; border-left: 1px solid #E3F1E8; background: #F3FBF6; }
+.lab-sp-one-cell small { font-size: 10.5px; line-height: 1.45; color: #85807A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lab-sp-one-cell b { font-size: 13px; line-height: 1.5; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.lab-sp-one-cell.is-money b { text-align: right; }
+.lab-sp-one-cell.is-formula b { color: #12804F; }
+.dark .lab-sp-one { box-shadow: inset 0 0 0 1px var(--border); background: var(--white); }
+.dark .lab-sp-one-num { background: rgba(74, 222, 128, 0.2); color: #4ADE80; }
+.dark .lab-sp-one-cell { border-left-color: var(--border); background: rgba(74, 222, 128, 0.08); }
+.dark .lab-sp-one-cell small { color: var(--muted); }
+.dark .lab-sp-one-cell.is-formula b { color: #4ADE80; }
 
 /* หน้างานจากชีต (sheetJobs): one line over the jobs list, and the row line in a job's details. */
 .lab-sheetline { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; padding: 6px 8px 6px 12px; border-radius: 14px; background: var(--white); box-shadow: inset 0 0 0 1px var(--border); }

@@ -146,6 +146,7 @@ export const labs: Record<string, string> = {
   'จะบันทึกลงชีต {0} › {1} ด้วย': 'Also goes into {0} › {1}',
   'บันทึกแผนที่ชีตก่อน แล้วเลขาจะลงชีตให้ด้วย': 'Save the sheet map first, then Krarok Assistant writes into your sheet too.',
   'บันทึกในแอปแล้ว แต่ยังไม่ได้ลงชีต: {0}': 'Saved in the app, but not written into the sheet: {0}',
+  'แถว {0} ในชีต': 'Row {0} in the sheet',
   'ย้อนกลับแล้ว แถว {0} ในชีตว่างแล้ว รายการในแอปยังอยู่': 'Undone: row {0} in the sheet is empty again. The record in the app stays.',
   'ย้อนกลับไม่ได้แล้ว เกิน 30 นาทีหรือไฟล์เปลี่ยนไป': 'Cannot undo any more: over 30 minutes, or the file changed.',
   'ลงชีต {0} › {1} แถว {2} แล้ว': 'Written into {0} › {1}, row {2}',

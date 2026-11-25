@@ -14,7 +14,7 @@ process.env.GOOGLE_CLIENT_ID = 'client-id.apps.googleusercontent.com';
 process.env.GOOGLE_CLIENT_SECRET = 'test-secret-not-real';
 process.env.GOOGLE_TOKEN_KEY = randomBytes(32).toString('base64');
 
-const { planRow, writeRow, previewOf, writeFor, deleteRecordRows, writeRowsBatch, writeOverRow, recentRowsOf, addPaymentColumn, addMonthTabs, addMonthChips } = await import('../backend/src/services/sheetWrite');
+const { planRow, writeRow, previewOf, writeFor, shownRow, deleteRecordRows, writeRowsBatch, writeOverRow, recentRowsOf, addPaymentColumn, addMonthTabs, addMonthChips } = await import('../backend/src/services/sheetWrite');
 const { googleOps } = await import('../backend/src/services/googleSheets');
 const { confirmProposal } = await import('../backend/src/ai/service');
 type SheetOps = import('../backend/src/services/googleSheets').SheetOps;
@@ -177,6 +177,30 @@ test('the card after ยืนยัน: written, failed, or another card\'s wri
   assert.equal(writeFor(record, 'p_2'), null);
   assert.deepEqual(writeFor({ ...record, lastWrite: { proposalId: 'p_1', at, ok: false, error: 'Google ไม่ตอบกลับ' } }, 'p_1'), { status: 'failed', error: 'Google ไม่ตอบกลับ' });
   assert.equal((writeFor({ ...record, file: { ...file, id: 'other-file-1234' } }, 'p_1', Date.parse(at)) as { canUndo: boolean }).canUndo, false);
+});
+
+// Owner, 2026-11-26: "ขึ้นพรีวิวชีต ... แค่ช่องเดียว ช่องที่เราลงไป": the done box shows the written row, read back from the sheet.
+test('the written row for the done box: letters and headers in sheet order, the sheet\'s own text, formula cells marked', () => {
+  const cells = [
+    { index: 3, header: 'ยอดก่อนหัก', formula: false, value: 8000 },
+    { index: 0, header: 'วันที่รับเงิน', formula: false, value: '' },
+    { index: 1, header: 'ผู้จ่ายเงิน', formula: false, value: 'ร้านกาแฟบ้านสวน' },
+    { index: 4, header: 'เงินเข้าจริง', formula: true, value: null },
+  ] as any;
+  const back = ['', 'ร้านกาแฟบ้านสวน', '', '8,000.00', '7,760.00'];
+  assert.deepEqual(shownRow({ cells }, back), [
+    { letter: 'A', header: 'วันที่รับเงิน', text: '' },
+    { letter: 'B', header: 'ผู้จ่ายเงิน', text: 'ร้านกาแฟบ้านสวน' },
+    { letter: 'D', header: 'ยอดก่อนหัก', text: '8,000.00' },
+    { letter: 'E', header: 'เงินเข้าจริง', text: '7,760.00', formula: true },
+  ]);
+  // Nothing read back: the planned value stands in; a formula cell stays empty rather than guessed.
+  assert.deepEqual(shownRow({ cells }, []).map(cell => cell.text), ['', 'ร้านกาแฟบ้านสวน', '8,000', '']);
+  const file = { id: 'file-12345678', name: 'บัญชีร้าน', url: 'https://docs.google.com/spreadsheets/d/file-12345678/edit' };
+  const at = '2026-11-12T03:00:00.000Z';
+  const shown = shownRow({ cells }, back);
+  const record = { email: 'a@example.com', enc: 'x'.repeat(40), at, file, map: MAP, lastWrite: { proposalId: 'p_1', at, ok: true, fileId: file.id, tab: 'รายรับ', row: 82, cells: ['A82'], shown } };
+  assert.deepEqual((writeFor(record, 'p_1', Date.parse(at) + 60_000) as { shown: unknown }).shown, shown);
 });
 
 const USER = '44444444-4444-4444-8444-444444444444';

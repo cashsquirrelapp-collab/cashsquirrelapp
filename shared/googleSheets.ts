@@ -88,10 +88,15 @@ export interface SheetWrite {
   span?: number;
   /** What the sheet's own formulas showed in the row right after it was written, read back ("ภาษีหัก 90.00"). */
   sheetValues?: { header: string; text: string }[];
+  /** The written row as the sheet shows it, read back, column by column (owner, 2026-11-26: "ขึ้นพรีวิวชีต ... แค่ช่องเดียว
+   *  ช่องที่เราลงไป"): the card's small done box draws this one row. `formula` = the sheet's own formula filled it. */
+  shown?: { letter: string; header: string; text: string; formula?: boolean }[];
 }
 export const UNDO_MS = 30 * 60_000;
 /** How many recent writes are kept (a paste of many records confirms up to 40 cards at once). */
 export const KEPT_WRITES = 40;
+/** Columns of the written row kept for the card's one-row preview. */
+export const SHOWN_CELLS = 16;
 const sheetWriteSchema = z.object({
   proposalId: z.string().max(80),
   at: z.string().max(40),
@@ -105,6 +110,7 @@ const sheetWriteSchema = z.object({
   gid: z.number().int().min(0).max(2_147_483_647).optional(),
   span: z.number().int().min(0).max(LIVE_READ.columns).optional(),
   sheetValues: z.array(z.object({ header: z.string().max(200), text: z.string().max(100) })).max(10).optional(),
+  shown: z.array(z.object({ letter: z.string().max(4), header: z.string().max(80), text: z.string().max(100), formula: z.boolean().optional() })).max(SHOWN_CELLS).optional(),
 });
 
 /** The kept record (server only). */

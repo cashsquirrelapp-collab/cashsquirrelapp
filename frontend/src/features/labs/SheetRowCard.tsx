@@ -159,7 +159,21 @@ export function SheetDoneBlock({ sheet, extra }: { sheet: SheetRow; extra?: Reac
       <p>{write.status === 'undone'
         ? tr("ย้อนกลับแล้ว แถว {0} ในชีตว่างแล้ว รายการในแอปยังอยู่", write.row)
         : <><Check className="h-4 w-4" aria-hidden="true" />{tr("ลงชีต {0} › {1} แถว {2} แล้ว", write.file, write.tab, write.row)}</>}</p>
-      {write.status === 'written' && Boolean(write.values?.length) && <span className="lab-sp-undo-note">{tr("ชีตคิดได้ {0}", write.values!.map(item => `${item.header} ${item.text}`).join(' · '))}</span>}
+      {/* The row as it now stands in the sheet, that one row only (owner, 2026-11-26: "ขึ้นพรีวิวชีต ... แค่ช่องเดียว ช่องที่เราลงไป"). */}
+      {write.status === 'written' && Boolean(write.shown?.length) && (
+        <div className="lab-sp-one" role="table" aria-label={tr("แถว {0} ในชีต", write.row)} data-testid="sheet-row-shown">
+          <div className="lab-sp-one-row" role="row">
+            <span className="lab-sp-one-num" role="rowheader">{write.row}</span>
+            {write.shown!.map(cell => (
+              <span key={cell.letter} role="cell" className={`lab-sp-one-cell${cell.formula ? ' is-formula' : ''}${isMoney(cell.text) ? ' is-money' : ''}`}>
+                <small>{cell.letter} · {cell.header}</small>
+                <b>{cell.text || '–'}</b>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      {write.status === 'written' && !write.shown?.length && Boolean(write.values?.length) && <span className="lab-sp-undo-note">{tr("ชีตคิดได้ {0}", write.values!.map(item => `${item.header} ${item.text}`).join(' · '))}</span>}
       {write.status === 'written' && write.canUndo && <span className="lab-sp-undo-note">{tr("ย้อนกลับได้ภายใน 30 นาที แถวในชีตจะว่างเหมือนเดิม")}</span>}
       <div className="lab-sr-actions">
         {write.url && <a className="lab-btn is-primary" href={write.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-4 w-4" />{write.status === 'written' ? tr("ดูในชีต") : tr("เปิดชีต")}</a>}

@@ -17,7 +17,9 @@ export interface SheetRowPreview {
 }
 /** What became of the sheet write of a confirmed card. */
 export type SheetRowWrite =
-  | { status: 'written' | 'undone'; file: string; url: string; tab: string; row: number; canUndo: boolean; values?: { header: string; text: string }[]; gid?: number | null; span?: number }
+  | { status: 'written' | 'undone'; file: string; url: string; tab: string; row: number; canUndo: boolean; values?: { header: string; text: string }[]; gid?: number | null; span?: number;
+      /** The written row as the sheet shows it, column by column (the done box's one-row preview). */
+      shown?: { letter: string; header: string; text: string; formula?: boolean }[] }
   | { status: 'failed'; error: string };
 /** The rows several waiting cards of one answer will write, one after another in each tab (backend handlers/google.ts). */
 export interface SheetBatchPreview {

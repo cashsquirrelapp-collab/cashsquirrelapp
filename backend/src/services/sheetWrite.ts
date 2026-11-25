@@ -1,4 +1,4 @@
-import { KEPT_WRITES, RECENT_ROWS_MS, UNDO_MS, sheetRowUrl, type GoogleRecord, type SheetMap, type SheetWrite } from '../../../shared/googleSheets.js';
+import { KEPT_WRITES, RECENT_ROWS_MS, SHOWN_CELLS, UNDO_MS, sheetRowUrl, type GoogleRecord, type SheetMap, type SheetWrite } from '../../../shared/googleSheets.js';
 import { chooseTab, dataColumns, deletedRowOf, displayValue, exampleRowsOf, incomeTypeFor, isExampleText, isIncomeTypeColumn, letter, rowCells, valueFor, type DeletedRecordRow, type RowCell, type RowKind } from '../../../shared/sheetRow.js';
 import { evaluateRow, shiftFormula } from '../../../shared/sheetFormula.js';
 import { isValidWhtRate, roundMoney, whtAmountFor } from '../../../shared/wht.js';
@@ -291,18 +291,30 @@ export async function writeRecordToSheet(userId: string, proposalId: string, kin
     const gid = await ops.tabId(plan.tab).catch(() => undefined);
     const span = Math.max(0, ...plan.cells.map(cell => cell.index));
     // What the customer's formulas actually showed, read back from the sheet (the card says "ชีตคิดได้ …").
-    const back = plan.cells.some(cell => cell.formula) ? (await ops.readRows(plan.tab, plan.row, plan.row, span).catch(() => [] as string[][]))[0] ?? [] : [];
+    // The whole row is read back too: the card's done box shows this one row as the sheet has it.
+    const back = (await ops.readRows(plan.tab, plan.row, plan.row, span).catch(() => [] as string[][]))[0] ?? [];
     const sheetValues = plan.cells.filter(cell => cell.formula && (back[cell.index] ?? '').trim()).slice(0, 10)
       .map(cell => ({ header: cell.header.slice(0, 200), text: String(back[cell.index]).trim().slice(0, 100) }));
+    const shown = shownRow(plan, back);
     // Noted as written by the app, so a reading of the sheet does not add it before the saved record reaches the app.
     const recentRows = [...(google.recentRows ?? []).filter(item => now.getTime() - Date.parse(item.at) < RECENT_ROWS_MS), { fileId: google.file!.id, tab: plan.tab, row: plan.row, at: now.toISOString() }].slice(-600);
-    await saveGoogle(userId, withWrite({ ...google, recentRows }, { proposalId, at: now.toISOString(), ok: true, fileId: google.file!.id, tab: plan.tab, row: plan.row, cells, ...(gid === undefined ? {} : { gid }), span, ...(sheetValues.length ? { sheetValues } : {}) }));
+    await saveGoogle(userId, withWrite({ ...google, recentRows }, { proposalId, at: now.toISOString(), ok: true, fileId: google.file!.id, tab: plan.tab, row: plan.row, cells, ...(gid === undefined ? {} : { gid }), span, ...(sheetValues.length ? { sheetValues } : {}), ...(shown.length ? { shown } : {}) }));
     return { status: 'written', file: google.file!.name, url: gid === undefined ? google.file!.url : sheetRowUrl(google.file!.id, gid, plan.row, span), tab: plan.tab, row: plan.row };
   } catch (error) {
     const message = error instanceof GoogleError ? ERRORS[error.code] : ERRORS.failed;
     await saveGoogle(userId, withWrite(google, { proposalId, at: now.toISOString(), ok: false, error: message })).catch(() => undefined);
     return { status: 'failed', error: message };
   }
+}
+
+/** The written row for the card's one-row preview: each mapped column with its letter, header and what the sheet shows
+ *  (read back; the planned value when the read gave nothing), capped to SHOWN_CELLS columns in sheet order. */
+export function shownRow(plan: Pick<RowPlan, 'cells'>, back: string[]) {
+  return [...plan.cells].sort((a, b) => a.index - b.index).slice(0, SHOWN_CELLS).map(cell => {
+    const read = String(back[cell.index] ?? '').trim();
+    const text = read || (cell.formula || cell.value === null || cell.value === undefined ? '' : String(displayValue(cell.value) ?? ''));
+    return { letter: letter(cell.index), header: cell.header.slice(0, 80), text: text.slice(0, 100), ...(cell.formula ? { formula: true } : {}) };
+  });
 }
 
 /** The record with this write kept: the last one, and in the recent list (one per card). */
@@ -329,6 +341,7 @@ export function writeFor(record: GoogleRecord | null, proposalId: string, now = 
     tab: write.tab ?? '', row: write.row ?? 0,
     canUndo: !write.undone && now - Date.parse(write.at) < UNDO_MS && record?.file?.id === write.fileId,
     ...(write.sheetValues?.length ? { values: write.sheetValues } : {}),
+    ...(write.shown?.length ? { shown: write.shown } : {}),
   };
 }
 

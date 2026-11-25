@@ -22,7 +22,7 @@ const PREVIEW = {
   cells: ['12/11/2569', 'ค่าเช่ากล้อง', 'ค่าอุปกรณ์/ซอฟต์แวร์', '1,200', null],
 };
 
-async function open(page: Page, size: { width: number; height: number }, labsOn: string[], preview: Record<string, unknown> = PREVIEW, values?: { header: string; text: string }[]) {
+async function open(page: Page, size: { width: number; height: number }, labsOn: string[], preview: Record<string, unknown> | null = PREVIEW, values?: { header: string; text: string }[], shown?: { letter: string; header: string; text: string; formula?: boolean }[]) {
   const googlePosts: Record<string, unknown>[] = [];
   let undone = false;
   await page.addInitScript(id => {
@@ -55,7 +55,7 @@ async function open(page: Page, size: { width: number; height: number }, labsOn:
     const body = route.request().postDataJSON() as Record<string, unknown>;
     googlePosts.push(body);
     if (body.action === 'preview') return route.fulfill({ json: { preview } });
-    const write = { status: undone ? 'undone' : 'written', file: PREVIEW.file, url: PREVIEW.url, tab: 'รายจ่าย', row: 5, canUndo: !undone, ...(values ? { values } : {}) };
+    const write = { status: undone ? 'undone' : 'written', file: PREVIEW.file, url: PREVIEW.url, tab: 'รายจ่าย', row: 5, canUndo: !undone, ...(values ? { values } : {}), ...(shown ? { shown } : {}) };
     if (body.action === 'written') return route.fulfill({ json: { write } });
     if (body.action === 'undo') { undone = true; return route.fulfill({ json: { undone: true, write: { ...write, status: 'undone', canUndo: false } } }); }
     return route.fulfill({ json: {} });
@@ -133,6 +133,30 @@ test('the card shows what the sheet\'s formula will make of the row, where it di
   await page.getByRole('button', { name: 'ยืนยันเขียนลงชีต' }).click();
   await expect(page.getByTestId('sheet-row-done')).toContainText('ชีตคิดได้ สะสม 2,099.00');
 });
+
+// Owner, 2026-11-26: "ขึ้นพรีวิวชีต ... แค่ช่องเดียว ช่องที่เราลงไป": after the write the small done box shows that one row,
+// column by column as the sheet has it, on phones and computers, nothing overlapping.
+const SHOWN = [{ letter: 'A', header: 'วันที่จ่าย', text: '12/11/2026' }, { letter: 'B', header: 'รายการ', text: 'ค่าเช่ากล้อง' },
+  { letter: 'C', header: 'หมวด', text: 'อุปกรณ์' }, { letter: 'D', header: 'จำนวนเงิน', text: '1,200.00' }, { letter: 'E', header: 'สะสม', text: '2,099.00', formula: true }];
+for (const size of [{ width: 390, height: 844 }, { width: 1440, height: 900 }]) {
+  test(`the done box shows the written row only (${size.width})`, async ({ page }) => {
+    await open(page, size, ['sheets', 'sheetMap', 'sheetWrite'], null, undefined, SHOWN);
+    await ask(page, 'ค่าเช่ากล้อง 1200 วันนี้');
+    await page.locator('.asx-rcard.is-confirm .asx-pill-btn.is-primary').click();
+    const done = page.getByTestId('sheet-row-done');
+    await expect(done).toContainText('ลงชีต');
+    const row = done.getByTestId('sheet-row-shown');
+    await expect(row.getByRole('cell')).toHaveCount(5);
+    await expect(row.getByRole('rowheader')).toHaveText('5');
+    await expect(row.getByRole('cell').nth(4)).toContainText('E · สะสม');
+    await expect(row.getByRole('cell').nth(4)).toContainText('2,099.00');
+    await expect(row.locator('.is-formula')).toHaveCount(1);
+    await expect(done).not.toContainText('ชีตคิดได้');
+    expect(await textOverlapIssues(page)).toEqual([]);
+    await done.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `test-results/labs-sheet-row-shown-${size.width}.png` });
+  });
+}
 
 test('without the feature the card is as before and Google is never asked', async ({ page }) => {
   const { googlePosts } = await open(page, { width: 1440, height: 900 }, ['sheets', 'sheetMap']);
