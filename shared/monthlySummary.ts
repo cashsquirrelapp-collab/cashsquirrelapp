@@ -160,11 +160,19 @@ export interface WorkValueBreakdown {
   otherMonths: number;
 }
 
-// "มูลค่างานเดือนนี้": value after withholding tax of every job delivered (or due to be delivered) in the month, or that
-// has money received or a payment due in the month -- the same entries the dashboard's received and pending cards count (pending
+// "มูลค่างานเดือนนี้": value after withholding tax of every job the งาน page lists under that month (jobMonthDate) -- the same entries the dashboard's received and pending cards count (pending
 // includes scheduled WIP jobs). An installment job counts at its full value in each month it
 // has a payment or due date in, not just that month's installment. value always equals
 // received + pending + otherMonths so the banner can show where the number comes from.
+/**
+ * The date a job is listed under on the งาน page's month filter (frontend jobs/jobSort.ts uses it): work in progress by its
+ * delivery date (else start date), delivered work by its payment date (the day the money came once paid), else delivery or
+ * start date.
+ */
+export const jobMonthDate = (job: Job): string =>
+  job.isPosted === false ? job.postDate || job.startDate || ''
+    : job.payDate || job.postDate || job.startDate || '';
+
 export interface WorkValueRow {
   jobId: string;
   name: string;
@@ -182,10 +190,13 @@ export function workValueRowsForMonth(jobs: Job[], monthKey: string): WorkValueR
   for (const job of jobs) {
     const paidThisMonth = getJobPaymentEntries(job).filter((entry) => dateKeyInMonth(entry.date, monthKey));
     const dueThisMonth = getJobScheduledPendingEntries(job).filter((entry) => dateKeyInMonth(entry.dueDate, monthKey));
-    // Owner, 2026-11-25 ("12,000 ควรเป็นโปรเจกต์รวมของเดือนนี้", picked "นับตามเดือนของงาน"): a job delivered, or due to be
-    // delivered, this month is this month's work even when its money is due later.
-    const workThisMonth = dateKeyInMonth(job.postDate, monthKey) && (job.value || 0) > 0;
-    if (paidThisMonth.length === 0 && dueThisMonth.length === 0 && !workThisMonth) continue;
+    // Owner, 2026-11-25 ("12,000 ควรเป็นโปรเจกต์รวมของเดือนนี้", picked "นับตามเดือนของงาน"): a job counts in the month the
+    // งาน page lists it under เดือนนี้ (jobMonthDate), once. A job paid in instalments counts in every month it has an
+    // instalment paid or due, as before.
+    const inMonth = job.installments?.length
+      ? paidThisMonth.length > 0 || dueThisMonth.length > 0
+      : dateKeyInMonth(jobMonthDate(job), monthKey);
+    if (!inMonth) continue;
     const grossValue = job.value || 0;
     const wht = jobWhtAmount(job);
     const value = roundMoney(grossValue - wht);

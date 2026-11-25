@@ -1,4 +1,5 @@
 import type { Job } from '../../../../shared/types';
+import { jobMonthDate } from '../../../../shared/monthlySummary';
 
 export type JobSort = 'recent' | 'oldest' | 'amountDesc' | 'amountAsc';
 export type JobTab = 'all' | 'working' | 'waiting_payment' | 'closed';
@@ -12,10 +13,9 @@ export type JobPeriod =
 // The date a row is ordered and month-filtered by -- the same date the list shows in its
 // "กำหนด" column: in-progress work by its delivery date (else start date), delivered work by its
 // payment date (due date while unpaid, the day the money arrived once paid).
+// มูลค่างานเดือนนี้ on the overview adds up the same jobs (shared/monthlySummary.ts jobMonthDate).
 export const jobSortDate = (job: Job, tab: JobTab): string =>
-  tab === 'waiting_payment' ? job.payDate || job.postDate || ''
-    : job.isPosted === false ? job.postDate || job.startDate || ''
-    : job.payDate || job.postDate || job.startDate || '';
+  tab === 'waiting_payment' ? job.payDate || job.postDate || '' : jobMonthDate(job);
 
 /** Local YYYY-MM of a date (current month by default). */
 export const monthKeyOf = (date = new Date()) =>

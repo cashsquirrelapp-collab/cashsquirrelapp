@@ -151,42 +151,36 @@ test('a logged bill that is also a fixed item counts once in its month', () => {
   assert.equal(fixedExpenseForMonth(9_000, undefined, ['ค่าห้อง']), 9_000);
 });
 
-test('monthly work value is the after-WHT value of jobs with money in or due that month', () => {
+test('monthly work value: each job once, in the month the งาน page lists it; instalment jobs in every month they touch', () => {
   const base = { ...installmentJob, installments: undefined, received: 0, pending: 0, payDate: null, postDate: '2026-08-01' };
   const jobs: Job[] = [
-    // deposit this month, rest due next month: counted at full value in both months
+    // deposit in Sep, rest due in Oct: listed (and counted) in Oct, its payment month
     { ...base, id: 'w1', value: 10_000, received: 3_000, pending: 7_000, payDate: '2026-10-10', depositDate: '2026-09-02', depositAmount: 3_000 },
-    // installment: first installment paid in Sep, others due Oct/Nov -> full 500k where it touches
+    // instalments: first paid in Sep, others due Oct/Nov -> full 500k in each month it touches
     { ...installmentJob, id: 'w2' },
-    // WHT job fully paid in Sep: gross value, not net received
+    // WHT job fully paid in Sep: after-WHT value
     { ...base, id: 'w3', value: 10_000, whtRate: 3, whtAmount: 300, received: 9_700, payDate: '2026-09-20' },
     // taken in Aug, paid in Sep
     { ...base, id: 'w4', value: 5_000, startDate: '2026-08-30', payDate: '2026-09-29', received: 5_000 },
-    // Work still in progress with a payment date this month: counted in that month by its payment date (owner,
-    // 2026-10-25: "นับตามวันนัดจ่าย", as the app has shown since the Cloudflare move; getJobScheduledPendingEntries).
-    { ...base, id: 'w5', value: 8_000, pending: 8_000, isPosted: false, payDate: '2026-09-25' },
+    // Work in progress: by its delivery date (owner, 2026-11-25, "นับตามเดือนของงาน"), not its payment date
+    { ...base, id: 'w5', value: 8_000, pending: 8_000, isPosted: false, postDate: '2026-09-28', payDate: '2026-10-25' },
   ];
   const sep = workValueForMonth(jobs, '2026-09');
-  assert.equal(sep.grossValue, 525_000 + 8_000);
-  assert.equal(sep.value, 525_000 + 8_000 - 300);
-  assert.equal(sep.count, 5);
-  assert.equal(sep.received, 3_000 + 300_000 + 9_700 + 5_000);
-  assert.equal(sep.pending, 8_000);
+  assert.equal(sep.grossValue, 500_000 + 10_000 + 5_000 + 8_000);
+  assert.equal(sep.count, 4);
+  assert.equal(sep.received, 300_000 + 9_700 + 5_000);
   assert.equal(sep.wht, 300);
   assert.equal(sep.value, sep.received + sep.pending + sep.otherMonths);
   assert.equal(sep.grossValue - sep.value, sep.wht);
-  assert.equal(sep.otherMonths, 7_000 + 200_000);
   const oct = workValueForMonth(jobs, '2026-10');
   assert.equal(oct.value, 510_000);
-  assert.equal(oct.wht, 0);
   assert.equal(oct.count, 2);
-  assert.equal(oct.pending, 7_000 + 100_000);
   assert.equal(oct.value, oct.received + oct.pending + oct.otherMonths);
   assert.equal(workValueForMonth(jobs, '2026-07').value, 0);
-  const paidLater = jobs.map((j) => (j.id === 'w1' ? { ...j, received: 10_000, pending: 0, payDate: '2026-10-05' } : j));
-  assert.equal(workValueForMonth(paidLater, '2026-09').value, 525_000 + 8_000 - 300);
-  // Delivered later or not, the same job lands in the month of its payment date, never in two months.
-  assert.equal(workValueForMonth(jobs.map((j) => (j.id === 'w5' ? { ...j, isPosted: true, postDate: '2026-09-20' } : j)), '2026-09').grossValue, 533_000);
+  // Delivered: by its payment date from then on, never in two months.
+  const delivered = jobs.map((j) => (j.id === 'w5' ? { ...j, isPosted: true } : j));
+  assert.equal(workValueForMonth(delivered, '2026-09').grossValue, 515_000);
+  assert.equal(workValueForMonth(delivered, '2026-10').grossValue, 518_000);
 });
 
 // Owner, 2026-11-25: "12,000 ควรเป็นโปรเจกต์รวมของเดือนนี้" (picked "นับตามเดือนของงาน"). A job in progress, delivered on
