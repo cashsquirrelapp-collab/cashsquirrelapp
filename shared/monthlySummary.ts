@@ -160,8 +160,8 @@ export interface WorkValueBreakdown {
   otherMonths: number;
 }
 
-// "มูลค่างานเดือนนี้": value after withholding tax of every job that has money received or a payment
-// due in the month -- the same entries the dashboard's received and pending cards count (pending
+// "มูลค่างานเดือนนี้": value after withholding tax of every job delivered (or due to be delivered) in the month, or that
+// has money received or a payment due in the month -- the same entries the dashboard's received and pending cards count (pending
 // includes scheduled WIP jobs). An installment job counts at its full value in each month it
 // has a payment or due date in, not just that month's installment. value always equals
 // received + pending + otherMonths so the banner can show where the number comes from.
@@ -182,7 +182,10 @@ export function workValueRowsForMonth(jobs: Job[], monthKey: string): WorkValueR
   for (const job of jobs) {
     const paidThisMonth = getJobPaymentEntries(job).filter((entry) => dateKeyInMonth(entry.date, monthKey));
     const dueThisMonth = getJobScheduledPendingEntries(job).filter((entry) => dateKeyInMonth(entry.dueDate, monthKey));
-    if (paidThisMonth.length === 0 && dueThisMonth.length === 0) continue;
+    // Owner, 2026-11-25 ("12,000 ควรเป็นโปรเจกต์รวมของเดือนนี้", picked "นับตามเดือนของงาน"): a job delivered, or due to be
+    // delivered, this month is this month's work even when its money is due later.
+    const workThisMonth = dateKeyInMonth(job.postDate, monthKey) && (job.value || 0) > 0;
+    if (paidThisMonth.length === 0 && dueThisMonth.length === 0 && !workThisMonth) continue;
     const grossValue = job.value || 0;
     const wht = jobWhtAmount(job);
     const value = roundMoney(grossValue - wht);

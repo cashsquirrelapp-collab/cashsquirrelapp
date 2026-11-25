@@ -6,7 +6,7 @@ import { Mascot } from '../../components/mascot/Mascot';
 import { dateLocale, formatCurrency, withMonth } from '../../utils';
 
 import { tr, T } from '../../i18n/tr';
-const TOOLTIP_TEXT = T("มูลค่างานหลังหัก ณ ที่จ่าย ของงานที่มีเงินเข้าหรือครบกำหนดรับเงินในเดือนที่เลือก รวมงานที่กำลังทำ โดยใช้กำหนดส่งงานเมื่อยังไม่มีกำหนดรับเงิน");
+const TOOLTIP_TEXT = T("มูลค่างานหลังหัก ณ ที่จ่าย ของงานที่ส่งหรือกำหนดส่งในเดือนที่เลือก รวมงานที่มีเงินเข้าหรือครบกำหนดรับเงินในเดือนนั้น");
 const TREND_MONTHS = 6;
 
 const shiftMonth = (monthKey: string, delta: number) => {

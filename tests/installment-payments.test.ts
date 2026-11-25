@@ -188,3 +188,19 @@ test('monthly work value is the after-WHT value of jobs with money in or due tha
   // Delivered later or not, the same job lands in the month of its payment date, never in two months.
   assert.equal(workValueForMonth(jobs.map((j) => (j.id === 'w5' ? { ...j, isPosted: true, postDate: '2026-09-20' } : j)), '2026-09').grossValue, 533_000);
 });
+
+// Owner, 2026-11-25: "12,000 ควรเป็นโปรเจกต์รวมของเดือนนี้" (picked "นับตามเดือนของงาน"). A job in progress, delivered on
+// 30 Nov with its money due in December, is November's work too; marking it received changes nothing in the total.
+test('monthly work value: a job delivered this month counts even when its money is due next month', () => {
+  const base = { ...installmentJob, installments: undefined, received: 0, pending: 0, depositAmount: undefined, depositDate: null };
+  const paid: Job = { ...base, id: 'p1', value: 11_000, received: 11_000, payDate: '2026-11-18', postDate: '2026-11-18' };
+  const wip: Job = { ...base, id: 'p2', value: 1_000, pending: 1_000, isPosted: false, postDate: '2026-11-30', payDate: '2026-12-07' };
+  const nov = workValueForMonth([paid, wip], '2026-11');
+  assert.equal(nov.value, 12_000);
+  assert.equal(nov.count, 2);
+  assert.equal(nov.pending, 0, 'รอรับเงิน still goes by the payment date');
+  assert.equal(nov.value, nov.received + nov.pending + nov.otherMonths);
+  const received = workValueForMonth([paid, { ...wip, received: 1_000, pending: 0, payDate: '2026-11-25' }], '2026-11');
+  assert.equal(received.value, 12_000);
+  assert.equal(workValueForMonth([paid, { ...wip, postDate: undefined }], '2026-11').value, 11_000, 'no delivery date: by payment date as before');
+});

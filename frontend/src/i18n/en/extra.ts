@@ -75,7 +75,7 @@ export const extra: Record<string, string> = {
   "แบบวัน": "Daily",
   "แบบสัปดาห์": "Weekly",
   "แบบเดือน": "Monthly",
-  "มูลค่างานหลังหัก ณ ที่จ่าย ของงานที่มีเงินเข้าหรือครบกำหนดรับเงินในเดือนที่เลือก รวมงานที่กำลังทำ โดยใช้กำหนดส่งงานเมื่อยังไม่มีกำหนดรับเงิน": "Job value after withholding tax, for jobs with money received or due in the selected month. Includes jobs in progress, using the delivery date when there is no payment date yet.",
+  "มูลค่างานหลังหัก ณ ที่จ่าย ของงานที่ส่งหรือกำหนดส่งในเดือนที่เลือก รวมงานที่มีเงินเข้าหรือครบกำหนดรับเงินในเดือนนั้น": "Job value after withholding tax, for jobs delivered or due to be delivered in the selected month, plus jobs with money received or due that month.",
   "ยังไม่มีเงินรับจริงในเดือนนี้": "No money received this month yet",
   "รายจ่ายสูงกว่าเงินรับจริง {0}": "Expenses are higher than money received by {0}",
   "แบ่งเงินของเดือนนี้เข้าเป้าหมายครบแล้ว": "This month's money has been split into goals",
