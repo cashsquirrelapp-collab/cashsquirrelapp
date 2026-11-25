@@ -4,6 +4,7 @@ import type { Expense, Job, SheetSeen, StatusOption } from '../../../../shared/t
 import { labOn } from '../../../../shared/labs';
 import { sheetRowUrl, type GoogleStatus, type SheetLink, type SheetMap } from '../../../../shared/googleSheets';
 import { exampleRowsOf, isIncomeTypeColumn } from '../../../../shared/sheetRow';
+import { PAYMENT_HEADER } from '../../../../shared/paymentColumn';
 import { tr } from '../../i18n/tr';
 import { getCurrentAccount } from '../../services/api';
 import { googleApi } from '../../services/google';
@@ -178,7 +179,10 @@ export function useSheetEngine(input: {
       }
       // การชำระ (owner, 2026-11-24: "อยากให้มันมีช่องบอกว่ารับเงินยังหรือยังไม่รับ"): a workbook of ours made before the column
       // gets it once, filled from the app's jobs; the map then says where payment is, and the next reading uses it.
-      if (jobTab && !jobTab.columns.some(column => PAYMENT_TARGETS.includes(column.target)) && examples === 0 && !paymentTried.current.has(file.id) && (now.canSend?.() ?? true)) {
+      // รับแล้ว and ค้างรับ (owner, 2026-11-25) join a การชำระ added before them, the same way.
+      const partsMissing = jobTab?.columns.some(column => column.target === 'status' && column.header.trim() === PAYMENT_HEADER)
+        && !jobTab.columns.some(column => column.target === 'received');
+      if (jobTab && (partsMissing || !jobTab.columns.some(column => PAYMENT_TARGETS.includes(column.target))) && examples === 0 && !paymentTried.current.has(file.id) && (now.canSend?.() ?? true)) {
         paymentTried.current.add(file.id);
         const result = await googleApi.addPaymentColumn(account).catch(() => null);
         if (result?.added) { const status = await googleApi.status(account).catch(() => null); if (status) rememberGoogleStatus(account, status); }

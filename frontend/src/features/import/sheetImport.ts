@@ -4,7 +4,7 @@
 // is, reads Thai and English dates, amounts and statuses, and builds jobs and expenses the same way
 // the job and expense forms do. Every row comes back with what the person should check.
 
-import { amountInText } from '../../../../shared/paymentColumn';
+import { PAYMENT_HEADER, amountInText } from '../../../../shared/paymentColumn';
 import type { Expense, Job, StatusOption } from '../../../../shared/types';
 import { calculatePayDate } from '../../../../shared/calendar';
 import { roundMoney, whtAmountFor } from '../../../../shared/wht';
@@ -895,6 +895,9 @@ export function buildImportPlan(sheets: { grid: SheetGrid; analysis: SheetAnalys
     // each row is money in for a job in another tab, folded into that job like a ledger's.
     const paymentList = analysis.kind === 'jobs' && targets.has('paidDate') && (targets.has('amount') || targets.has('received'))
       && !(['value', 'pending', 'dueDate', 'postDate', 'creditTerm'] as Field[]).some(field => targets.has(field));
+    // Our การชำระ beside รับแล้ว (shared/paymentColumn.ts): รับครบแล้ว there is the person's word even when รับแล้ว still has
+    // an older figure (they changed the drop-down, not the number).
+    const ourPayment = analysis.columns.some(col => col.target === 'status' && normalizeHeader(col.header) === normalizeHeader(PAYMENT_HEADER));
     for (const r of analysis.dataRows) {
       if (rows.length >= MAX_IMPORT_ROWS) break;
       const row = grid.rows[r] || [];
@@ -1032,6 +1035,7 @@ export function buildImportPlan(sheets: { grid: SheetGrid; analysis: SheetAnalys
       let payment: PaymentWord = 'unpaid';
       let receivedFinal = 0;
       if (analysis.kind === 'mixed' || receivedList) { payment = 'paid'; receivedFinal = net; }
+      else if (received !== null && ourPayment && status.payment === 'paid') { payment = 'paid'; receivedFinal = net; }
       else if (received !== null) {
         receivedFinal = Math.min(received, net);
         payment = received >= net && net > 0 ? 'paid' : received > 0 ? 'partial' : 'unpaid';

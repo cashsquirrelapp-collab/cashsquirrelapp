@@ -138,7 +138,8 @@ export function chooseCategory(category: string, name: string, choices: string[]
 }
 
 /** The value one mapped column gets for this record, before any formatting to the column's own style. */
-export function valueFor(column: SheetMapColumn, kind: RowKind, record: Record<string, unknown>, samples: string[], mixed: boolean): string | number | null {
+/** amountElsewhere: the tab has its own รับแล้ว column, so a รับบางส่วน word goes without the amount (shared/paymentColumn.ts). */
+export function valueFor(column: SheetMapColumn, kind: RowKind, record: Record<string, unknown>, samples: string[], mixed: boolean, amountElsewhere = false): string | number | null {
   const target = column.target;
   if (kind === 'expense') {
     switch (target) {
@@ -168,7 +169,7 @@ export function valueFor(column: SheetMapColumn, kind: RowKind, record: Record<s
     case 'status': {
       const word = statusFor(paymentOf(record), [...(column.choices ?? []), ...samples]);
       const received = money(record.received) ?? 0;
-      return word === 'รับบางส่วน' && received > 0 ? partialText(received) : word;
+      return word === 'รับบางส่วน' && received > 0 && !amountElsewhere ? partialText(received) : word;
     }
     case 'creditTerm': { const days = money(record.creditTerm); return days ? days : null; }
     case 'date': case 'postDate': { const date = isoDate(target === 'date' ? (record.postDate ?? record.payDate) : record.postDate); return date ? dateFor(date, samples) : null; }
@@ -197,10 +198,11 @@ export function incomeTypeFor(values: string[], choices?: string[]): string {
 }
 
 export function rowCells(tab: SheetMapTab, kind: RowKind, record: Record<string, unknown>, samples: Record<number, string[]> = {}): RowCell[] {
+  const amountElsewhere = tab.columns.some(column => column.target === 'received' && !column.formula);
   return tab.columns.slice().sort((a, b) => a.index - b.index).map(column => {
     const formula = Boolean(column.formula);
     if (kind === 'job' && isIncomeTypeColumn(column)) return { index: column.index, header: column.header, target: column.target, formula: false, value: incomeTypeFor(samples[column.index] ?? [], column.choices) };
-    const value = formula || column.target === 'keep' || column.target === 'ignore' ? null : valueFor(column, kind, record, samples[column.index] ?? [], tab.kind === 'mixed');
+    const value = formula || column.target === 'keep' || column.target === 'ignore' ? null : valueFor(column, kind, record, samples[column.index] ?? [], tab.kind === 'mixed', amountElsewhere);
     return { index: column.index, header: column.header, target: column.target, formula, value: value === '' ? null : value };
   });
 }

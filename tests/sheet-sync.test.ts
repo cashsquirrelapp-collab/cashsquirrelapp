@@ -286,3 +286,20 @@ test('sheet sync: "รับบางส่วน ฿1,200" in การชำ�
   assert.equal(of('ยาย').paymentStatus, 'unpaid');
   assert.equal(of('กยศ').paymentStatus, 'paid');
 });
+
+// Owner, 2026-11-25: รับแล้ว and ค้างรับ beside our การชำระ. รับแล้ว is how much of a part came in; รับครบแล้ว in the drop-down
+// is the person's word even when รับแล้ว still has the older figure (they changed the chip, not the number).
+test('sheet sync: our การชำระ beside รับแล้ว: a part reads its amount from รับแล้ว; รับครบแล้ว wins over an older figure', () => {
+  const head = ['วันที่รับเงิน', 'ผู้จ่ายเงิน', 'รายการ', 'ยอดก่อนหัก', 'หมายเหตุ', 'การชำระ', 'รับแล้ว', 'ค้างรับ (คำนวณ)'].map(text => cell(text));
+  const rows = (word: string, got: string, left: string) => [[cell(''), cell('คาเฟ่ลูมิน'), cell('ออกแบบโลโก้'), cell('10,000'), cell(''), cell(word), cell(got), cell(left, { formula: true } as Partial<LiveCell>)]];
+  const ours = (r: LiveCell[][]): LiveTab => ({ name: 'รายรับ', gid: 9, truncated: false, rows: [head, ...r] });
+  const ourMap = mapOf(FILE, readTabs([ours(rows('รับบางส่วน', '4,000', '6,000'))]));
+  assert.equal(ourMap.tabs[0].columns.find(column => column.header === 'รับแล้ว')?.target, 'received');
+  const read = (word: string, got: string, left: string) => planSheetSync({ jobs: [], tabs: [ours(rows(word, got, left))], map: ourMap, fileId: FILE, statuses: STATUSES, jobTypes: [], today: '2026-11-25' }).add[0];
+  const part = read('รับบางส่วน', '4,000', '6,000');
+  assert.deepEqual([part.received, part.pending], [4000, 6000], 'how much came in and how much is left');
+  const full = read('รับครบแล้ว', '4,000', '0');
+  assert.deepEqual([full.received, full.pending], [10000, 0], 'the drop-down says received in full');
+  const none = read('ยังไม่จ่าย', '0', '10,000');
+  assert.deepEqual([none.received, none.pending], [0, 10000]);
+});

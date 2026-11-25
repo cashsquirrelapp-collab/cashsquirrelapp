@@ -75,6 +75,7 @@ function fakeOps(sheet: Record<string, string[][]>, formulas: Record<string, Set
     async copyFormulasDown(tab, from, first, last, columns) { calls.push({ op: 'copyDown', args: [tab, from, first, last, columns] }); },
     async tabId(tab) { return tab === 'รายจ่าย' ? 7 : 0; },
     async choiceColumn(tab, column, headerRow, lastRow, choices) { calls.push({ op: 'choiceColumn', args: [tab, column, headerRow, lastRow, choices] }); },
+    async addColumns(tab, headerRow, lastRow, columns) { calls.push({ op: 'addColumns', args: [tab, headerRow, lastRow, columns.map(column => ({ index: column.index, header: column.header, formatFrom: column.formatFrom, ...(column.formula ? { formula: column.formula(2) } : {}) }))] }); },
     async formulaTexts(tab, row, columns) { return Object.fromEntries(columns.filter(column => formulas[tab]?.has(`${row}:${column}`)).map(column => [column, formulaText[tab]?.[`${row}:${column}`] ?? '=1'])); },
   };
   return { ops, calls };
@@ -383,11 +384,47 @@ test('การชำระ: added to our รายรับ after its last colu
   const done = (await addPaymentColumn(ops, map, jobs, new Date('2026-11-24T06:00:00Z')))!;
   assert.deepEqual(calls.find(call => call.op === 'write')!.args, ['รายรับ', 1, [{ index: 12, value: 'การชำระ' }]], 'the header after หมายเหตุ');
   assert.deepEqual(calls.find(call => call.op === 'choiceColumn')!.args.slice(0, 2), ['รายรับ', 12]);
-  const cells = calls.find(call => call.op === 'writeMany')!.args[1] as { row: number; index: number; value: string }[];
-  assert.deepEqual(cells.map(cell => [cell.row, cell.value]), [[2, 'รับครบแล้ว'], [3, 'ยังไม่จ่าย'], [4, 'รับบางส่วน ฿500'], [5, 'รับครบแล้ว']], 'jobs by their app status; a row with no job by its date');
-  assert.deepEqual(done.map.tabs[0].columns.at(-1), { index: 12, header: 'การชำระ', target: 'status', choices: ['รับครบแล้ว', 'รับบางส่วน', 'ยังไม่จ่าย'] });
+  // รับแล้ว and ค้างรับ (owner, 2026-11-25: "รับบางส่วนเท่าไหร่แล้วเหลืออีกเท่าไหร่"): the amount's look, then the worked-out one's.
+  assert.deepEqual(calls.find(call => call.op === 'addColumns')!.args, ['รายรับ', 1, 1001, [
+    { index: 13, header: 'รับแล้ว', formatFrom: 5 },
+    { index: 14, header: 'ค้างรับ (คำนวณ)', formatFrom: 8, formula: 'IF(F2="","",IF(M2="รับครบแล้ว",0,MAX(0,ROUND(F2-N(H2)-N(N2),2))))' },
+  ]]);
+  const cells = calls.find(call => call.op === 'writeMany')!.args[1] as { row: number; index: number; value: string | number }[];
+  assert.deepEqual(cells.map(cell => [cell.row, cell.index, cell.value]), [
+    [2, 12, 'รับครบแล้ว'], [2, 13, 3000], [3, 12, 'ยังไม่จ่าย'], [3, 13, 0], [4, 12, 'รับบางส่วน'], [4, 13, 500], [5, 12, 'รับครบแล้ว'],
+  ], 'jobs by their app status and money in (the word alone: the amount has its own column); a row with no job by its date');
+  assert.deepEqual(done.map.tabs[0].columns.slice(-3), [
+    { index: 12, header: 'การชำระ', target: 'status', choices: ['รับครบแล้ว', 'รับบางส่วน', 'ยังไม่จ่าย'] },
+    { index: 13, header: 'รับแล้ว', target: 'received' },
+    { index: 14, header: 'ค้างรับ (คำนวณ)', target: 'keep', formula: true },
+  ]);
   assert.equal(done.map.at, '2026-11-24T06:00:00.000Z', 'a new map: the app reads the sheet again with it');
   assert.equal(await addPaymentColumn(ops, done.map, jobs), null, 'once only');
   const own = fakeOps({ รายรับ: [['วันที่', 'ลูกค้า', 'งาน', 'เงิน', 'อื่น ๆ', 'หมายเหตุ'], ['1/11/2569', 'ก', 'ข', '100', '', '']] });
   assert.equal(await addPaymentColumn(own.ops, map, jobs), null, 'a sheet of the person\'s own is never changed');
+});
+
+// Owner, 2026-11-25: "บางทีกูก็ไม่รู้ว่ามันรับบางส่วนเท่าไหร่แล้วเหลืออีกเท่าไหร่ มึงทำช่องบอกด้วยดิ". A workbook that already got
+// การชำระ gets รับแล้ว and ค้างรับ after it; its word is left on rows no job is linked to, and "รับบางส่วน ฿500" becomes the word.
+test('รับแล้ว and ค้างรับ: added after an existing การชำระ, filled from the jobs, the map told; never twice', async () => {
+  const headers = ['วันที่รับเงิน', 'ผู้จ่ายเงิน', 'เลขผู้เสียภาษีผู้จ่าย', 'รายการ', 'ประเภทเงินได้', 'ยอดก่อนหัก', 'อัตราหัก', 'ภาษีถูกหัก (คำนวณ)', 'เงินเข้าจริง (คำนวณ)', 'หลักฐานการหัก', 'ได้ 50 ทวิ แล้ว', 'หมายเหตุ', 'การชำระ'];
+  const tab: SheetMapTab = { name: 'รายรับ', headerRow: 0, kind: 'jobs', use: true, columns: [
+    { index: 0, header: 'วันที่รับเงิน', target: 'paidDate' }, { index: 1, header: 'ผู้จ่ายเงิน', target: 'client' }, { index: 3, header: 'รายการ', target: 'name' },
+    { index: 5, header: 'ยอดก่อนหัก', target: 'value' }, { index: 11, header: 'หมายเหตุ', target: 'note' },
+    { index: 12, header: 'การชำระ', target: 'status', choices: ['รับครบแล้ว', 'รับบางส่วน', 'ยังไม่จ่าย'] },
+  ] };
+  const map: SheetMap = { fileId: 'file-12345678', at: '2026-11-24T06:00:00.000Z', tabs: [tab] };
+  const row = (date: string, item: string, amount: string, word: string) => [date, 'ลูกค้า', '', item, '40(2)', amount, '3%', '', '', '', '', '', word];
+  const sheet = { รายรับ: [headers, row('', 'ออกแบบโลโก้', '10,000', 'รับบางส่วน ฿4,000'), row('02/10/2569', 'รีวิว', '1,000', 'รับครบแล้ว')] };
+  const { ops, calls } = fakeOps(sheet);
+  const jobs = [{ id: 'a', name: 'ออกแบบโลโก้', value: 10000, whtRate: 3, received: 4000, pending: 5700, status: 'partial', sheetLink: { fileId: map.fileId, tab: 'รายรับ', row: 2 } }];
+  const done = (await addPaymentColumn(ops, map, jobs, new Date('2026-11-25T06:00:00Z')))!;
+  assert.ok(!calls.some(call => call.op === 'choiceColumn' || call.op === 'write'), 'การชำระ is already there');
+  const added = calls.find(call => call.op === 'addColumns')!.args[3] as { index: number; header: string; formula?: string }[];
+  assert.deepEqual(added.map(column => [column.index, column.header]), [[13, 'รับแล้ว'], [14, 'ค้างรับ (คำนวณ)']]);
+  assert.equal(added[1].formula, 'IF(F2="","",IF(M2="รับครบแล้ว",0,MAX(0,ROUND(F2-N(H2)-N(N2),2))))');
+  const cells = calls.find(call => call.op === 'writeMany')!.args[1] as { row: number; index: number; value: string | number }[];
+  assert.deepEqual(cells.map(cell => [cell.row, cell.index, cell.value]), [[2, 12, 'รับบางส่วน'], [2, 13, 4000]], 'the row with no job keeps its word');
+  assert.deepEqual(done.map.tabs[0].columns.slice(-2).map(column => column.target), ['received', 'keep']);
+  assert.equal(await addPaymentColumn(ops, done.map, jobs), null, 'once only');
 });

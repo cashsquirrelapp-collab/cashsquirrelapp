@@ -11,6 +11,17 @@ export const PAYMENT_TONES: Record<PaymentChoice, { fill: string; ink: string }>
   'รับบางส่วน': { fill: 'FDF1DE', ink: 'B45309' },
   'ยังไม่จ่าย': { fill: 'FFF1E8', ink: 'C24A16' },
 };
+/** รับแล้ว and ค้างรับ beside การชำระ (owner, 2026-11-25: "บางทีกูก็ไม่รู้ว่ามันรับบางส่วนเท่าไหร่แล้วเหลืออีกเท่าไหร่ มึงทำช่อง
+ *  บอกด้วยดิ"): รับแล้ว is the money in so far (after withholding, as the app counts it; the app reads and writes it), ค้างรับ
+ *  works itself out: nothing once รับครบแล้ว, else the amount less the tax withheld less รับแล้ว. With the amount in its own
+ *  column, การชำระ holds only its word, so the drop-down's chip keeps its colour. */
+export const RECEIVED_HEADER = 'รับแล้ว';
+export const PENDING_HEADER = 'ค้างรับ';
+/** ค้างรับ's formula for row r, from the column letters of the amount, the tax withheld (may be absent), การชำระ and รับแล้ว. */
+export function pendingFormula(at: { value: string; wht?: string | null; status: string; received: string }, r: number): string {
+  const less = [at.wht, at.received].filter(Boolean).map(column => `-N(${column}${r})`).join('');
+  return `IF(${at.value}${r}="","",IF(${at.status}${r}="${PAYMENT_CHOICES[0]}",0,MAX(0,ROUND(${at.value}${r}${less},2))))`;
+}
 /** รับบางส่วน says how much came in (owner, 2026-11-24: "รับบางส่วนบอกด้วยว่ารับเท่าไหร่"): "รับบางส่วน ฿500". */
 export const partialText = (received: number) => `รับบางส่วน ฿${received.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
 /** The amount in a cell such as "รับบางส่วน ฿1,500.50" (null when it names none). */

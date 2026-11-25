@@ -297,6 +297,9 @@ export interface SheetOps {
    * only when `tones` is given.
    */
   choiceColumn?(tab: string, column: number, headerRow: number, lastRow: number, choices: readonly string[], tones?: Record<string, { fill: string; ink: string }>): Promise<void>;
+  /** New columns (headerRow is 1-based): each takes the look of another column (header and body) and its header text;
+   *  a formula column gets its formula in every row down to lastRow. */
+  addColumns?(tab: string, headerRow: number, lastRow: number, columns: { index: number; header: string; formatFrom: number; formula?: (row: number) => string }[]): Promise<void>;
 }
 
 const columnName = (index: number): string => { let s = '', n = index + 1; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
@@ -410,6 +413,30 @@ export function googleOps(token: string, fileId: string): SheetOps {
         if (tone) requests.push({ addConditionalFormatRule: { index, rule: { ranges: [below], booleanRule: { condition: { type: 'TEXT_STARTS_WITH', values: [{ userEnteredValue: choice }] }, format: { backgroundColor: rgb(tone.fill), textFormat: { foregroundColor: rgb(tone.ink), bold: true } } } } } });
       });
       await post(`${SHEETS}/${id}:batchUpdate`, { requests });
+    },
+    async addColumns(tab, headerRow, lastRow, columns) {
+      if (!columns.length) return;
+      const reply = await get<{ sheets?: { properties?: { sheetId?: number; title?: string; gridProperties?: { columnCount?: number } } }[] }>(`${SHEETS}/${id}?fields=sheets.properties(sheetId,title,gridProperties.columnCount)`);
+      const props = (reply.sheets || []).map(item => item.properties).find(item => item?.title === tab);
+      if (!props) throw new GoogleError('notFound', 'Tab not found');
+      const sheet = props.sheetId ?? 0;
+      const box = (top: number, bottom: number, left: number) => ({ sheetId: sheet, startRowIndex: top, endRowIndex: bottom, startColumnIndex: left, endColumnIndex: left + 1 });
+      const bottom = Math.max(lastRow, headerRow + 1);
+      const requests: unknown[] = [];
+      const need = Math.max(...columns.map(column => column.index)) + 1 - (props.gridProperties?.columnCount ?? 26);
+      if (need > 0) requests.push({ appendDimension: { sheetId: sheet, dimension: 'COLUMNS', length: need } });
+      for (const column of columns) {
+        requests.push({ copyPaste: { source: box(headerRow - 1, bottom, column.formatFrom), destination: box(headerRow - 1, bottom, column.index), pasteType: 'PASTE_FORMAT' } });
+        requests.push({ updateDimensionProperties: { range: { sheetId: sheet, dimension: 'COLUMNS', startIndex: column.index, endIndex: column.index + 1 }, properties: { pixelSize: 100 }, fields: 'pixelSize' } });
+      }
+      await post(`${SHEETS}/${id}:batchUpdate`, { requests });
+      const data = columns.flatMap(column => {
+        const name = columnName(column.index);
+        const values: string[][] = [[column.header]];
+        if (column.formula) for (let row = headerRow + 1; row <= bottom; row += 1) values.push([`=${column.formula(row)}`]);
+        return [{ range: range(tab, `${name}${headerRow}:${name}${headerRow + values.length - 1}`), values }];
+      });
+      await post(`${SHEETS}/${id}/values:batchUpdate`, { valueInputOption: 'USER_ENTERED', data });
     },
   };
 }

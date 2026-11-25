@@ -173,7 +173,10 @@ test('our own sheets are read the way the template means them: an expense row ge
   // การชำระ (owner, 2026-11-24): in the drop-down's own words, so a job not received yet says so in the sheet too.
   assert.equal(cellsOf('freelance', 'job', { ...job, paymentStatus: 'unpaid', payDate: null })['การชำระ'], 'ยังไม่จ่าย');
   // รับบางส่วน says how much came in (owner, 2026-11-24: "รับบางส่วนบอกด้วยว่ารับเท่าไหร่").
-  assert.equal(cellsOf('freelance', 'job', { ...job, paymentStatus: 'partial', status: 'partial', received: 1500, payDate: null })['การชำระ'], 'รับบางส่วน ฿1,500');
+  // รับบางส่วน: the word, and the amount in รับแล้ว (owner, 2026-11-25), so the chip keeps its colour.
+  const partial = cellsOf('freelance', 'job', { ...job, paymentStatus: 'partial', status: 'partial', received: 1500, payDate: null });
+  assert.equal(partial['การชำระ'], 'รับบางส่วน');
+  assert.equal(partial['รับแล้ว'], 1500);
   // ประเภทเงินได้ (owner, 2026-11-18): the reports add income up by it; the column's own most-used type, else 40(2).
   assert.equal(cellsOf('freelance', 'job', job, { 4: ['40(8)', '40(8)', '40(2)'], 6: ['3%'] })['ประเภทเงินได้'], '40(8)');
   assert.deepEqual(cellsOf('agency', 'job', { ...job, postDate: '2026-11-01' }),
@@ -366,7 +369,14 @@ test('การชำระ: last in รายรับ, a drop-down in the app\
     const income = sheets.find(sheet => sheet.name === 'รายรับ')!;
     const headers = income.rows[0].map(cell => String((cell as { v: string }).v));
     const at = headers.indexOf('การชำระ');
-    assert.equal(at, headers.length - 1, `${id}: the last column`);
+    assert.equal(at, headers.length - 3, `${id}: after the columns the other tabs read`);
+    // รับแล้ว (typed, read and written by the app) and ค้างรับ (worked out) right after it (owner, 2026-11-25).
+    assert.deepEqual(headers.slice(-2), ['รับแล้ว', 'ค้างรับ (คำนวณ)']);
+    assert.equal(income.targets?.[at + 1], 'received');
+    const L = (n: number) => columnLetter(n);
+    const pending = income.rows[1][at + 2] as { f: string };
+    assert.match(pending.f, new RegExp(`IF\\(${L(at)}2="รับครบแล้ว",0,`), `${id}: nothing still to come once received in full`);
+    assert.match(pending.f, new RegExp(`-N\\(${L(at + 1)}2\\)`), `${id}: less what came in`);
     assert.equal(income.targets?.[at], 'status');
     const letter = columnLetter(at);
     assert.ok(income.validations?.some(rule => rule.range.startsWith(`${letter}2:`) && 'list' in rule && rule.list.join() === 'รับครบแล้ว,รับบางส่วน,ยังไม่จ่าย'));

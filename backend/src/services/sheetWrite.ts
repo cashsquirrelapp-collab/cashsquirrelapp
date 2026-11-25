@@ -3,8 +3,9 @@ import { chooseTab, dataColumns, deletedRowOf, displayValue, exampleRowsOf, inco
 import { evaluateRow, shiftFormula } from '../../../shared/sheetFormula.js';
 import { isValidWhtRate, roundMoney, whtAmountFor } from '../../../shared/wht.js';
 import { loadGoogle, saveGoogle } from '../repositories/google.js';
-import { PAYMENT_CHOICES, PAYMENT_HEADER, paymentCellOf } from '../../../shared/paymentColumn.js';
-import { templateShapes } from '../../../shared/bookTemplates.js';
+import { PAYMENT_CHOICES, PAYMENT_HEADER, PENDING_HEADER, RECEIVED_HEADER, paymentCellOf, paymentChoiceOf, pendingFormula } from '../../../shared/paymentColumn.js';
+import { CALC_MARK, templateShapes } from '../../../shared/bookTemplates.js';
+import type { SheetMapColumn } from '../../../shared/googleSheets.js';
 import { GoogleError, accessToken, decryptToken, googleConfigured, googleOps, readSpreadsheet, type SheetOps } from './googleSheets.js';
 
 // บันทึกลงชีตของคุณ (ฟีเจอร์ทดลอง sheetWrite, plan phase 3). A job or expense confirmed in เลขา's chat (web or LINE) is also
@@ -582,26 +583,53 @@ export async function fillIncomeTypes(ops: SheetOps, map: SheetMap): Promise<num
 }
 
 /**
- * การชำระ for a workbook of ours made before it (shared/paymentColumn.ts; owner, 2026-11-24): a column after the last, each
- * job row given its job's word from the app (a row no job is linked to: รับครบแล้ว when it has a payment date, else ยังไม่จ่าย),
- * and the map told, so the app reads and writes payment there from now on. Only our รายรับ tab, only once (a tab that
- * already says how a job stands on payment is left alone). Returns the new map, or null when nothing was done.
+ * การชำระ for a workbook of ours made before it (shared/paymentColumn.ts; owner, 2026-11-24), then รับแล้ว and ค้างรับ beside
+ * it (owner, 2026-11-25): columns after the last, each job row given its job's word and the money in so far from the app
+ * (a row no job is linked to: รับครบแล้ว when it has a payment date, else ยังไม่จ่าย; รับแล้ว left for the person), ค้างรับ
+ * worked out by its own formula, and the map told, so the app reads and writes payment there from now on. Only our รายรับ
+ * tab, only once: a tab that already has การชำระ gets just the two money columns, and one that says how a job stands on
+ * payment in any other way is left alone. Returns the new map, or null when nothing was done.
  */
 export async function addPaymentColumn(ops: SheetOps, map: SheetMap, jobs: Record<string, unknown>[], now = new Date()): Promise<{ map: SheetMap; filled: number } | null> {
   const tab = chooseTab(map, 'job');
   if (!tab || tab.headerRow === null || !ops.choiceColumn) return null;
-  if (tab.columns.some(column => ['status', 'received', 'pending', 'installment', 'installmentStatus'].includes(column.target))) return null;
+  if (tab.columns.some(column => ['received', 'pending', 'installment', 'installmentStatus'].includes(column.target))) return null;
+  const status = tab.columns.find(column => column.target === 'status');
+  const hasPayment = Boolean(status && status.header.trim() === PAYMENT_HEADER);
+  if (status && !hasPayment) return null;
   const headerRow = tab.headerRow + 1;
   const width = Math.max(...tab.columns.map(column => column.index)) + 8;
   const [headers = []] = await ops.readRows(tab.name, headerRow, headerRow, width);
   if (!isOurIncomeTab(tab.name, headers)) return null;
   let column = headers.length;
   while (column > 0 && !(headers[column - 1] ?? '').trim()) column -= 1;
-  if (headers.some(header => header.trim() === PAYMENT_HEADER)) return null;
+  if (!hasPayment && headers.some(header => header.trim() === PAYMENT_HEADER)) return null;
+  if (headers.some(header => header.trim() === RECEIVED_HEADER)) return null;
   const first = headerRow + 1;
   const last = Math.min(await ops.lastRow(tab.name, dataColumns(tab)), first + MAX_DELETE_SCAN);
-  await ops.write(tab.name, headerRow, [{ index: column, value: PAYMENT_HEADER }]);
-  await ops.choiceColumn(tab.name, column, headerRow, Math.max(last, headerRow + 1000), PAYMENT_CHOICES);
+  const added: SheetMapColumn[] = [];
+  const statusAt = hasPayment ? status!.index : column;
+  if (!hasPayment) {
+    await ops.write(tab.name, headerRow, [{ index: column, value: PAYMENT_HEADER }]);
+    await ops.choiceColumn(tab.name, column, headerRow, Math.max(last, headerRow + 1000), PAYMENT_CHOICES);
+    added.push({ index: column, header: PAYMENT_HEADER, target: 'status', choices: [...PAYMENT_CHOICES] });
+    column += 1;
+  }
+  // รับแล้ว looks like the amount; ค้างรับ like the worked-out เงินเข้าจริง (grey), its formula in every row.
+  const value = tab.columns.find(item => item.target === 'value');
+  const at = (pattern: RegExp) => headers.findIndex(header => pattern.test(header));
+  const wht = at(/^ภาษีถูกหัก/), net = at(/^เงินเข้าจริง/);
+  const receivedAt = value && ops.addColumns ? column : -1;
+  if (value && ops.addColumns) {
+    const letters = { value: letter(value.index), wht: wht >= 0 ? letter(wht) : null, status: letter(statusAt), received: letter(column) };
+    const pendingHeader = `${PENDING_HEADER}${CALC_MARK}`;
+    await ops.addColumns(tab.name, headerRow, Math.max(last, headerRow + 1000), [
+      { index: column, header: RECEIVED_HEADER, formatFrom: value.index },
+      { index: column + 1, header: pendingHeader, formatFrom: net >= 0 ? net : value.index, formula: row => pendingFormula(letters, row) },
+    ]);
+    added.push({ index: column, header: RECEIVED_HEADER, target: 'received' }, { index: column + 1, header: pendingHeader, target: 'keep', formula: true });
+  }
+  if (!added.length) return null;
   const paidDate = tab.columns.find(item => item.target === 'paidDate');
   const rows = last >= first ? await ops.readRows(tab.name, first, last, Math.max(...tab.columns.map(item => item.index))) : [];
   const linked = new Map<number, Record<string, unknown>>();
@@ -612,13 +640,19 @@ export async function addPaymentColumn(ops: SheetOps, map: SheetMap, jobs: Recor
   const data = dataColumns(tab);
   const cells = rows.flatMap((cells, index) => {
     if (!data.some(at => (cells[at] ?? '').trim()) || exampleText(cells)) return [];
-    const job = linked.get(first + index);
-    const value = job ? paymentCellOf(job) : paidDate && (cells[paidDate.index] ?? '').trim() ? 'รับครบแล้ว' : 'ยังไม่จ่าย';
-    return [{ row: first + index, index: column, value }];
+    const row = first + index;
+    const job = linked.get(row);
+    const out: { row: number; index: number; value: string | number }[] = [];
+    // The word: the job's (just the word now that รับแล้ว holds the amount); an unlinked row keeps one already there.
+    const word = job ? (receivedAt >= 0 ? paymentChoiceOf(job) : paymentCellOf(job))
+      : hasPayment ? null : paidDate && (cells[paidDate.index] ?? '').trim() ? 'รับครบแล้ว' : 'ยังไม่จ่าย';
+    if (word && word !== (cells[statusAt] ?? '').trim()) out.push({ row, index: statusAt, value: word });
+    if (job && receivedAt >= 0) out.push({ row, index: receivedAt, value: Math.round((Number(job.received) || 0) * 100) / 100 });
+    return out;
   });
   if (cells.length) await ops.writeMany(tab.name, cells);
-  const next: SheetMap = { ...map, at: now.toISOString(), tabs: map.tabs.map(item => (item === tab ? { ...item, columns: [...item.columns, { index: column, header: PAYMENT_HEADER, target: 'status', choices: [...PAYMENT_CHOICES] }] } : item)) };
-  return { map: next, filled: cells.length };
+  const next: SheetMap = { ...map, at: now.toISOString(), tabs: map.tabs.map(item => (item === tab ? { ...item, columns: [...item.columns, ...added] } : item)) };
+  return { map: next, filled: new Set(cells.map(cell => cell.row)).size };
 }
 const exampleText = (cells: string[]) => isExampleText(...cells);
 /** Our workbooks' รายรับ: its headers, as far as the file has them, are the template's. */

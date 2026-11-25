@@ -1,4 +1,4 @@
-import { PAYMENT_CHOICES, PAYMENT_HEADER } from './paymentColumn.js';
+import { PAYMENT_CHOICES, PAYMENT_HEADER, PENDING_HEADER, RECEIVED_HEADER, pendingFormula } from './paymentColumn.js';
 import { isThaiPublicHoliday } from './calendar.js';
 import { hasSection40_5to8, templateFor, type BusinessProfile, type TemplateId } from './businessProfile.js';
 import { columnLetter, isListValidation, type Cell, type CellStyle, type SheetSpec, type Validation } from './xlsxWriter.js';
@@ -299,6 +299,11 @@ const EXPENSE_CATEGORIES = ['ซื้อสินค้า', 'อุปกร�
  *  (owner, 2026-11-24: the rounded chips, set once in the sheet: Google lets no app pick a drop-down's chip style or colours,
  *  and a coloured cell would sit behind the chip). */
 const PAYMENT_COL: Col = { h: PAYMENT_HEADER, w: 15, list: [...PAYMENT_CHOICES], t: 'status' };
+/** รับแล้ว and ค้างรับ right after it (shared/paymentColumn.ts): how much of a job is in and how much is still to come. */
+const partCols = (at: { value: string; wht: string; status: string; received: string }): Col[] => [
+  { h: RECEIVED_HEADER, w: 13, s: 'money', t: 'received' },
+  { h: PENDING_HEADER, w: 13, f: r => pendingFormula(at, r) },
+];
 const EVIDENCE = ['ใบกำกับภาษีเต็มรูป', 'ใบกำกับภาษีอย่างย่อ', 'ใบเสร็จ', 'ไม่มี'];
 
 function freelance(profile: BusinessProfile, year: number, vat: boolean, data: TemplateData | null, now: Date): SheetSpec[] {
@@ -313,17 +318,21 @@ function freelance(profile: BusinessProfile, year: number, vat: boolean, data: T
     { h: 'เงินเข้าจริง', w: 14, f: r => `IF(H${r}="","",H${r}+I${r}-K${r})` },
     { h: 'ได้ 50 ทวิ แล้ว', w: 14, list: ['ได้แล้ว', 'ยังไม่ได้', 'ไม่ต้องใช้'] }, { h: 'หมายเหตุ', w: 26, t: 'note' },
     { h: 'ลำดับในรายงานภาษีขาย', w: 14, s: 'text', f: r => inMonth('รายงานภาษีขาย', r, 'H') }, PAYMENT_COL,
+    ...partCols({ value: 'H', wht: 'K', status: 'P', received: 'Q' }),
   ] : [
     { h: 'วันที่รับเงิน', w: 13, s: 'date', t: 'paidDate' }, { h: 'ผู้จ่ายเงิน', w: 28, t: 'client' }, { h: 'เลขผู้เสียภาษีผู้จ่าย', w: 18, id: true }, { h: 'รายการ', w: 26, t: 'name' },
     { h: 'ประเภทเงินได้', w: 12, list: INCOME_TYPES }, { h: 'ยอดก่อนหัก', w: 14, s: 'money', t: 'value' }, { h: 'อัตราหัก', w: 9, list: RATES, t: 'whtRate' },
     { h: 'ภาษีถูกหัก', w: 12, f: r => `IF(F${r}="","",ROUND(F${r}*${rate(`G${r}`)},2))` },
     { h: 'เงินเข้าจริง', w: 14, f: r => `IF(F${r}="","",F${r}-H${r})` },
     { h: 'หลักฐานการหัก', w: 14, list: ['50 ทวิ', 'e-WHT', 'ไม่ถูกหัก'] }, { h: 'ได้ 50 ทวิ แล้ว', w: 14, list: ['ได้แล้ว', 'ยังไม่ได้', 'ไม่ต้องใช้'] }, { h: 'หมายเหตุ', w: 26, t: 'note' }, PAYMENT_COL,
+    ...partCols({ value: 'F', wht: 'H', status: 'M', received: 'N' }),
   ];
+  // รับแล้ว: what came in after the tax withheld, as the app counts it (0 for one not received yet).
+  const got = (row: TemplateIncome) => (row.received ? Math.round(row.gross * (1 - row.whtRate) * 100) / 100 : 0);
   const incomeRows: Cell[][] = data?.income.length
     ? data.income.map(row => vat
-      ? [{ date: row.date }, '', row.payer, '', '', row.item, '', row.gross, null, `${Math.round(row.whtRate * 100)}%`, null, null, row.whtRate > 0 ? 'ยังไม่ได้' : 'ไม่ต้องใช้', row.received ? '' : 'ยังไม่ได้รับเงิน', null, row.received ? 'รับครบแล้ว' : 'ยังไม่จ่าย']
-      : [{ date: row.date }, row.payer, '', row.item, '', row.gross, `${Math.round(row.whtRate * 100)}%`, null, null, row.whtRate > 0 ? '50 ทวิ' : 'ไม่ถูกหัก', row.whtRate > 0 ? 'ยังไม่ได้' : 'ไม่ต้องใช้', row.received ? '' : 'ยังไม่ได้รับเงิน', row.received ? 'รับครบแล้ว' : 'ยังไม่จ่าย'])
+      ? [{ date: row.date }, '', row.payer, '', '', row.item, '', row.gross, null, `${Math.round(row.whtRate * 100)}%`, null, null, row.whtRate > 0 ? 'ยังไม่ได้' : 'ไม่ต้องใช้', row.received ? '' : 'ยังไม่ได้รับเงิน', null, row.received ? 'รับครบแล้ว' : 'ยังไม่จ่าย', got(row)]
+      : [{ date: row.date }, row.payer, '', row.item, '', row.gross, `${Math.round(row.whtRate * 100)}%`, null, null, row.whtRate > 0 ? '50 ทวิ' : 'ไม่ถูกหัก', row.whtRate > 0 ? 'ยังไม่ได้' : 'ไม่ต้องใช้', row.received ? '' : 'ยังไม่ได้รับเงิน', row.received ? 'รับครบแล้ว' : 'ยังไม่จ่าย', got(row)])
     : [];
   // Column letters in รายรับ that the other tabs read.
   const I = vat ? { date: 'A', type: 'G', gross: 'H', wht: 'K', got: 'M' } : { date: 'A', type: 'E', gross: 'F', wht: 'H', got: 'K' };
