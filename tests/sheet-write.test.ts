@@ -14,7 +14,7 @@ process.env.GOOGLE_CLIENT_ID = 'client-id.apps.googleusercontent.com';
 process.env.GOOGLE_CLIENT_SECRET = 'test-secret-not-real';
 process.env.GOOGLE_TOKEN_KEY = randomBytes(32).toString('base64');
 
-const { planRow, writeRow, previewOf, writeFor, deleteRecordRows, writeRowsBatch, writeOverRow, recentRowsOf, addPaymentColumn, addMonthTabs } = await import('../backend/src/services/sheetWrite');
+const { planRow, writeRow, previewOf, writeFor, deleteRecordRows, writeRowsBatch, writeOverRow, recentRowsOf, addPaymentColumn, addMonthTabs, addMonthChips } = await import('../backend/src/services/sheetWrite');
 const { googleOps } = await import('../backend/src/services/googleSheets');
 const { confirmProposal } = await import('../backend/src/ai/service');
 type SheetOps = import('../backend/src/services/googleSheets').SheetOps;
@@ -77,6 +77,7 @@ function fakeOps(sheet: Record<string, string[][]>, formulas: Record<string, Set
     async choiceColumn(tab, column, headerRow, lastRow, choices) { calls.push({ op: 'choiceColumn', args: [tab, column, headerRow, lastRow, choices] }); },
     async addColumns(tab, headerRow, lastRow, columns) { calls.push({ op: 'addColumns', args: [tab, headerRow, lastRow, columns.map(column => ({ index: column.index, header: column.header, formatFrom: column.formatFrom, ...(column.formula ? { formula: column.formula(2) } : {}) }))] }); },
     async addMonthTabs(after, tabs) { calls.push({ op: 'addMonthTabs', args: [after, tabs] }); return tabs.length; },
+    async monthChips(source, titles) { calls.push({ op: 'monthChips', args: [source, titles] }); return titles.length; },
     async formulaTexts(tab, row, columns) { return Object.fromEntries(columns.filter(column => formulas[tab]?.has(`${row}:${column}`)).map(column => [column, formulaText[tab]?.[`${row}:${column}`] ?? '=1'])); },
   };
   return { ops, calls };
@@ -465,4 +466,10 @@ test('month tabs: twelve views after รายจ่าย for our workbook, fro
   assert.deepEqual(nov[4].slice(0, 4), ['=SUM(F9:F)', '=SUM(M9:M)', '=A5-B5', '=SUM(G9:G)']);
   const own = fakeOps({ รายรับ: [['วันที่', 'ลูกค้า', 'งาน', 'เงิน', 'อื่น ๆ', 'หมายเหตุ']] });
   assert.equal(await addMonthTabs(own.ops, { ...map, tabs: [{ ...income, columns: income.columns.slice(0, 4) }] }), null);
+  // Owner, 2026-11-25 ("ชิปสีไว้ดูอย่างเดียว"): การชำระ in every month tab shows รายรับ's chips, copied from its การชำระ column.
+  assert.equal(await addMonthChips(ops, map), 12);
+  const [source, titles] = calls.find(call => call.op === 'monthChips')!.args as [{ tab: string; column: number }, string[]];
+  assert.deepEqual(source, { tab: 'รายรับ', column: 12 });
+  assert.equal(titles.length, 12);
+  assert.equal(await addMonthChips(own.ops, { ...map, tabs: [{ ...income, columns: income.columns.slice(0, 4) }] }), null, 'no การชำระ, no chips');
 });

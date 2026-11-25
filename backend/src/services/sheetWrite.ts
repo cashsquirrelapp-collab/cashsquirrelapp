@@ -3,7 +3,7 @@ import { chooseTab, dataColumns, deletedRowOf, displayValue, exampleRowsOf, inco
 import { evaluateRow, shiftFormula } from '../../../shared/sheetFormula.js';
 import { isValidWhtRate, roundMoney, whtAmountFor } from '../../../shared/wht.js';
 import { loadGoogle, saveGoogle } from '../repositories/google.js';
-import { DUE_HEADER, PAYMENT_CHOICES, PAYMENT_HEADER, PENDING_HEADER, RECEIVED_HEADER, paymentCellOf, paymentChoiceOf, pendingFormula } from '../../../shared/paymentColumn.js';
+import { DUE_HEADER, MONTH_TAB_NAMES, PAYMENT_CHOICES, PAYMENT_HEADER, PENDING_HEADER, RECEIVED_HEADER, paymentCellOf, paymentChoiceOf, pendingFormula } from '../../../shared/paymentColumn.js';
 import { CALC_MARK, templateShapes } from '../../../shared/bookTemplates.js';
 import type { SheetMapColumn, SheetMapTab } from '../../../shared/googleSheets.js';
 import { monthTabs, type MonthSources } from '../../../shared/monthTabs.js';
@@ -701,6 +701,17 @@ export async function addMonthTabs(ops: SheetOps, map: SheetMap): Promise<number
   };
   return ops.addMonthTabs(expense?.tab ?? income.name, monthTabs(sources));
 }
+/**
+ * การชำระ in the month tabs as chips like รายรับ's (owner, 2026-11-25, picked "ชิปสีไว้ดูอย่างเดียว"): to look at only, the
+ * month tab warns before an edit; the word is changed in รายรับ and the month tab follows. Null: not ours, or no การชำระ.
+ */
+export async function addMonthChips(ops: SheetOps, map: SheetMap): Promise<number | null> {
+  const income = chooseTab(map, 'job');
+  if (!income || income.headerRow !== 0 || !ops.monthChips) return null;
+  const status = income.columns.find(column => column.target === 'status' && !column.formula && column.header.trim() === PAYMENT_HEADER);
+  if (!status) return null;
+  return ops.monthChips({ tab: income.name, column: status.index }, MONTH_TAB_NAMES);
+}
 
 export async function addSheetMonthTabs(userId: string): Promise<{ added: number; error?: string } | null> {
   let context: Awaited<ReturnType<typeof sheetContext>>;
@@ -708,13 +719,19 @@ export async function addSheetMonthTabs(userId: string): Promise<{ added: number
   catch (error) { return { added: 0, error: error instanceof GoogleError ? ERRORS[error.code] : ERRORS.failed }; }
   if (!context) return null;
   const fileId = context.record.map!.fileId;
-  // Once per file: the person may delete a month tab they do not want, and it stays deleted.
-  if (context.record.monthTabs === fileId) return { added: 0 };
+  // Once per file: the person may delete a month tab they do not want, and it stays deleted. The chips come once too, also
+  // to month tabs added before them.
+  if (context.record.monthTabs === fileId && context.record.monthChips === fileId) return { added: 0 };
   try {
-    const added = await addMonthTabs(context.ops, context.record.map!);
-    if (added === null) return { added: 0 };
+    let added = 0;
+    if (context.record.monthTabs !== fileId) {
+      const made = await addMonthTabs(context.ops, context.record.map!);
+      if (made === null) return { added: 0 };
+      added = made;
+    }
+    const chips = await addMonthChips(context.ops, context.record.map!);
     const latest = await loadGoogle(userId);
-    if (latest) await saveGoogle(userId, { ...latest, monthTabs: fileId });
+    if (latest) await saveGoogle(userId, { ...latest, monthTabs: fileId, ...(chips !== null ? { monthChips: fileId } : {}) });
     return { added };
   } catch (error) { return { added: 0, error: error instanceof GoogleError ? ERRORS[error.code] : ERRORS.failed }; }
 }

@@ -2,6 +2,9 @@ import { createCipheriv, createDecipheriv, createHmac, randomBytes, timingSafeEq
 import { appOrigin, required } from '../config/env.js';
 import { LIVE_READ, serialToDate, type GoogleFile, type LiveCell, type LiveTab } from '../../../shared/googleSheets.js';
 import { MONTH_LAYOUT } from '../../../shared/monthTabs.js';
+import { PAYMENT_CHOICES } from '../../../shared/paymentColumn.js';
+/** The warning on every month tab: a chip changed there would break the list, so the sheet asks first. */
+const MONTH_GUARD = 'แท็บนี้ดึงรายการมาให้เอง เปลี่ยนการชำระที่แท็บ รายรับ';
 import { MONTH_TAB_NAMES } from '../../../shared/paymentColumn.js';
 
 // ฟีเจอร์ทดลอง, phase 2: the person's own Google account (shared/googleSheets.ts). Google's sign-in code flow with the
@@ -307,6 +310,9 @@ export interface SheetOps {
   /** The month tabs (shared/monthTabs.ts) after the tab named `after`, laid out and filled; a tab already there is left as
    *  it is. Returns how many were added. */
   addMonthTabs?(after: string, tabs: { title: string; rows: string[][] }[]): Promise<number>;
+  /** การชำระ in the month tabs named `titles` shown as the same chips as in `source` (its dropdown, colours included, copied
+   *  from the cell below its header), and each month tab warns before anyone types in it. Returns how many tabs got them. */
+  monthChips?(source: { tab: string; column: number }, titles: readonly string[]): Promise<number>;
 }
 
 const columnName = (index: number): string => { let s = '', n = index + 1; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
@@ -456,6 +462,34 @@ export function googleOps(token: string, fileId: string): SheetOps {
       const data = wanted.map(tab => ({ range: range(tab.title, 'A1'), values: tab.rows }));
       await post(`${SHEETS}/${id}/values:batchUpdate`, { valueInputOption: 'USER_ENTERED', data });
       return wanted.length;
+    },
+    async monthChips(source, titles) {
+      const reply = await get<{ sheets?: { properties?: { sheetId?: number; title?: string }; protectedRanges?: { description?: string }[] }[] }>(`${SHEETS}/${id}?fields=sheets(properties(sheetId,title),protectedRanges(description))`);
+      const sheets = reply.sheets || [];
+      const from = sheets.find(item => item.properties?.title === source.tab)?.properties?.sheetId;
+      if (from === undefined) throw new GoogleError('notFound', 'Tab not found');
+      // The chips as they are in รายรับ: a person who coloured them there sees the same colours here. When that cell has no
+      // dropdown, a plain one with the three words.
+      const cell = await get<{ sheets?: { data?: { rowData?: { values?: { dataValidation?: unknown }[] }[] }[] }[] }>(`${SHEETS}/${id}?ranges=${encodeURIComponent(range(source.tab, `${columnName(source.column)}2`))}&fields=sheets.data.rowData.values.dataValidation`);
+      const hasDropdown = Boolean(cell.sheets?.[0]?.data?.[0]?.rowData?.[0]?.values?.[0]?.dataValidation);
+      const L = MONTH_LAYOUT, STATUS = 4;
+      const requests: unknown[] = [];
+      let count = 0;
+      for (const title of titles) {
+        const tab = sheets.find(item => item.properties?.title === title);
+        const sheet = tab?.properties?.sheetId;
+        if (sheet === undefined) continue;
+        count += 1;
+        const destination = { sheetId: sheet, startRowIndex: L.firstRow, endRowIndex: 1000, startColumnIndex: STATUS, endColumnIndex: STATUS + 1 };
+        requests.push(hasDropdown
+          ? { copyPaste: { source: { sheetId: from, startRowIndex: 1, endRowIndex: 2, startColumnIndex: source.column, endColumnIndex: source.column + 1 }, destination, pasteType: 'PASTE_DATA_VALIDATION' } }
+          : { setDataValidation: { range: destination, rule: { condition: { type: 'ONE_OF_LIST', values: PAYMENT_CHOICES.map(value => ({ userEnteredValue: value })) }, showCustomUi: true, strict: false } } });
+        if (!(tab?.protectedRanges || []).some(item => item.description === MONTH_GUARD)) {
+          requests.push({ addProtectedRange: { protectedRange: { range: { sheetId: sheet }, description: MONTH_GUARD, warningOnly: true } } });
+        }
+      }
+      if (requests.length) await post(`${SHEETS}/${id}:batchUpdate`, { requests });
+      return count;
     },
     async addColumns(tab, headerRow, lastRow, columns) {
       if (!columns.length) return;
