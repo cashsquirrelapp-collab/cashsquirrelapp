@@ -1,6 +1,8 @@
 import { createCipheriv, createDecipheriv, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { appOrigin, required } from '../config/env.js';
 import { LIVE_READ, serialToDate, type GoogleFile, type LiveCell, type LiveTab } from '../../../shared/googleSheets.js';
+import { MONTH_LAYOUT } from '../../../shared/monthTabs.js';
+import { MONTH_TAB_NAMES } from '../../../shared/paymentColumn.js';
 
 // ฟีเจอร์ทดลอง, phase 2: the person's own Google account (shared/googleSheets.ts). Google's sign-in code flow with the
 // drive.file permission only: the app reaches the files the person picks in Google's own file picker, or the files it
@@ -220,9 +222,11 @@ export async function readSpreadsheet(token: string, fileId: string): Promise<Li
   const id = encodeURIComponent(fileId);
   const outline = await call(`${SHEETS}/${id}?fields=sheets.properties(sheetId,title,hidden,sheetType,gridProperties.rowCount)`, { headers: auth(token) });
   if (!outline.ok) throw failure(outline);
-  const sheets = ((await json<{ sheets?: (ApiSheet & { properties?: { gridProperties?: { rowCount?: number } } })[] }>(outline)).sheets || [])
-    .filter(sheet => sheet.properties?.title && !sheet.properties.hidden && (sheet.properties.sheetType ?? 'GRID') === 'GRID')
-    .slice(0, LIVE_READ.tabs);
+  const all = ((await json<{ sheets?: (ApiSheet & { properties?: { gridProperties?: { rowCount?: number } } })[] }>(outline)).sheets || [])
+    .filter(sheet => sheet.properties?.title && !sheet.properties.hidden && (sheet.properties.sheetType ?? 'GRID') === 'GRID');
+  // Our workbooks' month tabs (shared/monthTabs.ts) only show what รายรับ and รายจ่าย hold: never read as records.
+  const ours = all.some(sheet => sheet.properties?.title === 'ตั้งค่า');
+  const sheets = all.filter(sheet => !(ours && (MONTH_TAB_NAMES as readonly string[]).includes(sheet.properties!.title!))).slice(0, LIVE_READ.tabs);
   if (!sheets.length) return [];
   const lastColumn = 'AN'; // column 40
   const params = new URLSearchParams({ fields: 'sheets(properties.title,data.rowData.values(formattedValue,effectiveValue,userEnteredValue.formulaValue,effectiveFormat.numberFormat.type))' });
@@ -300,6 +304,9 @@ export interface SheetOps {
   /** New columns (headerRow is 1-based): each takes the look of another column (header and body) and its header text;
    *  a formula column gets its formula in every row down to lastRow. */
   addColumns?(tab: string, headerRow: number, lastRow: number, columns: { index: number; header: string; formatFrom: number; formula?: (row: number) => string }[]): Promise<void>;
+  /** The month tabs (shared/monthTabs.ts) after the tab named `after`, laid out and filled; a tab already there is left as
+   *  it is. Returns how many were added. */
+  addMonthTabs?(after: string, tabs: { title: string; rows: string[][] }[]): Promise<number>;
 }
 
 const columnName = (index: number): string => { let s = '', n = index + 1; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
@@ -413,6 +420,42 @@ export function googleOps(token: string, fileId: string): SheetOps {
         if (tone) requests.push({ addConditionalFormatRule: { index, rule: { ranges: [below], booleanRule: { condition: { type: 'TEXT_STARTS_WITH', values: [{ userEnteredValue: choice }] }, format: { backgroundColor: rgb(tone.fill), textFormat: { foregroundColor: rgb(tone.ink), bold: true } } } } } });
       });
       await post(`${SHEETS}/${id}:batchUpdate`, { requests });
+    },
+    async addMonthTabs(after, tabs) {
+      const reply = await get<{ sheets?: { properties?: { sheetId?: number; title?: string; index?: number } }[] }>(`${SHEETS}/${id}?fields=sheets.properties(sheetId,title,index)`);
+      const props = (reply.sheets || []).map(item => item.properties ?? {});
+      const titles = new Set(props.map(item => item.title));
+      const wanted = tabs.filter(tab => !titles.has(tab.title));
+      if (!wanted.length) return 0;
+      const base = (props.find(item => item.title === after)?.index ?? props.length - 1) + 1;
+      const used = new Set(props.map(item => item.sheetId));
+      let nextId = 7_250_000;
+      const L = MONTH_LAYOUT;
+      const rgb = (hex: string) => ({ red: parseInt(hex.slice(0, 2), 16) / 255, green: parseInt(hex.slice(2, 4), 16) / 255, blue: parseInt(hex.slice(4, 6), 16) / 255 });
+      const requests: unknown[] = [];
+      wanted.forEach((tab, i) => {
+        while (used.has(nextId)) nextId += 1;
+        const sheet = nextId; used.add(sheet);
+        const box = (top: number, bottom: number, left: number, right: number) => ({ sheetId: sheet, startRowIndex: top, endRowIndex: bottom, startColumnIndex: left, endColumnIndex: right });
+        const paint = (range: ReturnType<typeof box>, format: Record<string, unknown>, fields: string) => requests.push({ repeatCell: { range, cell: { userEnteredFormat: format }, fields: `userEnteredFormat(${fields})` } });
+        requests.push({ addSheet: { properties: { sheetId: sheet, title: tab.title, index: base + i, tabColor: rgb('D2734B'), gridProperties: { frozenRowCount: L.firstRow, rowCount: 1000, columnCount: L.widths.length } } } });
+        L.widths.forEach((pixelSize, column) => requests.push({ updateDimensionProperties: { range: { sheetId: sheet, dimension: 'COLUMNS', startIndex: column, endIndex: column + 1 }, properties: { pixelSize }, fields: 'pixelSize' } }));
+        paint(box(L.titleRow, L.titleRow + 1, 0, 1), { textFormat: { bold: true, fontSize: 16, foregroundColor: rgb('1C1917') } }, 'textFormat');
+        paint(box(L.noteRow, L.noteRow + 1, 0, 1), { textFormat: { fontSize: 10, foregroundColor: rgb('6B6560') } }, 'textFormat');
+        paint(box(L.labelRow, L.labelRow + 1, 0, 4), { backgroundColor: rgb('F5F2EF'), textFormat: { fontSize: 10, foregroundColor: rgb('6B6560') }, horizontalAlignment: 'RIGHT' }, 'backgroundColor,textFormat,horizontalAlignment');
+        paint(box(L.totalRow, L.totalRow + 1, 0, 4), { backgroundColor: rgb('F5F2EF'), textFormat: { bold: true, fontSize: 13, foregroundColor: rgb('1C1917') }, numberFormat: { type: 'NUMBER', pattern: '#,##0.00' }, horizontalAlignment: 'RIGHT' }, 'backgroundColor,textFormat,numberFormat,horizontalAlignment');
+        for (const column of [0, L.expenseFrom]) paint(box(L.sectionRow, L.sectionRow + 1, column, column + 1), { textFormat: { bold: true, fontSize: 12, foregroundColor: rgb('C24A16') } }, 'textFormat');
+        for (const [from, count] of [[0, L.incomeColumns], [L.expenseFrom, L.expenseColumns]] as const) {
+          paint(box(L.headerRow, L.headerRow + 1, from, from + count), { backgroundColor: rgb('C24A16'), textFormat: { bold: true, foregroundColor: rgb('FFFFFF') }, horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE' }, 'backgroundColor,textFormat,horizontalAlignment,verticalAlignment');
+        }
+        for (const column of L.money) paint(box(L.firstRow, 1000, column, column + 1), { numberFormat: { type: 'NUMBER', pattern: '#,##0.00' } }, 'numberFormat');
+        for (const column of L.dates) paint(box(L.firstRow, 1000, column, column + 1), { numberFormat: { type: 'DATE', pattern: 'dd/mm/yyyy' } }, 'numberFormat');
+        requests.push({ updateDimensionProperties: { range: { sheetId: sheet, dimension: 'ROWS', startIndex: L.headerRow, endIndex: L.headerRow + 1 }, properties: { pixelSize: 30 }, fields: 'pixelSize' } });
+      });
+      await post(`${SHEETS}/${id}:batchUpdate`, { requests });
+      const data = wanted.map(tab => ({ range: range(tab.title, 'A1'), values: tab.rows }));
+      await post(`${SHEETS}/${id}/values:batchUpdate`, { valueInputOption: 'USER_ENTERED', data });
+      return wanted.length;
     },
     async addColumns(tab, headerRow, lastRow, columns) {
       if (!columns.length) return;

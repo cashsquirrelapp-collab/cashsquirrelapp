@@ -3,9 +3,10 @@ import { chooseTab, dataColumns, deletedRowOf, displayValue, exampleRowsOf, inco
 import { evaluateRow, shiftFormula } from '../../../shared/sheetFormula.js';
 import { isValidWhtRate, roundMoney, whtAmountFor } from '../../../shared/wht.js';
 import { loadGoogle, saveGoogle } from '../repositories/google.js';
-import { PAYMENT_CHOICES, PAYMENT_HEADER, PENDING_HEADER, RECEIVED_HEADER, paymentCellOf, paymentChoiceOf, pendingFormula } from '../../../shared/paymentColumn.js';
+import { DUE_HEADER, PAYMENT_CHOICES, PAYMENT_HEADER, PENDING_HEADER, RECEIVED_HEADER, paymentCellOf, paymentChoiceOf, pendingFormula } from '../../../shared/paymentColumn.js';
 import { CALC_MARK, templateShapes } from '../../../shared/bookTemplates.js';
-import type { SheetMapColumn } from '../../../shared/googleSheets.js';
+import type { SheetMapColumn, SheetMapTab } from '../../../shared/googleSheets.js';
+import { monthTabs, type MonthSources } from '../../../shared/monthTabs.js';
 import { GoogleError, accessToken, decryptToken, googleConfigured, googleOps, readSpreadsheet, type SheetOps } from './googleSheets.js';
 
 // บันทึกลงชีตของคุณ (ฟีเจอร์ทดลอง sheetWrite, plan phase 3). A job or expense confirmed in เลขา's chat (web or LINE) is also
@@ -584,53 +585,68 @@ export async function fillIncomeTypes(ops: SheetOps, map: SheetMap): Promise<num
 
 /**
  * การชำระ for a workbook of ours made before it (shared/paymentColumn.ts; owner, 2026-11-24), then รับแล้ว and ค้างรับ beside
- * it (owner, 2026-11-25): columns after the last, each job row given its job's word and the money in so far from the app
- * (a row no job is linked to: รับครบแล้ว when it has a payment date, else ยังไม่จ่าย; รับแล้ว left for the person), ค้างรับ
- * worked out by its own formula, and the map told, so the app reads and writes payment there from now on. Only our รายรับ
- * tab, only once: a tab that already has การชำระ gets just the two money columns, and one that says how a job stands on
- * payment in any other way is left alone. Returns the new map, or null when nothing was done.
+ * it, then วันนัดรับเงิน (owner, 2026-11-25): whichever of them the tab lacks, after its last column. Each job row is given
+ * its job's word, money in so far and due day from the app (a row no job is linked to: รับครบแล้ว when it has a payment
+ * date, else ยังไม่จ่าย; the rest left for the person), ค้างรับ works itself out by its own formula, and the map is told,
+ * so the app reads and writes there from now on. Only our รายรับ tab (its headers are the template's, in order), and
+ * each column once. Returns the new map, or null when nothing was done.
  */
 export async function addPaymentColumn(ops: SheetOps, map: SheetMap, jobs: Record<string, unknown>[], now = new Date()): Promise<{ map: SheetMap; filled: number } | null> {
   const tab = chooseTab(map, 'job');
   if (!tab || tab.headerRow === null || !ops.choiceColumn) return null;
-  if (tab.columns.some(column => ['received', 'pending', 'installment', 'installmentStatus'].includes(column.target))) return null;
+  if (tab.columns.some(column => ['installment', 'installmentStatus'].includes(column.target))) return null;
   const status = tab.columns.find(column => column.target === 'status');
-  const hasPayment = Boolean(status && status.header.trim() === PAYMENT_HEADER);
-  if (status && !hasPayment) return null;
+  if (status && status.header.trim() !== PAYMENT_HEADER) return null;
+  const mapHas = (target: string) => tab.columns.some(column => column.target === target);
+  if (status && mapHas('received') && mapHas('dueDate')) return null;
   const headerRow = tab.headerRow + 1;
   const width = Math.max(...tab.columns.map(column => column.index)) + 8;
   const [headers = []] = await ops.readRows(tab.name, headerRow, headerRow, width);
   if (!isOurIncomeTab(tab.name, headers)) return null;
+  const has = (header: string) => headers.some(cell => cell.trim() === header);
+  const needPayment = !status && !has(PAYMENT_HEADER);
+  const needParts = !mapHas('received') && !has(RECEIVED_HEADER) && Boolean(ops.addColumns);
+  const needDue = !mapHas('dueDate') && !has(DUE_HEADER) && Boolean(ops.addColumns);
+  if (!needPayment && !needParts && !needDue) return null;
   let column = headers.length;
   while (column > 0 && !(headers[column - 1] ?? '').trim()) column -= 1;
-  if (!hasPayment && headers.some(header => header.trim() === PAYMENT_HEADER)) return null;
-  if (headers.some(header => header.trim() === RECEIVED_HEADER)) return null;
   const first = headerRow + 1;
   const last = Math.min(await ops.lastRow(tab.name, dataColumns(tab)), first + MAX_DELETE_SCAN);
+  const bottom = Math.max(last, headerRow + 1000);
   const added: SheetMapColumn[] = [];
-  const statusAt = hasPayment ? status!.index : column;
-  if (!hasPayment) {
+  const statusAt = needPayment ? column : headers.findIndex(cell => cell.trim() === PAYMENT_HEADER);
+  if (needPayment) {
     await ops.write(tab.name, headerRow, [{ index: column, value: PAYMENT_HEADER }]);
-    await ops.choiceColumn(tab.name, column, headerRow, Math.max(last, headerRow + 1000), PAYMENT_CHOICES);
+    await ops.choiceColumn(tab.name, column, headerRow, bottom, PAYMENT_CHOICES);
     added.push({ index: column, header: PAYMENT_HEADER, target: 'status', choices: [...PAYMENT_CHOICES] });
     column += 1;
   }
-  // รับแล้ว looks like the amount; ค้างรับ like the worked-out เงินเข้าจริง (grey), its formula in every row.
+  // รับแล้ว looks like the amount; ค้างรับ like the worked-out เงินเข้าจริง (grey), its formula in every row; วันนัดรับเงิน
+  // like วันที่รับเงิน.
   const value = tab.columns.find(item => item.target === 'value');
+  const paidDate = tab.columns.find(item => item.target === 'paidDate');
   const at = (pattern: RegExp) => headers.findIndex(header => pattern.test(header));
   const wht = at(/^ภาษีถูกหัก/), net = at(/^เงินเข้าจริง/);
-  const receivedAt = value && ops.addColumns ? column : -1;
-  if (value && ops.addColumns) {
+  const extra: Parameters<NonNullable<SheetOps['addColumns']>>[3] = [];
+  let receivedAt = needParts ? -1 : headers.findIndex(cell => cell.trim() === RECEIVED_HEADER);
+  if (needParts && value) {
+    receivedAt = column;
     const letters = { value: letter(value.index), wht: wht >= 0 ? letter(wht) : null, status: letter(statusAt), received: letter(column) };
     const pendingHeader = `${PENDING_HEADER}${CALC_MARK}`;
-    await ops.addColumns(tab.name, headerRow, Math.max(last, headerRow + 1000), [
-      { index: column, header: RECEIVED_HEADER, formatFrom: value.index },
-      { index: column + 1, header: pendingHeader, formatFrom: net >= 0 ? net : value.index, formula: row => pendingFormula(letters, row) },
-    ]);
+    extra.push({ index: column, header: RECEIVED_HEADER, formatFrom: value.index },
+      { index: column + 1, header: pendingHeader, formatFrom: net >= 0 ? net : value.index, formula: row => pendingFormula(letters, row) });
     added.push({ index: column, header: RECEIVED_HEADER, target: 'received' }, { index: column + 1, header: pendingHeader, target: 'keep', formula: true });
+    column += 2;
   }
+  let dueAt = -1;
+  if (needDue && paidDate) {
+    dueAt = column;
+    extra.push({ index: column, header: DUE_HEADER, formatFrom: paidDate.index });
+    added.push({ index: column, header: DUE_HEADER, target: 'dueDate' });
+    column += 1;
+  }
+  if (extra.length) await ops.addColumns!(tab.name, headerRow, bottom, extra);
   if (!added.length) return null;
-  const paidDate = tab.columns.find(item => item.target === 'paidDate');
   const rows = last >= first ? await ops.readRows(tab.name, first, last, Math.max(...tab.columns.map(item => item.index))) : [];
   const linked = new Map<number, Record<string, unknown>>();
   for (const job of jobs) {
@@ -638,21 +654,69 @@ export async function addPaymentColumn(ops: SheetOps, map: SheetMap, jobs: Recor
     if (link?.fileId === map.fileId && link.tab === tab.name && typeof link.row === 'number') linked.set(link.row, job);
   }
   const data = dataColumns(tab);
+  const dateSamples = paidDate ? rows.map(cells => cells[paidDate.index] ?? '').filter(Boolean) : [];
   const cells = rows.flatMap((cells, index) => {
     if (!data.some(at => (cells[at] ?? '').trim()) || exampleText(cells)) return [];
     const row = first + index;
     const job = linked.get(row);
     const out: { row: number; index: number; value: string | number }[] = [];
-    // The word: the job's (just the word now that รับแล้ว holds the amount); an unlinked row keeps one already there.
-    const word = job ? (receivedAt >= 0 ? paymentChoiceOf(job) : paymentCellOf(job))
-      : hasPayment ? null : paidDate && (cells[paidDate.index] ?? '').trim() ? 'รับครบแล้ว' : 'ยังไม่จ่าย';
-    if (word && word !== (cells[statusAt] ?? '').trim()) out.push({ row, index: statusAt, value: word });
-    if (job && receivedAt >= 0) out.push({ row, index: receivedAt, value: Math.round((Number(job.received) || 0) * 100) / 100 });
+    // The word: the job's (just the word once รับแล้ว holds the amount); an unlinked row keeps one already there.
+    if (needPayment || job) {
+      const word = job ? (receivedAt >= 0 ? paymentChoiceOf(job) : paymentCellOf(job))
+        : paidDate && (cells[paidDate.index] ?? '').trim() ? 'รับครบแล้ว' : 'ยังไม่จ่าย';
+      if (word !== (cells[statusAt] ?? '').trim()) out.push({ row, index: statusAt, value: word });
+    }
+    if (job && needParts && receivedAt >= 0) out.push({ row, index: receivedAt, value: Math.round((Number(job.received) || 0) * 100) / 100 });
+    if (job && dueAt >= 0) {
+      const due = valueFor({ index: dueAt, header: DUE_HEADER, target: 'dueDate' }, 'job', job, dateSamples, false);
+      if (due !== null && due !== '') out.push({ row, index: dueAt, value: due });
+    }
     return out;
   });
   if (cells.length) await ops.writeMany(tab.name, cells);
   const next: SheetMap = { ...map, at: now.toISOString(), tabs: map.tabs.map(item => (item === tab ? { ...item, columns: [...item.columns, ...added] } : item)) };
   return { map: next, filled: new Set(cells.map(cell => cell.row)).size };
+}
+/**
+ * The month tabs ม.ค. to ธ.ค. (shared/monthTabs.ts; owner, 2026-11-25) for a workbook of ours: after รายจ่าย, each a view
+ * the sheet fills from รายรับ and รายจ่าย by its own formulas, built from where the map says each thing is. Only our รายรับ.
+ * Returns how many tabs were added (null: not ours, or nothing to build from).
+ */
+export async function addMonthTabs(ops: SheetOps, map: SheetMap): Promise<number | null> {
+  const income = chooseTab(map, 'job');
+  if (!income || income.headerRow !== 0 || !ops.addMonthTabs) return null;
+  const [headers = []] = await ops.readRows(income.name, 1, 1, Math.max(...income.columns.map(column => column.index)) + 8);
+  if (!isOurIncomeTab(income.name, headers)) return null;
+  const find = (tab: SheetMapTab, target: string) => { const column = tab.columns.find(item => item.target === target && !item.formula); return column ? letter(column.index) : null; };
+  const date = find(income, 'paidDate'), value = find(income, 'value');
+  if (!date || !value) return null;
+  const pending = headers.findIndex(header => header.trim().startsWith(PENDING_HEADER));
+  const expenseTab = chooseTab(map, 'expense');
+  const expense = expenseTab && expenseTab.headerRow === 0 && find(expenseTab, 'date') && find(expenseTab, 'amount')
+    ? { tab: expenseTab.name, date: find(expenseTab, 'date')!, name: find(expenseTab, 'name'), category: find(expenseTab, 'category'), amount: find(expenseTab, 'amount')! } : null;
+  const sources: MonthSources = {
+    income: { tab: income.name, date, due: find(income, 'dueDate'), client: find(income, 'client'), name: find(income, 'name'), value,
+      status: find(income, 'status'), received: find(income, 'received'), pending: pending >= 0 ? letter(pending) : null },
+    expense,
+  };
+  return ops.addMonthTabs(expense?.tab ?? income.name, monthTabs(sources));
+}
+
+export async function addSheetMonthTabs(userId: string): Promise<{ added: number; error?: string } | null> {
+  let context: Awaited<ReturnType<typeof sheetContext>>;
+  try { context = await sheetContext(userId); }
+  catch (error) { return { added: 0, error: error instanceof GoogleError ? ERRORS[error.code] : ERRORS.failed }; }
+  if (!context) return null;
+  const fileId = context.record.map!.fileId;
+  // Once per file: the person may delete a month tab they do not want, and it stays deleted.
+  if (context.record.monthTabs === fileId) return { added: 0 };
+  try {
+    const added = await addMonthTabs(context.ops, context.record.map!);
+    if (added === null) return { added: 0 };
+    const latest = await loadGoogle(userId);
+    if (latest) await saveGoogle(userId, { ...latest, monthTabs: fileId });
+    return { added };
+  } catch (error) { return { added: 0, error: error instanceof GoogleError ? ERRORS[error.code] : ERRORS.failed }; }
 }
 const exampleText = (cells: string[]) => isExampleText(...cells);
 /** Our workbooks' รายรับ: its headers, as far as the file has them, are the template's. */

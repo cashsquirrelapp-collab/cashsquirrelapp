@@ -52,6 +52,8 @@ export const googleApi = {
   /** ประเภทเงินได้ filled in on the job rows that have none (null: no sheet). */
   fillIncomeTypes: (account: string) => post<{ result: { filled: number; error?: string } | null }>(account, { action: 'fillIncomeTypes' }).then(reply => reply.result),
   /** การชำระ added to a workbook of ours made before it, filled from the app's jobs (null: no sheet). */
+  /** The month tabs ม.ค.–ธ.ค. added once to our workbook (null: no sheet ready). */
+  addMonthTabs: (account: string) => post<{ result: { added: number; error?: string } | null }>(account, { action: 'addMonthTabs' }).then(reply => reply.result),
   addPaymentColumn: (account: string) => post<{ result: { added: boolean; filled: number; error?: string } | null }>(account, { action: 'addPaymentColumn' }).then(reply => reply.result),
   /** The template's example rows deleted from the connected sheet (null: no sheet). */
   deleteExamples: (account: string) => post<{ result: { deleted: number; error?: string } | null }>(account, { action: 'deleteExamples' }).then(reply => reply.result),

@@ -72,7 +72,7 @@ const HEADER_WORDS: Record<Field, string[]> = {
   kind: ['ประเภทรายการ', 'รับจ่าย', 'รายรับรายจ่าย', 'เข้าออก', 'inout', 'direction', 'kind', 'transactiontype'],
   date: ['วันที่', 'วัน', 'วันที่ทำรายการ', 'วันเดือนปี', 'เดือน', 'งวดเดือน', 'วันออกใบแจ้งหนี้', 'วันที่ออก', 'วันวางบิล', 'date', 'day', 'transactiondate', 'month', 'period', 'issued', 'issuedate', 'dateissued', 'invoicedate', 'billingdate'],
   postDate: ['วันส่งงาน', 'วันที่ส่งงาน', 'ส่งงาน', 'วันลงงาน', 'วันที่ลงงาน', 'วันโพสต์', 'วันเผยแพร่', 'วันดีล', 'วันจบงาน', 'วันที่ให้บริการ', 'วันให้บริการ', 'deliverydate', 'delivered', 'postdate', 'publishdate', 'livedate', 'completeddate', 'enddate', 'servicedate'],
-  dueDate: ['กำหนดชำระ', 'วันครบกำหนด', 'ครบกำหนด', 'กำหนดรับเงิน', 'วันครบกำหนดชำระ', 'วันนัดจ่าย', 'กำหนดจ่าย', 'วันที่ต้องได้รับ', 'duedate', 'due', 'paymentdue', 'dueon'],
+  dueDate: ['กำหนดชำระ', 'วันนัดรับเงิน', 'วันครบกำหนด', 'ครบกำหนด', 'กำหนดรับเงิน', 'วันครบกำหนดชำระ', 'วันนัดจ่าย', 'กำหนดจ่าย', 'วันที่ต้องได้รับ', 'duedate', 'due', 'paymentdue', 'dueon'],
   paidDate: ['วันที่รับเงิน', 'วันรับเงิน', 'วันที่ได้รับเงิน', 'วันที่โอน', 'วันโอน', 'วันที่จ่าย', 'วันจ่าย', 'วันที่ชำระ', 'วันรับเงินจริง', 'วันที่รับเงินจริง', 'paiddate', 'paymentdate', 'datepaid', 'receiveddate', 'paidon', 'datereceived'],
   creditTerm: ['เครดิต', 'เครดิตเทอม', 'เทอม', 'ระยะเวลาเครดิต', 'creditterm', 'credit', 'terms', 'paymentterms', 'paymentterm'],
   installment: ['งวด', 'งวดชำระ', 'งวดที่', 'งวดงาน', 'งวดการชำระ', 'installment', 'milestone', 'paymentmilestone'],

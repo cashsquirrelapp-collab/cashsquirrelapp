@@ -116,7 +116,9 @@ export interface RecentRow { fileId: string; tab: string; row: number; at: strin
 export const RECENT_ROWS_MS = 3 * 60_000;
 export interface GoogleRecord { email: string; enc: string; at: string; file?: GoogleFile | null; map?: SheetMap | null; lastWrite?: SheetWrite | null; writes?: SheetWrite[]; recentRows?: RecentRow[];
   /** The file whose template example rows were cleared (once, before its first write; services/sheetWrite.ts). */
-  examplesCleared?: string }
+  examplesCleared?: string;
+  /** The file the month tabs were added to (once; services/sheetWrite.ts addMonthTabs). */
+  monthTabs?: string }
 const recordSchema = z.object({
   email: z.string().max(320),
   enc: z.string().min(20).max(4000),
@@ -127,6 +129,7 @@ const recordSchema = z.object({
   writes: z.array(sheetWriteSchema).max(KEPT_WRITES).optional(),
   recentRows: z.array(z.object({ fileId: z.string().max(200), tab: z.string().max(120), row: z.number().int().min(1).max(10_000_000), at: z.string().max(40) })).max(600).optional(),
   examplesCleared: z.string().max(200).optional(),
+  monthTabs: z.string().max(200).optional(),
 });
 
 /** A stored record; anything unreadable counts as not connected. */

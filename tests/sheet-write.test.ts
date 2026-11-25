@@ -14,7 +14,7 @@ process.env.GOOGLE_CLIENT_ID = 'client-id.apps.googleusercontent.com';
 process.env.GOOGLE_CLIENT_SECRET = 'test-secret-not-real';
 process.env.GOOGLE_TOKEN_KEY = randomBytes(32).toString('base64');
 
-const { planRow, writeRow, previewOf, writeFor, deleteRecordRows, writeRowsBatch, writeOverRow, recentRowsOf, addPaymentColumn } = await import('../backend/src/services/sheetWrite');
+const { planRow, writeRow, previewOf, writeFor, deleteRecordRows, writeRowsBatch, writeOverRow, recentRowsOf, addPaymentColumn, addMonthTabs } = await import('../backend/src/services/sheetWrite');
 const { googleOps } = await import('../backend/src/services/googleSheets');
 const { confirmProposal } = await import('../backend/src/ai/service');
 type SheetOps = import('../backend/src/services/googleSheets').SheetOps;
@@ -76,6 +76,7 @@ function fakeOps(sheet: Record<string, string[][]>, formulas: Record<string, Set
     async tabId(tab) { return tab === 'รายจ่าย' ? 7 : 0; },
     async choiceColumn(tab, column, headerRow, lastRow, choices) { calls.push({ op: 'choiceColumn', args: [tab, column, headerRow, lastRow, choices] }); },
     async addColumns(tab, headerRow, lastRow, columns) { calls.push({ op: 'addColumns', args: [tab, headerRow, lastRow, columns.map(column => ({ index: column.index, header: column.header, formatFrom: column.formatFrom, ...(column.formula ? { formula: column.formula(2) } : {}) }))] }); },
+    async addMonthTabs(after, tabs) { calls.push({ op: 'addMonthTabs', args: [after, tabs] }); return tabs.length; },
     async formulaTexts(tab, row, columns) { return Object.fromEntries(columns.filter(column => formulas[tab]?.has(`${row}:${column}`)).map(column => [column, formulaText[tab]?.[`${row}:${column}`] ?? '=1'])); },
   };
   return { ops, calls };
@@ -388,15 +389,17 @@ test('การชำระ: added to our รายรับ after its last colu
   assert.deepEqual(calls.find(call => call.op === 'addColumns')!.args, ['รายรับ', 1, 1001, [
     { index: 13, header: 'รับแล้ว', formatFrom: 5 },
     { index: 14, header: 'ค้างรับ (คำนวณ)', formatFrom: 8, formula: 'IF(F2="","",IF(M2="รับครบแล้ว",0,MAX(0,ROUND(F2-N(H2)-N(N2),2))))' },
+    { index: 15, header: 'วันนัดรับเงิน', formatFrom: 0 },
   ]]);
   const cells = calls.find(call => call.op === 'writeMany')!.args[1] as { row: number; index: number; value: string | number }[];
   assert.deepEqual(cells.map(cell => [cell.row, cell.index, cell.value]), [
     [2, 12, 'รับครบแล้ว'], [2, 13, 3000], [3, 12, 'ยังไม่จ่าย'], [3, 13, 0], [4, 12, 'รับบางส่วน'], [4, 13, 500], [5, 12, 'รับครบแล้ว'],
   ], 'jobs by their app status and money in (the word alone: the amount has its own column); a row with no job by its date');
-  assert.deepEqual(done.map.tabs[0].columns.slice(-3), [
+  assert.deepEqual(done.map.tabs[0].columns.slice(-4), [
     { index: 12, header: 'การชำระ', target: 'status', choices: ['รับครบแล้ว', 'รับบางส่วน', 'ยังไม่จ่าย'] },
     { index: 13, header: 'รับแล้ว', target: 'received' },
     { index: 14, header: 'ค้างรับ (คำนวณ)', target: 'keep', formula: true },
+    { index: 15, header: 'วันนัดรับเงิน', target: 'dueDate' },
   ]);
   assert.equal(done.map.at, '2026-11-24T06:00:00.000Z', 'a new map: the app reads the sheet again with it');
   assert.equal(await addPaymentColumn(ops, done.map, jobs), null, 'once only');
@@ -417,14 +420,49 @@ test('รับแล้ว and ค้างรับ: added after an existing �
   const row = (date: string, item: string, amount: string, word: string) => [date, 'ลูกค้า', '', item, '40(2)', amount, '3%', '', '', '', '', '', word];
   const sheet = { รายรับ: [headers, row('', 'ออกแบบโลโก้', '10,000', 'รับบางส่วน ฿4,000'), row('02/10/2569', 'รีวิว', '1,000', 'รับครบแล้ว')] };
   const { ops, calls } = fakeOps(sheet);
-  const jobs = [{ id: 'a', name: 'ออกแบบโลโก้', value: 10000, whtRate: 3, received: 4000, pending: 5700, status: 'partial', sheetLink: { fileId: map.fileId, tab: 'รายรับ', row: 2 } }];
+  const jobs = [{ id: 'a', name: 'ออกแบบโลโก้', value: 10000, whtRate: 3, received: 4000, pending: 5700, status: 'partial', payDate: '2026-12-15', sheetLink: { fileId: map.fileId, tab: 'รายรับ', row: 2 } }];
   const done = (await addPaymentColumn(ops, map, jobs, new Date('2026-11-25T06:00:00Z')))!;
   assert.ok(!calls.some(call => call.op === 'choiceColumn' || call.op === 'write'), 'การชำระ is already there');
   const added = calls.find(call => call.op === 'addColumns')!.args[3] as { index: number; header: string; formula?: string }[];
-  assert.deepEqual(added.map(column => [column.index, column.header]), [[13, 'รับแล้ว'], [14, 'ค้างรับ (คำนวณ)']]);
+  assert.deepEqual(added.map(column => [column.index, column.header]), [[13, 'รับแล้ว'], [14, 'ค้างรับ (คำนวณ)'], [15, 'วันนัดรับเงิน']]);
   assert.equal(added[1].formula, 'IF(F2="","",IF(M2="รับครบแล้ว",0,MAX(0,ROUND(F2-N(H2)-N(N2),2))))');
   const cells = calls.find(call => call.op === 'writeMany')!.args[1] as { row: number; index: number; value: string | number }[];
-  assert.deepEqual(cells.map(cell => [cell.row, cell.index, cell.value]), [[2, 12, 'รับบางส่วน'], [2, 13, 4000]], 'the row with no job keeps its word');
-  assert.deepEqual(done.map.tabs[0].columns.slice(-2).map(column => column.target), ['received', 'keep']);
+  const due = cells.find(cell => cell.index === 15);
+  assert.deepEqual(cells.filter(cell => cell.index !== 15).map(cell => [cell.row, cell.index, cell.value]), [[2, 12, 'รับบางส่วน'], [2, 13, 4000]], 'the row with no job keeps its word');
+  assert.ok(due && due.row === 2 && /12/.test(String(due.value)), 'วันนัดรับเงิน: the day the rest is due');
+  assert.deepEqual(done.map.tabs[0].columns.slice(-3).map(column => column.target), ['received', 'keep', 'dueDate']);
   assert.equal(await addPaymentColumn(ops, done.map, jobs), null, 'once only');
+});
+
+// Owner, 2026-11-25: "Google Sheet อ่ะมึงทำแบบว่าแบ่งเป็นเดือนด้วยดิ" (one tab per month). Our workbook gets ม.ค. to ธ.ค. after
+// รายจ่าย, each built from where the map says things are; a sheet of the person's own never does.
+test('month tabs: twelve views after รายจ่าย for our workbook, from the map\'s columns; never for a sheet of the person\'s own', async () => {
+  const headers = ['วันที่รับเงิน', 'ผู้จ่ายเงิน', 'เลขผู้เสียภาษีผู้จ่าย', 'รายการ', 'ประเภทเงินได้', 'ยอดก่อนหัก', 'อัตราหัก', 'ภาษีถูกหัก (คำนวณ)', 'เงินเข้าจริง (คำนวณ)', 'หลักฐานการหัก', 'ได้ 50 ทวิ แล้ว', 'หมายเหตุ', 'การชำระ', 'รับแล้ว', 'ค้างรับ (คำนวณ)', 'วันนัดรับเงิน'];
+  const income: SheetMapTab = { name: 'รายรับ', headerRow: 0, kind: 'jobs', use: true, columns: [
+    { index: 0, header: 'วันที่รับเงิน', target: 'paidDate' }, { index: 1, header: 'ผู้จ่ายเงิน', target: 'client' }, { index: 3, header: 'รายการ', target: 'name' },
+    { index: 5, header: 'ยอดก่อนหัก', target: 'value' }, { index: 12, header: 'การชำระ', target: 'status' }, { index: 13, header: 'รับแล้ว', target: 'received' },
+    { index: 14, header: 'ค้างรับ (คำนวณ)', target: 'keep', formula: true }, { index: 15, header: 'วันนัดรับเงิน', target: 'dueDate' },
+  ] };
+  const expense: SheetMapTab = { name: 'รายจ่าย', headerRow: 0, kind: 'expenses', use: true, columns: [
+    { index: 0, header: 'วันที่จ่ายเงิน', target: 'date' }, { index: 2, header: 'รายการ', target: 'name' }, { index: 3, header: 'หมวด', target: 'category' }, { index: 6, header: 'จำนวนเงิน', target: 'amount' },
+  ] };
+  const map: SheetMap = { fileId: 'file-12345678', at: '2026-11-25T03:00:00.000Z', tabs: [income, expense] };
+  const { ops, calls } = fakeOps({ รายรับ: [headers], รายจ่าย: [['วันที่จ่ายเงิน']] });
+  assert.equal(await addMonthTabs(ops, map), 12);
+  const [after, tabs] = calls.find(call => call.op === 'addMonthTabs')!.args as [string, { title: string; rows: string[][] }[]];
+  assert.equal(after, 'รายจ่าย');
+  assert.deepEqual(tabs.map(tab => tab.title), ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']);
+  const nov = tabs[10].rows;
+  assert.equal(nov[0][0], `="พฤศจิกายน "&'ตั้งค่า'!$B$3`);
+  assert.deepEqual(nov[3].slice(0, 4), ['รับแล้ว', 'จ่ายไป', 'คงเหลือ', 'ค้างรับ']);
+  assert.deepEqual(nov[7], ['วันที่รับเงิน', 'ผู้จ่ายเงิน', 'รายการ', 'ยอดก่อนหัก', 'การชำระ', 'รับแล้ว', 'ค้างรับ', 'วันนัดรับเงิน', '', 'วันที่จ่ายเงิน', 'รายการ', 'หมวด', 'จำนวนเงิน']);
+  // A job received is in the month of วันที่รับเงิน; one not received yet in the month of วันนัดรับเงิน.
+  assert.match(nov[8][2], /FILTER\('รายรับ'!D2:D,/);
+  assert.match(nov[8][2], /\('รายรับ'!A2:A<>""\)\*\('รายรับ'!A2:A>=DATE\(\('ตั้งค่า'!\$B\$3-543\),11,1\)\)/);
+  assert.match(nov[8][2], /\('รายรับ'!A2:A=""\)\*\('รายรับ'!P2:P>=DATE/);
+  assert.match(nov[8][6], /FILTER\('รายรับ'!O2:O,/, 'ค้างรับ from the worked-out column');
+  assert.match(nov[8][12], /FILTER\('รายจ่าย'!G2:G,\('รายจ่าย'!G2:G<>""\)\*\('รายจ่าย'!A2:A>=DATE\(\('ตั้งค่า'!\$B\$3-543\),11,1\)\)\*\('รายจ่าย'!A2:A<DATE\(\('ตั้งค่า'!\$B\$3-543\),12,1\)\)/);
+  assert.deepEqual(nov[4].slice(0, 4), ['=SUM(F9:F)', '=SUM(M9:M)', '=A5-B5', '=SUM(G9:G)']);
+  const own = fakeOps({ รายรับ: [['วันที่', 'ลูกค้า', 'งาน', 'เงิน', 'อื่น ๆ', 'หมายเหตุ']] });
+  assert.equal(await addMonthTabs(own.ops, { ...map, tabs: [{ ...income, columns: income.columns.slice(0, 4) }] }), null);
 });

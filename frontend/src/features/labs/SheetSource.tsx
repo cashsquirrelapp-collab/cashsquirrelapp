@@ -115,6 +115,7 @@ export function useSheetEngine(input: {
   const examplesTried = React.useRef(new Set<string>());
   const typesTried = React.useRef(new Set<string>());
   const paymentTried = React.useRef(new Set<string>());
+  const monthTried = React.useRef(new Set<string>());
   // The connection as it stands, kept apart from the object identities a status refresh renews: a new reading starts when
   // the account, the file or its saved map changes, not when the same status is fetched again.
   const where = React.useRef({ account, file, map });
@@ -180,12 +181,17 @@ export function useSheetEngine(input: {
       // การชำระ (owner, 2026-11-24: "อยากให้มันมีช่องบอกว่ารับเงินยังหรือยังไม่รับ"): a workbook of ours made before the column
       // gets it once, filled from the app's jobs; the map then says where payment is, and the next reading uses it.
       // รับแล้ว and ค้างรับ (owner, 2026-11-25) join a การชำระ added before them, the same way.
-      const partsMissing = jobTab?.columns.some(column => column.target === 'status' && column.header.trim() === PAYMENT_HEADER)
-        && !jobTab.columns.some(column => column.target === 'received');
+      const ourPayment = jobTab?.columns.some(column => column.target === 'status' && column.header.trim() === PAYMENT_HEADER);
+      const partsMissing = ourPayment && !(jobTab!.columns.some(column => column.target === 'received') && jobTab!.columns.some(column => column.target === 'dueDate'));
       if (jobTab && (partsMissing || !jobTab.columns.some(column => PAYMENT_TARGETS.includes(column.target))) && examples === 0 && !paymentTried.current.has(file.id) && (now.canSend?.() ?? true)) {
         paymentTried.current.add(file.id);
         const result = await googleApi.addPaymentColumn(account).catch(() => null);
         if (result?.added) { const status = await googleApi.status(account).catch(() => null); if (status) rememberGoogleStatus(account, status); }
+      } else if (ourPayment && examples === 0 && !monthTried.current.has(file.id) && (now.canSend?.() ?? true)) {
+        // The month tabs ม.ค.–ธ.ค. (owner, 2026-11-25: "แบ่งเป็นเดือนด้วย"), once the columns they show are there; the
+        // server adds them once per file.
+        monthTried.current.add(file.id);
+        await googleApi.addMonthTabs(account).catch(() => null);
       }
       if (examples > 0 && !examplesTried.current.has(file.id) && (now.canSend?.() ?? true)) {
         examplesTried.current.add(file.id);

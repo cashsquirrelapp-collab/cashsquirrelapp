@@ -1,4 +1,4 @@
-import { PAYMENT_CHOICES, PAYMENT_HEADER, PENDING_HEADER, RECEIVED_HEADER, pendingFormula } from './paymentColumn.js';
+import { DUE_HEADER, PAYMENT_CHOICES, PAYMENT_HEADER, PENDING_HEADER, RECEIVED_HEADER, pendingFormula } from './paymentColumn.js';
 import { isThaiPublicHoliday } from './calendar.js';
 import { hasSection40_5to8, templateFor, type BusinessProfile, type TemplateId } from './businessProfile.js';
 import { columnLetter, isListValidation, type Cell, type CellStyle, type SheetSpec, type Validation } from './xlsxWriter.js';
@@ -303,6 +303,7 @@ const PAYMENT_COL: Col = { h: PAYMENT_HEADER, w: 15, list: [...PAYMENT_CHOICES],
 const partCols = (at: { value: string; wht: string; status: string; received: string }): Col[] => [
   { h: RECEIVED_HEADER, w: 13, s: 'money', t: 'received' },
   { h: PENDING_HEADER, w: 13, f: r => pendingFormula(at, r) },
+  { h: DUE_HEADER, w: 13, s: 'date', t: 'dueDate' },
 ];
 const EVIDENCE = ['ใบกำกับภาษีเต็มรูป', 'ใบกำกับภาษีอย่างย่อ', 'ใบเสร็จ', 'ไม่มี'];
 

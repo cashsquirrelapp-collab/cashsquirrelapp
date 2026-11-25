@@ -17,6 +17,11 @@ export const PAYMENT_TONES: Record<PaymentChoice, { fill: string; ink: string }>
  *  column, การชำระ holds only its word, so the drop-down's chip keeps its colour. */
 export const RECEIVED_HEADER = 'รับแล้ว';
 export const PENDING_HEADER = 'ค้างรับ';
+/** วันนัดรับเงิน after them (owner, 2026-11-25, the month tabs): the day a job not received yet is due, so it shows in its
+ *  month; a received one is in the month of วันที่รับเงิน. */
+export const DUE_HEADER = 'วันนัดรับเงิน';
+/** The month tabs of our workbooks (shared/monthTabs.ts): read-only views of รายรับ and รายจ่าย, one per month. */
+export const MONTH_TAB_NAMES = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'] as const;
 /** ค้างรับ's formula for row r, from the column letters of the amount, the tax withheld (may be absent), การชำระ and รับแล้ว. */
 export function pendingFormula(at: { value: string; wht?: string | null; status: string; received: string }, r: number): string {
   const less = [at.wht, at.received].filter(Boolean).map(column => `-N(${column}${r})`).join('');

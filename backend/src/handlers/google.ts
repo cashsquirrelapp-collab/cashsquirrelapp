@@ -13,7 +13,7 @@ import {
   encryptToken, exchangeCode, revokeToken, stateBack } from '../services/googleSheets.js';
 import { appOrigin } from '../config/env.js';
 import { supabaseAssistantDb } from '../ai/supabaseDb.js';
-import { addSheetPaymentColumn, deleteExampleRows, deleteSheetRows, fillSheetIncomeTypes, planRow, previewOf, recentRowsOf, saveAppRecord, saveAppRecords, sheetContext, undoWrite, writeFor, type TabRead } from '../services/sheetWrite.js';
+import { addSheetPaymentColumn, addSheetMonthTabs, deleteExampleRows, deleteSheetRows, fillSheetIncomeTypes, planRow, previewOf, recentRowsOf, saveAppRecord, saveAppRecords, sheetContext, undoWrite, writeFor, type TabRead } from '../services/sheetWrite.js';
 import { chooseTab } from '../../../shared/sheetRow.js';
 
 // ฟีเจอร์ทดลอง, phase 2 (shared/googleSheets.ts, services/googleSheets.ts). GET: this account's connection (never the
@@ -55,6 +55,7 @@ const actionSchema = z.discriminatedUnion('action', [
   // ประเภทเงินได้ for the job rows written without one (the sheet's reports add income up by it).
   z.object({ action: z.literal('fillIncomeTypes') }).strict(),
   z.object({ action: z.literal('addPaymentColumn') }).strict(),
+  z.object({ action: z.literal('addMonthTabs') }).strict(),
   z.object({ action: z.literal('forget') }).strict(),
   z.object({ action: z.literal('disconnect') }).strict(),
 ]);
@@ -183,6 +184,13 @@ export default withGuard(async (req, res) => {
     need('sheetWrite');
     await rateLimit('google-rows', user.id, 20, 60);
     res.json({ result: await addSheetPaymentColumn(user.id) });
+    return;
+  }
+
+  if (body.action === 'addMonthTabs') {
+    need('sheetWrite');
+    await rateLimit('google-rows', user.id, 20, 60);
+    res.json({ result: await addSheetMonthTabs(user.id) });
     return;
   }
 

@@ -369,9 +369,10 @@ test('การชำระ: last in รายรับ, a drop-down in the app\
     const income = sheets.find(sheet => sheet.name === 'รายรับ')!;
     const headers = income.rows[0].map(cell => String((cell as { v: string }).v));
     const at = headers.indexOf('การชำระ');
-    assert.equal(at, headers.length - 3, `${id}: after the columns the other tabs read`);
-    // รับแล้ว (typed, read and written by the app) and ค้างรับ (worked out) right after it (owner, 2026-11-25).
-    assert.deepEqual(headers.slice(-2), ['รับแล้ว', 'ค้างรับ (คำนวณ)']);
+    assert.equal(at, headers.length - 4, `${id}: after the columns the other tabs read`);
+    // รับแล้ว (typed, read and written by the app), ค้างรับ (worked out) and วันนัดรับเงิน right after it (owner, 2026-11-25).
+    assert.deepEqual(headers.slice(-3), ['รับแล้ว', 'ค้างรับ (คำนวณ)', 'วันนัดรับเงิน']);
+    assert.equal(income.targets?.[at + 3], 'dueDate');
     assert.equal(income.targets?.[at + 1], 'received');
     const L = (n: number) => columnLetter(n);
     const pending = income.rows[1][at + 2] as { f: string };
