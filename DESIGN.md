@@ -152,21 +152,25 @@ The CSS tokens kept older names: `--blue-acc` is the CI **orange**, `--pink-acc`
   grouped buttons of §4.
 - Destructive: rust text on a secondary button, or a rust fill only inside the confirmation of that action.
 
-### Chat cards (เลขากระรอก): direction A "Grouped" (owner, 2026-10-27: "เอาแบบ A เลย เป็นระเบียบดี")
+### Chat cards (เลขากระรอก): look A "Ledger" (owner, 2026-11-26: "การ์ดดูเชย ... ทันสมัย ดูแบบระบบเป็นทางการ", picked A of three; replaces "Grouped" of 2026-10-27)
 
-Like iOS Wallet and Settings. Every card the assistant draws follows one anatomy, top to bottom; leave out the parts a
-card does not need:
+Like a finance system's record (Stripe, accounting software). Every card the assistant draws follows one anatomy, top to
+bottom; leave out the parts a card does not need:
 
-1. **Header**: a small orange icon and the kind (13/600, orange text) on the left; the state on the right (a dot and
-   its word).
-2. **Figure**: an eyebrow label (muted), the key amount (32/600, digits in IBM Plex Sans), then what it is (15, ink-2).
-3. **Group**: the facts as rows in a grey rounded group (radius 14), label left (muted), value right (tabular, wraps).
+1. **Header bar** across the card, a hairline under it: a 26px icon tile (cream, orange icon), the kind (13.5/600, ink),
+   the state on the right as a quiet outlined chip (radius 6; green tint when บันทึกแล้ว, rust tint when ไม่สำเร็จ).
+2. **Figure**: an eyebrow label (muted), the key amount (30/600, digits in IBM Plex Sans), then what it is (14.5, ink-2).
+3. **Facts**: a ruled table with no grey well, a hairline above each row, label left (muted), value right (tabular, wraps).
+   Small tiles (รายรับ / รายจ่าย) are outlined, not filled.
 4. **Details**: everything else behind "ดูรายละเอียดทั้งหมด".
-5. **Actions**: one full-width primary button (orange, 46px, radius 14) that names what happens ("บันทึกงาน",
-   "สร้างใบเสนอราคา", "ลบรายการนี้" in rust), and grey secondary buttons side by side under it (แก้ไข, ยกเลิก).
+5. **Actions**: a footer bar with a hairline above it, buttons on the right and the primary rightmost (orange, 40px,
+   radius 10, names what happens: "บันทึกงาน", "สร้างใบเสนอราคา", "ลบรายการนี้" in rust); secondary buttons are white with a
+   hairline. They wrap on narrow phones.
 6. **Note**: one muted line when needed.
+7. **Sheet written** (บันทึกลงชีตของคุณ): the green done box shows the written row only, column letter and header over
+   each value, formula cells in green, scrolling sideways when wide.
 
-- Surface: solid white (dark #1F2023), radius 20, padding 16, a soft two-layer shadow; no glass, no border.
+- Surface: solid white (dark #1F2023), radius 16, a 1px hairline (no soft shadow), padding 0 16px 16px; no glass.
 - States, the same words everywhere: รอยืนยัน, กำลังบันทึก, บันทึกแล้ว (green), ไม่สำเร็จ (red, with
   ลองอีกครั้ง), ยกเลิกแล้ว, หมดเวลา (with เตรียมใหม่).
 - Questions: each question is a grey group of rows with a round tick; typed answers sit in the same group. Credit
