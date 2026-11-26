@@ -152,34 +152,24 @@ The CSS tokens kept older names: `--blue-acc` is the CI **orange**, `--pink-acc`
   grouped buttons of §4.
 - Destructive: rust text on a secondary button, or a rust fill only inside the confirmation of that action.
 
-### Chat cards (เลขากระรอก): the owner's own design (2026-11-26, a picture of four cards; replaces "Ledger" of the same day)
+### Chat cards (เลขากระรอก): look A, no card (owner, 2026-11-26: "การ์ดดูบ้านนอก ... รวมถึงอันอื่นด้วย", picked "ตอบในแชต แบบวงแหวน")
 
-1. **Top row**: the kind in bold ink (14/600) on the left; a peach chip (period) or the state on the right; no rule.
-2. **Figure** large (44/600, IBM Plex Sans digits), its label above, what it is under it.
-3. **Facts**: rows with hairlines; a key total in a peach box (ยอดรับจริง).
+Nothing the assistant draws sits in a box any more: it is part of the answer, like the ring summary.
+1. **Kind line**: small and muted (12.5px), the state on the right in its colour (รอยืนยัน caramel, บันทึกแล้ว green,
+   ไม่สำเร็จ rust) or a short note.
+2. **Figure** large (38/600, IBM Plex Sans digits), then what it is (14px, ink-2).
+3. **Facts** two by two: a small muted label over the value (14/600); the one that matters most in orange (รับจริง).
+   Rows that are a list (an expense's fields, a document's parties) keep thin rules.
 4. **Details**: everything else behind "ดูรายละเอียดทั้งหมด".
-5. **Actions**: one full-width orange primary (48px, radius 14), grey secondary buttons side by side under it.
-
-Kinds with their own face (`ChatCards.tsx`):
-- **เพิ่มงานใหม่**: the card is CI orange; the top holds the title and a white state pill, the job, the client and the
-  amount in white; a white inset panel holds two grey tiles (สถานะงาน, การชำระ with ครบกำหนด), the rows ลูกค้า ·
-  มูลค่างาน · หัก ณ ที่จ่าย, the peach ยอดรับจริง box, details and the buttons. The server sends รับจริง.
-- **สรุปการเงิน**: the money left large, the change from last month in orange, last month and this month as two bars
-  (grey, orange) in a grey box, รายรับ with a dark bar, รายจ่าย with an orange bar and its share of income, and a dark box
-  with รอรับ and "ถ้าได้รับครบ จะคงเหลือ". The server sends previous.balance, pending and ifPaid; bars are only sized
-  from the figures, the text is the server's.
-- **Documents (สร้างใบเสนอราคา …)**: a peach card; the document as a slightly turned paper slip (number, client, items),
-  then a white panel with ยอดชำระสุทธิ, the parties, details and the buttons.
-- **ข้อความทวงเงิน**: "ถึง …" on the right, the amount large in rust, what it is for, the words in a grey box, one
-  full-width copy button. The words are written the way a person types to a client (`backend/src/ai/collections.ts`).
-- Other cards keep the common anatomy; LINE cards keep their own band. Sheet written: the green done box shows the
-  written row only.
-- Surface: solid white (dark #1F2023), radius 22, padding 18, a soft two-layer shadow; no glass; flat CI colours only.
-- **Chat home** (owner's design, 2026-11-26, phones): the time-of-day greeting in the middle in CI rust → caramel on a soft
-  peach glow, the habit question under it, and four white buttons two by two just above the message box (บันทึกงาน ·
-  สรุปการเงิน · ใบเสนอราคา · ทวงเงิน, orange icons; each asks a full sentence). No tokens left: a red pill above the
-  buttons, "โทเค็นหมดแล้ว · เติมรอบใหม่ <date>", the buttons stay greyed and the box says "โทเค็นหมด รอเติมรอบใหม่".
-  Computers and iPads keep the grouped list under "คำถามแนะนำ" with the same four, greyed with the same pill.
+5. **Buttons** in a row, the orange primary first (40px, radius 12), quiet beige secondary; they wrap on phones.
+6. Several in one answer: a thin rule and room between.
+- New job: "เพิ่มงานใหม่ 1 งาน", the amount, job · client, then ส่งงาน · รับเงิน · หัก ณ ที่จ่าย · รับจริง. The server sends รับจริง.
+- Document: "ใบเสนอราคา · QT-…", ยอดชำระสุทธิ large, client · first item, the parties.
+- Payment reminder: "ทวงเงิน · ถึง …", the amount large in rust, what it is for, the words as a quote with a peach
+  rule, คัดลอกข้อความ. Words written like a person to a client (`backend/src/ai/collections.ts`).
+- **สรุปการเงิน** (pick C): "สรุป <period>", one ring (received orange, to come caramel) with เหลือ in the middle,
+  รับแล้ว · รอรับ · จ่ายไป beside it, and "ถ้าได้ครบ เดือนนี้จะเหลือ …" with the change from last month under it.
+- LINE cards keep their own band. Sheet written: the green done box shows the written row only.
 - States, the same words everywhere: รอยืนยัน, กำลังบันทึก, บันทึกแล้ว (green), ไม่สำเร็จ (red, with
   ลองอีกครั้ง), ยกเลิกแล้ว, หมดเวลา (with เตรียมใหม่).
 - Questions: each question is a grey group of rows with a round tick; typed answers sit in the same group. Credit

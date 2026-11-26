@@ -1786,78 +1786,30 @@ button.asx-party-tile:hover:not(:disabled) .asx-party-copy strong { color: var(-
 .asx-v3-wide { width: 100%; min-height: 48px; margin-top: 14px; border-radius: 14px; font-size: 15px; }
 .asx-v3-note { display: block; margin-top: 8px; color: var(--asx-card-secondary); font-size: 12.5px; line-height: 1.5; text-align: center; }
 
-/* สรุปการเงิน: last month and this month as two bars, income and expense bars, the dark box. */
-.asx-v3-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 18%; align-items: end; height: 170px; margin-top: 16px; padding: 14px 10% 10px; border-radius: 18px; background: var(--asx-card-well); }
-.asx-v3-compare > div { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 6px; height: 100%; min-width: 0; }
-.asx-v3-compare i { display: block; width: 100%; max-height: 80px; border-radius: 8px; background: #D6D3CF; }
-.asx-v3-compare .is-now i { background: var(--asx-accent); }
-.asx-v3-compare small { font-size: 12px; font-weight: 600; line-height: 1.4; color: var(--asx-card-secondary); }
-.asx-v3-cap { font-family: var(--asx-card-num); font-size: 13px; font-weight: 600; line-height: 1.4; font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; }
-.dark .asx-v3-compare i { background: #4A4B50; }
-.asx-v3-line { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-top: 16px; font-size: 14px; line-height: 1.5; }
-.asx-v3-line > span { color: var(--text); } .asx-v3-line small { color: var(--asx-card-secondary); font-size: 12.5px; }
-.asx-v3-line b { font-family: var(--asx-card-num); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.asx-v3-track { display: block; height: 9px; margin-top: 8px; overflow: hidden; border-radius: 6px; background: var(--asx-card-gray); }
-.asx-v3-track i { display: block; height: 100%; border-radius: 6px; background: var(--asx-accent); }
-.asx-v3-track.is-dark i { background: #1C1917; }
-.dark .asx-v3-track.is-dark i { background: #E7E5E4; }
-.asx-v3-dark { display: grid; gap: 0; margin-top: 18px; padding: 6px 18px; border-radius: 18px; background: #1C1917; color: #fff; }
-.asx-v3-dark > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; font-size: 14px; line-height: 1.5; }
-.asx-v3-dark > div + div { border-top: 1px solid rgba(255, 255, 255, 0.16); }
-.asx-v3-dark .is-sub span { color: rgba(255, 255, 255, 0.78); font-size: 13px; }
-.asx-v3-dark b { font-family: var(--asx-card-num); font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.asx-v3-dark b.is-orange { color: #F59E6B; font-size: 22px; }
-.dark .asx-v3-dark { background: #0F0E0D; box-shadow: inset 0 0 0 1px var(--asx-card-divider); }
+/* สรุปการเงิน, the owner's pick C (2026-11-26): no card, one ring (received orange, still to come caramel) with the money
+   left in the middle, the figures beside it, one line under. CI colours only. */
+.asx-sumring-sum { width: min(400px, 100%); min-width: 0; padding: 2px 0 0; }
+.asx-sumring-period { display: block; color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+.asx-sumring-row { display: flex; align-items: center; gap: 18px; margin-top: 8px; }
+.asx-sumring { position: relative; flex: none; width: 150px; height: 150px; }
+.asx-sumring-track { stroke: #FBE3D3; } .asx-sumring-got { stroke: var(--asx-accent); } .asx-sumring-wait { stroke: #C17817; opacity: 0.5; }
+.dark .asx-sumring-track { stroke: rgba(230, 95, 43, 0.18); }
+.asx-sumring-mid { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.asx-sumring-mid small { color: var(--muted); font-size: 11.5px; line-height: 1.4; }
+.asx-sumring-mid b { font-family: var(--asx-card-num, 'IBM Plex Sans', sans-serif); font-size: 22px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.3; font-variant-numeric: tabular-nums; color: var(--text); }
+.asx-sumring-keys { display: grid; gap: 10px; min-width: 0; margin: 0; }
+.asx-sumring-keys > div { min-width: 0; }
+.asx-sumring-keys dt { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+.asx-sumring-keys dt i { width: 8px; height: 8px; flex: none; border-radius: 50%; }
+.asx-sumring-keys dt i.is-got { background: var(--asx-accent); } .asx-sumring-keys dt i.is-wait { background: #C17817; opacity: 0.55; } .asx-sumring-keys dt i.is-out { background: #A63F1B; }
+.asx-sumring-keys dd { margin: 0; font-family: var(--asx-card-num, 'IBM Plex Sans', sans-serif); font-size: 17px; font-weight: 600; line-height: 1.35; font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; }
+.asx-sumring-foot { margin: 14px 0 0; color: var(--ink-2, #57524D); font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
+.dark .asx-sumring-foot { color: var(--muted); }
+.asx-sumring-foot b { color: var(--asx-accent-text); font-family: var(--asx-card-num, 'IBM Plex Sans', sans-serif); font-weight: 600; font-variant-numeric: tabular-nums; }
 
 /* ข้อความทวงเงิน: the words in a grey box. */
 .asx-rcard.is-draft.is-v3 .asx-draft-text { margin: 14px 0 0; padding: 14px 16px; border-radius: 14px; background: var(--asx-card-well); font-size: 14px; line-height: 1.7; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; }
 
-/* งานใหม่: an orange top, a white inset panel holding the rest. */
-.asx-rcard.is-hero { padding: 0 8px 8px; background: var(--asx-accent); box-shadow: 0 8px 24px rgba(166, 63, 27, 0.18); }
-.asx-hero-band { padding: 18px 12px 16px; color: #fff; }
-.asx-hero-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.asx-hero-top b { font-size: 13.5px; font-weight: 600; line-height: 1.5; }
-.asx-rcard .asx-hero-state { margin-left: 0; box-shadow: none; display: inline-flex; align-items: center; gap: 5px; padding: 3px 11px; border-radius: 999px; background: #fff; color: var(--asx-accent-text); font-size: 12.5px; font-weight: 600; line-height: 1.5; white-space: nowrap; }
-.asx-rcard .asx-hero-state.is-done { color: var(--asx-income); background: #fff; }
-.asx-hero-state > i { display: none; }
-.asx-hero-name { margin: 14px 0 0; font-size: 20px; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
-.asx-hero-client { margin: 0; font-size: 13px; line-height: 1.5; opacity: 0.88; overflow-wrap: anywhere; }
-.asx-rcard .asx-hero-amount { color: #fff; display: block; margin-top: 6px; font-family: var(--asx-card-num); font-size: 46px; font-weight: 600; line-height: 1.15; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.asx-hero-body { padding: 18px; border-radius: 18px; background: var(--asx-card-surface); }
-.asx-hero-body > :first-child { margin-top: 0 !important; }
-.asx-hero-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.asx-hero-tile { display: grid; gap: 2px; min-width: 0; padding: 12px 14px; border-radius: 14px; background: var(--asx-card-well); }
-.asx-hero-tile small { color: var(--asx-card-secondary); font-size: 12px; line-height: 1.5; }
-.asx-hero-tile b { font-size: 14px; font-weight: 600; line-height: 1.45; overflow-wrap: anywhere; }
-.asx-hero-tile span { color: var(--asx-card-secondary); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
-.asx-rcard .asx-hero-rows { margin-top: 8px; }
-.asx-hero-net { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; padding: 14px 16px; border-radius: 14px; background: #FBE7DC; }
-.asx-hero-net span { font-size: 14px; font-weight: 600; line-height: 1.5; color: var(--text); }
-.asx-hero-net b { font-family: var(--asx-card-num); font-size: 24px; font-weight: 600; line-height: 1.2; color: #B94A1C; font-variant-numeric: tabular-nums; }
-.dark .asx-hero-net { background: rgba(230, 95, 43, 0.16); } .dark .asx-hero-net b { color: #F08A5D; }
-.asx-hero-body .asx-card-details > summary { justify-content: center; border-top: 0; }
-
-/* ใบเสนอราคา: a paper slip on peach, a white panel with the total. */
-.asx-rcard.is-paper { padding: 0 8px 8px; background: #FBE7DC; box-shadow: none; }
-.dark .asx-rcard.is-paper { background: rgba(230, 95, 43, 0.14); }
-.asx-rcard.is-paper > .asx-rcard-head { padding: 16px 12px 0; }
-.asx-rcard.is-paper > .asx-rcard-head .asx-card-state { padding: 3px 11px; border-radius: 999px; background: #fff; box-shadow: none; }
-.asx-rcard.is-paper .asx-hero-body { padding-top: 0; background: transparent; }
-.asx-paper { position: relative; display: grid; gap: 6px; margin: 16px 18px -26px; padding: 18px 20px 40px; border-radius: 6px; background: #fff; color: #1C1917; box-shadow: 0 10px 24px rgba(120, 50, 20, 0.16); transform: rotate(-3deg); }
-.asx-paper-no { font-family: var(--asx-card-num); font-size: 13px; font-weight: 600; color: #B94A1C; }
-.asx-paper-client { font-size: 16px; font-weight: 600; line-height: 1.45; overflow-wrap: anywhere; }
-.asx-paper-rule { display: block; height: 2px; margin: 4px 0 2px; background: #1C1917; }
-.asx-paper-item { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: 13px; line-height: 1.5; }
-.asx-paper-item b { font-family: var(--asx-card-num); font-weight: 600; white-space: nowrap; }
-.asx-paper-total { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 22px 18px 4px; border-radius: 18px 18px 0 0; background: var(--asx-card-surface); }
-.asx-paper-total span { color: var(--asx-card-secondary); font-size: 14px; }
-.asx-paper-total b { font-family: var(--asx-card-num); font-size: 30px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-.asx-rcard.is-paper .asx-hero-body > .asx-card-review ~ *, .asx-rcard.is-paper .asx-card-review > :not(.asx-paper):not(.asx-paper-total) { background: var(--asx-card-surface); }
-.asx-rcard.is-paper .asx-hero-body { display: flex; flex-direction: column; }
-.asx-rcard.is-paper .asx-card-review { display: flex; flex-direction: column; }
-.asx-rcard.is-paper .asx-card-review > .asx-card-parties, .asx-rcard.is-paper .asx-card-review > .asx-card-details { margin: 0; padding: 4px 18px 0; }
-.asx-rcard.is-paper .asx-hero-body > :not(.asx-card-review) { margin: 0 !important; padding: 16px 18px 18px; border-radius: 0 0 18px 18px; }
-.asx-rcard.is-paper .asx-hero-body > .asx-card-review:last-child .asx-card-details { padding-bottom: 14px; border-radius: 0 0 18px 18px; }
 
 /* Chat home, the owner's design (2026-11-26, phones; picture "หน้าแรกใหม่ · ปกติ / โทเค็นหมด"): the greeting in the middle
    of the page in CI rust-to-caramel on a soft peach glow, the four buttons (บันทึกงาน · สรุปการเงิน · ใบเสนอราคา · ทวงเงิน)
@@ -1902,3 +1854,47 @@ button.asx-party-tile:hover:not(:disabled) .asx-party-copy strong { color: var(-
   .asx.asx .asx-welcome > .asx-briefing, .asx.asx .asx-welcome > .asx-brief { position: relative; margin-top: 22px; }
 }
 
+
+/* Chat cards, look A (owner's pick, 2026-11-26: "การ์ดดูบ้านนอก ... รวมถึงอันอื่นด้วย", chose "ตอบในแชต แบบวงแหวน"): no card at
+   all. Every card the assistant draws sits in the answer itself like the ring summary: a small muted kind line with the
+   state on the right, one large figure, what it is, the facts two by two (label small over the value), then the buttons in
+   a row, the orange primary first. Rows that are a list keep thin rules. CI colours only. */
+.asx-rcard { padding: 0; border-radius: 0; background: none; box-shadow: none; }
+.dark .asx-rcard { background: none; box-shadow: none; }
+.asx-rcard > .asx-rcard-head .asx-rcard-icon { display: none; }
+.asx-rcard > .asx-rcard-head b { color: var(--muted); font-size: 12.5px; font-weight: 500; }
+.asx-in-kind { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+.asx-in-kind > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.asx-in-note { color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+.asx-card-state { padding: 0; border-radius: 0; background: none !important; box-shadow: none !important; color: #C17817; font-size: 12px; font-weight: 600; }
+.asx-card-state.is-done { color: var(--asx-income); } .asx-card-state.is-failed { color: var(--asx-expense); }
+.asx-rcard .asx-in-amount { display: block; margin: 8px 0 0; font-family: var(--asx-card-num); font-size: 38px; font-weight: 600; line-height: 1.15; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; color: var(--text); overflow-wrap: anywhere; }
+.asx-rcard .asx-in-amount.is-rust { color: #A63F1B; }
+.dark .asx-rcard .asx-in-amount.is-rust { color: #F08A5D; }
+.asx-in-what { margin: 2px 0 0; color: var(--asx-card-ink-2); font-size: 14px; line-height: 1.55; overflow-wrap: anywhere; }
+.asx-in-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; margin: 12px 0 0; }
+.asx-in-facts > div { min-width: 0; }
+.asx-in-facts dt { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.asx-in-facts dd { margin: 0; color: var(--text); font-size: 14px; font-weight: 600; line-height: 1.45; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.asx-in-facts .is-hl dd { color: var(--asx-accent-text); }
+.asx-rcard .asx-card-preview { margin-top: 4px; }
+.asx-rcard .asx-card-amount { font-size: 38px; }
+.asx-rcard .asx-rcard-rows { margin-top: 10px; }
+.asx-card-details { margin-top: 8px; }
+.asx-card-details > summary { justify-content: flex-start; gap: 6px; min-height: 32px; padding: 4px 0; border-top: 0; }
+/* Buttons in a row, the primary first; a quiet secondary; they wrap on narrow phones. */
+.asx-rcard .asx-rcard-actions { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 6px; margin: 14px 0 0; }
+.asx-rcard .asx-rcard-secondary { display: flex; flex-wrap: wrap; gap: 6px; }
+.asx-rcard .asx-rcard-actions .asx-pill-btn, .asx-rcard .asx-rcard-actions .asx-pill-btn.is-primary { width: auto; min-height: 40px; padding: 8px 18px; border-radius: 12px; font-size: 14px; }
+.asx-rcard .asx-rcard-actions .asx-pill-btn:not(.is-primary) { background: #F1ECE7; box-shadow: none; }
+.dark .asx-rcard .asx-rcard-actions .asx-pill-btn:not(.is-primary) { background: var(--asx-card-gray); }
+.asx-rcard .asx-rcard-result { margin-top: 12px; }
+.asx-rcard .asx-rcard-result .asx-pill-btn { width: auto; justify-self: start; padding: 8px 18px; border-radius: 12px; }
+/* The reminder's words: a quote with a peach rule, not a box. */
+.asx-rcard.is-draft.is-v3 .asx-draft-text { margin: 10px 0 0; padding: 0 0 0 12px; border-radius: 0; background: none; border-left: 3px solid #FBE3D3; color: var(--asx-card-ink-2); font-size: 14px; line-height: 1.7; }
+.asx-rcard.is-draft.is-v3 .asx-rcard-actions { justify-content: flex-start; }
+.asx-rcard.is-draft.is-v3 .asx-in-note { flex: 1 1 160px; }
+/* Parties of a document: two short rows with thin rules. */
+.asx-card-parties { margin-top: 10px; }
+/* Several of them in one answer: a thin rule and room between. */
+:is(.asx-rcard, .asx-sumring-sum) + :is(.asx-rcard, .asx-sumring-sum) { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--asx-card-divider, #E7E4E0); }
