@@ -271,8 +271,8 @@ test('computers, dark: the chat wears the app\'s black Onyx card, not a stage of
   await expect(chat.getByRole('heading', { name: WELCOME })).toBeVisible();
   await expect(chat.locator('.asx-aurora')).toBeHidden();
   expect(await chat.locator('.asx-chat').evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgb(0, 0, 0)');
-  // The questions' icons sit in soft tinted chips, not solid orange squares.
-  expect(await chat.locator('.asx-prompt-icon').first().evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgba(255, 164, 115, 0.14)');
+  // Owner's home design (2026-11-26): the buttons' icons are bare orange marks, no chip or square behind them.
+  expect(await chat.locator('.asx-prompt-icon').first().evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
   expect(await textOverlapIssues(page)).toEqual([]);
   await snap(page, 'assistant-welcome-1280-dark.png');
 });
