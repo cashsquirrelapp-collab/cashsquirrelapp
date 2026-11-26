@@ -161,6 +161,21 @@ function MessageDraft({ card }: { card: MessageDraftCard }) {
       setCopied('failed');
     }
   };
+  if (card.amount) return (
+    // Owner's card design (2026-11-26): who it is for on the right, the amount large, what it is for, the words in a grey
+    // box, one full-width copy button.
+    <div className="asx-rcard is-draft is-v3">
+      <div className="asx-v3-top"><b>{tr("ข้อความทวงเงิน")}</b>{card.to && <span>{tr("ถึง {0}", card.to)}</span>}</div>
+      <strong className="asx-v3-amount is-rust"><Money value={card.amount} /></strong>
+      {card.detail && <p className="asx-v3-detail">{tr("ค่างาน{0}", card.detail)}</p>}
+      <p className="asx-draft-text">{card.text}</p>
+      <button type="button" className="asx-pill-btn is-primary asx-v3-wide" onClick={copy} aria-live="polite">
+        {copied === 'done' ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />}
+        {copied === 'done' ? tr("คัดลอกแล้ว") : tr("คัดลอกข้อความ")}
+      </button>
+      <span className="asx-v3-note">{copied === 'done' ? tr("คัดลอกแล้ว วางในแชตลูกค้าได้เลย") : copied === 'failed' ? tr("คัดลอกไม่สำเร็จ กดค้างที่ข้อความเพื่อคัดลอกเอง") : card.note}</span>
+    </div>
+  );
   return (
     <div className="asx-rcard is-draft">
       <div className="asx-rcard-head"><span className="asx-rcard-icon"><MessageSquareText size={16} strokeWidth={1.9} /></span><b>{card.title}</b></div>
@@ -178,10 +193,41 @@ function MessageDraft({ card }: { card: MessageDraftCard }) {
 
 /** The month's money, design A (owner, 2026-10-27: "ชอบแบบ A"): the money left large, how it changed from last month,
  *  a bar of the income spent, then income and expenses side by side. Figures are the server's, shown as they come. */
+/** A figure as a number, only to size a bar (the text shown is always the server's). */
+const figure = (value: string | undefined) => { const n = Number(String(value ?? '').replace(/[^\d.−-]/g, '').replace('−', '-')); return Number.isFinite(n) ? n : 0; };
 function Summary({ card }: { card: SummaryCard }) {
   const share = typeof card.spentShare === 'number' && Number.isFinite(card.spentShare) ? Math.max(0, card.spentShare) : null;
   const spent = share === null ? 0 : Math.round(share * 100);
   const Arrow = card.previous?.direction === 'down' ? ArrowDown : ArrowUp;
+  if (card.previous?.balance || card.pending) {
+    // Owner's card design (2026-11-26): the money left large, last month beside this month as two bars, income and
+    // expenses each with its bar, then what is still to come in a dark box with the money left if it all comes.
+    const before = figure(card.previous?.balance), now = figure(card.balance), top = Math.max(Math.abs(before), Math.abs(now), 1);
+    const bar = (value: number) => `${Math.max(8, Math.round((Math.max(0, value) / top) * 100))}%`;
+    return (
+      <div className="asx-rcard is-summary is-v3">
+        <div className="asx-v3-top"><b>{tr("สรุปการเงิน")}</b><span className="asx-v3-chip">{card.period}</span></div>
+        <span className="asx-v3-eyebrow">{tr("เงินคงเหลือ")}</span>
+        <strong className="asx-v3-amount"><Money value={card.balance} /></strong>
+        {card.previous && <span className={`asx-v3-delta is-${card.previous.direction}`}>
+          {card.previous.direction !== 'same' && <Arrow size={12} strokeWidth={2.4} aria-hidden="true" />}
+          {card.previous.direction === 'same' ? tr("เท่ากับเดือนก่อน") : tr("{0} จากเดือนก่อน", card.previous.change.replace(/^\+/, ''))}
+        </span>}
+        {card.previous?.balance && <div className="asx-v3-compare" role="img" aria-label={tr("เดือนก่อน {0} · เดือนนี้ {1}", card.previous.balance, card.balance)}>
+          <div><span className="asx-v3-cap"><Money value={card.previous.balance} /></span><i style={{ height: bar(before) }} /><small>{card.previous.label}</small></div>
+          <div className="is-now"><span className="asx-v3-cap"><Money value={card.balance} /></span><i style={{ height: bar(now) }} /><small>{card.previous.current}</small></div>
+        </div>}
+        <div className="asx-v3-line"><span>{tr("รายรับ")}</span><b className="num">+<Money value={card.income} /></b></div>
+        <span className="asx-v3-track is-dark"><i style={{ width: '100%' }} /></span>
+        <div className="asx-v3-line"><span>{tr("รายจ่าย")}{share !== null && <small> {share > 1 ? tr("มากกว่ารายรับ") : tr("{0}% ของรายรับ", spent)}</small>}</span><b className="num">−<Money value={card.expense.replace(/^[−-]/, '')} /></b></div>
+        <span className="asx-v3-track"><i style={{ width: `${Math.min(100, share === null ? 0 : spent)}%` }} /></span>
+        {card.pending && <div className="asx-v3-dark">
+          <div><span>{tr("รอรับ")}</span><b className="is-orange"><Money value={card.pending} /></b></div>
+          {card.ifPaid && <div className="is-sub"><span>{tr("ถ้าได้รับครบ จะคงเหลือ")}</span><b><Money value={card.ifPaid} /></b></div>}
+        </div>}
+      </div>
+    );
+  }
   return (
     <div className="asx-rcard is-summary">
       <Head icon={Wallet} title={tr("สรุปการเงิน")} chip={card.period} />
@@ -212,9 +258,77 @@ function Summary({ card }: { card: SummaryCard }) {
 }
 
 /** A compact view is only used for known create forms. Other actions keep every change visible. */
+const isNewJobCard = (card: ConfirmCard) => card.title === 'เพิ่มงานใหม่ 1 งาน' || card.title === tr("เพิ่มงานใหม่ 1 งาน");
+const isDocumentCard = (card: ConfirmCard) => card.changes.some(row => row.label === 'เอกสาร') && card.changes.some(row => row.label === 'ยอดชำระสุทธิ');
+const rowOf = (card: ConfirmCard, ...labels: string[]) => card.changes.find(row => labels.includes(row.label));
+/** "กำลังทำ · จะส่ง 30 พ.ย. 2569" → main words and the rest. */
+const splitDot = (value: string) => { const [main, ...rest] = value.split(' · '); return { main, rest: rest.join(' · ') }; };
+
+/** The new job's orange top (owner's card design, 2026-11-26): kind and state, the job, the client, the amount large. */
+function JobBand({ card, state }: { card: ConfirmCard; state: CardState }) {
+  const live = React.useContext(LiveContext);
+  const name = rowOf(card, 'งาน', tr("งาน"))?.value, client = rowOf(card, 'ลูกค้า', tr("ลูกค้า"))?.value;
+  const amount = rowOf(card, 'มูลค่า', 'มูลค่างาน', 'ค่าจ้าง', tr("ค่าจ้าง"))?.value;
+  return <div className="asx-hero-band">
+    <div className="asx-hero-top"><b>{card.title}</b>{!live && <SampleTag />}
+      <span className={`asx-hero-state asx-card-state is-${state.tone}`}>{state.tone === 'busy' && <Loader2 size={12} className="animate-spin" aria-hidden="true" />}{state.text}</span></div>
+    {name && <p className="asx-hero-name">{name}</p>}
+    {client && client !== 'ไม่ระบุ' && <p className="asx-hero-client">{client}</p>}
+    {amount && <strong className="asx-hero-amount asx-card-amount"><Money value={amount} /></strong>}
+  </div>;
+}
+function JobBody({ card }: { card: ConfirmCard }) {
+  const status = rowOf(card, 'สถานะงาน'), pay = rowOf(card, 'การชำระ'), due = rowOf(card, 'ครบกำหนดรับเงิน');
+  const client = rowOf(card, 'ลูกค้า', tr("ลูกค้า")), value = rowOf(card, 'มูลค่า', 'มูลค่างาน');
+  const wht = rowOf(card, 'หัก ณ ที่จ่าย'), net = rowOf(card, 'รับจริง');
+  const rate = wht && /^([\d.]+)%\s*\((.+)\)$/.exec(wht.value);
+  const tile = (label: string, row: typeof status, sub?: string) => { if (!row) return null; const words = splitDot(row.value);
+    return <div className="asx-hero-tile"><small>{label}</small><b>{words.main}</b>{(words.rest || sub) && <span>{words.rest || sub}</span>}</div>; };
+  return <div className="asx-card-review">
+    {(status || pay) && <div className="asx-hero-tiles">{tile(tr("สถานะงาน"), status)}{tile(tr("การชำระ"), pay, due ? tr("ครบกำหนด: {0}", due.value) : undefined)}</div>}
+    <dl className="asx-rcard-rows asx-hero-rows">
+      {client && client.value !== 'ไม่ระบุ' && <div><dt>{tr("ลูกค้า")}</dt><dd>{client.value}</dd></div>}
+      {value && <div><dt>{tr("มูลค่างาน")}</dt><dd><Money value={value.value} /></dd></div>}
+      {rate && <div><dt>{tr("หัก ณ ที่จ่าย {0}%", rate[1])}</dt><dd>−<Money value={rate[2]} /></dd></div>}
+    </dl>
+    {net && <div className="asx-hero-net"><span>{tr("ยอดรับจริง")}</span><b><Money value={net.value} /></b></div>}
+    <details className="asx-card-details">
+      <summary>{tr("ดูรายละเอียดทั้งหมด")}</summary>
+      <Rows rows={card.changes} />
+    </details>
+  </div>;
+}
+/** The document as a paper slip on a peach ground (owner's card design, 2026-11-26), then its total and the parties. */
+function DocumentPaper({ card, onEditParty }: { card: ConfirmCard; onEditParty?: (group: string) => void }) {
+  const doc = rowOf(card, 'เอกสาร')?.value ?? '', number = doc.split(' ').slice(1).join(' ');
+  const client = (rowOf(card, 'ผู้ออก / ลูกค้า')?.value ?? '').split('→').pop()?.trim();
+  const items = card.changes.filter(row => /^รายการ \d+$/.test(row.label)).slice(0, 3).map(row => {
+    const [desc, rest = ''] = row.value.split(' · '); const price = /×\s*(.+)$/.exec(rest)?.[1]; const one = /^1\s/.test(rest);
+    return { desc, right: one && price ? price : rest };
+  });
+  const total = rowOf(card, 'ยอดชำระสุทธิ');
+  const parties = card.edit?.some(field => field.field === 'issuer_name');
+  return <div className="asx-card-review">
+    <div className="asx-paper" aria-hidden="true">
+      {number && <span className="asx-paper-no">{number}</span>}
+      {client && <b className="asx-paper-client">{client}</b>}
+      <span className="asx-paper-rule" />
+      {items.map((item, index) => <div key={index} className="asx-paper-item"><span>{item.desc}</span><b><Money value={item.right} /></b></div>)}
+    </div>
+    <div className="asx-paper-total"><span>{tr("ยอดชำระสุทธิ")}</span><b className="asx-card-amount">{total && <Money value={total.value} />}</b></div>
+    {parties && <DocumentParties fields={card.edit!} onEdit={onEditParty} />}
+    <details className="asx-card-details">
+      <summary>{tr("ดูรายละเอียดทั้งหมด")}</summary>
+      <Rows rows={card.changes.filter(row => !['เมื่อยืนยัน', 'ผลกระทบ', 'ผลการลบ'].includes(row.label))} />
+    </details>
+  </div>;
+}
+
 function ConfirmPreview({ card, onEditParty }: { card: ConfirmCard; onEditParty?: (group: string) => void }) {
-  const isDocument = card.changes.some(row => row.label === 'เอกสาร') && card.changes.some(row => row.label === 'ยอดชำระสุทธิ');
-  const isNewProject = card.title === 'เพิ่มงานใหม่ 1 งาน' || card.title === tr("เพิ่มงานใหม่ 1 งาน");
+  const isDocument = isDocumentCard(card);
+  const isNewProject = isNewJobCard(card);
+  if (isNewProject) return <JobBody card={card} />;
+  if (isDocument) return <DocumentPaper card={card} onEditParty={onEditParty} />;
   if (!isDocument && !isNewProject) return <Rows rows={card.changes} />;
   const amount = card.changes.find(row => isDocument ? row.label === 'ยอดชำระสุทธิ' : ['มูลค่า', 'มูลค่างาน', 'ค่าจ้าง', tr("ค่าจ้าง")].includes(row.label));
   const subject = isNewProject ? card.changes.find(row => ['งาน', tr("งาน")].includes(row.label)) : undefined;
@@ -486,12 +600,17 @@ function Confirm({ card, state, onConfirm, onCancel, onAsk, confirmedPath, onNav
     failed: tr("ไม่สำเร็จ"), cancelled: tr("ยกเลิกแล้ว"), expired: tr("หมดเวลา"),
   };
   const kindIcon = card.changes.some(row => row.label === 'เอกสาร') ? FileText : card.title.startsWith('เพิ่มงาน') ? Briefcase : ListChecks;
+  // Owner's card designs (2026-11-26): a new job on an orange top, a document as a paper slip on peach.
+  const hero = !editing && !sheetMode && isNewJobCard(card);
+  const paper = !editing && !sheetMode && isDocumentCard(card);
   return (
-    <div ref={box} className={`asx-rcard is-confirm is-${state}${editing ? ' is-editing' : ''}${sheetMode ? ' is-sheet' : ''}`} aria-busy={saving || state === 'working'}>
+    <div ref={box} className={`asx-rcard is-confirm is-${state}${editing ? ' is-editing' : ''}${sheetMode ? ' is-sheet' : ''}${hero ? ' is-hero' : ''}${paper ? ' is-paper' : ''}`} aria-busy={saving || state === 'working'}>
       {sheetMode ? <SheetPreviewBlock preview={sheet.preview!} phase={sheetPhase} write={sheet.write}
           onUseGross={canEdit && sheet.preview?.gross && fields.some(field => field.field === 'value') && fields.some(field => field.field === 'wht_rate')
             ? () => { sheetPreference = true; return onRevise!(card, { value: String(sheet.preview!.gross!.value), wht_rate: String(sheet.preview!.gross!.rate) }); } : undefined} />
+        : hero ? <JobBand card={card} state={{ tone: STATE_OF[state], text: stateText[state] }} />
         : <Head icon={kindIcon} title={card.title} state={{ tone: STATE_OF[state], text: stateText[state] }} />}
+      {(() => { const body = <>
       {editing ? <div className="asx-edit-sections">
         {sections.length > 1 && <div className="asx-edit-tabs" role="tablist" aria-label={tr("ส่วนของเอกสาร")}>
           {sections.map((item, index) => <button key={item.id} type="button" role="tab" id={`${editorId}-${item.id}-tab`} aria-controls={`${editorId}-panel`} aria-selected={section.id === item.id}
@@ -588,6 +707,7 @@ function Confirm({ card, state, onConfirm, onCancel, onAsk, confirmedPath, onNav
       )}
       {/* Written to the sheet with no preview on this card (an older card, or the preview did not load). */}
       {live && !sheetMode && state === 'done' && sheet.write && <SheetDoneBlock sheet={sheet} />}
+      </>; return hero || paper ? <div className="asx-hero-body">{body}</div> : body; })()}
     </div>
   );
 }

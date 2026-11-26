@@ -1749,3 +1749,156 @@ button.asx-party-tile:hover:not(:disabled) .asx-party-copy strong { color: var(-
 .asx-rcard .asx-rcard-actions .asx-pill-btn:not(.is-primary) { background: var(--asx-card-surface); box-shadow: inset 0 0 0 1px var(--asx-card-divider); }
 .asx-rcard .asx-rcard-actions .asx-pill-btn:not(.is-primary):hover:not(:disabled) { background: var(--asx-card-well); }
 .asx-rcard .asx-rcard-result { margin: 16px -16px 0; padding: 12px 16px 0; border-top: 1px solid var(--asx-card-divider); }
+
+/* Chat cards, the owner's own design (2026-11-26, a picture of four cards: งานใหม่, สรุปการเงิน, ใบเสนอราคา, ข้อความทวงเงิน).
+   Replaces the footer bar and header rule of "Ledger" for every card: a white card with a soft shadow and 22px corners,
+   the kind in bold ink with a chip or state on the right (no rule under it), full-width orange primary and grey
+   secondary buttons side by side under it. A new job sits on an orange top with a white inset panel; a document is a
+   paper slip on peach; the month's money has two bars and a dark box for what is still to come; a payment reminder
+   shows the amount large. Flat CI colours only (DESIGN.md: no gradients). */
+.asx-rcard { padding: 18px; border-radius: 22px; box-shadow: 0 1px 2px rgba(28, 25, 23, 0.05), 0 8px 24px rgba(28, 25, 23, 0.07); }
+.dark .asx-rcard { box-shadow: 0 0 0 1px var(--asx-card-divider); }
+.asx-rcard > .asx-rcard-head, .asx-rcard > .asx-card-open { margin: 0; padding: 0; border-bottom: 0; }
+.asx-rcard > :first-child:not(.asx-rcard-head):not(.asx-card-open) { margin-top: 0; }
+.asx-rcard .asx-rcard-icon { width: 22px; height: 22px; border-radius: 7px; }
+.asx-rcard .asx-rcard-head b { font-size: 14px; font-weight: 600; }
+.asx-rcard .asx-rcard-actions { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin: 16px 0 0; padding: 0; border-top: 0; }
+.asx-rcard .asx-rcard-actions:last-child { margin-bottom: 0; }
+.asx-rcard .asx-rcard-secondary { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
+.asx-rcard .asx-rcard-actions .asx-pill-btn { width: 100%; min-height: 44px; border-radius: 14px; font-size: 14.5px; }
+.asx-rcard .asx-rcard-actions .asx-pill-btn.is-primary { min-height: 48px; border-radius: 14px; font-size: 15px; }
+.asx-rcard .asx-rcard-actions .asx-pill-btn:not(.is-primary) { background: var(--asx-card-gray); box-shadow: none; }
+.asx-rcard .asx-rcard-result { margin: 16px 0 0; padding: 0; border-top: 0; }
+.asx-rcard .asx-rcard-rows > div:first-child { border-top: 0; }
+
+/* Shared top row: the kind bold, a chip or note on the right. */
+.asx-v3-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
+.asx-v3-top b { font-size: 14px; font-weight: 600; line-height: 1.5; color: var(--text); }
+.asx-v3-top > span { font-size: 13px; font-weight: 600; line-height: 1.5; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.asx-v3-chip { padding: 2px 10px; border-radius: 999px; background: var(--asx-cream); color: var(--asx-accent-text) !important; font-size: 12.5px !important; }
+.asx-v3-eyebrow { display: block; margin-top: 12px; color: var(--asx-card-secondary); font-size: 13px; line-height: 1.5; }
+.asx-v3-amount { display: block; margin-top: 2px; font-family: var(--asx-card-num); font-size: 44px; font-weight: 600; line-height: 1.2; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; color: var(--text); overflow-wrap: anywhere; }
+.asx-v3-amount.is-rust { color: #B94A1C; margin-top: 10px; }
+.dark .asx-v3-amount.is-rust { color: #F08A5D; }
+.asx-v3-detail { margin: 4px 0 0; font-size: 13.5px; font-weight: 600; line-height: 1.55; color: var(--text); overflow-wrap: anywhere; }
+.asx-v3-delta { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; font-family: var(--asx-card-num); font-size: 13px; font-weight: 600; line-height: 1.5; color: var(--asx-accent-text); }
+.asx-v3-delta.is-down { color: var(--asx-expense); } .asx-v3-delta.is-same { color: var(--asx-card-secondary); }
+.asx-v3-wide { width: 100%; min-height: 48px; margin-top: 14px; border-radius: 14px; font-size: 15px; }
+.asx-v3-note { display: block; margin-top: 8px; color: var(--asx-card-secondary); font-size: 12.5px; line-height: 1.5; text-align: center; }
+
+/* สรุปการเงิน: last month and this month as two bars, income and expense bars, the dark box. */
+.asx-v3-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 18%; align-items: end; height: 170px; margin-top: 16px; padding: 14px 10% 10px; border-radius: 18px; background: var(--asx-card-well); }
+.asx-v3-compare > div { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 6px; height: 100%; min-width: 0; }
+.asx-v3-compare i { display: block; width: 100%; max-height: 80px; border-radius: 8px; background: #D6D3CF; }
+.asx-v3-compare .is-now i { background: var(--asx-accent); }
+.asx-v3-compare small { font-size: 12px; font-weight: 600; line-height: 1.4; color: var(--asx-card-secondary); }
+.asx-v3-cap { font-family: var(--asx-card-num); font-size: 13px; font-weight: 600; line-height: 1.4; font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; }
+.dark .asx-v3-compare i { background: #4A4B50; }
+.asx-v3-line { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-top: 16px; font-size: 14px; line-height: 1.5; }
+.asx-v3-line > span { color: var(--text); } .asx-v3-line small { color: var(--asx-card-secondary); font-size: 12.5px; }
+.asx-v3-line b { font-family: var(--asx-card-num); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.asx-v3-track { display: block; height: 9px; margin-top: 8px; overflow: hidden; border-radius: 6px; background: var(--asx-card-gray); }
+.asx-v3-track i { display: block; height: 100%; border-radius: 6px; background: var(--asx-accent); }
+.asx-v3-track.is-dark i { background: #1C1917; }
+.dark .asx-v3-track.is-dark i { background: #E7E5E4; }
+.asx-v3-dark { display: grid; gap: 0; margin-top: 18px; padding: 6px 18px; border-radius: 18px; background: #1C1917; color: #fff; }
+.asx-v3-dark > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; font-size: 14px; line-height: 1.5; }
+.asx-v3-dark > div + div { border-top: 1px solid rgba(255, 255, 255, 0.16); }
+.asx-v3-dark .is-sub span { color: rgba(255, 255, 255, 0.78); font-size: 13px; }
+.asx-v3-dark b { font-family: var(--asx-card-num); font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.asx-v3-dark b.is-orange { color: #F59E6B; font-size: 22px; }
+.dark .asx-v3-dark { background: #0F0E0D; box-shadow: inset 0 0 0 1px var(--asx-card-divider); }
+
+/* ข้อความทวงเงิน: the words in a grey box. */
+.asx-rcard.is-draft.is-v3 .asx-draft-text { margin: 14px 0 0; padding: 14px 16px; border-radius: 14px; background: var(--asx-card-well); font-size: 14px; line-height: 1.7; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* งานใหม่: an orange top, a white inset panel holding the rest. */
+.asx-rcard.is-hero { padding: 0 8px 8px; background: var(--asx-accent); box-shadow: 0 8px 24px rgba(166, 63, 27, 0.18); }
+.asx-hero-band { padding: 18px 12px 16px; color: #fff; }
+.asx-hero-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.asx-hero-top b { font-size: 13.5px; font-weight: 600; line-height: 1.5; }
+.asx-rcard .asx-hero-state { margin-left: 0; box-shadow: none; display: inline-flex; align-items: center; gap: 5px; padding: 3px 11px; border-radius: 999px; background: #fff; color: var(--asx-accent-text); font-size: 12.5px; font-weight: 600; line-height: 1.5; white-space: nowrap; }
+.asx-rcard .asx-hero-state.is-done { color: var(--asx-income); background: #fff; }
+.asx-hero-state > i { display: none; }
+.asx-hero-name { margin: 14px 0 0; font-size: 20px; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
+.asx-hero-client { margin: 0; font-size: 13px; line-height: 1.5; opacity: 0.88; overflow-wrap: anywhere; }
+.asx-rcard .asx-hero-amount { color: #fff; display: block; margin-top: 6px; font-family: var(--asx-card-num); font-size: 46px; font-weight: 600; line-height: 1.15; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.asx-hero-body { padding: 18px; border-radius: 18px; background: var(--asx-card-surface); }
+.asx-hero-body > :first-child { margin-top: 0 !important; }
+.asx-hero-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.asx-hero-tile { display: grid; gap: 2px; min-width: 0; padding: 12px 14px; border-radius: 14px; background: var(--asx-card-well); }
+.asx-hero-tile small { color: var(--asx-card-secondary); font-size: 12px; line-height: 1.5; }
+.asx-hero-tile b { font-size: 14px; font-weight: 600; line-height: 1.45; overflow-wrap: anywhere; }
+.asx-hero-tile span { color: var(--asx-card-secondary); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.asx-rcard .asx-hero-rows { margin-top: 8px; }
+.asx-hero-net { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; padding: 14px 16px; border-radius: 14px; background: #FBE7DC; }
+.asx-hero-net span { font-size: 14px; font-weight: 600; line-height: 1.5; color: var(--text); }
+.asx-hero-net b { font-family: var(--asx-card-num); font-size: 24px; font-weight: 600; line-height: 1.2; color: #B94A1C; font-variant-numeric: tabular-nums; }
+.dark .asx-hero-net { background: rgba(230, 95, 43, 0.16); } .dark .asx-hero-net b { color: #F08A5D; }
+.asx-hero-body .asx-card-details > summary { justify-content: center; border-top: 0; }
+
+/* ใบเสนอราคา: a paper slip on peach, a white panel with the total. */
+.asx-rcard.is-paper { padding: 0 8px 8px; background: #FBE7DC; box-shadow: none; }
+.dark .asx-rcard.is-paper { background: rgba(230, 95, 43, 0.14); }
+.asx-rcard.is-paper > .asx-rcard-head { padding: 16px 12px 0; }
+.asx-rcard.is-paper > .asx-rcard-head .asx-card-state { padding: 3px 11px; border-radius: 999px; background: #fff; box-shadow: none; }
+.asx-rcard.is-paper .asx-hero-body { padding-top: 0; background: transparent; }
+.asx-paper { position: relative; display: grid; gap: 6px; margin: 16px 18px -26px; padding: 18px 20px 40px; border-radius: 6px; background: #fff; color: #1C1917; box-shadow: 0 10px 24px rgba(120, 50, 20, 0.16); transform: rotate(-3deg); }
+.asx-paper-no { font-family: var(--asx-card-num); font-size: 13px; font-weight: 600; color: #B94A1C; }
+.asx-paper-client { font-size: 16px; font-weight: 600; line-height: 1.45; overflow-wrap: anywhere; }
+.asx-paper-rule { display: block; height: 2px; margin: 4px 0 2px; background: #1C1917; }
+.asx-paper-item { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: 13px; line-height: 1.5; }
+.asx-paper-item b { font-family: var(--asx-card-num); font-weight: 600; white-space: nowrap; }
+.asx-paper-total { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 22px 18px 4px; border-radius: 18px 18px 0 0; background: var(--asx-card-surface); }
+.asx-paper-total span { color: var(--asx-card-secondary); font-size: 14px; }
+.asx-paper-total b { font-family: var(--asx-card-num); font-size: 30px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.asx-rcard.is-paper .asx-hero-body > .asx-card-review ~ *, .asx-rcard.is-paper .asx-card-review > :not(.asx-paper):not(.asx-paper-total) { background: var(--asx-card-surface); }
+.asx-rcard.is-paper .asx-hero-body { display: flex; flex-direction: column; }
+.asx-rcard.is-paper .asx-card-review { display: flex; flex-direction: column; }
+.asx-rcard.is-paper .asx-card-review > .asx-card-parties, .asx-rcard.is-paper .asx-card-review > .asx-card-details { margin: 0; padding: 4px 18px 0; }
+.asx-rcard.is-paper .asx-hero-body > :not(.asx-card-review) { margin: 0 !important; padding: 16px 18px 18px; border-radius: 0 0 18px 18px; }
+.asx-rcard.is-paper .asx-hero-body > .asx-card-review:last-child .asx-card-details { padding-bottom: 14px; border-radius: 0 0 18px 18px; }
+
+/* Chat home, the owner's design (2026-11-26, phones; picture "หน้าแรกใหม่ · ปกติ / โทเค็นหมด"): the greeting in the middle
+   of the page in CI rust-to-caramel on a soft peach glow, the four buttons (บันทึกงาน · สรุปการเงิน · ใบเสนอราคา · ทวงเงิน)
+   two by two down by the message box, white with an orange icon. With no tokens: a red line above the buttons says when
+   they come back, and the buttons stay, greyed. Computers and iPads (744px and up) keep their grouped list with the same
+   four, greyed with the same red line (designed separately). */
+.asx-welcome-empty { position: relative; align-self: center; padding: 6px 16px; border-radius: 999px; background: #FDECEA; color: #B4231A; font-size: 13.5px; font-weight: 600; line-height: 1.5; text-align: center; }
+.dark .asx-welcome-empty { background: rgba(239, 68, 68, 0.14); color: #FCA5A5; }
+/* Phones and, since the owner asked the same day ("ทำ UI ในคอมให้เหมือนในมือถือ ... อันเก่ามันดูแก่"), computers and iPads too. */
+.asx.asx .asx-welcome { position: relative; justify-content: flex-start; gap: 0; padding: 0 2px 6px; }
+.asx.asx .asx-welcome::before { content: ''; position: absolute; left: 50%; top: 44%; width: 340px; height: 300px; transform: translate(-50%, -50%); border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(244, 170, 128, 0.32), rgba(244, 170, 128, 0.12) 55%, rgba(244, 170, 128, 0)); pointer-events: none; }
+.asx.asx .asx-welcome > h2 { position: relative; margin-top: auto; max-width: 100%; font-size: clamp(24px, 7.6vw, 30px); font-weight: 600; line-height: 1.45; white-space: normal; overflow: visible;
+  background: linear-gradient(90deg, #A63F1B, #C1662A 55%, #C17817); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.asx.asx .asx-welcome > p { position: relative; margin-top: 2px; max-width: 100%; font-size: clamp(14px, 4.2vw, 16px); line-height: 1.55; color: var(--muted); white-space: normal; overflow: visible; }
+.asx.asx .asx-welcome > .asx-prompts-head { display: none; }
+.asx.asx .asx-welcome > p.asx-welcome-empty { margin: auto 0 0; font-size: 13.5px; color: #B4231A; }
+.dark .asx.asx .asx-welcome > p.asx-welcome-empty { color: #FCA5A5; }
+.asx.asx .asx-welcome > .asx-prompts { position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; width: 100%; max-width: none; margin-top: auto; padding-top: 24px;
+  overflow: visible; border-radius: 0; background: none; box-shadow: none; }
+.asx.asx .asx-welcome-empty ~ .asx-prompts { margin-top: 14px; padding-top: 0; }
+.asx.asx .asx-welcome > .asx-prompts > button { justify-content: center; gap: 8px; min-height: 52px; padding: 8px 12px; border: 0; border-radius: 22px; background: var(--white);
+  box-shadow: 0 1px 2px rgba(28, 25, 23, 0.05), 0 4px 14px rgba(28, 25, 23, 0.06); color: var(--text); font-size: 15px; font-weight: 600; }
+.asx.asx .asx-welcome > .asx-prompts > button::before { display: none; }
+.asx.asx .asx-welcome > .asx-prompts .asx-prompt-icon { width: auto; height: auto; border-radius: 0; background: none; color: var(--asx-accent-text); }
+.asx.asx .asx-welcome > .asx-prompts .asx-prompt-label { flex: none; }
+.asx.asx .asx-welcome > .asx-prompts .asx-prompt-go { display: none; }
+.asx.asx .asx-welcome > .asx-prompts > button:disabled { color: #A8A29E; box-shadow: 0 1px 2px rgba(28, 25, 23, 0.04); cursor: default; }
+.asx.asx .asx-welcome > .asx-prompts > button:disabled .asx-prompt-icon { color: #A8A29E; }
+.dark .asx.asx .asx-welcome > h2 { background: linear-gradient(90deg, #FFB894, #F2B76B); -webkit-background-clip: text; background-clip: text; }
+.dark .asx.asx .asx-welcome > .asx-prompts > button { background: #1F2023; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.07); }
+
+/* Computers and iPads: the same look, a little larger, the buttons as wide as the message box at most. */
+@media (min-width: 744px) {
+  .asx.asx .asx-welcome > h2 { font-size: 34px; }
+  .asx.asx .asx-welcome > p { font-size: 17px; }
+  .asx.asx .asx-welcome::before { width: 560px; height: 420px; }
+  .asx.asx .asx-welcome > .asx-prompts { align-self: center; max-width: 640px; gap: 12px; }
+  .asx.asx .asx-welcome > .asx-prompts > button { min-height: 56px; font-size: 15.5px; }
+  .asx.asx .asx-welcome > .asx-prompts > button:hover:not(:disabled) { background: var(--asx-cream); }
+  .asx.asx .asx-welcome > .asx-prompts > button:disabled { opacity: 1; }
+  .asx.asx .asx-welcome > .asx-briefing, .asx.asx .asx-welcome > .asx-brief { position: relative; margin-top: 22px; }
+}
+

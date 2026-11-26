@@ -21,7 +21,9 @@ export type ProjectCard = { kind: 'project'; name: string; client: string; amoun
 export type DocumentCard = { kind: 'document'; docType: string; number: string; client: string; amount: string; path: string };
 export type SummaryCard = { kind: 'summary'; period: string; income: string; expense: string; balance: string;
   /** The money left against last month (this month only), and the part of the income spent (design A, 2026-10-27). */
-  previous?: { change: string; direction: 'up' | 'down' | 'same' }; spentShare?: number };
+  previous?: { change: string; direction: 'up' | 'down' | 'same'; balance?: string; label?: string; current?: string }; spentShare?: number;
+  /** Still to come this month and the money left if it all comes (owner's card design, 2026-11-26). */
+  pending?: string; ifPaid?: string };
 /** Several months of money, from financial_summary's own figures (backend/src/ai/moneyChart.ts). Amounts in baht. */
 export type MoneyChartCard = { kind: 'money_chart'; title: string; period: string; omitted: number;
   months: { month: string; label: string; income: number; expense: number; net: number; partial: boolean }[];
@@ -48,7 +50,9 @@ export type AttachCard = { kind: 'attach'; id: string; fileKind: 'wht50' | 'cont
 /** The web pages an answer cites (2026-11-01: "แปะลิงก์อ้างอิงช่วงท้าย"), from the search provider's citations (server-checked). */
 export type SourcesCard = { kind: 'sources'; items: { title: string; url: string }[] };
 /** A message to copy and send yourself (2026-11-02: "ช่วยทวงเงิน"): fixed courteous wording and saved figures (server). */
-export type MessageDraftCard = { kind: 'message_draft'; id: string; title: string; text: string; note: string };
+export type MessageDraftCard = { kind: 'message_draft'; id: string; title: string; text: string; note: string;
+  /** Owner's card design (2026-11-26): who it is for, the amount large, what it is for. */
+  to?: string; amount?: string; detail?: string };
 /** SheetAskCard: เลขา's questions about a sheet just connected (labs/sheetAsk.ts), made on this device, never sent to or
  *  stored by the server. */
 export type ChatCard = ProjectCard | DocumentCard | SummaryCard | MoneyChartCard | ConfirmCard | LineChatCard | NavigationCard | QuestionsCard | OfficialLinkCard | RenameCard | AttachCard | SourcesCard | MessageDraftCard | SheetAskCard;
@@ -129,13 +133,14 @@ export function afterReply(cards?: ChatCard[]): AssistantMode {
   return cards?.some(card => isPendingConfirm(card)) ? 'awaiting' : 'answered';
 }
 
-/** Welcome cards (2 × 2): a short label on the card; tapping it asks the full question. */
-export type SuggestionIcon = 'today' | 'quote' | 'howto' | 'unpaid';
+/** Welcome buttons (2 × 2) above the message box (owner's design, 2026-11-26: บันทึกงาน · สรุปการเงิน · ใบเสนอราคา · ทวงเงิน):
+ *  a short label on the button; tapping it asks the full sentence. */
+export type SuggestionIcon = 'add' | 'summary' | 'quote' | 'collect';
 export const SUGGESTIONS: { label: string; ask: string; icon: SuggestionIcon }[] = [
-  { label: T("สรุปงานของวันนี้"), ask: T("สรุปงานของวันนี้"), icon: 'today' },
-  { label: T("ใบเสนอราคาอยู่ตรงไหน"), ask: T("ใบเสนอราคาอยู่ตรงไหน"), icon: 'quote' },
-  { label: T("วิธีเพิ่มโปรเจกต์"), ask: T("ช่วยอธิบายวิธีเพิ่มโปรเจกต์"), icon: 'howto' },
-  { label: T("งานที่ยังไม่ได้รับเงิน"), ask: T("ตรวจงานที่ยังไม่ได้รับเงิน"), icon: 'unpaid' },
+  { label: T("บันทึกงาน"), ask: T("ช่วยบันทึกงานใหม่ให้หน่อย"), icon: 'add' },
+  { label: T("สรุปการเงิน"), ask: T("สรุปการเงินเดือนนี้ให้หน่อย"), icon: 'summary' },
+  { label: T("ใบเสนอราคา"), ask: T("ช่วยทำใบเสนอราคาให้หน่อย"), icon: 'quote' },
+  { label: T("ทวงเงิน"), ask: T("ช่วยร่างข้อความทวงเงินลูกค้าที่ยังไม่จ่ายให้หน่อย"), icon: 'collect' },
 ];
 
 type Intent = 'today' | 'quote' | 'howto' | 'add' | 'unpaid' | 'other';

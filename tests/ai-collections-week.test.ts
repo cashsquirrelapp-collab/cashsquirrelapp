@@ -32,19 +32,20 @@ test('collections: what each client owes now, how much is late and for how long,
   assert.equal(second.late, 0);
 });
 
-test('collection draft: courteous fixed wording by how late, exact saved figures, the user\'s bank details and name, their polite ending', () => {
+test('collection draft: natural fixed wording by how late (owner, 2026-11-26: "เป็นธรรมชาติ ... ไม่แข็งเหมือน AI"), exact saved figures, the user\'s bank details and name, their polite ending', () => {
   const profile = { issuer_profile: { name: 'สตูดิโอตัวอย่าง', bankName: 'กสิกรไทย', bankAccount: '123-4-56789-0', bankAccountName: 'สตูดิโอ ตัวอย่าง' } };
   const ahead = collectionDraft(user([job('a', { client: 'คุณเอ', pending: 5000, payDate: '2026-11-08' })], profile), { client: 'คุณเอ', particle: 'ค่ะ', now: NOW })!;
   assert.equal(ahead.tone, 'ahead');
-  assert.match(ahead.text, /^สวัสดีค่ะ คุณเอ ขออนุญาตแจ้งเตือนล่วงหน้าเรื่องค่าบริการงาน "งาน a" ยอด 5,000 บาท ซึ่งจะครบกำหนดชำระวันที่ 8 พ.ย. 2569/);
+  assert.match(ahead.text, /^สวัสดีค่ะ คุณเอ แจ้งไว้ก่อนนะคะว่าค่างาน "งาน a" 5,000 บาท จะครบกำหนดวันที่ 8 พ.ย. 2569\nโอนแล้วส่งสลิปมาได้เลยนะคะ ขอบคุณมากค่ะ/);
+  assert.doesNotMatch(ahead.text, /ขออนุญาต|ซึ่ง|ดังกล่าว/);
   assert.match(ahead.text, /ช่องทางชำระ: กสิกรไทย 123-4-56789-0 ชื่อบัญชี สตูดิโอ ตัวอย่าง/);
   assert.match(ahead.text, /\nสตูดิโอตัวอย่าง$/);
   assert.doesNotMatch(ahead.text, /ครับ/);
 
   const late = collectionDraft(user([job('a', { client: 'คุณเอ', pending: 5000, payDate: '2026-10-30' })]), { client: 'เอ', now: NOW })!;
   assert.equal(late.tone, 'late');
-  assert.match(late.text, /ซึ่งครบกำหนดชำระเมื่อวันที่ 30 ต.ค. 2569 \(เลยกำหนดมา 5 วัน\)/);
-  assert.match(late.text, /รบกวนช่วยตรวจสอบให้ด้วยนะครับ/);
+  assert.match(late.text, /^สวัสดีครับ คุณเอ ขอตามเรื่องค่างาน "งาน a" 5,000 บาทหน่อยนะครับ ครบกำหนดไปเมื่อวันที่ 30 ต.ค. 2569/);
+  assert.match(late.text, /ถ้าโอนแล้ว รบกวนส่งสลิปให้ด้วยนะครับ จะได้บันทึกไว้/);
   assert.equal(late.bank, false);
 
   const long = collectionDraft(user([
@@ -53,9 +54,9 @@ test('collection draft: courteous fixed wording by how late, exact saved figures
   ]), { client: 'ร้านบี', now: NOW })!;
   assert.equal(long.tone, 'long_late');
   assert.equal(long.total, 6500.5);
-  assert.match(long.text, /ค่าบริการ 2 รายการ รวม 6,500.5 บาท ขณะนี้เลยกำหนดมา 34 วันแล้ว/);
+  assert.match(long.text, /ค่างาน 2 งาน รวม 6,500.5 บาทอีกครั้งนะครับ ตอนนี้เลยกำหนดมา 34 วันแล้ว/);
   assert.match(long.text, /• งาน a 4,000 บาท \(ครบกำหนด 1 ต.ค. 2569\)/);
-  assert.match(long.text, /ภายในวันที่ 7 พ.ย. 2569 ได้ไหมครับ/);
+  assert.match(long.text, /ถ้าได้ภายในวันที่ 7 พ.ย. 2569 จะช่วยได้มากเลยครับ/);
   assert.doesNotMatch(long.text, /คนอื่น|9,000/);
 
   // No client named: the client whose money is latest. Nothing owed: no draft.

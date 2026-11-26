@@ -96,29 +96,28 @@ export function collectionDraft(user: UserRow, options: { client?: string; jobId
   const tone: CollectionDraft['tone'] = maxDaysLate > 14 ? 'long_late' : maxDaysLate > 0 ? 'late' : 'ahead';
   const name = client ? `คุณ${client.replace(/^คุณ\s*/, '')}` : '';
   const one = jobs.length === 1 ? jobs[0] : null;
-  const what = one
-    ? `ค่าบริการงาน "${one.name}" ยอด ${money(one.amount)} บาท`
-    : `ค่าบริการ ${jobs.length} รายการ รวม ${money(total)} บาท`;
+  // Owner, 2026-11-26: "อยากให้มันเป็นธรรมชาติมากกว่านี้ ... ยังแข็งๆเหมือน AI": written the way a freelancer types to a client
+  // in LINE -- short lines, everyday words, no "ขออนุญาต/ซึ่ง/ดังกล่าว", the amount and date exactly as saved, one easy ask
+  // (send the slip), and no pronoun so it reads the same for ครับ and ค่ะ.
+  const what = one ? `ค่างาน "${one.name}" ${money(one.amount)} บาท` : `ค่างาน ${jobs.length} งาน รวม ${money(total)} บาท`;
   const lines = one ? [] : jobs.map(job => `• ${job.name} ${money(job.amount)} บาท${job.due ? ` (ครบกำหนด ${thaiDay(job.due)})` : ''}`);
-  const dueWords = one?.due
-    ? (one.daysLate! > 0 ? `ซึ่งครบกำหนดชำระเมื่อวันที่ ${thaiDay(one.due)}` : `ซึ่งจะครบกำหนดชำระวันที่ ${thaiDay(one.due)}`)
-    : '';
   const today = todayInBangkok(options.now);
   const askBy = thaiDay(new Date(Date.parse(`${today}T00:00:00Z`) + 3 * dayMs).toISOString().slice(0, 10));
+  const hello = `สวัสดี${p}${name ? ` ${name}` : ''}`;
   const body: string[] = [];
   if (tone === 'ahead') {
-    body.push(`สวัสดี${p}${name ? ` ${name}` : ''} ขออนุญาตแจ้งเตือนล่วงหน้าเรื่อง${what}${dueWords ? ` ${dueWords}` : ''}`);
+    body.push(`${hello} แจ้งไว้ก่อนนะ${q}ว่า${what}${one?.due ? ` จะครบกำหนดวันที่ ${thaiDay(one.due)}` : ''}`);
     if (lines.length) body.push(...lines);
-    body.push(`ส่งมาเพื่อความสะดวกในการเตรียมชำระ${p} หากชำระเรียบร้อยแล้ว ขออภัยและขอบคุณมาก${p}`);
+    body.push(`โอนแล้วส่งสลิปมาได้เลยนะ${q} ขอบคุณมาก${p}`);
   } else if (tone === 'late') {
-    body.push(`สวัสดี${p}${name ? ` ${name}` : ''} ขออนุญาตติดตาม${what}${dueWords ? ` ${dueWords}` : ''}${one ? ` (เลยกำหนดมา ${one.daysLate} วัน)` : ''}`);
+    body.push(`${hello} ขอตามเรื่อง${what}หน่อยนะ${q}${one?.due ? ` ครบกำหนดไปเมื่อวันที่ ${thaiDay(one.due)}` : ''}`);
     if (lines.length) body.push(...lines);
-    body.push(`รบกวนช่วยตรวจสอบให้ด้วยนะ${q} หากชำระแล้ว รบกวนส่งหลักฐานการโอนให้ด้วย ขอบคุณมาก${p}`);
+    body.push(`ถ้าโอนแล้ว รบกวนส่งสลิปให้ด้วยนะ${q} จะได้บันทึกไว้ ขอบคุณมาก${p}`);
   } else {
-    body.push(`สวัสดี${p}${name ? ` ${name}` : ''} ขออนุญาตติดตาม${what}${dueWords ? ` ${dueWords}` : ''} ขณะนี้เลยกำหนดมา ${maxDaysLate} วันแล้ว`);
+    body.push(`${hello} ขอรบกวนเรื่อง${what}อีกครั้งนะ${q} ตอนนี้เลยกำหนดมา ${maxDaysLate} วันแล้ว${one?.due ? ` (ครบกำหนด ${thaiDay(one.due)})` : ''}`);
     if (lines.length) body.push(...lines);
-    body.push(`รบกวนแจ้งวันที่สะดวกชำระภายในวันที่ ${askBy} ได้ไหม${q} หากติดขัดเรื่องใด แจ้งได้เลย ยินดีหาทางที่สะดวกร่วมกัน${p}`);
-    body.push(`หากชำระแล้ว รบกวนส่งหลักฐานการโอนให้ด้วย ขอบคุณมาก${p}`);
+    body.push(`ไม่ทราบว่าจะสะดวกโอนช่วงไหน${q} ถ้าได้ภายในวันที่ ${askBy} จะช่วยได้มากเลย${p}`);
+    body.push(`ถ้ามีอะไรติดขัด บอกได้เลยนะ${q} คุยกันได้ โอนแล้วส่งสลิปมาได้เลย${p}`);
   }
   const bank = bankLine(user);
   if (bank) body.push(bank);

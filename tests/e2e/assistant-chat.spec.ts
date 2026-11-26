@@ -72,8 +72,8 @@ for (const [label, width, height] of [['phone', 390, 844], ['iPad', 820, 1180], 
     await snap(page, `assistant-${width}-welcome.png`);
 
     // A suggestion asks; the squirrel thinks, then the answer streams in as Markdown with a sample card.
-    await chat.getByRole('group', { name: 'คำถามแนะนำ' }).getByRole('button', { name: 'สรุปงานของวันนี้' }).click();
-    await expect(chat.locator('.asx-msg.is-me .asx-bubble').last()).toHaveText('สรุปงานของวันนี้');
+    await chat.getByRole('group', { name: 'คำถามแนะนำ' }).getByRole('button', { name: 'สรุปการเงิน' }).click();
+    await expect(chat.locator('.asx-msg.is-me .asx-bubble').last()).toHaveText('สรุปการเงินเดือนนี้ให้หน่อย');
     await expect(chat.getByRole('img', { name: 'เลขากระรอกกำลังคิด' })).toBeVisible();
     await expect(chat.locator('.asx-md table')).toBeVisible({ timeout: 10000 });
     await expect(chat.locator('.asx-rcard').filter({ hasText: 'สรุปการเงิน' })).toBeVisible({ timeout: 10000 });
@@ -123,7 +123,8 @@ test('every UI state from the brief can be previewed and behaves', async ({ page
   await expect(chat.locator('.asx-token span')).toHaveText('64');
   await snap(page, 'assistant-state-low.png');
   await pickState(page, 'โทเค็นหมด');
-  await expect(chat.locator('.asx-notice.is-empty')).toContainText('โทเค็นรอบนี้หมดแล้ว');
+  // Owner's home design (2026-11-26): on the welcome the red line sits above the four buttons, which stay, greyed.
+  await expect(chat.locator('.asx-welcome-empty, .asx-notice.is-empty').first()).toContainText(/โทเค็น(รอบนี้)?หมดแล้ว/);
   await expect(chat.getByRole('textbox', { name: 'ข้อความถึงเลขากระรอก' })).toBeDisabled();
   // Without Pro it is a try mode (owner, 2026-10-23): the notice says so and the token counter steps aside.
   await pickState(page, 'ช่วงทดลองใช้หมดอายุ');
@@ -164,9 +165,11 @@ test('every UI state from the brief can be previewed and behaves', async ({ page
 
   // A link in an answer opens the page inside the app.
   await chat.locator('.asx-new').click();
-  await chat.getByRole('group', { name: 'คำถามแนะนำ' }).getByRole('button', { name: 'วิธีเพิ่มโปรเจกต์' }).click();
-  await expect(chat.locator('.asx-msg.is-me .asx-bubble').last()).toHaveText('ช่วยอธิบายวิธีเพิ่มโปรเจกต์'); // the card asks the full question
-  await chat.locator('.asx-md a', { hasText: 'หน้างาน' }).click({ timeout: 10000 });
+  await chat.getByRole('group', { name: 'คำถามแนะนำ' }).getByRole('button', { name: 'บันทึกงาน' }).click();
+  await expect(chat.locator('.asx-msg.is-me .asx-bubble').last()).toHaveText('ช่วยบันทึกงานใหม่ให้หน่อย'); // the button asks the full sentence
+  await chat.getByRole('textbox', { name: 'ข้อความถึงเลขากระรอก' }).fill('ช่วยอธิบายวิธีเพิ่มโปรเจกต์');
+  await chat.locator('.asx-send').click();
+  await chat.locator('.asx-md a', { hasText: 'หน้างาน' }).last().click({ timeout: 10000 });
   await expect(page).toHaveURL(/\/jobs/);
 });
 
@@ -202,9 +205,9 @@ for (const lang of ['th', 'en'] as const) {
     if (lang === 'en') {
       await expect(chat.locator('.asx-welcome h2')).toHaveText(/^(?:Good (?:morning|afternoon|evening)|Working late tonight)$/);
       // Short English on the pills; tapping one still asks the full question.
-      await expect(chat.locator('.asx-prompt-label')).toHaveText(["Today's summary", 'Find a quotation', 'Add a project', 'Unpaid jobs']);
-      await chat.getByRole('button', { name: 'Find a quotation' }).click();
-      await expect(chat.locator('.asx-msg.is-me .asx-bubble').last()).toHaveText('Where is the quotation?');
+      await expect(chat.locator('.asx-prompt-label')).toHaveText(['Save job', 'Money summary', 'Quotation', 'Collect payment']);
+      await chat.getByRole('button', { name: 'Quotation', exact: true }).click();
+      await expect(chat.locator('.asx-msg.is-me .asx-bubble').last()).toHaveText('Please make a quotation');
     }
   });
 }
@@ -304,7 +307,7 @@ test('members see the chat in the sidebar and the phone menu, without the team p
   await expect(menu.getByRole('menuitemradio')).toHaveCount(0);
   await expect(menu.getByRole('menuitem', { name: 'จำลองแจ้งเตือนเข้า' })).toHaveCount(0);
   await page.keyboard.press('Escape');
-  await chat.getByRole('group', { name: 'คำถามแนะนำ' }).getByRole('button', { name: 'สรุปงานของวันนี้' }).click();
+  await chat.getByRole('group', { name: 'คำถามแนะนำ' }).getByRole('button', { name: 'สรุปการเงิน' }).click();
   await expect(chat.locator('.asx-md table')).toBeVisible({ timeout: 10000 });
   expect(await textOverlapIssues(page)).toEqual([]);
   // Phones: the entry sits in the แพ็กเกจ Pro section of เมนู (was LINE AI Pro until 2026-11-01).
@@ -320,7 +323,7 @@ test('dark mode, phone and computer: the chat reads clearly and no text overlaps
   for (const [width, height] of [[390, 844], [1280, 820]] as const) {
     await open(page, width, height, { dark: true });
     await expect(page.locator('html')).toHaveClass(/dark/);
-    await chatOf(page).getByRole('group', { name: 'คำถามแนะนำ' }).getByRole('button', { name: 'งานที่ยังไม่ได้รับเงิน' }).click();
+    await chatOf(page).getByRole('group', { name: 'คำถามแนะนำ' }).getByRole('button', { name: 'ทวงเงิน' }).click();
     await expect(chatOf(page).locator('.asx-md ol li')).toHaveCount(2, { timeout: 10000 });
     expect(await textOverlapIssues(page)).toEqual([]);
     await snap(page, `assistant-dark-${width}.png`);
@@ -394,18 +397,20 @@ test('computer: the sidebar entry wears the squirrel; the chat folds the app sid
 
 // Owner, 2026-10-24: computers and iPads show the questions as one iOS-style list ("ทางการขึ้น เหมือนระบบ iOS");
 // phones keep their 2 × 2 cards.
-test('the welcome questions: one iOS-style list of four rows, on computers and on phones (short words on phones)', async ({ page }) => {
+test('the welcome buttons: two by two just above the message box, on computers and on phones', async ({ page }) => {
+  // Owner's design (2026-11-26, phones; then "ทำ UI ในคอมให้เหมือนในมือถือ ... อันเก่ามันดูแก่" for computers too).
   for (const [width, height] of [[1280, 820], [390, 844]] as const) {
     await open(page, width, height);
     const cards = chatOf(page).getByRole('group', { name: 'คำถามแนะนำ' }).getByRole('button');
     await expect(cards).toHaveCount(4);
+    await expect(chatOf(page).locator('.asx-prompt-label')).toHaveText(['บันทึกงาน', 'สรุปการเงิน', 'ใบเสนอราคา', 'ทวงเงิน']);
     const boxes = await cards.evaluateAll(list => list.map(el => { const r = el.getBoundingClientRect(); return [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)]; }));
-    // Phones in the same set since 2026-10-27 ("ทำในมือถือด้วยนะ"); each question still on one line there.
     expect(new Set(boxes.map(b => b[2])).size).toBe(1); // equal widths
-    expect(new Set(boxes.map(b => b[0])).size).toBe(1); // one column
-    for (let n = 1; n < 4; n++) expect(boxes[n][1]).toBe(boxes[n - 1][1] + boxes[n - 1][3]); // rows touch, split by hairlines
-    await expect(chatOf(page).locator('.asx-prompts-head')).toHaveText('คำถามแนะนำ');
-    await expect(chatOf(page).locator('.asx-prompt-go')).toHaveCount(4);
+    expect(new Set(boxes.map(b => b[0])).size).toBe(2); // two columns
+    expect(new Set(boxes.map(b => b[1])).size).toBe(2); // two rows
+    const dock = await chatOf(page).getByRole('textbox', { name: 'ข้อความถึงเลขากระรอก' }).boundingBox();
+    expect(dock!.y - (boxes[3][1] + boxes[3][3])).toBeLessThan(60);
+    await expect(chatOf(page).locator('.asx-prompts-head')).toBeHidden();
     expect(await textOverlapIssues(page)).toEqual([]);
   }
 });
@@ -415,7 +420,7 @@ test('typography: the CI type with real weights only (400 reading, 500 emphasis,
   for (const [width, height] of [[1280, 820], [390, 844]] as const) {
     await open(page, width, height);
     const chat = chatOf(page);
-    await chat.getByRole('group', { name: 'คำถามแนะนำ' }).getByRole('button', { name: 'สรุปงานของวันนี้' }).click();
+    await chat.getByRole('group', { name: 'คำถามแนะนำ' }).getByRole('button', { name: 'สรุปการเงิน' }).click();
     await expect(chat.locator('.asx-rcard').filter({ hasText: 'สรุปการเงิน' })).toBeVisible({ timeout: 10000 });
     if (!(await chat.locator('.asx-side.is-open').count())) await chat.getByRole('button', { name: 'ประวัติและค้นหาแชต' }).click();
     await expect(chat.locator('.asx-side.is-open .asx-side-item').first()).toBeVisible();
@@ -528,7 +533,7 @@ test('LINE: a notification arriving shows the LINE banner; there is no rich menu
   await expect(bar).not.toHaveClass(/lg-glass/);
   expect(await bar.evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
   await expect(chat.locator('.asx-bar-text')).toHaveClass(/asx-sr/);
-  await chat.getByRole('group', { name: 'คำถามแนะนำ' }).getByRole('button', { name: 'สรุปงานของวันนี้' }).click();
+  await chat.getByRole('group', { name: 'คำถามแนะนำ' }).getByRole('button', { name: 'สรุปการเงิน' }).click();
   await expect(chat.locator('.asx-bar-status')).toHaveText(/พร้อมช่วยแล้ว/, { timeout: 10000 });
   // The round avatar in the middle of the top, letting clicks through.
   await checkTopFace(page);
@@ -584,7 +589,7 @@ test('try mode without Pro: sample questions answer, a typed question shows the 
     const chat = chatOf(page);
     await expect(chat.locator('.asx-notice.is-try')).toContainText('โหมดทดลอง');
     await expect(chat.locator('.asx-token')).toHaveCount(0);
-    await chat.getByRole('group', { name: 'คำถามแนะนำ' }).getByRole('button', { name: 'สรุปงานของวันนี้' }).click();
+    await chat.getByRole('group', { name: 'คำถามแนะนำ' }).getByRole('button', { name: 'สรุปการเงิน' }).click();
     await expect(chat.locator('.asx-md table')).toBeVisible({ timeout: 10000 });
     await expect(chat.locator('.asx-msg.is-bot').last().locator('.asx-meta')).toContainText('คำตอบตัวอย่าง', { timeout: 15000 });
     const box = chat.getByRole('textbox', { name: 'ข้อความถึงเลขากระรอก' });
@@ -595,11 +600,11 @@ test('try mode without Pro: sample questions answer, a typed question shows the 
     await expect(card).toBeVisible();
     await expect(chat.locator('.asx-msg.is-me .asx-bubble')).toHaveCount(1); // the typed one was not sent
     await expect(box).toHaveValue('ช่วยดูงานของลูกค้ารายนี้ให้หน่อย');
-    await expect(chat.locator('.asx-msg.is-me .asx-bubble').last()).toHaveText('สรุปงานของวันนี้');
+    await expect(chat.locator('.asx-msg.is-me .asx-bubble').last()).toHaveText('สรุปการเงินเดือนนี้ให้หน่อย');
     expect(await textOverlapIssues(page)).toEqual([]);
     await snap(page, `assistant-${width}-try-upsell.png`);
     // A sample question from the card still answers.
-    await card.getByRole('group', { name: 'ลองคำถามตัวอย่าง' }).getByRole('button', { name: 'งานที่ยังไม่ได้รับเงิน' }).click();
+    await card.getByRole('group', { name: 'ลองคำถามตัวอย่าง' }).getByRole('button', { name: 'ทวงเงิน' }).click();
     await expect(card).toHaveCount(0);
     await expect(chat.locator('.asx-md ol li')).toHaveCount(2, { timeout: 10000 });
     await expect(chat.locator('.asx-msg.is-bot').last().locator('.asx-meta')).toContainText('คำตอบตัวอย่าง', { timeout: 15000 });

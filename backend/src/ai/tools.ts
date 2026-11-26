@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { validateChanges } from '../../../shared/validation.js';
 import { isValidWhtRate, whtAmountFor, roundMoney } from '../../../shared/wht.js';
 import { calculatePayDate } from '../../../shared/calendar.js';
-import { jobsInMonth, monthlyProfitSummary } from '../../../shared/monthlySummary.js';
+import { jobsInMonth, monthlyProfitSummary, workValueForMonth } from '../../../shared/monthlySummary.js';
 import { buildDataSnapshot, formatAssistantMonthlySummary, type UserRow } from '../services/lineAssistant.js';
 import { ownCategories } from '../../../shared/expenseCategory.js';
 import { knowledgeSnippets, lookupKnowledge } from './knowledge.js';
@@ -481,8 +481,14 @@ export function createToolbox(context: ToolContext) {
         const [y, m] = month.monthKey.split('-').map(Number);
         // Design A (owner, 2026-10-27): this month's money left against last month's, and the part of the income spent.
         const change = args.month === 'last' ? null : Math.round((profit.netProfit - monthlyProfitSummary(snapshot.lastMonth).netProfit) * 100) / 100;
+        // Owner's card design (2026-11-26): last month's money left beside this month's, and what is still to come this month
+        // with the money left if it all comes (the jobs the งาน page lists for the month, workValueForMonth).
+        const lastNet = monthlyProfitSummary(snapshot.lastMonth).netProfit;
+        const toCome = Math.round(workValueForMonth((user.jobs || []) as unknown as Parameters<typeof workValueForMonth>[0], month.monthKey).pending * 100) / 100;
         const card: AssistantCard = { kind: 'summary', period: `${MONTHS[m - 1]} ${y + 543}`, income: baht(profit.received), expense: baht(profit.totalExpense), balance: baht(profit.netProfit),
-          ...(change === null ? {} : { previous: { change: `${change > 0 ? '+' : change < 0 ? '-' : ''}${baht(Math.abs(change))}`, direction: change > 0 ? 'up' as const : change < 0 ? 'down' as const : 'same' as const } }),
+          ...(change === null ? {} : { previous: { change: `${change > 0 ? '+' : change < 0 ? '-' : ''}${baht(Math.abs(change))}`, direction: change > 0 ? 'up' as const : change < 0 ? 'down' as const : 'same' as const,
+            balance: `${lastNet < 0 ? '-' : ''}${baht(Math.abs(lastNet))}`, label: MONTHS[(m + 10) % 12], current: MONTHS[m - 1] } }),
+          ...(toCome > 0 ? { pending: baht(toCome), ifPaid: `${profit.netProfit + toCome < 0 ? '-' : ''}${baht(Math.abs(profit.netProfit + toCome))}` } : {}),
           ...(profit.received > 0 ? { spentShare: Math.round((profit.totalExpense / profit.received) * 1000) / 1000 } : {}) };
         return { result: { ...formatAssistantMonthlySummary(month), card_shown: 'A summary card with รายรับ, รายจ่าย and เงินคงเหลือ is shown under your answer; do not repeat all of it.' }, card };
       }
@@ -503,8 +509,12 @@ export function createToolbox(context: ToolContext) {
         const particle = args.particle === 'ค่ะ' ? 'ค่ะ' as const : 'ครับ' as const;
         const draft = collectionDraft(user, { client: typeof args.client === 'string' ? args.client : undefined, jobId: typeof args.job_id === 'string' ? args.job_id : undefined, particle, now: context.now });
         if (!draft) return fail(args.client || args.job_id ? 'ไม่พบงานที่ยังรอรับเงินของลูกค้ารายนี้' : 'ตอนนี้ไม่มีงานที่รอรับเงิน');
+        const only = draft.jobs.length === 1 ? draft.jobs[0] : null;
         const card: AssistantCard = { kind: 'message_draft', id: `draft-${randomUUID()}`, title: `ข้อความทวงเงิน · ${draft.client}`.slice(0, 120), text: draft.text,
-          note: 'คัดลอกไปส่งลูกค้าเองได้เลย เลขาไม่ส่งแทน' };
+          note: 'คัดลอกไปส่งลูกค้าเองได้เลย เลขาไม่ส่งแทน',
+          // Owner's card design (2026-11-26): who it is for, the amount large, and what it is for.
+          to: draft.client.slice(0, 80), amount: baht(draft.total),
+          detail: (only ? `${only.name}${only.due ? ` · ครบกำหนด ${thaiDate(only.due)}` : ''}` : `${draft.jobs.length} งาน`).slice(0, 120) };
         return { result: { ok: true, client: draft.client, tone: draft.tone, total: baht(draft.total), most_days_late: Math.max(0, draft.maxDaysLate),
           jobs: draft.jobs.map(job => ({ name: job.name, amount: baht(job.amount), due: job.due ? thaiDate(job.due) : '-', days_late: job.daysLate, follow_ups: job.followUps })),
           bank_details_included: draft.bank,
@@ -720,6 +730,8 @@ export function createToolbox(context: ToolContext) {
           ...installments.map(row => ({ label: row.label, value: `${baht(row.amount)} · ${row.status === 'paid' ? `รับแล้ว ${thaiDate(row.paidAt)}` : row.dueDate ? `ครบกำหนด ${thaiDate(row.dueDate)}` : 'ยังไม่กำหนดวัน'}` })),
           ...(payment !== 'paid' && payment !== 'installment' ? [{ label: 'ครบกำหนดรับเงิน', value: payDate ? `${thaiDate(payDate)} (เครดิต ${creditTerm} วัน)` : `เครดิต ${creditTerm} วันหลังส่งงาน` }] : []),
           { label: 'หัก ณ ที่จ่าย', value: wht ? `${wht}% (${baht(whtAmount)})` : 'ไม่มี' },
+          // What actually comes in after withholding (the card's ยอดรับจริง row, owner's design 2026-11-26).
+          ...(wht ? [{ label: 'รับจริง', value: baht(net) }] : []),
         ]);
       }
       case 'propose_record_payment': {

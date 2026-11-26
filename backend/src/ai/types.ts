@@ -57,9 +57,11 @@ export interface EditField { field: string; label: string; type: 'text' | 'money
 export type AssistantCard =
   | { kind: 'summary'; period: string; income: string; expense: string; balance: string;
       /** The money left against the month before (this month only): "+฿2,100 จากเดือนก่อน" (owner's design A, 2026-10-27). */
-      previous?: { change: string; direction: 'up' | 'down' | 'same' };
+      previous?: { change: string; direction: 'up' | 'down' | 'same'; balance?: string; label?: string; current?: string };
       /** The part of the income spent, 0 and up (above 1 when more went out than came in); absent without income. */
-      spentShare?: number }
+      spentShare?: number;
+      /** Still to come this month, and the money left if it all comes (owner's card design, 2026-11-26). */
+      pending?: string; ifPaid?: string }
   | { kind: 'project'; name: string; client: string; amount: string; status: string }
   | { kind: 'document'; docType: string; number: string; client: string; amount: string; path: string }
   | { kind: 'navigation'; label: string; path: string; autoOpen: boolean }
@@ -93,7 +95,7 @@ export type AssistantCard =
   /** A message for the user to copy and send themselves (owner, 2026-11-02: "ช่วยทวงเงิน"): the words come from fixed
    *  templates and saved figures (collections.ts), never from the model; เลขา never sends it. */
   | MessageDraftCard;
-export type MessageDraftCard = { kind: 'message_draft'; id: string; title: string; text: string; note: string };
+export type MessageDraftCard = { kind: 'message_draft'; id: string; title: string; text: string; note: string; to?: string; amount?: string; detail?: string };
 export type WebSource = { title: string; url: string };
 export type SourcesCard = { kind: 'sources'; items: WebSource[] };
 

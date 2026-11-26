@@ -241,7 +241,12 @@ test('money_summary: the month card carries the change from last month and the p
   assert.equal(now.card.kind, 'summary');
   assert.equal(last.card.previous, undefined, 'only this month is compared');
   const change = value(now.card.balance) - value(last.card.balance);
-  assert.deepEqual(now.card.previous, { change: `${change > 0 ? '+' : change < 0 ? '-' : ''}฿${Math.abs(change).toLocaleString('en-US', { maximumFractionDigits: 2 })}`, direction: change > 0 ? 'up' : change < 0 ? 'down' : 'same' });
+  const { balance: lastBalance, label, current, ...previous } = now.card.previous;
+  assert.deepEqual(previous, { change: `${change > 0 ? '+' : change < 0 ? '-' : ''}฿${Math.abs(change).toLocaleString('en-US', { maximumFractionDigits: 2 })}`, direction: change > 0 ? 'up' : change < 0 ? 'down' : 'same' });
+  // Owner's card design (2026-11-26): last month's money left and the two months' short names for the bars.
+  assert.equal(value(lastBalance), value(last.card.balance));
+  assert.match(label, /^[ก-ฮ.]+$/); assert.match(current, /^[ก-ฮ.]+$/);
+  if (now.card.pending) assert.equal(value(now.card.ifPaid), Math.round((value(now.card.balance) + value(now.card.pending)) * 100) / 100);
   for (const card of [now.card, last.card]) {
     if (value(card.income) > 0) assert.equal(card.spentShare, Math.round((value(card.expense) / value(card.income)) * 1000) / 1000);
     else assert.equal(card.spentShare, undefined);

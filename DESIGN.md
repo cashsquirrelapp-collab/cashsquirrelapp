@@ -152,25 +152,34 @@ The CSS tokens kept older names: `--blue-acc` is the CI **orange**, `--pink-acc`
   grouped buttons of §4.
 - Destructive: rust text on a secondary button, or a rust fill only inside the confirmation of that action.
 
-### Chat cards (เลขากระรอก): look A "Ledger" (owner, 2026-11-26: "การ์ดดูเชย ... ทันสมัย ดูแบบระบบเป็นทางการ", picked A of three; replaces "Grouped" of 2026-10-27)
+### Chat cards (เลขากระรอก): the owner's own design (2026-11-26, a picture of four cards; replaces "Ledger" of the same day)
 
-Like a finance system's record (Stripe, accounting software). Every card the assistant draws follows one anatomy, top to
-bottom; leave out the parts a card does not need:
-
-1. **Header bar** across the card, a hairline under it: a 26px icon tile (cream, orange icon), the kind (13.5/600, ink),
-   the state on the right as a quiet outlined chip (radius 6; green tint when บันทึกแล้ว, rust tint when ไม่สำเร็จ).
-2. **Figure**: an eyebrow label (muted), the key amount (30/600, digits in IBM Plex Sans), then what it is (14.5, ink-2).
-3. **Facts**: a ruled table with no grey well, a hairline above each row, label left (muted), value right (tabular, wraps).
-   Small tiles (รายรับ / รายจ่าย) are outlined, not filled.
+1. **Top row**: the kind in bold ink (14/600) on the left; a peach chip (period) or the state on the right; no rule.
+2. **Figure** large (44/600, IBM Plex Sans digits), its label above, what it is under it.
+3. **Facts**: rows with hairlines; a key total in a peach box (ยอดรับจริง).
 4. **Details**: everything else behind "ดูรายละเอียดทั้งหมด".
-5. **Actions**: a footer bar with a hairline above it, buttons on the right and the primary rightmost (orange, 40px,
-   radius 10, names what happens: "บันทึกงาน", "สร้างใบเสนอราคา", "ลบรายการนี้" in rust); secondary buttons are white with a
-   hairline. They wrap on narrow phones.
-6. **Note**: one muted line when needed.
-7. **Sheet written** (บันทึกลงชีตของคุณ): the green done box shows the written row only, column letter and header over
-   each value, formula cells in green, scrolling sideways when wide.
+5. **Actions**: one full-width orange primary (48px, radius 14), grey secondary buttons side by side under it.
 
-- Surface: solid white (dark #1F2023), radius 16, a 1px hairline (no soft shadow), padding 0 16px 16px; no glass.
+Kinds with their own face (`ChatCards.tsx`):
+- **เพิ่มงานใหม่**: the card is CI orange; the top holds the title and a white state pill, the job, the client and the
+  amount in white; a white inset panel holds two grey tiles (สถานะงาน, การชำระ with ครบกำหนด), the rows ลูกค้า ·
+  มูลค่างาน · หัก ณ ที่จ่าย, the peach ยอดรับจริง box, details and the buttons. The server sends รับจริง.
+- **สรุปการเงิน**: the money left large, the change from last month in orange, last month and this month as two bars
+  (grey, orange) in a grey box, รายรับ with a dark bar, รายจ่าย with an orange bar and its share of income, and a dark box
+  with รอรับ and "ถ้าได้รับครบ จะคงเหลือ". The server sends previous.balance, pending and ifPaid; bars are only sized
+  from the figures, the text is the server's.
+- **Documents (สร้างใบเสนอราคา …)**: a peach card; the document as a slightly turned paper slip (number, client, items),
+  then a white panel with ยอดชำระสุทธิ, the parties, details and the buttons.
+- **ข้อความทวงเงิน**: "ถึง …" on the right, the amount large in rust, what it is for, the words in a grey box, one
+  full-width copy button. The words are written the way a person types to a client (`backend/src/ai/collections.ts`).
+- Other cards keep the common anatomy; LINE cards keep their own band. Sheet written: the green done box shows the
+  written row only.
+- Surface: solid white (dark #1F2023), radius 22, padding 18, a soft two-layer shadow; no glass; flat CI colours only.
+- **Chat home** (owner's design, 2026-11-26, phones): the time-of-day greeting in the middle in CI rust → caramel on a soft
+  peach glow, the habit question under it, and four white buttons two by two just above the message box (บันทึกงาน ·
+  สรุปการเงิน · ใบเสนอราคา · ทวงเงิน, orange icons; each asks a full sentence). No tokens left: a red pill above the
+  buttons, "โทเค็นหมดแล้ว · เติมรอบใหม่ <date>", the buttons stay greyed and the box says "โทเค็นหมด รอเติมรอบใหม่".
+  Computers and iPads keep the grouped list under "คำถามแนะนำ" with the same four, greyed with the same pill.
 - States, the same words everywhere: รอยืนยัน, กำลังบันทึก, บันทึกแล้ว (green), ไม่สำเร็จ (red, with
   ลองอีกครั้ง), ยกเลิกแล้ว, หมดเวลา (with เตรียมใหม่).
 - Questions: each question is a grey group of rows with a round tick; typed answers sit in the same group. Credit

@@ -1,7 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { AlertCircle, Archive, ArchiveRestore, ArrowDown, ArrowLeft, ArrowUp, Bell, BellRing, Check, ChevronDown, ChevronLeft, ChevronRight, FileText, FolderPlus, Image as ImageIcon, ListChecks, Lock, Mic, Plus, MoreHorizontal, PanelLeft, PanelLeftClose, Paperclip, Pencil, Pin, PinOff, RotateCcw, Search, Sparkles, SquarePen, Trash2, Wallet, X } from 'lucide-react';
+import { AlertCircle, Archive, ArchiveRestore, ArrowDown, ArrowLeft, ArrowUp, BarChart3, Bell, BellRing, Check, ChevronDown, ChevronLeft, ChevronRight, FileText, FolderPlus, Image as ImageIcon, ListChecks, Lock, Mic, Plus, MoreHorizontal, PanelLeft, PanelLeftClose, Paperclip, Pencil, Pin, PinOff, RotateCcw, Search, Sparkles, SquarePen, Trash2, Wallet, X } from 'lucide-react';
 import { Mascot } from '../../components/mascot/Mascot';
 import { Modal } from '../../components/ui/Modal';
 import { tr, trc } from '../../i18n/tr';
@@ -94,7 +94,7 @@ type Props = {
   briefing?: Briefing | null;
 };
 
-const SUGGESTION_ICONS: Record<SuggestionIcon, typeof FileText> = { today: ListChecks, quote: FileText, howto: FolderPlus, unpaid: Wallet };
+const SUGGESTION_ICONS: Record<SuggestionIcon, typeof FileText> = { add: Plus, summary: BarChart3, quote: FileText, collect: Bell };
 const GROUPS: { id: ChatGroup; label: string }[] = [
   { id: 'today', label: "วันนี้" }, { id: 'yesterday', label: "เมื่อวาน" }, { id: 'week', label: "7 วันที่ผ่านมา" }, { id: 'earlier', label: "ก่อนหน้านี้" },
 ];
@@ -1195,15 +1195,16 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
               <p>{tr(hello.line)}</p>
               {!mobile && !blocked && briefing && briefing.items.length > 0 && <BriefingCard briefing={briefing} onOpen={go} />}
               {/* Computer and iPad: one iOS-style grouped list with a section title (owner, 2026-10-24); phones keep their tiles. */}
-              {!blocked && <h3 className="asx-prompts-head" aria-hidden="true">{tr("คำถามแนะนำ")}</h3>}
-              {!blocked && (
-                <div className="asx-prompts" role="group" aria-label={tr("คำถามแนะนำ")}>
-                  {SUGGESTIONS.map(({ label, ask, icon }) => {
-                    const Icon = SUGGESTION_ICONS[icon];
-                    return <button key={label} type="button" onClick={() => send(tr(ask), true)}><span className="asx-prompt-icon" aria-hidden="true"><Icon size={17} /></span><span className="asx-prompt-label">{mobile ? trc('prompt', label) : tr(label)}</span><ChevronRight className="asx-prompt-go" size={17} aria-hidden="true" /></button>;
-                  })}
-                </div>
-              )}
+              {/* Owner's design (2026-11-26): the greeting in the middle on a soft glow, the four buttons down by the message box;
+                  with no tokens left a red line says when they come back and the buttons stay, greyed. */}
+              {level === 'empty' && !gate && <p className="asx-welcome-empty" role="status">{refill ? tr("โทเค็นหมดแล้ว · เติมรอบใหม่ {0}", refill) : tr("โทเค็นที่ได้รับหมดแล้ว")}</p>}
+              <h3 className="asx-prompts-head" aria-hidden="true">{tr("คำถามแนะนำ")}</h3>
+              <div className="asx-prompts" role="group" aria-label={tr("คำถามแนะนำ")}>
+                {SUGGESTIONS.map(({ label, ask, icon }) => {
+                  const Icon = SUGGESTION_ICONS[icon];
+                  return <button key={label} type="button" disabled={blocked} onClick={() => send(tr(ask), true)}><span className="asx-prompt-icon" aria-hidden="true"><Icon size={17} /></span><span className="asx-prompt-label">{tr(label)}</span><ChevronRight className="asx-prompt-go" size={17} aria-hidden="true" /></button>;
+                })}
+              </div>
             </div>
           ) : opening ? (
             <div className="asx-thread"><div className="asx-skeleton" role="status" aria-label={tr("กำลังโหลดบทสนทนา")}><i /><i /><i /><i /></div></div>
@@ -1328,7 +1329,7 @@ export default function AssistantChat({ mobile, isPro, onBack, onExit, focus = f
                   <button type="button" className="asx-link-btn" onClick={onUpgrade}>{tr("ดูแพ็กเกจ Pro")}</button>
                 </p>
               )}
-              {!gate && level !== 'ok' && (
+              {!gate && level !== 'ok' && !(welcome && level === 'empty') && (
                 <p className={`asx-notice is-${level}`} role="status">
                   <AlertCircle size={15} />
                   {level === 'empty' ? (refill ? tr("โทเค็นรอบนี้หมดแล้ว · เติมรอบใหม่ {0}", refill) : tr("โทเค็นที่ได้รับหมดแล้ว")) : tr("โทเค็นใกล้หมด · เหลือ {0} จาก {1}", effective.remaining, effective.total.toLocaleString(dateLocale()))}
