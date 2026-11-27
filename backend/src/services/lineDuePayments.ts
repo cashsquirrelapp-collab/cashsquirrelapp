@@ -144,6 +144,8 @@ export const duePaymentDependencies: DuePaymentDependencies = {
 const baht = (amount: number) => `฿ ${amount.toLocaleString('th-TH', { minimumFractionDigits: Number.isInteger(amount) ? 0 : 2, maximumFractionDigits: 2 })}`;
 const text = (value: string): LineMessage => ({ type: 'text', text: value });
 const isSample = (ref: DueRef) => ref.jobId.startsWith('demo-');
+/** Sample jobs of the test reminder (lineReminders buildReminderTestMessages) whose ยังไม่ได้ offers a sample reminder. */
+export const SAMPLE_DRAFT_JOBS = ['demo-overdue', 'demo-today'];
 
 /** What a payment button did, for any screen: a message, or the saved job and the amount it recorded. */
 export type DueOutcome =
@@ -208,6 +210,10 @@ async function record(userId: string, ref: DueRef, apply: (job: Job) => Applied 
 
 /** A payment button (LINE's 08:00 card, or the same card in the app's notifications thread). */
 export async function dueActionOutcome(user: { user_id: string }, action: DueAction, deps: DuePaymentDependencies = duePaymentDependencies): Promise<DueOutcome> {
+  // ทดสอบแจ้งเตือนเข้า LINE (Settings): ยังไม่ได้ on a sample still offers the sample reminder, so the whole flow can be tried.
+  if (isSample(action.ref) && action.kind === 'later' && SAMPLE_DRAFT_JOBS.includes(action.ref.jobId)) {
+    return { kind: 'text', text: 'นี่คือแจ้งเตือนตัวอย่างครับ ไม่ได้บันทึกอะไร\nลองให้ผมร่างข้อความทวงลูกค้าตัวอย่างไว้ส่งต่อให้ไหมครับ', offerDraft: dueShortRef({ jobId: action.ref.jobId }) };
+  }
   if (isSample(action.ref)) return { kind: 'text', text: 'นี่คือแจ้งเตือนตัวอย่างครับ ในแจ้งเตือนจริง ปุ่มนี้จะบันทึกรับเงินของงานนั้นให้ทันที' };
   if (action.kind === 'later') {
     const row = await deps.loadJob(user.user_id, action.ref.jobId);

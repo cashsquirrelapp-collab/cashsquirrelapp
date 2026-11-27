@@ -249,3 +249,18 @@ test('ยังไม่ได้ offers a payment reminder; the quick reply wri
   assert.match((handleDueDraftText(user, 'ไม่ต้องร่างข้อความ')![0] as { text: string }).text, /ไม่ร่างให้/);
   assert.equal(handleDueDraftText(user, 'สวัสดี'), null);
 });
+
+test('the test reminder (Settings): ยังไม่ได้ on a sample offers the sample reminder, written from the sample job', async () => {
+  const { handleDueDraftText } = await import('../backend/src/services/lineCollectionDraft');
+  const { deps, state } = fakeStore(job());
+  const reply = await handleDueAction({ user_id: 'u1' }, { kind: 'later', ref: { jobId: 'demo-overdue' } }, deps) as { text: string; quickReply?: { items: { action: { text: string } }[] } };
+  assert.match(reply.text, /ตัวอย่าง/);
+  const code = dueShortRef({ jobId: 'demo-overdue' });
+  assert.equal(reply.quickReply!.items[0].action.text, `ร่างข้อความทวง ครับ #${code}`);
+  const drafted = handleDueDraftText({ user_id: 'u1', jobs: [], statuses: [] } as unknown as UserRow, `ร่างข้อความทวง ครับ #${code}`)!;
+  assert.match((drafted[0] as { text: string }).text, /ตัวอย่างข้อความทวงลูกค้าตัวอย่าง A/);
+  assert.match((drafted[1] as { text: string }).text, /^สวัสดีครับ คุณลูกค้าตัวอย่าง A ขอตามเรื่องค่างาน "ออกแบบแพ็กเกจ" 4,500 บาท/);
+  // Other sample buttons still only say it is a sample; nothing is saved.
+  assert.match(json(await handleDueAction({ user_id: 'u1' }, { kind: 'paid', ref: { jobId: 'demo-today' } }, deps)), /ตัวอย่าง/);
+  assert.equal(state.saves.length, 0);
+});
