@@ -226,6 +226,26 @@ test('add-job sheet stays in the viewport and success feedback appears at the to
  expect(toastBox!.y).toBeLessThan(220);
 });
 
+// Tester feedback, 2026-11-28: on a phone the เพิ่มรายจ่าย form was wider than the screen and its labels were cut on the left.
+test('expense form fits a small phone without sideways scrolling',async({page})=>{
+ await page.setViewportSize({width:375,height:812});
+ await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));
+ await page.route('**/api/data*',route=>route.fulfill({json:{snapshot,versions,subscription:{status:'free',current_period_end:null}}}));
+ await page.goto('/incomeExpense');
+ await page.getByRole('button',{name:'เพิ่มรายจ่าย',exact:true}).first().click();
+ const drawer=page.getByRole('dialog',{name:'เพิ่มรายจ่าย'});
+ await expect(drawer).toBeVisible();
+ await page.waitForTimeout(500);
+ const fit=await drawer.evaluate(form=>{
+   const scroller=[...form.querySelectorAll('div')].find(d=>getComputedStyle(d).overflowY==='auto')!;
+   const boxes=[...form.querySelectorAll('label,input,select')].map(el=>el.getBoundingClientRect()).filter(b=>b.width>0);
+   return {extra:scroller.scrollWidth-scroller.clientWidth,left:Math.min(...boxes.map(b=>b.left)),right:Math.max(...boxes.map(b=>b.right)),width:innerWidth};
+ });
+ expect(fit.extra).toBeLessThanOrEqual(0);
+ expect(fit.left).toBeGreaterThanOrEqual(0);
+ expect(fit.right).toBeLessThanOrEqual(fit.width);
+});
+
 test('expense category อื่นๆ accepts and saves a custom category name',async({page})=>{
  const saved:any[]=[];
  await page.route('**/api/auth',route=>route.fulfill({json:{session:{user}}}));

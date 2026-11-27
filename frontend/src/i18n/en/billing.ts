@@ -152,4 +152,13 @@ export const billing: Record<string, string> = {
   "สลิป บิล ใบ 50 ทวิ": "Slips, bills and 50 Tawi certificates",
   "บันทึกงานและรายจ่ายเอง": "Recording jobs and expenses yourself",
   "ในแอป ไม่ใช้โทเคน": "In the app, no tokens used",
+  "สแกนจ่ายด้วยแอปธนาคาร": "Scan to pay with your bank app",
+  "กระรอกตุนเงิน · แพ็กเกจ Plus": "Krarok · Plus plan",
+  "กระรอกตุนเงิน · แพ็กเกจ Pro": "Krarok · Pro plan",
+  "ใช้ได้ถึง {0} น.": "Valid until {0}",
+  "กำลังเตรียมรูป…": "Preparing the picture…",
+  "บันทึกรูปแล้ว": "Picture saved",
+  "เปิดแอปธนาคาร แล้วเลือกสแกนจากรูปในอัลบั้ม": "Open your bank app and scan the picture from your photos",
+  "บันทึกรูป QR": "Save QR picture",
+  "บันทึกรูปไม่สำเร็จ กดค้างที่ QR แล้วเลือกบันทึกรูปภาพแทนได้": "Couldn't save the picture. Press and hold the QR and choose Save Image instead",
 };

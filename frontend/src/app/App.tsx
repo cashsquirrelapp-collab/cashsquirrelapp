@@ -4201,7 +4201,7 @@ export default function App() {
             ) : undefined} />
         )}
         {qrPayment && <DirectQrModal period={qrPayment.period} tier={qrPayment.tier} checkout={qrPayment.checkout}
-          status={qrPayment.status} error={qrPayment.error}
+          status={qrPayment.status} error={qrPayment.error} accountId={billingUserId}
           onClose={() => { qrAttempt.current++; setQrPayment(null); }}
           onRetry={() => { void handleUpgrade('promptpay', qrPayment.period, undefined, false, qrPayment.tier); }} />}
         {preparingCard && !embeddedPayment && <PreparingCardModal tier={preparingCard.tier}

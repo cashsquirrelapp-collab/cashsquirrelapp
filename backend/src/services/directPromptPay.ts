@@ -119,3 +119,29 @@ export async function directQrStatus(userId: string, orderId: string) {
   const revoked = charge && typeof charge !== 'string' && (charge.refunded || charge.disputed || charge.amount_refunded > 0);
   return { paymentStatus: revoked || ['canceled','requires_payment_method'].includes(pi.status) ? 'expired' : pi.status === 'succeeded' ? 'paid' : 'pending' };
 }
+
+/**
+ * The PromptPay QR picture of the person's own open order, fetched here so the app can save it as a photo (owner, 2026-11-28,
+ * a tester: "หน้าจ่ายด้วย QR มีปุ่มบันทึกรูปด้วยก็จะดีมาก"). The browser cannot read Stripe's picture itself (other origin and
+ * the page's connect-src), so the Worker reads it from the payment's own next action, on Stripe's host only.
+ */
+export async function directQrImage(userId: string, orderId: string): Promise<Uint8Array> {
+  const found = await getSupabaseAdmin().from('cashflow_prepaid_orders').select('*').eq('id', orderId).eq('user_id', userId).maybeSingle();
+  if (found.error) throw found.error;
+  const order = found.data as PrepaidOrder | null;
+  if (!order || order.user_id !== userId || !isDirectQr(order) || !order.intent_id) throw new HttpError(404, 'ไม่พบรายการชำระเงิน');
+  const pi = await stripe.paymentIntents.retrieve(order.intent_id);
+  const qr = pi.status === 'requires_action' && pi.next_action?.type === 'promptpay_display_qr_code' ? pi.next_action.promptpay_display_qr_code : null;
+  if (!qr?.image_url_png) throw new HttpError(409, 'QR นี้หมดอายุแล้ว กดสร้าง QR ใหม่ได้เลย');
+  const image = new URL(qr.image_url_png);
+  if (image.protocol !== 'https:' || !image.hostname.endsWith('.stripe.com')) throw new Error('Invalid QR image host');
+  const reply = await fetch(image.toString());
+  // A redirect may be followed, but only to Stripe's own hosts.
+  const landed = reply.url ? new URL(reply.url) : image;
+  if (landed.protocol !== 'https:' || !landed.hostname.endsWith('.stripe.com')) throw new Error('Invalid QR image redirect');
+  const type = reply.headers.get('content-type') || '';
+  if (!reply.ok || !type.startsWith('image/png')) throw new HttpError(502, 'โหลดรูป QR ไม่สำเร็จ กรุณาลองอีกครั้ง');
+  const bytes = new Uint8Array(await reply.arrayBuffer());
+  if (bytes.length > 2_000_000) throw new Error('QR image too large');
+  return bytes;
+}

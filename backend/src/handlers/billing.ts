@@ -2,7 +2,7 @@ import { CARD_CONSENT_VERSION } from '../../../shared/cardConsent.js';
 import { isPaidTier, type PaidTier } from '../../../shared/plans.js';
 import { freeMonthlyTokens } from '../services/lineFirst.js';
 import { stopAutoRenewal } from '../services/cardRenewals.js';
-import { directQrStatus } from '../services/directPromptPay.js';
+import { directQrImage, directQrStatus } from '../services/directPromptPay.js';
 import { originFor } from '../config/env.js';
 import { configuredStripeLivemode, stripe } from '../config/stripe.js';
 import { getSupabaseAdmin } from '../config/supabase.js';
@@ -22,6 +22,17 @@ export default withGuard(async (req, res) => {
       await limit();
       if (typeof req.query.order_id !== 'string' || !/^[a-f0-9-]{36}$/i.test(req.query.order_id)) throw new HttpError(400, 'Invalid order');
       res.json(await directQrStatus(user.id, req.query.order_id)); return;
+    }
+    // บันทึกรูป QR (owner, 2026-11-28): the picture of the person's own open QR, to save into their photos.
+    if (req.method === 'GET' && req.query.qr_image !== undefined) {
+      await limit();
+      if (typeof req.query.qr_image !== 'string' || !/^[a-f0-9-]{36}$/i.test(req.query.qr_image)) throw new HttpError(400, 'Invalid order');
+      const bytes = await directQrImage(user.id, req.query.qr_image);
+      res.setHeader('Content-Type', 'image/png');
+      res.setHeader('Content-Length', String(bytes.length));
+      res.setHeader('Cache-Control', 'private, no-store');
+      res.setHeader('Content-Disposition', 'inline; filename="krarok-promptpay-qr.png"');
+      res.send(Buffer.from(bytes)); return;
     }
     const admin = getSupabaseAdmin();
     const [, result] = await Promise.all([limit(), timing.measure('eligibility', () =>

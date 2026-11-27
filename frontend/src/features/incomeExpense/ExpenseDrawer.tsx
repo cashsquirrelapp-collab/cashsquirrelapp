@@ -225,7 +225,7 @@ export default function ExpenseDrawer({ open, expense, preset, settings, onUpdat
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="absolute inset-y-0 right-0 flex w-full flex-col bg-brand-white shadow-[0_0_40px_rgba(33,29,26,0.18)] sm:max-w-[460px] dark:bg-stone-900"
+            className="absolute inset-y-0 right-0 flex w-full max-w-full flex-col overflow-hidden bg-brand-white shadow-[0_0_40px_rgba(33,29,26,0.18)] sm:max-w-[460px] dark:bg-stone-900"
           >
             <div className="flex items-start justify-between gap-3 border-b border-brand-border px-6 py-5">
               <div>
@@ -237,15 +237,15 @@ export default function ExpenseDrawer({ open, expense, preset, settings, onUpdat
               </button>
             </div>
 
-            <div className="flex-1 space-y-5 overflow-y-auto px-6 py-6">
+            <div className="min-w-0 flex-1 space-y-5 overflow-y-auto overflow-x-hidden px-6 py-6">
               {expense?.sheetLink && <React.Suspense fallback={null}><SheetRowLine expense={expense} mobile={mobileLayout} /></React.Suspense>}
               <div>
                 <label htmlFor="expense-name" className={label}>{tr("รายการ")}{' '}<span className="text-[#C43A3A]">*</span></label>
                 <input id="expense-name" type="text" autoFocus value={name} onChange={(e) => { setName(e.target.value); setErrors(v => ({ ...v, name: undefined })); }} placeholder={tr("เช่น ค่าเช่าห้อง, ค่าเดินทาง")} className={input(errors.name)} />
                 {errorText(errors.name)}
               </div>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
+              <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="min-w-0">
                   <label htmlFor="expense-amount" className={label}>{tr("จำนวนเงิน")}{' '}<span className="text-[#C43A3A]">*</span></label>
                   <div className="relative">
                     <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-brand-muted">{tr("฿")}</span>
@@ -253,7 +253,7 @@ export default function ExpenseDrawer({ open, expense, preset, settings, onUpdat
                   </div>
                   {errorText(errors.amount)}
                 </div>
-                <div>
+                <div className="min-w-0">
                   <label htmlFor="expense-date" className={label}>{tr("วันที่")}{' '}<span className="text-[#C43A3A]">*</span></label>
                   <div className="relative">
                     <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted" />

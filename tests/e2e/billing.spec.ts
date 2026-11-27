@@ -621,6 +621,39 @@ for (const plan of [{period:'month',label:'รายเดือน',months:1,am
  });
 }
 
+// บันทึกรูป QR (tester feedback, 2026-11-28): save the QR as a picture to pay from the bank app without a screenshot. The
+// picture comes through our own /api/billing (the page may not read Stripe's image), with the amount and plan on it.
+test('direct QR modal saves the QR as a picture with the amount on it',async({page})=>{
+ await page.clock.setFixedTime(new Date('2026-11-10T03:00:00Z'));
+ const free={status:'free',plan:null,current_period_end:null,cancel_at_period_end:false,stripe_status:null,has_subscription:false,intro_eligible:false,managed:false};
+ await openPlans(page,free,'');
+ const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==','base64');
+ await page.route('https://qr.stripe.com/test.png',route=>route.fulfill({contentType:'image/png',body:png}));
+ await page.route('**/api/billing?order_id=*',route=>route.fulfill({json:{paymentStatus:'pending'}}));
+ const asked:string[]=[];
+ await page.route('**/api/billing?qr_image=*',route=>{asked.push(route.request().url());return route.fulfill({contentType:'image/png',body:png});});
+ await page.route('**/api/billing',route=>{
+   if(route.request().method()==='POST')return route.fulfill({json:{destination:'qr',qrImage:'https://qr.stripe.com/test.png',orderId:'qr-test',period:'month',amount:17700,months:1,expiresAt:new Date(Date.now()+45*60_000).toISOString()}});
+   return route.fulfill({json:{checkout_ready:true,subscription:free}});
+ });
+ await page.getByTestId('pro-card').getByRole('button',{name:/ชำระด้วย QR|พร้อมเพย์ QR/}).click();
+ const dialog=page.getByRole('dialog',{name:'สแกนเพื่อชำระเงิน'});
+ const save=dialog.getByTestId('qr-save');
+ await expect(save).toHaveText('บันทึกรูป QR');
+ const download=page.waitForEvent('download');
+ await save.click();
+ const file=await download;
+ expect(file.suggestedFilename()).toBe('krarok-promptpay-qr.png');
+ expect(asked.at(-1)).toContain('qr_image=qr-test');
+ // The saved file is the composed picture (1080 wide with the amount), not the bare 1×1 test QR.
+ const saved=fs.readFileSync(await file.path());
+ expect(saved.readUInt32BE(16)).toBe(1080);
+ await expect(save).toHaveText('บันทึกรูปแล้ว');
+ await expect(dialog.getByText('เปิดแอปธนาคาร แล้วเลือกสแกนจากรูปในอัลบั้ม')).toBeVisible();
+ // The app's orange primary button, so it is seen on the white sheet.
+ expect(await save.evaluate(e=>getComputedStyle(e).backgroundImage+getComputedStyle(e).backgroundColor)).not.toBe('nonergba(0, 0, 0, 0)');
+});
+
 test('custom card uses CI fonts and disclosed button consent without a save checkbox; renewal consent is unticked and gates payment',async({page})=>{
  const free={status:'free',plan:null,current_period_end:null,cancel_at_period_end:false,stripe_status:null,has_subscription:false,intro_eligible:false,managed:false};
  const requests=await openPlans(page,free,'');

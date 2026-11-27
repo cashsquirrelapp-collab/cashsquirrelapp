@@ -462,6 +462,12 @@ svg.lucide[stroke-width="2"] { stroke-width: 1.7; }
     line-height: 1.5;
   }
   .ui-input::placeholder { color: var(--muted); }
+  /* iPhone Safari gives date/time inputs their own minimum width, which pushed forms wider than the screen and cut
+     their left edge (tester feedback, 2026-11-28). Keep them inside their box. */
+  input.ui-input[type='date'], input.ui-input[type='time'], input.ui-input[type='datetime-local'], input.ui-input[type='month'] {
+    -webkit-appearance: none; appearance: none; display: block; max-width: 100%;
+  }
+  input.ui-input::-webkit-date-and-time-value { text-align: left; min-height: 1.5em; }
   .ui-button {
     display: inline-flex;
     min-height: 2.5rem;
