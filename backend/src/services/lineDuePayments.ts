@@ -147,7 +147,8 @@ const isSample = (ref: DueRef) => ref.jobId.startsWith('demo-');
 
 /** What a payment button did, for any screen: a message, or the saved job and the amount it recorded. */
 export type DueOutcome =
-  | { kind: 'text'; text: string }
+  /** `offerDraft`: the job's short code when เลขา should offer to write a payment reminder (LINE quick replies). */
+  | { kind: 'text'; text: string; offerDraft?: string }
   | { kind: 'receipt'; job: Job; amount: number; full: boolean; installmentLabel?: string };
 
 function receipt(job: Job, applied: Applied): LineMessage {
@@ -178,7 +179,19 @@ function refusalText(job: Job, refused: Refused): string {
   }
 }
 
-const toLine = (outcome: DueOutcome): LineMessage => (outcome.kind === 'text' ? text(outcome.text)
+/** "ร่างข้อความทวง ครับ #3F2A9C": the quick reply under "ยังไม่ได้" asks for a payment reminder in this ending. */
+const DRAFT_TEXT_RE = /^ร่างข้อความทวง\s+(ครับ|ค่ะ)\s+#([0-9A-F]{6})$/i;
+export function parseDraftRequest(value: string): { particle: 'ครับ' | 'ค่ะ'; shortRef: string } | null {
+  const match = DRAFT_TEXT_RE.exec(value.trim());
+  return match ? { particle: match[1] as 'ครับ' | 'ค่ะ', shortRef: match[2].toUpperCase() } : null;
+}
+const draftOffer = (shortRef: string) => ({ items: [
+  { type: 'action', action: { type: 'message', label: 'ร่างข้อความ · ครับ', text: `ร่างข้อความทวง ครับ #${shortRef}` } },
+  { type: 'action', action: { type: 'message', label: 'ร่างข้อความ · ค่ะ', text: `ร่างข้อความทวง ค่ะ #${shortRef}` } },
+  { type: 'action', action: { type: 'message', label: 'ไม่ต้อง', text: 'ไม่ต้องร่างข้อความ' } },
+] });
+
+const toLine = (outcome: DueOutcome): LineMessage => (outcome.kind === 'text' ? (outcome.offerDraft ? { ...text(outcome.text), quickReply: draftOffer(outcome.offerDraft) } as LineMessage : text(outcome.text))
   : receipt(outcome.job, { job: outcome.job, amount: outcome.amount, full: outcome.full, installmentLabel: outcome.installmentLabel }));
 
 /** Load, apply, save; one retry when another device saved the same job in between. */
@@ -199,7 +212,10 @@ export async function dueActionOutcome(user: { user_id: string }, action: DueAct
   if (action.kind === 'later') {
     const row = await deps.loadJob(user.user_id, action.ref.jobId);
     const name = row?.data.name || 'งานนี้';
-    return { kind: 'text', text: `รับทราบครับ ยังไม่บันทึกรับเงิน "${name}" ถ้ายังไม่ได้รับ พรุ่งนี้ 08:00 กระรอกจะเตือนอีกครั้ง` };
+    // Owner, 2026-11-27 ("ร่างข้อความทวงแล้วถามเราก่อน ... ส่งให้ลูกค้า", step 1): money not in yet, so เลขา offers to write the
+    // reminder; nothing is sent to the client by the app -- the person forwards it from their own LINE.
+    const offer = row && (row.data.pending || 0) > 0 && row.data.client ? dueShortRef({ jobId: action.ref.jobId }) : undefined;
+    return { kind: 'text', text: `รับทราบครับ ยังไม่บันทึกรับเงิน "${name}" ถ้ายังไม่ได้รับ พรุ่งนี้ 08:00 กระรอกจะเตือนอีกครั้ง${offer ? `\nให้ผมร่างข้อความทวง${row!.data.client}ไว้ส่งต่อให้ไหมครับ` : ''}`, ...(offer ? { offerDraft: offer } : {}) };
   }
   if (action.kind === 'partial') {
     if (action.ref.installmentId) return { kind: 'text', text: 'งานแบ่งงวดบันทึกทีละงวดครับ กด "ได้รับแล้ว" ของงวดนั้น หรือแก้ยอดในแอป' };

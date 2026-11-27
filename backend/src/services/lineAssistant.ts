@@ -31,6 +31,7 @@ import type { CashOpening } from '../../../shared/cashBalance.js';
 import { type LineCardCharacter, lineCard, lineDoneCard, lineJobItem, lineValueRow, lineSection, lineDivider, lineAppLink, LINE_CARD_COLORS as C, MAX_LINE_ITEMS } from './lineCards.js';
 import { checkLinkedAccountWriteAccess } from './linkedAccountAccess.js';
 import { decodeDueAction, handleDueAction, handleDuePartialText } from './lineDuePayments.js';
+import { handleDueDraftText } from './lineCollectionDraft.js';
 import { decodeDeliverAction, handleDeliverAction } from './lineDeliveryActions.js';
 import { decodeWht50Action, handleWht50Action } from './lineWht50Reminders.js';
 import { stagingOwnerAccount } from '../repositories/stagingOwner.js';
@@ -1423,6 +1424,9 @@ async function handleAssistantMessageInner(
   if (wht50Action) return await (dependencies.handleWht50Action ?? handleWht50Action)(user, wht50Action);
   const duePartial = await (dependencies.handleDuePartialText ?? handleDuePartialText)(user, trimmed);
   if (duePartial) return duePartial;
+  // The payment reminder asked for under "ยังไม่ได้" (owner, 2026-11-27): written from the saved job, no model.
+  const dueDraft = handleDueDraftText(user, trimmed);
+  if (dueDraft) return dueDraft;
   // Many records pasted at once (owner, 2026-11-16), and the answers to its questions: every line read by rules, what a line
   // does not say asked one at a time with taps, then the summary, a card per kind and ยืนยันทั้งหมด. No model, no tokens.
   try {

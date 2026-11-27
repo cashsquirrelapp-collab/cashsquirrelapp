@@ -116,6 +116,8 @@ export function buildLineInbox(user: UserRow, now = new Date()): LineInbox {
 /** A payment button's result in the thread: the receipt card or the message, as LINE answers. */
 export function inboxReply(outcome: DueOutcome): { text?: string; card?: LineCardData; prompt?: string } {
   if (outcome.kind === 'text') {
+    // The offer to write a reminder has LINE quick replies; the app asks เลขา in the chat instead, so the line is left out.
+    if (outcome.offerDraft) return { text: outcome.text.split('\n')[0] };
     const prompt = /\n(รับเงินบางส่วน #[0-9A-F]{6} ยอด )\d*$/.exec(outcome.text)?.[1];
     return prompt ? { text: outcome.text.split('\n')[0], prompt } : { text: outcome.text };
   }

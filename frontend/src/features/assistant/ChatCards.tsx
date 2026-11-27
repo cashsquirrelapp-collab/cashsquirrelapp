@@ -172,6 +172,9 @@ function MessageDraft({ card }: { card: MessageDraftCard }) {
           {copied === 'done' ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />}
           {copied === 'done' ? tr("คัดลอกแล้ว") : tr("คัดลอกข้อความ")}
         </button>
+        {/* Step 1 of payment reminders (owner, 2026-11-27): LINE opens with the words filled in; the person picks the client's
+            chat and sends it from their own LINE (no app can send from a personal account). */}
+        <a className="asx-pill-btn" href={`https://line.me/R/share?text=${encodeURIComponent(card.text)}`} target="_blank" rel="noopener noreferrer" data-testid="draft-line-share">{tr("ส่งผ่าน LINE")}</a>
         <span className="asx-in-note">{copied === 'done' ? tr("คัดลอกแล้ว วางในแชตลูกค้าได้เลย") : copied === 'failed' ? tr("คัดลอกไม่สำเร็จ กดค้างที่ข้อความเพื่อคัดลอกเอง") : card.note}</span>
       </div>
     </div>

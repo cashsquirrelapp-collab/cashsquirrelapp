@@ -520,6 +520,7 @@ export const assistant: Record<string, string> = {
   "จ่ายไป": "Spent",
   "ถ้าได้ครบ เดือนนี้จะเหลือ": "If it all comes in, this month leaves",
   "ทวงเงิน · ถึง {0}": "Payment reminder · to {0}",
+  "ส่งผ่าน LINE": "Send via LINE",
   "คัดลอกข้อความ": "Copy message",
   "คัดลอกแล้ว": "Copied",
   "คัดลอกแล้ว วางในแชตลูกค้าได้เลย": "Copied. Paste it into your chat with the client.",

@@ -221,3 +221,31 @@ test('a button press reaches the assistant and is recorded without the model', a
   assert.match(json(expired), /แพ็กเกจของบัญชีนี้หมดอายุ/);
   assert.deepEqual(calls, ['due:paid']);
 });
+
+// Owner, 2026-11-27 (payment reminders, step 1): after ยังไม่ได้, เลขา offers a reminder with quick replies for the ending;
+// the reminder comes back as its own message to forward from the person's own LINE. Nothing is sent to the client.
+test('ยังไม่ได้ offers a payment reminder; the quick reply writes it from the saved job, ready to forward', async () => {
+  const { handleDueDraftText } = await import('../backend/src/services/lineCollectionDraft');
+  const { parseDraftRequest } = await import('../backend/src/services/lineDuePayments');
+  const { deps } = fakeStore(job());
+  const reply = await handleDueAction({ user_id: 'u1' }, { kind: 'later', ref: { jobId: JOB } }, deps) as { text: string; quickReply?: { items: { action: { label: string; text: string } }[] } };
+  const code = dueShortRef({ jobId: JOB });
+  assert.match(reply.text, /ให้ผมร่างข้อความทวงลูกค้าตัวอย่างไว้ส่งต่อให้ไหมครับ/);
+  assert.deepEqual(reply.quickReply!.items.map(item => item.action.text), [`ร่างข้อความทวง ครับ #${code}`, `ร่างข้อความทวง ค่ะ #${code}`, 'ไม่ต้องร่างข้อความ']);
+  assert.ok(reply.quickReply!.items.every(item => item.action.label.length <= 20), 'LINE quick reply labels are 20 characters at most');
+  assert.deepEqual(parseDraftRequest(`ร่างข้อความทวง ค่ะ #${code}`), { particle: 'ค่ะ', shortRef: code });
+  assert.equal(parseDraftRequest('ร่างข้อความทวงหน่อย'), null);
+
+  const user = { user_id: 'u1', jobs: [job({ payDate: '2026-10-15' })], statuses: [] } as unknown as UserRow;
+  const drafted = handleDueDraftText(user, `ร่างข้อความทวง ค่ะ #${code}`)!;
+  assert.equal(drafted.length, 2);
+  assert.match((drafted[0] as { text: string }).text, /กดค้างที่ข้อความถัดไป แล้วเลือก "ส่งต่อ"/);
+  const words = (drafted[1] as { text: string }).text;
+  assert.match(words, /^สวัสดีค่ะ คุณลูกค้าตัวอย่าง/);
+  assert.match(words, /9,700 บาท/);
+  assert.doesNotMatch(words, /ครับ/);
+  // A job already paid, or a wrong code: said plainly, nothing invented.
+  assert.match((handleDueDraftText({ ...user, jobs: [job({ pending: 0 })] } as UserRow, `ร่างข้อความทวง ครับ #${code}`)![0] as { text: string }).text, /ไม่พบงานที่ยังรอรับเงิน/);
+  assert.match((handleDueDraftText(user, 'ไม่ต้องร่างข้อความ')![0] as { text: string }).text, /ไม่ร่างให้/);
+  assert.equal(handleDueDraftText(user, 'สวัสดี'), null);
+});
