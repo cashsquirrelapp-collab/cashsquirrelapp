@@ -389,6 +389,13 @@ test('computers: แก้ไขสำหรับใบนี้ types another 
   await section.getByRole('button', { name: 'แก้ไขสำหรับใบนี้' }).click();
   await page.locator('#doc-issuer-name').fill('คุณสมชาย ใจดี');
   await page.locator('#doc-issuer-account').fill('111-2-33333-4');
+  // The bank comes from the list with logos, as on phones (owner, 2026-11-28), not typed.
+  await section.getByRole('button', { name: 'ธนาคาร', exact: true }).click();
+  const banks = section.getByRole('listbox', { name: 'ธนาคาร' });
+  await expect(banks.getByRole('option', { name: /ธนาคารกรุงไทย/ })).toBeVisible();
+  await shot(page, 'docs-issuer-bank-list-computer');
+  await banks.getByRole('option', { name: /ธนาคารกรุงไทย/ }).click();
+  await expect(section.getByRole('button', { name: 'ธนาคาร', exact: true })).toContainText('ธนาคารกรุงไทย');
   await page.locator('#client-name').fill('ร้านกาแฟดอยช้าง');
   await section.scrollIntoViewIfNeeded();
   await page.waitForTimeout(400);
@@ -399,7 +406,7 @@ test('computers: แก้ไขสำหรับใบนี้ types another 
   await page.getByRole('button', { name: /บันทึกและสร้างเอกสาร/ }).click();
   await expect.poll(() => saved.some(change => change.table === 'cashflow_invoices' && (change.data?.client as { name?: string } | undefined)?.name === 'ร้านกาแฟดอยช้าง')).toBe(true);
   const created = saved.find(change => change.table === 'cashflow_invoices' && (change.data?.client as { name?: string } | undefined)?.name === 'ร้านกาแฟดอยช้าง')!;
-  expect(created.data).toMatchObject({ issuerCustom: true, issuer: { name: 'คุณสมชาย ใจดี', bankAccount: '111-2-33333-4' } });
+  expect(created.data).toMatchObject({ issuerCustom: true, issuer: { name: 'คุณสมชาย ใจดี', bankName: 'ธนาคารกรุงไทย', bankAccount: '111-2-33333-4' } });
   expect(saved.some(change => change.table === 'cashflow_documents' && change.id === 'issuer_profile')).toBe(false);
 });
 

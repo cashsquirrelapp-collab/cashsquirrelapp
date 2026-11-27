@@ -46,6 +46,8 @@ import {
 } from 'lucide-react';
 
 import { tr } from '../../i18n/tr';
+import { BankPicker } from '../settings/BankPicker';
+import { findThaiBank } from './thaiBanks';
 import { currentLanguage } from '../../i18n/currentLanguage';
 // Editor form styles: one surface, sections split by a hairline, same-size fields everywhere.
 const formSection = 'space-y-4 border-b border-brand-border px-5 py-6 last-of-type:border-b-0 sm:px-6';
@@ -212,6 +214,7 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
   const [customIssuer, setCustomIssuer] = useState<InvoiceProfile | null>(null);
   const [customIssuerUse, setCustomIssuerUse] = useState<IssuerUse>({ logo: false, signature: false });
   const [customIssuerAsDefault, setCustomIssuerAsDefault] = useState(false);
+  const [customIssuerBankOther, setCustomIssuerBankOther] = useState(false);
   const loadCustomIssuer = (source: Invoice | null | undefined) => {
     setCustomIssuer(source?.issuerCustom ? { ...source.issuer } : null);
     setCustomIssuerUse({ logo: Boolean(source?.issuerCustom && source.issuer.logoUrl), signature: Boolean(source?.issuerCustom && source.issuer.signatureUrl) });
@@ -1293,9 +1296,18 @@ export const InvoiceTab: React.FC<InvoiceTabProps> = ({
                     <label className={formLabel} htmlFor="doc-issuer-email">{tr("อีเมล")}</label>
                     <input id="doc-issuer-email" type="email" value={customIssuer.email} onChange={(e) => setCustomIssuerField('email', e.target.value)} className={formInput} />
                   </div>
+                  {/* The bank list with logos, as on phones and in Settings (owner, 2026-11-28: "ในคอมเปลี่ยนธนาคารได้เลยโดยไม่ต้องพิมพ์"). */}
                   <div>
-                    <label className={formLabel} htmlFor="doc-issuer-bank">{tr("ธนาคาร")}</label>
-                    <input id="doc-issuer-bank" type="text" value={customIssuer.bankName} onChange={(e) => setCustomIssuerField('bankName', e.target.value)} placeholder={tr("เช่น พร้อมเพย์")} className={formInput} />
+                    <span className={formLabel}>{tr("ธนาคาร")}</span>
+                    <BankPicker value={customIssuer.bankName} otherMode={customIssuerBankOther}
+                      onPick={choice => {
+                        if (choice === 'other') { setCustomIssuerBankOther(true); if (findThaiBank(customIssuer.bankName)) setCustomIssuerField('bankName', ''); }
+                        else { setCustomIssuerBankOther(false); setCustomIssuerField('bankName', choice.bankName); }
+                      }} />
+                    {!findThaiBank(customIssuer.bankName) && (customIssuer.bankName || customIssuerBankOther) && (
+                      <input id="doc-issuer-bank" type="text" value={customIssuer.bankName} onChange={(e) => setCustomIssuerField('bankName', e.target.value)}
+                        placeholder={tr("พิมพ์ชื่อธนาคาร / ช่องทางรับเงิน เช่น พร้อมเพย์")} aria-label={tr("ชื่อธนาคารอื่น ๆ")} className={`${formInput} mt-2`} />
+                    )}
                   </div>
                   <div>
                     <label className={formLabel} htmlFor="doc-issuer-account">{tr("เลขที่บัญชี")}</label>
