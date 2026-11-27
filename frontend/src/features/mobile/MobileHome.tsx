@@ -20,12 +20,17 @@ const readHidden = () => { try { return localStorage.getItem(HIDE_KEY) === '1'; 
 export function MobileSheet({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   const titleId = React.useId();
   const headingRef = React.useRef<HTMLHeadingElement>(null);
+  // Callers pass a new onClose on every render. Focusing the title only once, when the sheet opens, keeps the field
+  // being typed in focused: before, every keystroke re-ran this, moved focus to the title and closed the iPhone
+  // keyboard after one letter (owner, 2026-11-28, ผู้ออกเอกสาร sheet).
+  const closeRef = React.useRef(onClose);
+  closeRef.current = onClose;
   React.useEffect(() => {
     headingRef.current?.focus();
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') closeRef.current(); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, []);
   return createPortal(
     <div className="ksm">
       <div className="ksm-sheet-backdrop" onClick={onClose} aria-hidden="true" />

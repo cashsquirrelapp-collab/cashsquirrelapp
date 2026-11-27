@@ -176,8 +176,19 @@ test('phones: a new quotation in three steps, saved, then on its own page ready 
   await page.getByRole('button', { name: /ผู้ออกเอกสาร/ }).click();
   await issuerSheet.getByRole('button', { name: 'แก้ไขสำหรับใบนี้' }).click();
   await expect(issuerSheet.locator('#dp-doc-issuer-name')).toHaveValue('สตูดิโอกระรอก');
-  await issuerSheet.locator('#dp-doc-issuer-name').fill('คุณสมชาย ใจดี');
-  await issuerSheet.locator('#dp-doc-issuer-tax').fill('3100500000001');
+  // Typed key by key, the way a phone keyboard does: the field keeps focus (owner, 2026-11-28: the keyboard closed after
+  // one letter because the sheet moved focus to its title on every render).
+  const nameField = issuerSheet.locator('#dp-doc-issuer-name');
+  await nameField.fill('');
+  await nameField.pressSequentially('คุณสมชาย ใจดี');
+  await expect(nameField).toBeFocused();
+  await expect(nameField).toHaveValue('คุณสมชาย ใจดี');
+  const taxField = issuerSheet.locator('#dp-doc-issuer-tax');
+  await taxField.fill('');
+  await taxField.click();
+  await page.keyboard.type('3100500000001');
+  await expect(taxField).toBeFocused();
+  await expect(taxField).toHaveValue('3100500000001');
   await page.waitForTimeout(400);
   expect(await textOverlapIssues(page)).toEqual([]);
   await shot(page, 'docs-issuer-this-doc');
