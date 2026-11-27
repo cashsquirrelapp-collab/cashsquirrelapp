@@ -349,14 +349,14 @@ export default function JobFormDrawer({ open, job, statuses, jobTypes, setJobTyp
       ? 'border-[#F3B08C] bg-[#FFF1E8] font-semibold text-[#C24A16] dark:border-orange-400/40 dark:bg-orange-500/10 dark:text-orange-300'
       : 'border-brand-border bg-brand-white text-brand-text hover:bg-brand-faint'}`;
   const dateInput = (id: string, dateValue: string, onChange: (v: string) => void, error?: string) => (
-    <div className="relative">
+    <div className="relative min-w-0">
       <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted" />
       <input
         id={id}
         type="date"
         value={dateValue}
         onChange={(e) => onChange(e.target.value)}
-        className={`${inputClass(error)} pl-9`}
+        className={`${inputClass(error)} block min-w-0 pl-9`}
       />
     </div>
   );

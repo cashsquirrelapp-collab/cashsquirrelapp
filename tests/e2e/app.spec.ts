@@ -1279,6 +1279,10 @@ test('mobile overview and add-job sheet follow the design and stay wired to the 
  await sheet.getByText('สถานะและรายละเอียดเพิ่มเติม').click();
  await expect(sheet.getByRole('tab')).toHaveCount(3);
  await expect(sheet.getByRole('tab').nth(0)).toHaveText('สถานะงาน');
+ // Owner, 2026-11-28: จะส่งงานวันไหน and วันที่เริ่มงาน ran past the right edge on iPhone. Every date field stays on screen.
+ const dateEdges=await sheet.locator('input[type=date]').evaluateAll(els=>els.filter(e=>e.getBoundingClientRect().width>0).map(e=>{const b=e.getBoundingClientRect();return {left:b.left,right:b.right,width:innerWidth};}));
+ expect(dateEdges.length).toBeGreaterThan(0);
+ for(const edge of dateEdges){expect(edge.left).toBeGreaterThanOrEqual(0);expect(edge.right).toBeLessThanOrEqual(edge.width);}
  await sheet.getByRole('tab',{name:'สถานะรับเงิน'}).click();
  await sheet.getByRole('radio',{name:'รับบางส่วน'}).click();
  await sheet.getByRole('tab',{name:'ข้อมูลเพิ่มเติม'}).click();
