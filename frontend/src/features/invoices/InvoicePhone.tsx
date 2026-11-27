@@ -596,7 +596,9 @@ function DocumentScreen({ m, invoice, onBack, onOpen, onEdit, onIssue, onRemoved
 
       {viewer && <Viewer invoice={shown} watermark={m.freePlan} onClose={() => setViewer(false)} actions={<>
         <button type="button" className="dp-viewer-btn" onClick={m.downloadPdf} disabled={m.pdfBusy}><Download size={18} aria-hidden="true" />{tr("ดาวน์โหลด PDF")}</button>
-        <button type="button" className="dp-primary" onClick={share.start}><Share2 size={18} aria-hidden="true" />{tr("แชร์ให้ลูกค้า")}</button>
+        {/* The full-screen viewer sits above every sheet, so the share choices opened behind it and the button looked dead
+            (owner, 2026-11-28). It closes first, then the choices open over the document page. */}
+        <button type="button" className="dp-primary" onClick={() => { setViewer(false); share.start(); }}><Share2 size={18} aria-hidden="true" />{tr("แชร์ให้ลูกค้า")}</button>
       </>} />}
       {share.sheet}
       {menu && (

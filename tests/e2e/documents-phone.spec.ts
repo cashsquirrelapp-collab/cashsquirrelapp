@@ -122,6 +122,18 @@ test('phones: a document opens on its own page, full screen on a tap, and the ph
   await expect(page.getByRole('button', { name: 'ย่อให้พอดีจอ' })).toBeVisible();
   await page.getByRole('button', { name: 'ปิดเต็มจอ' }).click();
   await expect(page.getByTestId('document-fullscreen')).toHaveCount(0);
+  // แชร์ให้ลูกค้า inside the full-screen view opens the share choices where they can be seen (owner, 2026-11-28: the
+  // button looked dead because the choices opened behind the viewer).
+  await page.getByTestId('document-view').click();
+  await page.getByTestId('document-fullscreen').getByRole('button', { name: 'แชร์ให้ลูกค้า' }).click();
+  const shareSheet = page.getByRole('dialog', { name: 'แชร์เอกสาร' });
+  await expect(shareSheet).toBeVisible();
+  await expect(page.getByTestId('document-fullscreen')).toHaveCount(0);
+  const download = shareSheet.getByRole('button', { name: /ดาวน์โหลด PDF/ });
+  const box = (await download.boundingBox())!;
+  expect(await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest('[role=dialog]')?.getAttribute('aria-labelledby') ? 'sheet' : 'other', [box.x + box.width / 2, box.y + box.height / 2])).toBe('sheet');
+  await shareSheet.getByRole('button', { name: 'ปิดหน้าต่าง' }).click();
+  await expect(shareSheet).toHaveCount(0);
   // The linked invoice opens in place; the phone's back gesture goes to the list.
   await page.locator('section[aria-label="เอกสารที่ลิงก์กัน"]').getByRole('button', { name: /INV-2026-006/ }).click();
   await expect(page.getByRole('heading', { name: 'INV-2026-006', level: 2 })).toBeVisible();
