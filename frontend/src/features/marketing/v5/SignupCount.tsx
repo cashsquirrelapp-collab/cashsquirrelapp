@@ -38,7 +38,7 @@ export function useSignupCount() {
 }
 
 /** The number on rolling wheels: each digit slides to its new place; a digit keeps its wheel as the number grows. */
-function Odometer({ value }: { value: number }) {
+export function Odometer({ value }: { value: number }) {
   const chars = [...value.toLocaleString('en-US')];
   return (
     <span className="cl-odo" aria-hidden="true">

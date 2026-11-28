@@ -10,6 +10,7 @@ import { rateLimit } from '../security/rateLimit.js';
 import { requireUser } from '../security/session.js';
 import { adminLevel } from '../security/adminAnalyticsAccess.js';
 import { planStatusOf } from './admin-analytics.js';
+import { signupFeed } from '../services/signupFeed.js';
 
 // The admin page's ผู้ใช้งาน view (owner, 2026-11-03): for every account, when it was last active, how long it has been
 // away, how often and at what time of day it uses the app. The owner and team admins (2026-11-04). Read from
@@ -48,6 +49,13 @@ export default withGuard(async (req, res) => {
   if (req.headers['x-account-id'] !== user.id) throw new HttpError(401, 'บัญชีเปลี่ยน กรุณาโหลดหน้าใหม่');
   // The owner and team admins (owner, 2026-11-04: "แอดมินจะสามารถเห็นผู้ใช้งานได้ว่าใครแอคทีฟอยู่ใครออนไลน์อยู่"). No money here.
   if (!adminLevel(user, await systemRole(user.id))) throw new HttpError(403, 'หน้านี้เข้าถึงได้เฉพาะแอดมินเท่านั้น');
+  // GET ?signups=1: the live sign-ups card, asked every 15 seconds while the page is open (owner, 2026-11-28).
+  if (req.query.signups !== undefined) {
+    await rateLimit('admin-signups', user.id, 20, 60);
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.json(await signupFeed());
+    return;
+  }
   await rateLimit('admin-activity', user.id, 30, 60);
   const parsed = querySchema.safeParse(req.query);
   if (!parsed.success) throw new HttpError(400, 'ช่วงเวลาสถิติไม่ถูกต้อง');
@@ -65,7 +73,7 @@ export default withGuard(async (req, res) => {
     loadAll<Subscription>((a, b) => db.from('subscriptions').select('user_id,status,plan,current_period_end').order('updated_at', { ascending: false }).range(a, b) as never),
     loadAll<{ user_id: string; last_seen_at: string }>((a, b) => db.from('cashflow_user_presence').select('user_id,last_seen_at').order('user_id').range(a, b) as never),
     loadAll<{ usage_date: string; user_key: string; last_seen_at: string }>((a, b) => db.from('cashflow_usage_daily').select('usage_date,user_key,last_seen_at').gte('usage_date', fromDate).lte('usage_date', today).order('usage_date').range(a, b) as never),
-    loadAll<{ user_id: string; activity: unknown; statsOff: unknown }>((a, b) => db.from('cashflow_private_state').select('user_id,activity:data->activity,statsOff:data->statsOff').order('user_id').range(a, b) as never),
+    loadAll<{ user_id: string; activity: unknown; statsOff: unknown; statsOffAt: unknown }>((a, b) => db.from('cashflow_private_state').select('user_id,activity:data->activity,statsOff:data->statsOff,statsOffAt:data->statsOffAt').order('user_id').range(a, b) as never),
     // The last sign-in is context only: the view still loads without it.
     lastSignIns(db).catch(() => new Map<string, string>()),
   ]);
@@ -75,16 +83,18 @@ export default withGuard(async (req, res) => {
   const userIdByKey = new Map(profiles.map(profile => [createHmac('sha256', sessionSecret()).update(`usage:${profile.user_id}`).digest('hex'), profile.user_id] as const));
   const activity = new Map<string, StoredActivity>();
   const statsOff = new Set<string>();
+  const statsOffAt = new Map<string, string>();
   for (const row of states) {
     if (row.activity) activity.set(row.user_id, readActivity(row.activity));
     if (row.statsOff === true) statsOff.add(row.user_id);
+    if (typeof row.statsOffAt === 'string' && Number.isFinite(Date.parse(row.statsOffAt))) statsOffAt.set(row.user_id, row.statsOffAt);
   }
   const summary = summarizeActivity({
     profiles,
     plans: new Map(profiles.map(profile => [profile.user_id, planStatusOf(profile, subscriptionBy.get(profile.user_id), now.getTime())] as const)),
     presence: new Map(presence.map(row => [row.user_id, row.last_seen_at] as const)),
     usage: usage.flatMap(row => { const id = userIdByKey.get(row.user_key); return id ? [{ user_id: id, usage_date: row.usage_date, last_seen_at: row.last_seen_at }] : []; }),
-    activity, statsOff, signIns, range, now,
+    activity, statsOff, statsOffAt, signIns, range, now,
   });
   res.json(summary);
 });

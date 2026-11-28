@@ -75,6 +75,27 @@ test('the admin view: online, today, away for weeks, no data, statistics off; ho
   assert.equal(summary.trackingSince, '2026-11-03T01:50:00.000Z');
 });
 
+test('statistics off is not sticky: statistics that arrive after the choice show the account as active', () => {
+  const profiles = ['back', 'stillOff', 'legacy'].map((id, index) => ({ user_id: id, public_id: `SQ-${index}`, display_name: id, created_at: '2026-09-01T00:00:00Z' }));
+  const summary = summarizeActivity({
+    profiles, plans: new Map(), range: 30, now: at('2026-11-28T13:00:00Z'),
+    presence: new Map([['back', '2026-11-28T05:00:00Z']]),
+    usage: [{ user_id: 'stillOff', usage_date: '2026-11-20', last_seen_at: '2026-11-20T05:00:00Z' }],
+    activity: new Map(),
+    statsOff: new Set(['back', 'stillOff', 'legacy']),
+    statsOffAt: new Map([['back', '2026-11-25T00:00:00Z'], ['stillOff', '2026-11-26T00:00:00Z']]),
+    // A sign-in does not mean statistics are on.
+    signIns: new Map([['stillOff', '2026-11-28T04:00:00Z'], ['legacy', '2026-11-28T04:00:00Z']]),
+  });
+  const by = new Map(summary.accounts.map(account => [account.userId, account]));
+  assert.equal(by.get('back')!.status, 'today', 'a heartbeat after the choice: statistics are on in another browser');
+  assert.equal(by.get('back')!.statsOff, false);
+  assert.equal(by.get('stillOff')!.status, 'off', 'only older statistics and a sign-in since');
+  assert.equal(by.get('stillOff')!.statsOffAt, '2026-11-26T00:00:00Z');
+  assert.equal(by.get('legacy')!.status, 'off', 'a mark from before the time was kept stays until a heartbeat clears it');
+  assert.equal(by.get('legacy')!.statsOffAt, null);
+});
+
 const sent = (id: string, createdAt: string, over: Partial<Broadcast> = {}): Broadcast => ({ id, body: 'สวัสดีครับ วันนี้เป็นอย่างไรบ้างครับ', askRating: true, createdAt, endedAt: null, ...over });
 
 test('the message: shown once to every account, new ones too; closed or answered, it stays away; 30 days at most', () => {
@@ -228,9 +249,20 @@ test('the heartbeat keeps a visit; essential cookies only removes the visits and
   assert.equal(JSON.stringify(privateState.get(MEMBER)), before);
 
   assert.equal((await post('/api/usage-analytics', { action: 'stats-choice', stats: false }, MEMBER)).status, 200);
-  assert.deepEqual(privateState.get(MEMBER), { statsOff: true });
+  const marked = privateState.get(MEMBER) as { statsOff?: unknown; statsOffAt?: string };
+  assert.equal(marked.statsOff, true);
+  assert.ok(Number.isFinite(Date.parse(marked.statsOffAt ?? '')), 'when the choice was made is kept');
   assert.equal((await post('/api/usage-analytics', { action: 'stats-choice', stats: true }, MEMBER)).status, 200);
   assert.deepEqual(privateState.get(MEMBER), {});
+
+  // Owner, 2026-11-28: the mark stuck to the account. A heartbeat (only sent by a browser with statistics on) that starts
+  // a visit clears an old mark left by another browser.
+  privateState.set(MEMBER, { statsOff: true, statsOffAt: '2026-11-01T00:00:00Z' });
+  presence.set(MEMBER, new Date(Date.now() - 3 * 3600_000).toISOString());
+  assert.equal((await post('/api/usage-analytics', { action: 'presence-heartbeat' }, MEMBER)).status, 200);
+  const after = privateState.get(MEMBER) as Record<string, unknown>;
+  assert.equal(after.statsOff, undefined);
+  assert.equal(after.statsOffAt, undefined);
 });
 
 test('the owner sends a message; an older account sees it, answers with a score and words; the owner sees the answer', async () => {

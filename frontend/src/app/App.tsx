@@ -887,12 +887,12 @@ export default function App() {
     const userId = session?.user?.id;
     if (!userId || session?.isGuest || loadingSession) return;
     const send = () => {
-      const consent = readCookieConsent();
-      if (!consent) return;
+      // No choice yet counts as statistics on, the same as usageStatsAllowed(): it clears an old "off" left by another browser.
+      const stats = readCookieConsent()?.stats !== false;
       const key = `krarok.statsChoice.${userId}`;
-      const value = consent.stats ? 'on' : 'off';
+      const value = stats ? 'on' : 'off';
       try { if (sessionStorage.getItem(key) === value) return; sessionStorage.setItem(key, value); } catch { /* storage blocked: sent each time */ }
-      void usageAnalyticsApi.statsChoice(userId, consent.stats).catch(() => { try { sessionStorage.removeItem(key); } catch { /* storage blocked */ } });
+      void usageAnalyticsApi.statsChoice(userId, stats).catch(() => { try { sessionStorage.removeItem(key); } catch { /* storage blocked */ } });
     };
     send();
     window.addEventListener(COOKIE_CHOICE_EVENT, send);

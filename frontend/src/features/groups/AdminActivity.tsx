@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import type { AnalyticsRange } from '../../../../shared/adminAnalytics';
 import { type ActivityAccount, type ActivityStatus, type AdminActivitySummary, type DayBand } from '../../../../shared/userActivity';
 import { SkeletonBlock } from '../../components/ui/AppLoadingSkeleton';
 import { uiSurface } from '../../components/ui/uiStyles';
 import { adminActivityApi } from '../../services/broadcast';
+import type { SignupFeed, SignupVia } from '../../../../shared/signupFeed';
+import { Odometer } from '../marketing/v5/SignupCount';
 import { MobileSheet } from '../mobile/MobileHome';
 import { KsIcon } from '../mobile/icons';
 import { planLabels } from './adminLabels';
@@ -131,7 +133,9 @@ function AccountDetail({ account, data, copy, lang, locale, now }: { account: Ac
         <div><dt>{copy(`ใน ${data.range} วันล่าสุด`, `Last ${data.range} days`)}</dt><dd>{copy(`ใช้ ${account.activeDays} วัน · ${account.visits} ครั้ง · รวม ${duration(account.minutes, copy)}`, `${account.activeDays} days · ${account.visits} visits · ${duration(account.minutes, copy)}`)}</dd></div>
         <div><dt>{copy('ช่วงที่ใช้บ่อย', 'Usual time')}</dt><dd>{account.band ? copy(...BANDS[account.band]) : '—'}</dd></div>
       </dl>
-      {account.statsOff && <p className="aact-note">{copy('บัญชีนี้เลือก “เฉพาะที่จำเป็น” ที่แถบคุกกี้ จึงไม่มีสถิติการใช้งานจากเบราว์เซอร์นั้น เวลาใช้งานล่าสุดอาจมาจากการเข้าสู่ระบบ', 'This account chose “Essential only” in the cookie banner, so that browser sends no usage statistics. The last-active time may come from a sign-in.')}</p>}
+      {account.statsOff && <p className="aact-note">{account.statsOffAt
+        ? copy(`บัญชีนี้เลือก “เฉพาะที่จำเป็น” ที่แถบคุกกี้เมื่อ ${when(account.statsOffAt)} และยังไม่มีสถิติจากเบราว์เซอร์ไหนหลังจากนั้น เวลาใช้งานล่าสุดอาจมาจากการเข้าสู่ระบบ ถ้าเปิดแอปในเบราว์เซอร์ที่เปิดสถิติ สถานะนี้จะหายเอง`, `This account chose “Essential only” on ${when(account.statsOffAt)}, and no statistics have arrived from any browser since. The last-active time may come from a sign-in. It clears once the account opens the app in a browser with statistics on.`)
+        : copy('บัญชีนี้เคยเลือก “เฉพาะที่จำเป็น” ที่แถบคุกกี้ (ก่อนที่ระบบจะเริ่มบันทึกเวลาที่เลือก) สถานะนี้จะหายเองเมื่อเปิดแอปในเบราว์เซอร์ที่เปิดสถิติ', 'This account once chose “Essential only” (before the time of the choice was kept). It clears once the account opens the app in a browser with statistics on.')}</p>}
       <h3 className="aact-subhead">{copy('วันที่ใช้งาน', 'Days used')}</h3>
       <DaysStrip account={account} range={data.range} toDate={data.toDate} copy={copy} locale={locale} />
       <h3 className="aact-subhead">{copy('ชั่วโมงที่ใช้', 'Hours used')}</h3>
@@ -146,6 +150,85 @@ function AccountDetail({ account, data, copy, lang, locale, now }: { account: Ac
         </ul>
       ) : <p className="aact-note">{data.trackingSince ? copy('ยังไม่มีการเข้าใช้ที่บันทึกไว้', 'No visits recorded yet') : copy('เริ่มบันทึกการเข้าใช้แต่ละครั้งตั้งแต่วันนี้ ข้อมูลจะขึ้นเมื่อบัญชีนี้เปิดแอปครั้งถัดไป', 'Visits are recorded from today and show once this account opens the app again.')}</p>}
     </div>
+  );
+}
+
+
+const VIA: Record<SignupVia, [string, string] | null> = { google: ['Google', 'Google'], line: ['LINE', 'LINE'], email: ['อีเมล', 'Email'], other: null };
+const SIGNUP_POLL_MS = 15_000;
+
+/** ผู้สมัครใหม่, live (owner, 2026-11-28: "เห็นผู้สมัครเข้ามาแบบ real time เหมือนด้านหน้า landing page"). Asks every 15
+ *  seconds while the page is in view; accounts that arrive while it is open slide in and are marked ใหม่. */
+function LiveSignups({ userId, copy, locale, mobile }: { userId: string; copy: Copy; locale: string; mobile: boolean }) {
+  const [feed, setFeed] = useState<SignupFeed | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+  const seen = useRef<Set<string> | null>(null);
+  const [fresh, setFresh] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
+    let alive = true; let last = 0; let busy = false;
+    const load = async () => {
+      if (busy) return;
+      busy = true; last = Date.now();
+      try {
+        const next = await adminActivityApi.signups(userId);
+        if (!alive) return;
+        if (!next || typeof next.total !== 'number' || !Array.isArray(next.latest)) throw new Error('Unexpected reply');
+        if (seen.current) {
+          const arrived = next.latest.filter(item => !seen.current!.has(item.userId)).map(item => item.userId);
+          if (arrived.length) setFresh(current => new Set([...current, ...arrived]));
+        }
+        seen.current = new Set([...(seen.current ?? []), ...next.latest.map(item => item.userId)]);
+        setFeed(next); setFailed(false); setNow(Date.now());
+      } catch { if (alive) setFailed(true); }
+      finally { busy = false; }
+    };
+    void load();
+    const tick = () => { setNow(Date.now()); if (document.visibilityState === 'visible' && Date.now() - last >= SIGNUP_POLL_MS - 500) void load(); };
+    const timer = window.setInterval(tick, SIGNUP_POLL_MS);
+    document.addEventListener('visibilitychange', tick);
+    return () => { alive = false; window.clearInterval(timer); document.removeEventListener('visibilitychange', tick); };
+  }, [userId]);
+  const checked = feed ? new Date(feed.at).toLocaleTimeString(locale, { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
+  return (
+    <section className={`aact-live${mobile ? ' is-mobile ksm-panel' : ` ${uiSurface}`}`} aria-label={copy('ผู้สมัครใหม่', 'New sign-ups')} data-testid="live-signups">
+      <div className="aact-live-head">
+        <div className="aact-live-title">
+          <span className={`aact-live-dot${failed ? ' is-paused' : ''}`} aria-hidden="true" />
+          <div>
+            <h2>{copy('ผู้สมัครใหม่', 'New sign-ups')}</h2>
+            <p>{failed ? copy('เชื่อมต่อไม่ได้ชั่วคราว จะลองใหม่เอง', 'Connection lost, retrying') : feed ? copy(`อัปเดตสดทุก 15 วินาที · ล่าสุด ${checked}`, `Live, every 15 seconds · ${checked}`) : copy('กำลังโหลด…', 'Loading…')}</p>
+          </div>
+        </div>
+        {feed && (
+          <div className="aact-live-total">
+            <span className="aact-live-count" aria-label={copy(`สมัครแล้ว ${feed.total} บัญชี`, `${feed.total} accounts`)}><Odometer value={feed.total} /></span>
+            <span className="aact-live-unit">{copy('บัญชี', 'accounts')}</span>
+            <span className={`aact-live-today${feed.today ? '' : ' is-zero'}`}>{copy(`วันนี้ +${feed.today}`, `Today +${feed.today}`)}</span>
+          </div>
+        )}
+      </div>
+      {!feed && !failed && <SkeletonBlock className="mt-4 h-24 w-full rounded-xl" />}
+      {feed && (feed.latest.length ? (
+        <ol className="aact-live-list">
+          {feed.latest.map(item => {
+            const via = VIA[item.via];
+            const isNew = fresh.has(item.userId);
+            const name = item.displayName || copy('ยังไม่ได้ตั้งชื่อ', 'No name yet');
+            return (
+              <li key={item.userId} className={isNew ? 'is-new' : ''}>
+                <span className="aact-live-initial" aria-hidden="true">{name.slice(0, 1).toUpperCase()}</span>
+                <span className="aact-live-who">
+                  <b>{name}{isNew && <em>{copy('ใหม่', 'New')}</em>}</b>
+                  <small>{[item.publicId, via ? copy(...via) : null, item.confirmed ? null : copy('ยังไม่ยืนยันอีเมล', 'Email not confirmed')].filter(Boolean).join(' · ')}</small>
+                </span>
+                <time dateTime={item.createdAt} title={new Date(item.createdAt).toLocaleString(locale, { timeZone: 'Asia/Bangkok' })}>{relative(item.createdAt, now, copy, locale)}</time>
+              </li>
+            );
+          })}
+        </ol>
+      ) : <p className="aact-note">{copy('ยังไม่มีผู้สมัคร', 'No sign-ups yet')}</p>)}
+    </section>
   );
 }
 
@@ -192,6 +275,7 @@ export default function AdminActivity({ userId, range, revision = 0, language, m
   if (mobile) {
     return (
       <div className="aact is-mobile">
+        <LiveSignups userId={userId} copy={copy} locale={locale} mobile />
         {failed}
         {!data && !error && <SkeletonBlock className="mt-3 h-48 w-full rounded-2xl" />}
         {data && (
@@ -241,6 +325,7 @@ export default function AdminActivity({ userId, range, revision = 0, language, m
 
   return (
     <div className="aact space-y-4">
+      <LiveSignups userId={userId} copy={copy} locale={locale} mobile={false} />
       {failed}
       {!data && !error && <div className={`${uiSurface} p-5`}><SkeletonBlock className="h-5 w-48" /><SkeletonBlock className="mt-6 h-56 w-full" /></div>}
       {data && (

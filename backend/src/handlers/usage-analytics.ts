@@ -53,6 +53,9 @@ export default withGuard(async (req, res) => {
       if (heartbeat.error) throw heartbeat.error;
       if (!before.error && heartbeatChangesVisits((before.data as { last_seen_at?: string } | null)?.last_seen_at, now)) {
         await recordVisit(db, user.id, now).catch(error => console.warn('usage: visit not recorded', (error as Error)?.message));
+        // A heartbeat only comes from a browser that allows statistics, so an old "essential only" mark from another
+        // browser no longer describes the account (owner, 2026-11-28). Once per visit, not on every beat.
+        await patchPrivate(user.id, {}, ['statsOff', 'statsOffAt']).catch(error => console.warn('usage: stats mark not cleared', (error as Error)?.message));
       }
       res.json({ ok: true });
       return;
@@ -62,7 +65,7 @@ export default withGuard(async (req, res) => {
       // Essential cookies only: the admin page says so instead of showing the account as gone, and the visits kept so
       // far are removed. Accepting again only clears the mark.
       await rateLimit('usage-stats-choice', user.id, 10, 60);
-      await patchPrivate(user.id, choice.data.stats ? {} : { statsOff: true }, choice.data.stats ? ['statsOff'] : ['activity']);
+      await patchPrivate(user.id, choice.data.stats ? {} : { statsOff: true, statsOffAt: new Date().toISOString() }, choice.data.stats ? ['statsOff', 'statsOffAt'] : ['activity']);
       res.json({ ok: true });
       return;
     }

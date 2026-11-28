@@ -75,8 +75,10 @@ export interface ActivityAccount {
   lastActiveAt: string | null;
   /** Whole Bangkok days since lastActiveAt (0 = today). */
   daysAway: number | null;
-  /** The account chose essential cookies only in a browser it signed in with: no usage statistics come from it. */
+  /** The account chose essential cookies only, and no statistics have come from any of its browsers since. */
   statsOff: boolean;
+  /** When that choice was made (null for marks saved before 2026-11-28, or when statistics are on). */
+  statsOffAt: string | null;
   /** In the chosen period: days with any use, visits, and minutes in them. */
   activeDays: number;
   visits: number;
@@ -112,6 +114,8 @@ export interface ActivityInput {
   usage: { user_id: string; usage_date: string; last_seen_at: string }[];
   activity: Map<string, StoredActivity>;
   statsOff: Set<string>;
+  /** When each account chose essential cookies only. Statistics that arrived after it mean another browser has them on. */
+  statsOffAt?: Map<string, string>;
   signIns: Map<string, string>;
   range: AnalyticsRange;
   now: Date;
@@ -141,7 +145,12 @@ export function summarizeActivity(input: ActivityInput): AdminActivitySummary {
     const presence = input.presence.get(profile.user_id) ?? null;
     const lastVisit = visits.at(-1);
     const lastActiveAt = latest([presence, ...usage.map(row => row.last_seen_at), lastVisit ? new Date((lastVisit[0] + lastVisit[1]) * 60_000).toISOString() : null, input.signIns.get(profile.user_id)]);
-    const statsOff = input.statsOff.has(profile.user_id);
+    // "ปิดสถิติ" was sticky (owner, 2026-11-28: "กูปิดสถิติตอนไหนวะ"): one browser's choice marked the whole account, even
+    // while it used other browsers with statistics on. Heartbeats, pages opened and visits only come from a browser that
+    // allows statistics, so any of them after the choice means the account is not off. Sign-ins don't count here.
+    const offAt = input.statsOffAt?.get(profile.user_id) ?? null;
+    const statsSeen = latest([presence, ...usage.map(row => row.last_seen_at), lastVisit ? new Date((lastVisit[0] + lastVisit[1]) * 60_000).toISOString() : null]);
+    const statsOff = input.statsOff.has(profile.user_id) && !(offAt && statsSeen && Date.parse(statsSeen) > Date.parse(offAt));
     const online = !!presence && nowMs - Date.parse(presence) <= ONLINE_MS && nowMs >= Date.parse(presence) - ONLINE_MS;
     const daysAway = lastActiveAt ? Math.max(0, daysBetween(bangkokDate(Date.parse(lastActiveAt)), toDate)) : null;
     const status: ActivityStatus = online ? 'online' : statsOff ? 'off' : daysAway === null ? 'none'
@@ -179,7 +188,7 @@ export function summarizeActivity(input: ActivityInput): AdminActivitySummary {
 
     return {
       userId: profile.user_id, publicId: profile.public_id, displayName: profile.display_name, createdAt: profile.created_at,
-      plan: input.plans.get(profile.user_id) ?? 'free', status, lastActiveAt, daysAway, statsOff,
+      plan: input.plans.get(profile.user_id) ?? 'free', status, lastActiveAt, daysAway, statsOff, statsOffAt: statsOff ? offAt : null,
       activeDays: days.size, visits: visitCount, minutes, band, hours, days: [...days].sort(),
       recent: visits.slice(-15).reverse().map(([start, length]) => ({ start: new Date(start * 60_000).toISOString(), minutes: length })),
     };

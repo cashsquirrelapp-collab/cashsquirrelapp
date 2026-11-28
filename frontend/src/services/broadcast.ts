@@ -1,5 +1,6 @@
 import type { AdminBroadcastResponse, BroadcastNotice } from '../../../shared/broadcast';
 import type { AdminActivitySummary } from '../../../shared/userActivity';
+import type { SignupFeed } from '../../../shared/signupFeed';
 import type { AnalyticsRange } from '../../../shared/adminAnalytics';
 import { apiJson } from './api';
 
@@ -23,6 +24,10 @@ export const broadcastApi = {
 };
 
 export const adminActivityApi = {
+  /** The live sign-ups card: totals as on the landing, and the newest accounts (name and Public ID only). */
+  signups(account: string, signal?: AbortSignal) {
+    return apiJson<SignupFeed>('/api/admin-activity?signups=1', { signal, headers: { 'X-Account-ID': account } });
+  },
   summary(account: string, range: AnalyticsRange, signal?: AbortSignal) {
     return apiJson<AdminActivitySummary>(`/api/admin-activity?range=${range}`, { signal, headers: { 'X-Account-ID': account } });
   },

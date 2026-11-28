@@ -127,10 +127,17 @@ test('an app left open asks again when it comes back on screen', async ({ page }
   await expect(message).toBeVisible({ timeout: 10000 });
 });
 
+// The live sign-ups card (owner, 2026-11-28): its own light request every 15 seconds.
+const signupFeedAt = (latest: { userId: string; displayName: string; minutesAgo: number; via?: string; confirmed?: boolean }[], total: number, today: number) => ({
+  total, today, at: new Date().toISOString(),
+  latest: latest.map((item, index) => ({ userId: item.userId, publicId: `SQ-NEW${index}`, displayName: item.displayName, createdAt: new Date(Date.now() - item.minutesAgo * 60_000).toISOString(), via: item.via ?? 'google', confirmed: item.confirmed ?? true })),
+});
+let signupReply: ReturnType<typeof signupFeedAt> = signupFeedAt([{ userId: 'u-1', displayName: 'ปาล์ม ครีเอเตอร์', minutesAgo: 25 }, { userId: 'u-2', displayName: 'Nanino', minutesAgo: 190, via: 'line' }, { userId: 'u-3', displayName: 'บีม', minutesAgo: 1500, via: 'email', confirmed: false }], 73, 2);
+
 async function openAdmin(page: Page, view: 'activity' | 'broadcast', size: { width: number; height: number }, mode: 'light' | 'dark' = 'light') {
   await page.setViewportSize(size);
   const posts = await signIn(page, owner, { mode });
-  await page.route('**/api/admin-activity?*', route => route.fulfill({ json: activity }));
+  await page.route('**/api/admin-activity?*', route => route.fulfill({ json: new URL(route.request().url()).searchParams.has('signups') ? signupReply : activity }));
   await page.route('**/api/admin-analytics?*', route => route.fulfill({ json: {
     range: 30, fromDate: '2026-10-05', toDate: '2026-11-03', generatedAt: now.toISOString(),
     totals: { accounts: 38, newAccounts: 12, activeUsers: 19, previousActiveUsers: 14, pageViews: 820, proAccounts: 3, paidProAccounts: 1, trialAccounts: 4, freeAccounts: 31, revenue: 17700, previousRevenue: 0, paymentCount: 1, conversionRate: 0.03, averageRevenuePerPayer: 17700 },
@@ -142,7 +149,27 @@ async function openAdmin(page: Page, view: 'activity' | 'broadcast', size: { wid
 
 for (const size of [{ name: 'computer', width: 1440, height: 900, mode: 'light' as const }, { name: 'iPad', width: 1024, height: 768, mode: 'dark' as const }]) {
   test(`admin ผู้ใช้งาน: who is on, who has gone quiet, when people use the app, and one account's visits (${size.name})`, async ({ page }, testInfo) => {
+    await page.clock.install();
+    signupReply = signupFeedAt([{ userId: 'u-1', displayName: 'ปาล์ม ครีเอเตอร์', minutesAgo: 25 }, { userId: 'u-2', displayName: 'Nanino', minutesAgo: 190, via: 'line' }, { userId: 'u-3', displayName: 'บีม', minutesAgo: 1500, via: 'email', confirmed: false }], 73, 2);
     await openAdmin(page, 'activity', size, size.mode);
+    // New sign-ups, live: the total as on the landing, today's count, and the newest accounts.
+    const live = page.getByTestId('live-signups');
+    await expect(live.getByRole('heading', { name: 'ผู้สมัครใหม่' })).toBeVisible();
+    await expect(live.getByLabel('สมัครแล้ว 73 บัญชี')).toBeVisible();
+    await expect(live).toContainText('วันนี้ +2');
+    await expect(live.locator('li')).toHaveCount(3);
+    await expect(live.locator('li').first()).toContainText('ปาล์ม ครีเอเตอร์');
+    await expect(live.locator('li').first()).toContainText('25 นาทีที่แล้ว');
+    await expect(live.locator('li').nth(1)).toContainText('LINE');
+    await expect(live.locator('li').nth(2)).toContainText('ยังไม่ยืนยันอีเมล');
+    // Someone signs up while the page is open: within 15 seconds they slide in on top, marked ใหม่, and the total rolls.
+    signupReply = signupFeedAt([{ userId: 'u-9', displayName: 'ต้นกล้า สตูดิโอ', minutesAgo: 0 }, { userId: 'u-1', displayName: 'ปาล์ม ครีเอเตอร์', minutesAgo: 25 }, { userId: 'u-2', displayName: 'Nanino', minutesAgo: 190, via: 'line' }, { userId: 'u-3', displayName: 'บีม', minutesAgo: 1500, via: 'email', confirmed: false }], 74, 3);
+    await page.clock.runFor(16_000);
+    await expect(live.locator('li').first()).toContainText('ต้นกล้า สตูดิโอ', { timeout: 5000 });
+    await expect(live.locator('li.is-new')).toHaveCount(1);
+    await expect(live.locator('li').first()).toContainText('ใหม่');
+    await expect(live.getByLabel('สมัครแล้ว 74 บัญชี')).toBeVisible();
+    await expect(live).toContainText('วันนี้ +3');
     await expect(page.getByRole('heading', { name: 'ช่วงเวลาที่คนเข้าใช้' })).toBeVisible();
     await expect(page.getByRole('table', { name: 'ช่วงเวลาที่คนเข้าใช้ ตามวันและชั่วโมง' })).toBeVisible();
     await expect(page.getByText(/คนเข้าใช้มากที่สุดช่วง/)).toBeVisible();
