@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '../config/supabase.js';
+import { LINE_ONLY_DOMAIN } from '../../../shared/lineAccount.js';
 
 // "มีผู้สมัครแล้ว {จำนวน} คน" on the landing (owner, 2026-10-29): the real number of accounts that signed up, each
 // counted once. Not counted: accounts that never confirmed their email (they cannot sign in), guest sessions, the team
@@ -14,6 +15,9 @@ const TEST_DOMAIN = /(?:^|\.)(?:test|example|invalid|localhost)$|^example\.(?:co
 
 export function isTestEmail(email: string | null | undefined): boolean {
   const domain = (email || '').trim().toLowerCase().split('@')[1] || '';
+  // Accounts opened through LINE carry an inner address on a .invalid domain (shared/lineAccount.ts). They are real
+  // sign-ups, and were left out of the count by the test-domain rule until 2026-11-28.
+  if (domain === LINE_ONLY_DOMAIN) return false;
   return !domain || TEST_DOMAIN.test(domain);
 }
 

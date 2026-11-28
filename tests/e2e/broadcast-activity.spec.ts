@@ -54,6 +54,8 @@ const activity = summarizeActivity({
   usage: Array.from({ length: 40 }, (_, index) => ({ user_id: `u${index % 3}`, usage_date: `2026-10-${String(5 + (index % 25)).padStart(2, '0')}`, last_seen_at: `2026-10-${String(5 + (index % 25)).padStart(2, '0')}T${String((index * 5) % 24).padStart(2, '0')}:20:00Z` })),
   activity: new Map([['u0', { v: 1, visits: [[minute('2026-11-02T12:10:00Z'), 48], [minute('2026-11-03T01:30:00Z'), 22], [minute('2026-11-03T12:30:00Z'), 30]] } as StoredActivity]]),
   statsOff: new Set(['u5']), signIns: new Map([['u3', '2026-09-20T03:00:00Z']]),
+  // The owner sees the Google picture and the sign-in address (2026-11-28).
+  people: new Map([['u0', { avatarUrl: 'https://lh3.googleusercontent.com/a/test-mintra=s96-c', email: 'mintra.design@gmail.com' }]]),
 });
 
 for (const size of [{ name: 'computer', width: 1440, height: 900, mode: 'light' as const }, { name: 'iPad', width: 1024, height: 768, mode: 'dark' as const }, { name: 'phone', width: 390, height: 844, mode: 'dark' as const }]) {
@@ -130,7 +132,8 @@ test('an app left open asks again when it comes back on screen', async ({ page }
 // The live sign-ups card (owner, 2026-11-28): its own light request every 15 seconds.
 const signupFeedAt = (latest: { userId: string; displayName: string; minutesAgo: number; via?: string; confirmed?: boolean }[], total: number, today: number) => ({
   total, today, at: new Date().toISOString(),
-  latest: latest.map((item, index) => ({ userId: item.userId, publicId: `SQ-NEW${index}`, displayName: item.displayName, createdAt: new Date(Date.now() - item.minutesAgo * 60_000).toISOString(), via: item.via ?? 'google', confirmed: item.confirmed ?? true })),
+  latest: latest.map((item, index) => ({ userId: item.userId, publicId: `SQ-NEW${index}`, displayName: item.displayName, createdAt: new Date(Date.now() - item.minutesAgo * 60_000).toISOString(), via: item.via ?? 'google', confirmed: item.confirmed ?? true,
+    ...(item.userId === 'u-1' ? { avatarUrl: 'https://lh3.googleusercontent.com/a/test-palm=s96-c', email: 'palm.creator@gmail.com' } : {}) })),
 });
 let signupReply: ReturnType<typeof signupFeedAt> = signupFeedAt([{ userId: 'u-1', displayName: 'ปาล์ม ครีเอเตอร์', minutesAgo: 25 }, { userId: 'u-2', displayName: 'Nanino', minutesAgo: 190, via: 'line' }, { userId: 'u-3', displayName: 'บีม', minutesAgo: 1500, via: 'email', confirmed: false }], 73, 2);
 
@@ -138,6 +141,7 @@ async function openAdmin(page: Page, view: 'activity' | 'broadcast', size: { wid
   await page.setViewportSize(size);
   const posts = await signIn(page, owner, { mode });
   await page.route('**/api/admin-activity?*', route => route.fulfill({ json: new URL(route.request().url()).searchParams.has('signups') ? signupReply : activity }));
+  await page.route('https://lh3.googleusercontent.com/**', route => route.fulfill({ contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64') }));
   await page.route('**/api/admin-analytics?*', route => route.fulfill({ json: {
     range: 30, fromDate: '2026-10-05', toDate: '2026-11-03', generatedAt: now.toISOString(),
     totals: { accounts: 38, newAccounts: 12, activeUsers: 19, previousActiveUsers: 14, pageViews: 820, proAccounts: 3, paidProAccounts: 1, trialAccounts: 4, freeAccounts: 31, revenue: 17700, previousRevenue: 0, paymentCount: 1, conversionRate: 0.03, averageRevenuePerPayer: 17700 },
@@ -161,6 +165,10 @@ for (const size of [{ name: 'computer', width: 1440, height: 900, mode: 'light' 
     await expect(live.locator('li').first()).toContainText('ปาล์ม ครีเอเตอร์');
     await expect(live.locator('li').first()).toContainText('25 นาทีที่แล้ว');
     await expect(live.locator('li').nth(1)).toContainText('LINE');
+    // Who they are: the Google picture, and the sign-in address for the owner.
+    await expect(live.locator('li').first().locator('img')).toHaveAttribute('src', /googleusercontent/);
+    await expect(live.locator('li').first()).toContainText('palm.creator@gmail.com');
+    await expect(live.locator('li').nth(1).locator('img')).toHaveCount(0);
     await expect(live.locator('li').nth(2)).toContainText('ยังไม่ยืนยันอีเมล');
     // Someone signs up while the page is open: within 15 seconds they slide in on top, marked ใหม่, and the total rolls.
     signupReply = signupFeedAt([{ userId: 'u-9', displayName: 'ต้นกล้า สตูดิโอ', minutesAgo: 0 }, { userId: 'u-1', displayName: 'ปาล์ม ครีเอเตอร์', minutesAgo: 25 }, { userId: 'u-2', displayName: 'Nanino', minutesAgo: 190, via: 'line' }, { userId: 'u-3', displayName: 'บีม', minutesAgo: 1500, via: 'email', confirmed: false }], 74, 3);
@@ -178,6 +186,8 @@ for (const size of [{ name: 'computer', width: 1440, height: 900, mode: 'light' 
     await expect(rows).toHaveCount(6);
     await expect(rows.first()).toContainText('มินตรา ดีไซน์');
     await expect(rows.first()).toContainText('ออนไลน์อยู่');
+    await expect(rows.first().locator('img')).toHaveAttribute('src', /test-mintra/);
+    await expect(rows.first()).toContainText('mintra.design@gmail.com');
     expect(await textOverlapIssues(page)).toEqual([]);
     await page.screenshot({ path: testInfo.outputPath(`admin-activity-${size.name}.png`), fullPage: true });
     // Only the ones gone quiet.
@@ -188,6 +198,8 @@ for (const size of [{ name: 'computer', width: 1440, height: 900, mode: 'light' 
     await rows.first().click();
     const panel = page.getByRole('dialog', { name: 'มินตรา ดีไซน์' });
     await expect(panel).toContainText('การเข้าใช้ล่าสุด');
+    await expect(panel.locator('.aact-who img')).toBeVisible();
+    await expect(panel.locator('.aact-who')).toContainText('mintra.design@gmail.com');
     await expect(panel.locator('.aact-visits li')).toHaveCount(3);
     await expect(panel).toContainText('48 นาที');
     expect(await textOverlapIssues(page)).toEqual([]);

@@ -23,3 +23,19 @@ test('live sign-ups: landing totals, today in Bangkok, newest first, the team an
   assert.equal(feed.latest[1].confirmed, false);
   assert.equal(signupVia({ id: 'x', app_metadata: {} }), 'other');
 });
+
+test('live sign-ups: the Google picture always, the address only for the owner, never a LINE inner address or another host', () => {
+  const now = new Date('2026-11-28T10:00:00Z');
+  const users = [
+    { id: 'G', email: 'g@gmail.com', created_at: '2026-11-28T09:00:00Z', email_confirmed_at: 'x', app_metadata: { provider: 'google' }, user_metadata: { avatar_url: 'https://lh3.googleusercontent.com/a/abc=s96-c' } },
+    { id: 'L', email: 'u1@line.krarok.invalid', created_at: '2026-11-28T08:00:00Z', email_confirmed_at: 'x', app_metadata: { signup_channel: 'line' } },
+    { id: 'X', email: 'x@gmail.com', created_at: '2026-11-28T07:00:00Z', email_confirmed_at: 'x', user_metadata: { picture: 'http://evil.example/p.png' } },
+  ];
+  const team = summarizeSignups(users, new Set(), now, 8, false);
+  assert.equal(team.total, 3, 'the LINE account counts');
+  assert.equal(team.latest[0].avatarUrl, 'https://lh3.googleusercontent.com/a/abc=s96-c');
+  assert.ok(team.latest.every(item => item.email === null), 'team admins see no addresses');
+  assert.equal(team.latest[2].avatarUrl, null, 'only Google and LINE picture hosts over https');
+  const owner = summarizeSignups(users, new Set(), now, 8, true);
+  assert.deepEqual(owner.latest.map(item => item.email), ['g@gmail.com', null, 'x@gmail.com']);
+});

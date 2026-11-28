@@ -126,6 +126,7 @@ function AccountDetail({ account, data, copy, lang, locale, now }: { account: Ac
   const time = (ms: number) => new Date(ms).toLocaleTimeString(locale, { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' });
   return (
     <div className="aact-detail">
+      <div className="aact-who"><Avatar name={account.displayName} url={account.avatarUrl} className="aact-avatar is-large" /><span className="min-w-0"><b>{account.displayName}</b>{account.email && <small>{account.email}</small>}</span></div>
       <div className="aact-detail-tags"><StatusChip status={account.status} copy={copy} /><span className="aact-plan">{planLabels[account.plan][lang]}</span><small>{account.publicId}</small></div>
       <dl className="aact-facts">
         <div><dt>{copy('ใช้งานล่าสุด', 'Last active')}</dt><dd>{account.lastActiveAt ? `${when(account.lastActiveAt)} · ${relative(account.lastActiveAt, now, copy, locale)}` : copy('ยังไม่มีข้อมูล', 'No data')}</dd></div>
@@ -153,6 +154,17 @@ function AccountDetail({ account, data, copy, lang, locale, now }: { account: Ac
   );
 }
 
+
+/** The Google profile picture an account signed in with; the first letter of its name when there is none or it fails. */
+function Avatar({ name, url, className }: { name: string; url?: string | null; className: string }) {
+  const [broken, setBroken] = useState(false);
+  useEffect(() => setBroken(false), [url]);
+  return (
+    <span className={`${className}${url && !broken ? ' has-photo' : ''}`} aria-hidden="true">
+      {url && !broken ? <img src={url} alt="" referrerPolicy="no-referrer" loading="lazy" onError={() => setBroken(true)} /> : name.slice(0, 1).toUpperCase()}
+    </span>
+  );
+}
 
 const VIA: Record<SignupVia, [string, string] | null> = { google: ['Google', 'Google'], line: ['LINE', 'LINE'], email: ['อีเมล', 'Email'], other: null };
 const SIGNUP_POLL_MS = 15_000;
@@ -217,10 +229,10 @@ function LiveSignups({ userId, copy, locale, mobile }: { userId: string; copy: C
             const name = item.displayName || copy('ยังไม่ได้ตั้งชื่อ', 'No name yet');
             return (
               <li key={item.userId} className={isNew ? 'is-new' : ''}>
-                <span className="aact-live-initial" aria-hidden="true">{name.slice(0, 1).toUpperCase()}</span>
+                <Avatar name={name} url={item.avatarUrl} className="aact-live-initial" />
                 <span className="aact-live-who">
                   <b>{name}{isNew && <em>{copy('ใหม่', 'New')}</em>}</b>
-                  <small>{[item.publicId, via ? copy(...via) : null, item.confirmed ? null : copy('ยังไม่ยืนยันอีเมล', 'Email not confirmed')].filter(Boolean).join(' · ')}</small>
+                  <small>{[item.email || item.publicId, via ? copy(...via) : null, item.confirmed ? null : copy('ยังไม่ยืนยันอีเมล', 'Email not confirmed')].filter(Boolean).join(' · ')}</small>
                 </span>
                 <time dateTime={item.createdAt} title={new Date(item.createdAt).toLocaleString(locale, { timeZone: 'Asia/Bangkok' })}>{relative(item.createdAt, now, copy, locale)}</time>
               </li>
@@ -304,7 +316,7 @@ export default function AdminActivity({ userId, range, revision = 0, language, m
               <div className="ksm-list ksm-moneylist" style={{ marginTop: 0 }}>
                 {accounts.map(item => (
                   <button key={item.userId} type="button" onClick={() => setSelected(item.userId)} aria-label={`${item.displayName} ${copy(...STATUS[item.status])}`}>
-                    <span className={`ksm-list-icon ksm-admin-initial aact-initial is-${item.status}`} aria-hidden="true">{item.displayName.slice(0, 1).toUpperCase()}</span>
+                    <Avatar name={item.displayName} url={item.avatarUrl} className={`ksm-list-icon ksm-admin-initial aact-initial is-${item.status}`} />
                     <span className="ksm-grow"><b>{item.displayName}</b><p>{item.status === 'online' ? copy('ออนไลน์อยู่ตอนนี้', 'Online now') : relative(item.lastActiveAt, now, copy, locale)}{item.band ? ` · ${copy(...BANDS[item.band]).split(' ')[0]}` : ''}</p></span>
                     <span className="ksm-admin-side"><strong>{copy(`${item.activeDays} วัน`, `${item.activeDays} d`)}</strong><small>{copy(`ใน ${data.range} วัน`, `in ${data.range} d`)}</small></span>
                   </button>
@@ -377,7 +389,7 @@ export default function AdminActivity({ userId, range, revision = 0, language, m
                 <tbody>
                   {accounts.map(item => (
                     <tr key={item.userId} onClick={() => setSelected(item.userId)} className={`cursor-pointer border-t border-brand-border/60 transition-colors hover:bg-brand-faint/60 ${selected === item.userId ? 'bg-brand-faint/70' : ''}`}>
-                      <td className="px-5 py-3"><button type="button" className="block w-full min-w-0 text-left" onClick={event => { event.stopPropagation(); setSelected(item.userId); }}><span className="block truncate font-medium text-brand-text">{item.displayName}</span><span className="mt-0.5 block truncate text-[11px] text-brand-muted">{item.publicId} · {planLabels[item.plan][lang]}</span></button></td>
+                      <td className="px-5 py-3"><button type="button" className="flex w-full min-w-0 items-center gap-3 text-left" onClick={event => { event.stopPropagation(); setSelected(item.userId); }}><Avatar name={item.displayName} url={item.avatarUrl} className="aact-avatar" /><span className="min-w-0"><span className="block truncate font-medium text-brand-text">{item.displayName}</span><span className="mt-0.5 block truncate text-[11px] text-brand-muted">{item.email ? `${item.email} · ` : ''}{item.publicId} · {planLabels[item.plan][lang]}</span></span></button></td>
                       <td className="px-3 py-3"><StatusChip status={item.status} copy={copy} /></td>
                       <td className="truncate px-3 py-3 text-brand-muted">{item.status === 'online' ? copy('ตอนนี้', 'Now') : relative(item.lastActiveAt, now, copy, locale)}</td>
                       <td className="px-3 py-3 text-right tabular-nums">{item.activeDays}<span className="text-brand-muted">/{data.range}</span></td>

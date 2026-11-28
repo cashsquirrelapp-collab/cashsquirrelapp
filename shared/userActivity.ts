@@ -79,6 +79,10 @@ export interface ActivityAccount {
   statsOff: boolean;
   /** When that choice was made (null for marks saved before 2026-11-28, or when statistics are on). */
   statsOffAt: string | null;
+  /** The Google profile picture it signed in with, when there is one. */
+  avatarUrl?: string | null;
+  /** The sign-in address: sent to the owner only. */
+  email?: string | null;
   /** In the chosen period: days with any use, visits, and minutes in them. */
   activeDays: number;
   visits: number;
@@ -117,6 +121,8 @@ export interface ActivityInput {
   /** When each account chose essential cookies only. Statistics that arrived after it mean another browser has them on. */
   statsOffAt?: Map<string, string>;
   signIns: Map<string, string>;
+  /** Who each account is (backend: the auth user's Google picture, and its address for the owner only). */
+  people?: Map<string, { avatarUrl: string | null; email: string | null }>;
   range: AnalyticsRange;
   now: Date;
 }
@@ -189,6 +195,7 @@ export function summarizeActivity(input: ActivityInput): AdminActivitySummary {
     return {
       userId: profile.user_id, publicId: profile.public_id, displayName: profile.display_name, createdAt: profile.created_at,
       plan: input.plans.get(profile.user_id) ?? 'free', status, lastActiveAt, daysAway, statsOff, statsOffAt: statsOff ? offAt : null,
+      avatarUrl: input.people?.get(profile.user_id)?.avatarUrl ?? null, email: input.people?.get(profile.user_id)?.email ?? null,
       activeDays: days.size, visits: visitCount, minutes, band, hours, days: [...days].sort(),
       recent: visits.slice(-15).reverse().map(([start, length]) => ({ start: new Date(start * 60_000).toISOString(), minutes: length })),
     };

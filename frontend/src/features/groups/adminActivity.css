@@ -104,3 +104,14 @@
 .dark .aact-live-today:not(.is-zero) { background: rgba(230, 95, 43, .16); color: #FFB48A; }
 .dark .aact-live-list li.is-new { background: rgba(230, 95, 43, .1); border-color: rgba(243, 176, 140, .45); }
 @media (prefers-reduced-motion: reduce) { .aact-live-dot::after, .aact-live-list li.is-new { animation: none; } }
+
+/* Profile pictures (owner, 2026-11-28: "โปรไฟล์ Gmail ... ดูง่ายกว่าว่าเป็นใคร"): the Google picture, else the first letter. */
+.aact-avatar { display: inline-flex; flex: none; align-items: center; justify-content: center; width: 32px; height: 32px; overflow: hidden; border-radius: 50%; background: #FFF1E8; color: #C24A16; font-size: 13px; font-weight: 600; line-height: 1; }
+.aact-avatar.is-large { width: 44px; height: 44px; font-size: 17px; }
+.aact-avatar img, .aact-live-initial img, .aact-initial img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.aact-live-initial.has-photo, .aact-initial.has-photo { overflow: hidden; padding: 0; background: var(--faint); }
+.aact-avatar.has-photo { background: var(--faint); }
+.aact-who { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; min-width: 0; }
+.aact-who b { display: block; overflow: hidden; font-size: 15px; font-weight: 600; line-height: 1.45; color: var(--text); white-space: nowrap; text-overflow: ellipsis; }
+.aact-who small { display: block; overflow: hidden; font-size: 12px; line-height: 1.5; color: var(--muted); white-space: nowrap; text-overflow: ellipsis; }
+.dark .aact-avatar:not(.has-photo) { background: rgba(230, 95, 43, .16); color: #FFB48A; }

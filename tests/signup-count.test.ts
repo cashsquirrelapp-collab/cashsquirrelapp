@@ -24,6 +24,9 @@ test('an account counts once it is confirmed, and not when it is a guest, a test
   assert.equal(countsAsSignup(person('i', 'Tester@Gmail.com'), new Set(['tester@gmail.com'])), false);
   // real domains that only look like test words are people
   assert.equal(isTestEmail('ploy@testing.co.th'), false);
+  // Accounts opened through LINE use an inner .invalid address; they are real sign-ups (2026-11-28).
+  assert.equal(isTestEmail('u0123456789abcdef@line.krarok.invalid'), false);
+  assert.equal(isTestEmail('someone@krarok.invalid'), true);
   assert.equal(isTestEmail('ploy@mytest.com'), false);
   assert.equal(isTestEmail('ploy@shop.test'), true);
 });
