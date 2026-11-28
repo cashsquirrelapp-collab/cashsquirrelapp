@@ -925,12 +925,13 @@ export default function DashboardTab({
         <button
           type="button"
           onClick={() => { setIsMoreMenuOpen(false); if (receivablesAccess) setIsQuickPayExpanded(true); else onSwitchTab('invoice'); }}
-          className="flex items-center gap-2.5 rounded-xl border border-[#F8D6C2] bg-[#FFF1E8] px-3.5 py-3 text-left shadow-[var(--shadow-card)] cursor-pointer"
+          // Dark theme: a solid CI orange button with white words; the light cream was hard to read on black (owner, 2026-11-28).
+          className="flex items-center gap-2.5 rounded-xl border border-[#F8D6C2] bg-[#FFF1E8] px-3.5 py-3 text-left shadow-[var(--shadow-card)] cursor-pointer dark:border-[#E65F2B] dark:bg-[#E65F2B] dark:hover:bg-[#D35221]"
         >
-          <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[9px] bg-brand-white">
-            {receivablesAccess ? <Coins className="h-4 w-4 text-[#E65F2B]" /> : <IconArrowUpRight className="h-4 w-4 text-[#E65F2B]" />}
+          <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[9px] bg-brand-white dark:bg-white/20">
+            {receivablesAccess ? <Coins className="h-4 w-4 text-[#E65F2B] dark:text-white" /> : <IconArrowUpRight className="h-4 w-4 text-[#E65F2B] dark:text-white" />}
           </span>
-          <span className="text-xs font-semibold text-[#E65F2B]">{receivablesAccess ? tr("รับเงินด่วน") : tr("ออกเอกสาร")}</span>
+          <span className="text-xs font-semibold text-[#E65F2B] dark:text-white">{receivablesAccess ? tr("รับเงินด่วน") : tr("ออกเอกสาร")}</span>
         </button>
         <button
           type="button"
